@@ -191,11 +191,38 @@ def _conversations(db) -> dict[str, list[dict]]:
             "counts": {"matched": 8, "unrecorded": 2, "needs_confirmation": 1, "amount_mismatch": 1, "missing_in_bank": 0,
                        "duplicates": 0},
             "balance": {"gap": 90_000, "explained": False}, "clean": False, "findings_preview": []}),
+        "review-fa": _review("weekly", "fa", {
+            "personal": True, "currency": "OMR", "calendar": "jalali", "start": "2026-10-17", "end": "2026-10-23",
+            "entries": 9, "income": 600, "spent": 41.5, "usual": 30.25,
+            "top": [{"name": "تفریح و رستوران", "amount": 18.5, "usual": 7}, {"name": "خوراک و سوپرمارکت", "amount": 15, "usual": 15.5}],
+            "biggest": {"what": "شام تولد", "category": "تفریح و رستوران", "amount": 12.5, "date": "2026-10-21"},
+            "people": [{"person": "امیر", "you_owe": {"OMR": 20}, "owes_you": {}}],
+            "series": [{"start": s_, "spent": v, "income": 0} for s_, v in
+                       [("2026-09-19", 28), ("2026-09-26", 31), ("2026-10-03", 30), ("2026-10-10", 32), ("2026-10-17", 41.5)]],
+            "suggestions": [{"key": "goal_payday", "params": {"goal": "لپ‌تاپ", "amount": 80, "account": "پس‌انداز ارزی"}},
+                            {"key": "hot_category", "params": {"category": "تفریح و رستوران", "pct": 164, "budget": 30}}]}),
+        "review-month-en": _review("monthly", "en", {
+            "personal": True, "currency": "GBP", "calendar": "gregorian", "month": "2026-09", "previous_month": "2026-08",
+            "start": "2026-09-01", "end": "2026-09-30", "entries": 40, "income": 3200, "spent": 2480.5, "saved": 719.5,
+            "rate": 22.5, "previous": {"income": 3200, "spending": 2650, "saved": 550},
+            "top": [{"name": "Rent", "amount": 1200, "usual": 1200}, {"name": "Food & groceries", "amount": 410.25, "usual": 380}],
+            "budgets": {"set": 2, "kept": 2, "over": []}, "net_worth_change": 719.5, "goals": [{"name": "Holiday", "percent": 40}],
+            "series": [{"month": k, "spent": v, "income": 3200} for k, v in
+                       [("2026-06", 2550), ("2026-07", 2700), ("2026-08", 2650), ("2026-09", 2480.5)]],
+            "suggestions": []}),
         "posted-fa": [B.posted_block(token=TOKEN, transaction_id="3f1e2d4c-0000-4000-8000-000000000001",
                                      audit_log_id="9a8b7c6d-0000-4000-8000-000000000002", voucher="1042",
                                      date_iso="2026-10-10", calendar="jalali", lang="fa", undo_seconds=120,
                                      file=B.invoice_file("7d0c9a40-1f6b-4b7e-8a3c-2b9d6e5f4a31", "INV-1042"))],
     }
+
+
+def _review(kind: str, lang: str, facts: dict) -> list[dict]:
+    """The app's own review as the phone gets it (app/services/proactive_reviews.py, scenario AL17)."""
+    from types import SimpleNamespace
+
+    from app.services.proactive_reviews import render
+    return render(SimpleNamespace(id=f"{kind}-1", kind=kind, facts=facts), lang, first=kind == "weekly")["blocks"]
 
 
 def _approval(db, co) -> list[dict]:

@@ -167,6 +167,14 @@ def job_daily_digest(db, today: date) -> dict:
     return {"delivered": delivered, "enabled": True}
 
 
+def job_reviews(db, today: date) -> dict:
+    """The week's and the month's reviews, and the nudge, when they are due
+    (scenarios AL1–AL13); the bell refresh after it tells their readers."""
+    from app.services.proactive_reviews import generate_due
+    made = generate_due(db, today)
+    return {"made": made} if made else {}
+
+
 def job_recurring_invoices(db, today: date) -> dict:
     from app.services.recurring_invoice_service import generate_due
     out = generate_due(db, today=today)
@@ -277,6 +285,12 @@ def run_pending_jobs(now: datetime | None = None) -> list[str]:
     if now.hour >= int(settings.scheduler_digest_hour):
         run_job_for_all_companies("daily_digest", job_daily_digest, today=today, once_per_day=True)
         ran.append("daily_digest")
+        # the reviews, then the bell at once, not a quarter of an hour later
+        reviews = run_job_for_all_companies("reviews", job_reviews, today=today, once_per_day=True)
+        ran.append("reviews")
+        if reviews.detail:
+            run_job_for_all_companies("notifications_refresh", job_notifications_refresh, today=today,
+                                      once_per_day=False)
         # Recurring invoices first (they may be e-mailed), then reminders — both
         # in business hours, never at midnight.
         run_job_for_all_companies("recurring_invoices", job_recurring_invoices, today=today, once_per_day=True)

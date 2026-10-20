@@ -1,0 +1,320 @@
+{
+ "week_fa": {
+  "kind": "weekly",
+  "mood": "watch",
+  "emoji": "👀",
+  "title": "مرور هفته، ۲۵ مهر تا ۱ آبان ۱۴۰۵",
+  "currency": "OMR",
+  "headline": {
+   "label": "خرج این هفته",
+   "value": 41.5,
+   "display": "۴۱٫۵۰۰ ریال عمان",
+   "delta": {
+    "pct": 37,
+    "dir": "up",
+    "good": false,
+    "text": "۳۷٪ بیشتر از معمول"
+   }
+  },
+  "chart": {
+   "title": "پنج هفتهٔ اخیر",
+   "bars": [
+    {
+     "label": "۲۸ شهریور",
+     "value": 28,
+     "display": "۲۸٫۰۰۰ ریال عمان",
+     "current": false
+    },
+    {
+     "label": "۴ مهر",
+     "value": 31,
+     "display": "۳۱٫۰۰۰ ریال عمان",
+     "current": false
+    },
+    {
+     "label": "۱۱ مهر",
+     "value": 30,
+     "display": "۳۰٫۰۰۰ ریال عمان",
+     "current": false
+    },
+    {
+     "label": "۱۸ مهر",
+     "value": 32,
+     "display": "۳۲٫۰۰۰ ریال عمان",
+     "current": false
+    },
+    {
+     "label": "این هفته",
+     "value": 41.5,
+     "display": "۴۱٫۵۰۰ ریال عمان",
+     "current": true
+    }
+   ],
+   "usual": 30.25,
+   "usual_label": "معمول",
+   "legend": [
+    "خرج"
+   ]
+  },
+  "ring": null,
+  "categories": [
+   {
+    "name": "تفریح و رستوران",
+    "value": 18.5,
+    "display": "۱۸٫۵۰۰ ریال عمان",
+    "sub": "۱۶۴٪ بیشتر از معمول",
+    "dir": "up",
+    "width": 1.0,
+    "usual_at": 0.3784
+   },
+   {
+    "name": "خوراک و سوپرمارکت",
+    "value": 15,
+    "display": "۱۵٫۰۰۰ ریال عمان",
+    "sub": "معمول",
+    "dir": "same",
+    "width": 0.8108,
+    "usual_at": 0.8378
+   },
+   {
+    "name": "حمل‌ونقل",
+    "value": 8,
+    "display": "۸٫۰۰۰ ریال عمان",
+    "sub": "تازه",
+    "dir": "new",
+    "width": 0.4324,
+    "usual_at": null
+   }
+  ],
+  "categories_title": "کجا خرج شد",
+  "facts": [
+   "درآمد: ۶۰۰٫۰۰۰ ریال عمان.",
+   "بیشترین خرج: شام تولد، ۱۲٫۵۰۰ ریال عمان (۲۹ مهر ۱۴۰۵).",
+   "به امیر ۲۰٫۰۰۰ ریال عمان بدهکارید."
+  ],
+  "ideas": [
+   {
+    "key": "goal_payday",
+    "icon": "💰",
+    "text": "این هفته درآمد داشتید — ۸۰٫۰۰۰ ریال عمان برای «لپ‌تاپ» کنار بگذارید؟",
+    "ask": "۸۰٫۰۰۰ ریال عمان برای هدف لپ‌تاپ به پس‌انداز ارزی منتقل کن"
+   },
+   {
+    "key": "hot_category",
+    "icon": "🔥",
+    "text": "خرج «تفریح و رستوران» ۱۶۴٪ بیشتر از معمول بود — بودجهٔ ماهانه برایش بگذارید؟",
+    "ask": "برای تفریح و رستوران بودجهٔ ماهانهٔ ۳۰٫۰۰۰ ریال عمان بگذار"
+   }
+  ],
+  "ideas_title": "پیشنهادها",
+  "note": "هر هفته و هر ماه یکی از این‌ها می‌آید. اگر نمی‌خواهید، بگویید «مرور هفتگی نفرست»."
+ },
+ "month_fa": {
+  "kind": "monthly",
+  "mood": "good",
+  "emoji": "🏆",
+  "title": "مرور ماه: مهر ۱۴۰۵",
+  "currency": "OMR",
+  "headline": {
+   "label": "خرج مهر ۱۴۰۵",
+   "value": 610.25,
+   "display": "۶۱۰٫۲۵۰ ریال عمان",
+   "delta": {
+    "pct": 13,
+    "dir": "down",
+    "good": true,
+    "text": "۱۳٪ کمتر از ماه قبل"
+   }
+  },
+  "chart": {
+   "title": "چهار ماه اخیر",
+   "bars": [
+    {
+     "label": "تیر",
+     "value": 680,
+     "display": "۶۸۰٫۰۰۰ ریال عمان",
+     "current": false
+    },
+    {
+     "label": "مرداد",
+     "value": 720,
+     "display": "۷۲۰٫۰۰۰ ریال عمان",
+     "current": false
+    },
+    {
+     "label": "شهریور",
+     "value": 702,
+     "display": "۷۰۲٫۰۰۰ ریال عمان",
+     "current": false
+    },
+    {
+     "label": "مهر",
+     "value": 610.25,
+     "display": "۶۱۰٫۲۵۰ ریال عمان",
+     "current": true
+    }
+   ],
+   "usual": null,
+   "usual_label": "معمول",
+   "legend": [
+    "خرج"
+   ]
+  },
+  "ring": {
+   "pct": 32.2,
+   "label": "پس‌انداز",
+   "display": "۲۸۹٫۷۵۰ ریال عمان",
+   "text": "۳۲٪ از درآمد"
+  },
+  "categories": [
+   {
+    "name": "اجاره",
+    "value": 300,
+    "display": "۳۰۰٫۰۰۰ ریال عمان",
+    "sub": "معمول",
+    "dir": "same",
+    "width": 1.0,
+    "usual_at": 1.0
+   },
+   {
+    "name": "خوراک و سوپرمارکت",
+    "value": 140.5,
+    "display": "۱۴۰٫۵۰۰ ریال عمان",
+    "sub": "۱۵٪ کمتر از ماه قبل",
+    "dir": "down",
+    "width": 0.4683,
+    "usual_at": 0.55
+   },
+   {
+    "name": "تفریح و رستوران",
+    "value": 95,
+    "display": "۹۵٫۰۰۰ ریال عمان",
+    "sub": "۳۶٪ بیشتر از ماه قبل",
+    "dir": "up",
+    "width": 0.3167,
+    "usual_at": 0.2333
+   }
+  ],
+  "categories_title": "کجا خرج شد",
+  "facts": [
+   "خرج نسبت به شهریور ۱۴۰۵ ۱۳٪ کمتر است.",
+   "۲ از ۲ بودجه رعایت شد.",
+   "دارایی خالص ۲۸۹٫۷۵۰ ریال عمان بیشتر شد.",
+   "هدف‌ها: لپ‌تاپ ۴۵٪."
+  ],
+  "ideas": [
+   {
+    "key": "subscriptions",
+    "icon": "🔁",
+    "text": "۳ پرداخت ماهانهٔ تکراری دارید، روی هم ماهی ۹٫۵۰۰ ریال عمان: Netflix، Spotify، iCloud.",
+    "ask": "پرداخت‌های تکراری‌ام را نشان بده"
+   }
+  ],
+  "ideas_title": "پیشنهادها",
+  "note": null
+ },
+ "month_en": {
+  "kind": "monthly",
+  "mood": "good",
+  "emoji": "🏆",
+  "title": "Your month: Mehr 1405",
+  "currency": "OMR",
+  "headline": {
+   "label": "Spent in Mehr 1405",
+   "value": 610.25,
+   "display": "610.250 Omani rial",
+   "delta": {
+    "pct": 13,
+    "dir": "down",
+    "good": true,
+    "text": "13% less than last month"
+   }
+  },
+  "chart": {
+   "title": "The last four months",
+   "bars": [
+    {
+     "label": "Tir",
+     "value": 680,
+     "display": "680.000 Omani rial",
+     "current": false
+    },
+    {
+     "label": "Mordad",
+     "value": 720,
+     "display": "720.000 Omani rial",
+     "current": false
+    },
+    {
+     "label": "Shahrivar",
+     "value": 702,
+     "display": "702.000 Omani rial",
+     "current": false
+    },
+    {
+     "label": "Mehr",
+     "value": 610.25,
+     "display": "610.250 Omani rial",
+     "current": true
+    }
+   ],
+   "usual": null,
+   "usual_label": "usual",
+   "legend": [
+    "Spending"
+   ]
+  },
+  "ring": {
+   "pct": 32.2,
+   "label": "Saved",
+   "display": "289.750 Omani rial",
+   "text": "32% of income"
+  },
+  "categories": [
+   {
+    "name": "اجاره",
+    "value": 300,
+    "display": "300.000 Omani rial",
+    "sub": "as usual",
+    "dir": "same",
+    "width": 1.0,
+    "usual_at": 1.0
+   },
+   {
+    "name": "خوراک و سوپرمارکت",
+    "value": 140.5,
+    "display": "140.500 Omani rial",
+    "sub": "15% less than last month",
+    "dir": "down",
+    "width": 0.4683,
+    "usual_at": 0.55
+   },
+   {
+    "name": "تفریح و رستوران",
+    "value": 95,
+    "display": "95.000 Omani rial",
+    "sub": "36% more than last month",
+    "dir": "up",
+    "width": 0.3167,
+    "usual_at": 0.2333
+   }
+  ],
+  "categories_title": "Where it went",
+  "facts": [
+   "Spending is 13% less than Shahrivar 1405.",
+   "2 of 2 budgets kept.",
+   "Net worth rose by 289.750 Omani rial.",
+   "Goals: لپ‌تاپ 45%."
+  ],
+  "ideas": [
+   {
+    "key": "subscriptions",
+    "icon": "🔁",
+    "text": "3 payments repeat every month, 9.500 Omani rial a month in all: Netflix, Spotify, iCloud.",
+    "ask": "Show my repeating payments"
+   }
+  ],
+  "ideas_title": "Ideas",
+  "note": null
+ }
+}

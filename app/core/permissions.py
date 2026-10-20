@@ -461,11 +461,13 @@ for _m, _p in [
 
 # --- Books: AI accountant ---------------------------------------------------
 _reads(["/ai-accountant/sessions", "/ai-accountant/sessions/{session_id}/messages",
-        "/ai-accountant/proposals/{token}"], Perm.BOOKS_READ)
+        "/ai-accountant/proposals/{token}", "/ai-accountant/review-prefs"], Perm.BOOKS_READ)
+_add("PUT", "/ai-accountant/review-prefs", Perm.BOOKS_READ)         # a reader's own switches (AL14)
 for _m, _p in [
     ("POST", "/ai-accountant/chat"), ("POST", "/ai-accountant/execute"),
     ("POST", "/ai-accountant/undo"), ("POST", "/ai-accountant/reverse"),
-    ("POST", "/ai-accountant/briefing"), ("POST", "/ai-accountant/proposals/{token}/cancel"),
+    ("POST", "/ai-accountant/briefing"), ("POST", "/ai-accountant/reviews"),
+    ("POST", "/ai-accountant/proposals/{token}/cancel"),
 ]:
     _add(_m, _p, Perm.BOOKS_WRITE)
 # The phone's chat (app/api/mobile_chat.py): the same rights as the web chat.

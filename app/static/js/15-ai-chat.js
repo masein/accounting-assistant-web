@@ -274,6 +274,11 @@
             if (said.trim() || files.length) appendUserTurn(said, files, m.created_at, false, quote);
             return;
           }
+          // the app's own review, drawn again as its card, still (AL17)
+          if (m.role === 'assistant' && c.card && typeof c.card === 'object') {
+            appendReviewCard(c.card, { animate: false });
+            return;
+          }
           // the cards that came with this answer, each as it stands now (scenarios AE1–AE2)
           const cards = Array.isArray(m.cards) ? m.cards : [];
           const text = (typeof c.text === 'string' && c.text.trim())
@@ -320,6 +325,66 @@
           loadSessions('');
         } catch (_) { /* briefing is best effort */ }
       }
+      // The app's own weekly and monthly reviews, and its nudge (scenarios AL1–AL13): not once a day like
+      // the briefing — a review made after the day's briefing still comes the next time the chat is opened.
+      async function maybeReviews() {
+        try {
+          const r = await fetch(API + '/ai-accountant/reviews', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId }),
+          });
+          const data = await readJsonSafe(r);
+          if (!r.ok || !data || !Array.isArray(data.reviews) || !data.reviews.length) return;
+          sessionId = data.session_id || sessionId;
+          const empty = messagesEl.querySelector('.ai-empty');
+          if (empty) empty.remove();
+          data.reviews.forEach((rv) => {
+            if (rv.card) appendReviewCard(rv.card);
+            else {
+              appendBubble('assistant', rv.text);
+              if (Array.isArray(rv.choices) && rv.choices.length) appendChoices(rv.choices);
+            }
+          });
+          loadSessions('');
+        } catch (_) { /* best effort */ }
+      }
+      // Which of them this person gets (AL14): their own switches, beside what the assistant learned.
+      const REVIEW_SWITCHES = [['weekly', 'aiReviewWeekly'], ['monthly', 'aiReviewMonthly'],
+                               ['suggestions', 'aiReviewSuggestions'], ['nudge', 'aiReviewNudge']];
+      async function aiLoadReviewPrefs() {
+        const box = document.getElementById('ai-reviews-prefs');
+        const list = document.getElementById('ai-reviews-prefs-list');
+        if (!box || !list) return;
+        let prefs = null;
+        try {
+          const r = await fetch(API + '/ai-accountant/review-prefs');
+          if (r.ok) prefs = await r.json();
+        } catch (_) { /* hidden */ }
+        if (!prefs) return;
+        list.innerHTML = '';
+        REVIEW_SWITCHES.forEach(([kind, label]) => {
+          const row = document.createElement('label');
+          row.className = 'ai-review-switch';
+          const box_ = document.createElement('input');
+          box_.type = 'checkbox';
+          box_.checked = prefs[kind] !== false;
+          box_.dataset.kind = kind;
+          box_.addEventListener('change', async () => {
+            prefs[kind] = box_.checked;
+            try {
+              const r = await fetch(API + '/ai-accountant/review-prefs', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(prefs),
+              });
+              if (!r.ok) throw new Error(String(r.status));
+            } catch (_) { box_.checked = !box_.checked; prefs[kind] = box_.checked; }
+          });
+          const span = document.createElement('span');
+          span.textContent = t(label);
+          row.append(box_, span);
+          list.appendChild(row);
+        });
+        box.hidden = false;
+      }
       // Dashboard "Ask the AI" buttons (and the migration page) land here:
       // the chat is opened — its latest session restored — before sending.
       window.aiChatAsk = async (text) => {
@@ -345,7 +410,7 @@
         renderEmptyState();
         statusEl.textContent = t('aiChatNewStarted');
         loadSessions('');
-        maybeBriefing();
+        maybeReviews().then(maybeBriefing);
       }
       if (newChatBtn) newChatBtn.addEventListener('click', startNewChat);
       if (sessionSearchEl) {
@@ -365,8 +430,10 @@
             await loadSessions('');
             aiLoadPreferences(false);
             aiLoadApprovals();
+            aiLoadReviewPrefs();
             if (_sessionsCache.length) await openSession(_sessionsCache[0].id);
             else { setChatTitle(t('chatUntitled')); renderEmptyState(); }
+            await maybeReviews();
             maybeBriefing();
           })();
         }
@@ -1524,6 +1591,198 @@
         });
         messagesEl.appendChild(row);
         scrollToBottom(false);
+      }
+
+      // The app's own review as a card (scenario AL17): its mood and emoji, a headline that counts up,
+      // its change against the usual, a chart of the weeks or months that grows in, the categories as
+      // bars with their usual marked, the ideas with a button each — and a little confetti on a good one.
+      // Drawn again from a conversation's history without the motion (``animate`` false).
+      const _calm = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      function _el(tag, cls, text) {
+        const e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (text != null) e.textContent = text;
+        return e;
+      }
+      function _countUp(el, value, ccy, animate) {
+        const end = Number(value) || 0;
+        if (!animate || _calm() || !end) { el.textContent = formatAmount(end, ccy); return; }
+        const t0 = performance.now();
+        const ms = 900;
+        const step = (now) => {
+          const k = Math.min(1, (now - t0) / ms);
+          const eased = 1 - Math.pow(1 - k, 3);
+          el.textContent = formatAmount(k < 1 ? end * eased : end, ccy);
+          if (k < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }
+      function _confetti(card) {
+        if (_calm()) return;
+        const box = _el('div', 'ai-review-confetti');
+        box.setAttribute('aria-hidden', 'true');
+        for (let i = 0; i < 22; i++) {
+          const bit = _el('i');
+          bit.style.left = (4 + Math.random() * 92) + '%';
+          bit.style.animationDelay = (Math.random() * 0.35).toFixed(2) + 's';
+          bit.style.setProperty('--spin', (Math.random() > 0.5 ? 1 : -1) * (180 + Math.random() * 360) + 'deg');
+          bit.style.setProperty('--drift', (Math.random() * 40 - 20).toFixed(0) + 'px');
+          bit.className = 'c' + (i % 4);
+          box.appendChild(bit);
+        }
+        card.appendChild(box);
+        setTimeout(() => box.remove(), 2200);
+      }
+      function appendReviewCard(card, { animate = true } = {}) {
+        const ccy = card.currency || '';
+        const wrap = _el('div', 'msg-row assistant');
+        const el = _el('article', 'ai-review-card mood-' + (card.mood || 'calm') + (animate && !_calm() ? ' is-new' : ''));
+        el.setAttribute('dir', 'auto');
+        const head = _el('header', 'ai-review-head');
+        const emoji = _el('span', 'ai-review-emoji', card.emoji || '🙂');
+        emoji.setAttribute('aria-hidden', 'true');
+        const titles = _el('div', 'ai-review-titles');
+        const badge = { weekly: 'aiReviewWeekly', monthly: 'aiReviewMonthly', nudge: 'aiReviewNudgeBadge' }[card.kind];
+        if (badge) titles.appendChild(_el('span', 'ai-review-badge', t(badge)));
+        titles.appendChild(_el('div', 'ai-review-title', card.title || ''));
+        head.append(emoji, titles);
+        el.appendChild(head);
+        if (card.headline) {
+          const h = _el('div', 'ai-review-headline');
+          h.appendChild(_el('div', 'ai-review-label', card.headline.label));
+          const row = _el('div', 'ai-review-figure-row');
+          const fig = _el('span', 'ai-review-figure');
+          fig.setAttribute('dir', 'ltr');
+          _countUp(fig, card.headline.value, ccy, animate);
+          const unit = _el('span', 'ai-review-ccy', ccy);
+          row.append(fig, unit);
+          const d = card.headline.delta;
+          if (d) {
+            const arrow = d.dir === 'up' ? '▲ ' : (d.dir === 'down' ? '▼ ' : '● ');
+            row.appendChild(_el('span', 'ai-review-delta ' + (d.good ? 'is-good' : 'is-bad'), arrow + d.text));
+          }
+          h.appendChild(row);
+          el.appendChild(h);
+        }
+        const body = _el('div', 'ai-review-body');
+        if (card.chart && Array.isArray(card.chart.bars) && card.chart.bars.length) {
+          const ch = _el('section', 'ai-review-chart');
+          ch.appendChild(_el('div', 'ai-review-section', card.chart.title));
+          const bars = card.chart.bars;
+          const max = Math.max(1, ...bars.map((b) => Math.max(Number(b.value) || 0, Number(b.value2) || 0)),
+                               Number(card.chart.usual) || 0);
+          const plot = _el('div', 'ai-review-plot');
+          const labels = _el('div', 'ai-review-labels');      // under the bars, so the usual line is to scale
+          if (card.chart.usual) {
+            const line = _el('div', 'ai-review-usual');
+            line.style.bottom = (Number(card.chart.usual) / max * 100).toFixed(1) + '%';
+            line.appendChild(_el('span', null, card.chart.usual_label || ''));
+            plot.appendChild(line);
+          }
+          bars.forEach((b, i) => {
+            const col = _el('div', 'ai-review-col' + (b.current ? ' is-current' : ''));
+            const pair = _el('div', 'ai-review-pair');
+            const bar = _el('div', 'ai-review-bar');
+            bar.style.height = Math.max(2, (Number(b.value) || 0) / max * 100).toFixed(1) + '%';
+            bar.style.animationDelay = (i * 0.08).toFixed(2) + 's';
+            bar.title = b.label + ': ' + formatAmount(b.value, ccy);
+            pair.appendChild(bar);
+            if (b.value2 != null) {
+              const bar2 = _el('div', 'ai-review-bar is-second');
+              bar2.style.height = Math.max(2, (Number(b.value2) || 0) / max * 100).toFixed(1) + '%';
+              bar2.style.animationDelay = (i * 0.08 + 0.04).toFixed(2) + 's';
+              bar2.title = b.label + ': ' + formatAmount(b.value2, ccy);
+              pair.appendChild(bar2);
+            }
+            col.appendChild(pair);
+            plot.appendChild(col);
+            const lab = _el('div', 'ai-review-col-label' + (b.current ? ' is-current' : ''), b.label);
+            labels.appendChild(lab);
+          });
+          ch.append(plot, labels);
+          if (Array.isArray(card.chart.legend) && card.chart.legend.length > 1) {
+            const lg = _el('div', 'ai-review-legend');
+            card.chart.legend.forEach((name, i) => lg.appendChild(_el('span', 'k' + i, name)));
+            ch.appendChild(lg);
+          }
+          body.appendChild(ch);
+        }
+        if (card.ring) {
+          const ring = _el('section', 'ai-review-ring');
+          const pct = Math.max(0, Math.min(100, Number(card.ring.pct) || 0));
+          const C = 2 * Math.PI * 34;
+          ring.innerHTML = '<svg viewBox="0 0 84 84" width="84" height="84" aria-hidden="true">'
+            + '<circle cx="42" cy="42" r="34" class="track"/>'
+            + '<circle cx="42" cy="42" r="34" class="fill" stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="'
+            + (animate && !_calm() ? C : C * (1 - pct / 100)).toFixed(1) + '"/></svg>';
+          const txt = _el('div', 'ai-review-ring-text');
+          txt.append(_el('div', 'ai-review-label', card.ring.label), _el('div', 'ai-review-ring-amount', card.ring.display),
+                     _el('div', 'ai-review-ring-pct', card.ring.text));
+          ring.appendChild(txt);
+          body.appendChild(ring);
+          if (animate && !_calm()) {
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+              ring.querySelector('.fill').setAttribute('stroke-dashoffset', (C * (1 - pct / 100)).toFixed(1));
+            }));
+          }
+        }
+        if (Array.isArray(card.categories) && card.categories.length) {
+          const cs = _el('section', 'ai-review-cats');
+          cs.appendChild(_el('div', 'ai-review-section', card.categories_title || ''));
+          card.categories.forEach((c, i) => {
+            const row = _el('div', 'ai-review-cat');
+            const top = _el('div', 'ai-review-cat-top');
+            top.append(_el('span', 'ai-review-cat-name', c.name), _el('span', 'ai-review-cat-amount', formatAmount(c.value, ccy)));
+            const track = _el('div', 'ai-review-track');
+            const fill = _el('div', 'ai-review-fill');
+            fill.style.width = (Math.max(0.02, Number(c.width) || 0) * 100).toFixed(1) + '%';
+            fill.style.animationDelay = (0.15 + i * 0.07).toFixed(2) + 's';
+            track.appendChild(fill);
+            if (c.usual_at != null) {
+              const tick = _el('i', 'ai-review-tick');
+              tick.style.insetInlineStart = (Number(c.usual_at) * 100).toFixed(1) + '%';
+              track.appendChild(tick);
+            }
+            row.append(top, track, _el('div', 'ai-review-cat-sub is-' + (c.dir || 'same'), c.sub || ''));
+            cs.appendChild(row);
+          });
+          body.appendChild(cs);
+        }
+        if (body.children.length) el.appendChild(body);
+        if (Array.isArray(card.facts) && card.facts.length) {
+          const facts = _el('ul', 'ai-review-facts');
+          card.facts.forEach((f) => facts.appendChild(_el('li', null, f)));
+          el.appendChild(facts);
+        }
+        if (Array.isArray(card.ideas) && card.ideas.length) {
+          const ideas = _el('section', 'ai-review-ideas');
+          ideas.appendChild(_el('div', 'ai-review-section', card.ideas_title || ''));
+          card.ideas.forEach((idea, i) => {
+            const box = _el('div', 'ai-review-idea');
+            box.style.animationDelay = (0.35 + i * 0.12).toFixed(2) + 's';
+            const icon = _el('span', 'ai-review-idea-icon', idea.icon || '💡');
+            icon.setAttribute('aria-hidden', 'true');
+            const col = _el('div', 'ai-review-idea-body');
+            col.appendChild(_el('div', 'ai-review-idea-text', idea.text));
+            const go = _el('button', 'btn btn-sm ai-review-ask', idea.ask);
+            go.type = 'button';
+            go.addEventListener('click', () => {
+              el.querySelectorAll('.ai-review-ask').forEach((b) => { b.disabled = true; });
+              go.classList.add('is-picked');
+              sendMessage(idea.ask);
+            });
+            col.appendChild(go);
+            box.append(icon, col);
+            ideas.appendChild(box);
+          });
+          el.appendChild(ideas);
+        }
+        if (card.note) el.appendChild(_el('p', 'ai-review-note', card.note));
+        wrap.appendChild(el);
+        messagesEl.appendChild(wrap);
+        if (animate && card.mood === 'good') _confetti(el);
+        scrollToBottom(false);
+        return el;
       }
 
       let lastTurn = null;               // the words and files a «reading» card can send again (AJ6)

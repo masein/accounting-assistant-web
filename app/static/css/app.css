@@ -671,6 +671,9 @@
     .ai-prefs { margin-top: 0.6rem; border-top: 1px solid var(--border); padding-top: 0.5rem; font-size: 0.82rem; }
     .ai-prefs summary { cursor: pointer; font-weight: 600; color: var(--text); padding: 0.2rem 0; }
     .ai-prefs-hint, .ai-prefs-empty { color: var(--text-muted); margin: 0.3rem 0; font-size: 0.78rem; }
+    .ai-review-switches { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.2rem; }
+    .ai-review-switch { display: flex; align-items: center; gap: 0.45rem; font-size: 0.82rem; cursor: pointer; margin: 0; }
+    .ai-review-switch input { width: auto; margin: 0; }
     .ai-pref { display: flex; gap: 0.4rem; align-items: flex-start; padding: 0.35rem 0; border-bottom: 1px solid var(--border); }
     .ai-pref-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
     .ai-pref-meta { display: block; color: var(--text-muted); font-size: 0.74rem; }
@@ -1361,3 +1364,137 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; vert
 .party-accounts .pa-overdrawn { color: var(--danger, #b91c1c); font-weight: 600; }
 /* a party's type picker keeps its words: on a phone it was squeezed to 26 px; the table scrolls instead (QA 2026-10-16, I5) */
 .party-accounts .pa-type { min-width: 8.5rem; min-height: 32px; }
+
+/* The app's own review as a card (scenario AL17): a mood, a headline that counts up, a chart that grows,
+   categories as bars, ideas with a button each, confetti on a good week. Still for those who ask for less motion. */
+.ai-review-card {
+  --mood: var(--primary);
+  --mood-soft: color-mix(in srgb, var(--primary) 9%, transparent);
+  position: relative; overflow: hidden; width: min(100%, 560px);
+  border: 1px solid color-mix(in srgb, var(--mood) 26%, var(--border));
+  border-radius: 18px; padding: 1rem 1.1rem 0.9rem;
+  background: linear-gradient(160deg, var(--mood-soft), #fff 46%);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--mood) 14%, transparent);
+  display: flex; flex-direction: column; gap: 0.85rem;
+}
+.ai-review-card.mood-good { --mood: #0f9d6e; --mood-soft: #dcf6ea; }
+.ai-review-card.mood-watch { --mood: #d97706; --mood-soft: #fdf0dc; }
+.ai-review-card.mood-calm { --mood: #0f7c86; --mood-soft: #dff2f3; }
+.ai-review-card.mood-nudge { --mood: #6d5bd0; --mood-soft: #ece8fb; }
+.ai-review-card.is-new { animation: review-rise 460ms cubic-bezier(.2,.8,.2,1) both; }
+.ai-review-head { display: flex; align-items: center; gap: 0.75rem; }
+.ai-review-emoji {
+  flex: none; width: 44px; height: 44px; display: grid; place-items: center; font-size: 1.45rem; border-radius: 14px;
+  background: #fff; box-shadow: 0 4px 12px color-mix(in srgb, var(--mood) 22%, transparent);
+}
+.ai-review-card.is-new .ai-review-emoji { animation: review-pop 620ms 120ms cubic-bezier(.3,1.6,.5,1) both; }
+.ai-review-card:hover .ai-review-emoji { animation: review-wobble 700ms ease-in-out; }
+.ai-review-titles { min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.ai-review-badge {
+  align-self: flex-start; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; color: var(--mood);
+  background: color-mix(in srgb, var(--mood) 12%, #fff); border-radius: 999px; padding: 0.1rem 0.55rem;
+}
+.ai-review-title { font-weight: 700; font-size: 0.98rem; color: var(--text); text-wrap: balance; }
+.ai-review-label { font-size: 0.76rem; color: var(--text-muted); }
+.ai-review-figure-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.35rem 0.55rem; }
+.ai-review-figure { font-size: 1.9rem; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.15; }
+.ai-review-ccy { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); }
+.ai-review-delta {
+  font-size: 0.76rem; font-weight: 700; border-radius: 999px; padding: 0.18rem 0.6rem; white-space: nowrap;
+}
+.ai-review-delta.is-good { color: #047857; background: #d1fae5; }
+.ai-review-delta.is-bad { color: #b45309; background: #fef3c7; }
+.ai-review-card.is-new .ai-review-delta { animation: review-pop 520ms 650ms cubic-bezier(.3,1.6,.5,1) both; }
+.ai-review-body { display: flex; flex-wrap: wrap; gap: 0.9rem 1.2rem; align-items: flex-start; }
+.ai-review-body > section { flex: 1 1 220px; min-width: 0; }
+.ai-review-section { font-size: 0.74rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.4rem; }
+.ai-review-plot { position: relative; height: 88px; display: flex; align-items: flex-end; gap: 6px; }
+.ai-review-labels { display: flex; gap: 6px; margin-top: 4px; }
+.ai-review-labels > * { flex: 1; text-align: center; }
+.ai-review-col { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-width: 0; }
+.ai-review-pair { height: 100%; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 2px; }
+.ai-review-bar {
+  width: min(100%, 26px); border-radius: 7px 7px 3px 3px; background: color-mix(in srgb, var(--mood) 28%, #e6edf3);
+  transform-origin: bottom;
+}
+.ai-review-bar.is-second { background: #cbd5e1; width: min(100%, 14px); }
+.ai-review-pair:has(.is-second) .ai-review-bar:not(.is-second) { width: min(100%, 14px); }
+.ai-review-col.is-current .ai-review-bar:not(.is-second) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--mood) 70%, #fff), var(--mood));
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--mood) 30%, transparent);
+}
+.ai-review-card.is-new .ai-review-bar { animation: review-grow 760ms cubic-bezier(.2,.9,.25,1.15) both; }
+.ai-review-col-label { font-size: 0.66rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ai-review-col-label.is-current { color: var(--mood); font-weight: 700; }
+.ai-review-usual {
+  position: absolute; inset-inline: 0; height: 0; border-top: 1.5px dashed color-mix(in srgb, var(--text-muted) 55%, transparent);
+  pointer-events: none; z-index: 1;
+}
+.ai-review-usual span {
+  position: absolute; inset-inline-end: 0; top: -1.15rem; font-size: 0.62rem; color: var(--text-muted);
+  background: #ffffffcc; padding: 0 0.25rem; border-radius: 4px;
+}
+.ai-review-legend { display: flex; gap: 0.8rem; margin-top: 0.35rem; font-size: 0.7rem; color: var(--text-muted); }
+.ai-review-legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-inline-end: 0.3rem; }
+.ai-review-legend .k0::before { background: var(--mood); }
+.ai-review-legend .k1::before { background: #cbd5e1; }
+.ai-review-ring { display: flex; align-items: center; gap: 0.8rem; flex: 0 1 230px; }
+.ai-review-ring svg { flex: none; transform: rotate(-90deg); }
+.ai-review-ring .track { fill: none; stroke: color-mix(in srgb, var(--mood) 14%, #eef2f6); stroke-width: 9; }
+.ai-review-ring .fill { fill: none; stroke: var(--mood); stroke-width: 9; stroke-linecap: round;
+  transition: stroke-dashoffset 1100ms cubic-bezier(.2,.8,.2,1) 200ms; }
+.ai-review-ring-amount { font-weight: 800; font-size: 1.05rem; color: var(--text); font-variant-numeric: tabular-nums; }
+.ai-review-ring-pct { font-size: 0.78rem; color: var(--mood); font-weight: 700; }
+.ai-review-cats { display: flex; flex-direction: column; gap: 0.55rem; }
+.ai-review-cat-top { display: flex; justify-content: space-between; gap: 0.6rem; font-size: 0.82rem; }
+.ai-review-cat-name { color: var(--text); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-review-cat-amount { color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ai-review-track { position: relative; height: 8px; border-radius: 999px; background: #eef2f6; margin: 0.25rem 0 0.15rem; }
+.ai-review-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, color-mix(in srgb, var(--mood) 55%, #fff), var(--mood)); }
+.ai-review-card.is-new .ai-review-fill { animation: review-slide 800ms cubic-bezier(.2,.8,.2,1) both; }
+.ai-review-tick { position: absolute; top: -3px; width: 2px; height: 14px; border-radius: 2px; background: var(--text-muted); opacity: 0.55; }
+.ai-review-cat-sub { font-size: 0.7rem; color: var(--text-muted); }
+.ai-review-cat-sub.is-up { color: #b45309; font-weight: 600; }
+.ai-review-cat-sub.is-down { color: #047857; font-weight: 600; }
+.ai-review-facts { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.ai-review-facts li {
+  font-size: 0.76rem; color: var(--text); background: #fff; border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.65rem;
+}
+.ai-review-ideas { display: flex; flex-direction: column; gap: 0.5rem; }
+.ai-review-idea {
+  display: flex; gap: 0.65rem; align-items: flex-start; padding: 0.65rem 0.75rem; border-radius: 14px; background: #fff;
+  border: 1px solid color-mix(in srgb, var(--mood) 22%, var(--border));
+}
+.ai-review-card.is-new .ai-review-idea { animation: review-rise 520ms cubic-bezier(.2,.8,.2,1) both; }
+.ai-review-idea-icon { font-size: 1.25rem; line-height: 1; flex: none; }
+.ai-review-idea-body { min-width: 0; display: flex; flex-direction: column; gap: 0.45rem; align-items: flex-start; }
+.ai-review-idea-text { font-size: 0.84rem; color: var(--text); }
+.ai-review-ask {
+  background: var(--mood); color: #fff; border: none; border-radius: 999px; padding: 0.35rem 0.85rem; height: auto;
+  font-weight: 600; white-space: normal; text-align: start; transition: transform 120ms ease, filter 120ms ease;
+}
+.ai-review-ask:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
+.ai-review-ask:disabled { opacity: 0.55; cursor: default; }
+.ai-review-ask.is-picked { opacity: 1; box-shadow: 0 0 0 3px color-mix(in srgb, var(--mood) 25%, transparent); }
+.ai-review-note { margin: 0; font-size: 0.74rem; color: var(--text-muted); }
+.ai-review-confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.ai-review-confetti i {
+  position: absolute; top: -12px; width: 7px; height: 11px; border-radius: 2px; opacity: 0;
+  animation: review-confetti 1.5s cubic-bezier(.25,.6,.4,1) forwards;
+}
+.ai-review-confetti i.c0 { background: #0f9d6e; }
+.ai-review-confetti i.c1 { background: #f4a261; }
+.ai-review-confetti i.c2 { background: #006d77; }
+.ai-review-confetti i.c3 { background: #e76f51; border-radius: 50%; width: 7px; height: 7px; }
+@keyframes review-rise { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes review-pop { 0% { transform: scale(0.4); opacity: 0; } 70% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes review-wobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-10deg); } 60% { transform: rotate(8deg); } }
+@keyframes review-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes review-slide { from { width: 0; } }   /* to its own width, either way the page runs */
+@keyframes review-confetti {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0); }
+  100% { opacity: 0; transform: translate(var(--drift), 220px) rotate(var(--spin)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-review-card, .ai-review-card * { animation: none !important; transition: none !important; }
+}

@@ -262,6 +262,7 @@ def test_the_tools_are_in_the_business_registry_only():
              "get_budget_status", "propose_set_budget", "get_close_checklist"}
     business = {t.name for t in build_default_registry()}
     personal = {t.name for t in build_personal_registry()}
-    assert names <= business and not (names & personal)
+    # a person's books keep budgets too: a review suggests one, its button asks for it (scenario AL9)
+    assert names <= business and names & personal == {"get_budget_status", "propose_set_budget"}
     for n in names:
         assert f"``{n}``" in SYSTEM_PROMPT, n

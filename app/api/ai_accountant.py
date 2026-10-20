@@ -1154,6 +1154,70 @@ def briefing(
     return BriefingResponse(session_id=str(session.id), text=text, count=len(insights))
 
 
+class ReviewsResponse(BaseModel):
+    session_id: str | None = None
+    reviews: list[dict] = []
+
+
+@router.post("/reviews", response_model=ReviewsResponse)
+def reviews(
+    payload: BriefingPayload,
+    db: Session = Depends(get_db),
+    user: SessionUser = Depends(get_current_user),
+) -> ReviewsResponse:
+    """The app's own weekly and monthly reviews and its nudge, not yet seen by
+    this reader (scenarios AL1–AL13): each becomes an assistant message of the
+    conversation — kept, so it is in its history — with its suggestions' buttons.
+    Unlike the briefing, not once a day: a review made after the day's briefing
+    still comes the next time the chat is opened (AL4)."""
+    from app.services.ai_accountant.orchestrator import _get_or_create_session
+    from app.services.proactive_reviews import take_for_chat
+    said = take_for_chat(db, user, _user_language(db, user))
+    if not said:
+        return ReviewsResponse(session_id=payload.session_id, reviews=[])
+    try:
+        session = _get_or_create_session(db, user_id=user.user_id, session_id=payload.session_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    for r in said:
+        db.add(AIChatMessage(session_id=session.id, role="assistant",
+                             content={"role": "assistant", "text": r["text"], "review": r["review_id"],
+                                      "choices": r["choices"], "blocks": r["blocks"], "card": r["card"]},
+                             created_at=datetime.now(timezone.utc)))
+    db.commit()
+    return ReviewsResponse(session_id=str(session.id),
+                           reviews=[{"kind": r["kind"], "text": r["text"], "choices": r["choices"], "card": r["card"]}
+                                    for r in said])
+
+
+class ReviewPrefs(BaseModel):
+    weekly: bool = True
+    monthly: bool = True
+    suggestions: bool = True
+    nudge: bool = True
+
+
+@router.get("/review-prefs", response_model=ReviewPrefs)
+def get_review_prefs(db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> ReviewPrefs:
+    """Which of the app's own messages this person gets (scenario AL14)."""
+    from app.services.proactive_reviews import switched_off, user_row
+    off = switched_off(user_row(db, user))
+    return ReviewPrefs(**{k: k not in off for k in ReviewPrefs.model_fields})
+
+
+@router.put("/review-prefs", response_model=ReviewPrefs)
+def put_review_prefs(payload: ReviewPrefs, db: Session = Depends(get_db),
+                     user: SessionUser = Depends(get_current_user)) -> ReviewPrefs:
+    from app.services.proactive_reviews import set_switch, user_row
+    row = user_row(db, user)
+    if row is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    for kind, on in payload.model_dump().items():
+        set_switch(row, kind, on)
+    db.commit()
+    return payload
+
+
 @router.post("/proposals/{token}/cancel")
 def cancel(token: str, db: Session = Depends(get_db), user: SessionUser = Depends(get_current_user)) -> dict:
     """Discard a card the user asked for: it stops being pending on the server

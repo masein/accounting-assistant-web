@@ -30,6 +30,9 @@
     },
     {
       "$ref": "#/$defs/intake"
+    },
+    {
+      "$ref": "#/$defs/review"
     }
   ],
   "discriminator": {
@@ -43,7 +46,8 @@
       "posted": "#/$defs/posted",
       "file": "#/$defs/file",
       "intake": "#/$defs/intake",
-      "chart": "#/$defs/chart"
+      "chart": "#/$defs/chart",
+      "review": "#/$defs/review"
     }
   },
   "$defs": {
@@ -355,10 +359,17 @@
           "description": "Who the card names, under its description: already in the books (new false) or made on confirm (new true). Scenario AK4.",
           "items": {
             "type": "object",
-            "required": ["name", "new"],
+            "required": [
+              "name",
+              "new"
+            ],
             "properties": {
-              "name": {"type": "string"},
-              "new": {"type": "boolean"}
+              "name": {
+                "type": "string"
+              },
+              "new": {
+                "type": "boolean"
+              }
             }
           }
         },
@@ -804,6 +815,258 @@
         },
         "undone": {
           "type": "boolean"
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "description": "The app's own weekly or monthly review, or its nudge, drawn as a card (scenarios AL1–AL17). Words come said in the reader's language; numbers come raw so bars are drawn to scale. An app that doesn't know it shows fallback_text.",
+      "required": [
+        "type",
+        "id",
+        "kind",
+        "mood",
+        "emoji",
+        "title",
+        "fallback_text"
+      ],
+      "properties": {
+        "type": {
+          "const": "review"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "weekly",
+            "monthly",
+            "nudge"
+          ]
+        },
+        "mood": {
+          "enum": [
+            "good",
+            "watch",
+            "calm",
+            "nudge"
+          ]
+        },
+        "emoji": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "headline": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "label": {
+              "type": "string"
+            },
+            "value": {
+              "type": "number"
+            },
+            "display": {
+              "type": "string"
+            },
+            "delta": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "pct": {
+                  "type": "number"
+                },
+                "dir": {
+                  "enum": [
+                    "up",
+                    "down",
+                    "same"
+                  ]
+                },
+                "good": {
+                  "type": "boolean"
+                },
+                "text": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "chart": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "usual": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "usual_label": {
+              "type": "string"
+            },
+            "legend": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "bars": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "label",
+                  "value",
+                  "current"
+                ],
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "display": {
+                    "type": "string"
+                  },
+                  "value2": {
+                    "type": "number"
+                  },
+                  "display2": {
+                    "type": "string"
+                  },
+                  "current": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "ring": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "pct": {
+              "type": "number"
+            },
+            "label": {
+              "type": "string"
+            },
+            "display": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          }
+        },
+        "categories_title": {
+          "type": "string"
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "value",
+              "width"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "type": "number"
+              },
+              "display": {
+                "type": "string"
+              },
+              "sub": {
+                "type": "string"
+              },
+              "width": {
+                "type": "number"
+              },
+              "usual_at": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "dir": {
+                "enum": [
+                  "up",
+                  "down",
+                  "same",
+                  "new"
+                ]
+              }
+            }
+          }
+        },
+        "facts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ideas_title": {
+          "type": "string"
+        },
+        "ideas": {
+          "type": "array",
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "required": [
+              "icon",
+              "text",
+              "ask"
+            ],
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "ask": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fallback_text": {
+          "type": "string"
         }
       }
     }

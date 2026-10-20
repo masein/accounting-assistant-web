@@ -144,6 +144,8 @@ TEXT: dict[str, dict[str, str]] = {
     "imported_voucher": {"en": "Imported voucher {number}", "fa": "سند واردشده {number}"},
     # ── accounts the system opens itself ──
     "bank_account_name": {"en": "{name} — bank account", "fa": "حساب بانکی {name}"},
+    # a card's title: «بودجهٔ ماهانهٔ تفریح و رستوران», not the tool's English summary (2026-10-20)
+    "budget_card": {"en": "{name} — monthly budget", "fa": "بودجهٔ ماهانهٔ {name}"},
     # ── more equity, mileage, payroll, adjustment lines ──
     "eq_cash_for_increase": {"en": "Cash for capital increase", "fa": "آوردهٔ نقدی برای افزایش سرمایه"},
     "eq_retained_capitalised": {"en": "Retained earnings capitalised", "fa": "انتقال سود انباشته به سرمایه"},

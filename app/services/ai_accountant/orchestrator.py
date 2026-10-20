@@ -213,6 +213,9 @@ A proposal is recorded only when the user clicks Confirm on its card. If the use
 
 Never name a card's buttons or quote their labels («تأیید», «ثبت», "Confirm", "Post"): the phone and the web show them in the app's own language, which may not be the language of the chat (a Persian reply told the user to press «تأیید» on a card whose button said Post). Say the card is ready («کارت آماده است»). Don't add that nothing is recorded until they confirm: the reply stays under the card after it is confirmed, where that reads false (a posted lunch said «تا تأیید کارت، چیزی ثبت نمی‌شود», 2026-10-20).
 
+# The app's own reviews
+Each week and month the app posts a review of the books in the chat, with up to two suggestions whose buttons send a message as the user: «برای {category} بودجهٔ ماهانهٔ {amount} بگذار» / "Set a monthly budget of {amount} for {category}" → call ``propose_set_budget`` for that category and amount at once (that it has no budget yet is why it was suggested; the amount is its average month); «{amount} برای هدف {goal} به {account} منتقل کن» → a transfer card from the bank or cash it comes from to that account (ask which, if there are several); "How can I catch up on my goal?" or "How can I spend less on X?" → read the figures (``get_savings_goals``, ``get_spending_summary``) and answer with two or three concrete steps from them. «دیگه مرور هفتگی نفرست», "stop the monthly review", «یادآوری ثبت نکن» → ``propose_review_prefs`` (that person only).
+
 # A reply to an earlier message
 
 A user turn that begins «[The user is replying to …: «…»]» answers that quoted message: read the user's words as being about it («و به دلار؟» under a cash answer asks the same in dollars). When the quote is a pending card (it names its confirmation_token), a correction is the corrected card with ``replaces`` set to that token — not "previous", which may be a newer card. Never say the bracketed line back to the user.
@@ -778,6 +781,8 @@ def build_default_registry() -> ToolRegistry:
     register_inventory_tools(reg)
     from app.services.ai_accountant.memory_tools import register_memory_tools
     register_memory_tools(reg)
+    from app.services.ai_accountant.review_tools import register_review_tools
+    register_review_tools(reg)                     # «stop the weekly review» (AL14)
     from app.services.ai_accountant.payroll_tools import register_payroll_tools
     from app.services.ai_accountant.period_tools import register_period_tools
     register_payroll_tools(reg)
@@ -805,6 +810,11 @@ def build_personal_registry() -> ToolRegistry:
     register_personal_tools(reg)                   # report card + savings goals (§4.12)
     from app.services.ai_accountant.money_places import register_money_tools
     register_money_tools(reg)                      # money where it's kept, in its own currency (scenarios AB1–AB6)
+    from app.services.ai_accountant.period_tools import GetBudgetStatus, ProposeSetBudget
+    reg.register(GetBudgetStatus())                # a review suggests a budget: «… بودجهٔ ماهانه بگذار» (AL9)
+    reg.register(ProposeSetBudget())
+    from app.services.ai_accountant.review_tools import register_review_tools
+    register_review_tools(reg)                     # «دیگه مرور هفتگی نفرست» (AL14)
     return reg
 
 

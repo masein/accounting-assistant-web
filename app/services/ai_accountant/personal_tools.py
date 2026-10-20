@@ -122,76 +122,85 @@ class GetPeopleBalances(BaseTool):
     InputSchema = GetPeopleBalancesInput
 
     async def run(self, ctx: ToolContext, args: GetPeopleBalancesInput) -> dict[str, Any]:
-        import uuid
-        from datetime import date as _date
+        return people_balances(ctx.db, args.person)
 
-        from sqlalchemy import select
 
-        from app.core.money import plain
-        from app.models.account import Account
-        from app.models.entity import Entity, TransactionEntity
-        from app.models.transaction import Transaction, TransactionLine
-        from app.services.ai_accountant.entity_create import normalize_match_name
-        from app.utils.text import fold_fa
+def people_balances(db, person: str | None = None, *, with_last: bool = False) -> dict[str, Any]:
+    """Money between the user and each person, each currency on its own (get_people_balances);
+    ``with_last`` adds each person's last entry's date (the weekly review's «آخرین بار», AL10)."""
+    import uuid
+    from datetime import date as _date
 
-        rows = ctx.db.execute(
-            select(Transaction.id, Transaction.currency, Account.code, TransactionLine.debit, TransactionLine.credit)
-            .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
-            .join(Account, Account.id == TransactionLine.account_id)
-            .where(Transaction.deleted_at.is_(None))
-        ).all()
-        rows = [r for r in rows if owed_between_people(r.code)]
-        whose: dict[Any, Entity] = {}
-        if rows:
-            links = ctx.db.execute(
-                select(TransactionEntity.transaction_id, Entity)
-                .join(Entity, Entity.id == TransactionEntity.entity_id)
-                .where(TransactionEntity.transaction_id.in_({r.id for r in rows}), Entity.type != "bank")
-                .order_by(Entity.name)).all()
-            for txn_id, ent in links:
-                whose.setdefault(txn_id, ent)          # one person per entry: the first it names
-        people: dict[str, dict[str, Any]] = {}
-        loose = {"you_owe": {}, "owes_you": {}}
+    from sqlalchemy import select
 
-        def add(book: dict, cur: str, amount) -> None:
-            book[cur] = book.get(cur, 0) + amount
+    from app.core.money import plain
+    from app.models.account import Account
+    from app.models.entity import Entity, TransactionEntity
+    from app.models.transaction import Transaction, TransactionLine
+    from app.services.ai_accountant.entity_create import normalize_match_name
+    from app.utils.text import fold_fa
 
-        for r in rows:
-            cur = (r.currency or "").upper()
-            side, amount = (("you_owe", r.credit - r.debit) if r.code.startswith(MONEY_I_OWE)
-                            else ("owes_you", r.debit - r.credit))
-            ent = whose.get(r.id)
-            if ent is None:
-                add(loose[side], cur, amount)
-                continue
-            # one person by name: «Amir» made as someone owed and again as someone owing is still Amir
-            person = people.setdefault(normalize_match_name(ent.name), {"person": ent.name, "entity_id": str(ent.id),
-                                                                        "you_owe": {}, "owes_you": {}})
-            add(person[side], cur, amount)
+    rows = db.execute(
+        select(Transaction.id, Transaction.currency, Transaction.date, Account.code, TransactionLine.debit,
+               TransactionLine.credit)
+        .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
+        .join(Account, Account.id == TransactionLine.account_id)
+        .where(Transaction.deleted_at.is_(None))
+    ).all()
+    rows = [r for r in rows if owed_between_people(r.code)]
+    whose: dict[Any, Entity] = {}
+    if rows:
+        links = db.execute(
+            select(TransactionEntity.transaction_id, Entity)
+            .join(Entity, Entity.id == TransactionEntity.entity_id)
+            .where(TransactionEntity.transaction_id.in_({r.id for r in rows}), Entity.type != "bank")
+            .order_by(Entity.name)).all()
+        for txn_id, ent in links:
+            whose.setdefault(txn_id, ent)          # one person per entry: the first it names
+    people: dict[str, dict[str, Any]] = {}
+    loose = {"you_owe": {}, "owes_you": {}}
 
-        def settled(book: dict) -> dict:
-            return {cur: plain(v) for cur, v in sorted(book.items()) if v}
+    def add(book: dict, cur: str, amount) -> None:
+        book[cur] = book.get(cur, 0) + amount
 
-        out_people = [{**p, "you_owe": settled(p["you_owe"]), "owes_you": settled(p["owes_you"])}
-                      for p in sorted(people.values(), key=lambda p: fold_fa(p["person"]).lower())]
-        asked = (args.person or "").strip()
-        if asked:
-            try:
-                ent = ctx.db.get(Entity, uuid.UUID(asked))
-                asked = ent.name if ent is not None else asked
-            except ValueError:
-                pass
-            needle = fold_fa(asked).lower()
-            out_people = [p for p in out_people if needle in fold_fa(p["person"]).lower()]
-        else:
-            out_people = [p for p in out_people if p["you_owe"] or p["owes_you"]]
-        out: dict[str, Any] = {"as_of": _date.today().isoformat(), "people": out_people,
-                               "not_tied_to_anyone": {k: settled(v) for k, v in loose.items()}}
-        if asked and not out_people:
-            out["note"] = f"No entry names {args.person!r}: nothing owed either way."
-        elif asked and all(not p["you_owe"] and not p["owes_you"] for p in out_people):
-            out["note"] = "All settled: nothing owed either way."
-        return out
+    for r in rows:
+        cur = (r.currency or "").upper()
+        side, amount = (("you_owe", r.credit - r.debit) if r.code.startswith(MONEY_I_OWE)
+                        else ("owes_you", r.debit - r.credit))
+        ent = whose.get(r.id)
+        if ent is None:
+            add(loose[side], cur, amount)
+            continue
+        # one person by name: «Amir» made as someone owed and again as someone owing is still Amir
+        who = people.setdefault(normalize_match_name(ent.name), {"person": ent.name, "entity_id": str(ent.id),
+                                                                 "you_owe": {}, "owes_you": {}, "last": r.date})
+        add(who[side], cur, amount)
+        who["last"] = max(who["last"], r.date)
+
+    def settled(book: dict) -> dict:
+        return {cur: plain(v) for cur, v in sorted(book.items()) if v}
+
+    out_people = [{**{k: v for k, v in p.items() if k != "last"}, "you_owe": settled(p["you_owe"]),
+                   "owes_you": settled(p["owes_you"]), **({"last_entry": p["last"].isoformat()} if with_last else {})}
+                  for p in sorted(people.values(), key=lambda p: fold_fa(p["person"]).lower())]
+    asked = (person or "").strip()
+    if asked:
+        try:
+            ent = db.get(Entity, uuid.UUID(asked))
+            asked = ent.name if ent is not None else asked
+        except ValueError:
+            pass
+        needle = fold_fa(asked).lower()
+        out_people = [p for p in out_people if needle in fold_fa(p["person"]).lower()]
+    else:
+        out_people = [p for p in out_people if p["you_owe"] or p["owes_you"]]
+    out: dict[str, Any] = {"as_of": _date.today().isoformat(), "people": out_people,
+                           "not_tied_to_anyone": {k: settled(v) for k, v in loose.items()}}
+    if asked and not out_people:
+        out["note"] = f"No entry names {person!r}: nothing owed either way."
+    elif asked and all(not p["you_owe"] and not p["owes_you"] for p in out_people):
+        out["note"] = "All settled: nothing owed either way."
+    return out
 
 
 def register_personal_tools(registry) -> None:

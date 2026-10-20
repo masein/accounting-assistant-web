@@ -51,6 +51,8 @@ class User(Base):
     # Release whose what's-new tour this user has seen (app/core/release_notes).
     # NULL = existing user from before the feature → show the current release once.
     last_seen_release: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # the kinds of review this person turned off: "weekly,nudge" (scenario AL14); NULL is all on
+    review_prefs: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # Two-factor sign-in (app/core/two_factor.py). Secrets are encrypted at
     # rest; pending = scanned but not yet confirmed with a first code.
     # totp_last_step stops a code being used twice; totp_recovery holds the

@@ -10,6 +10,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.longOrNull
 
 /** One thing in the conversation, as the screen draws it. */
@@ -35,6 +36,35 @@ sealed interface ChatItem {
     ) : ChatItem {
         /** [x] is an ISO date; the first point is today's balance when the server sends it. */
         data class Point(val x: String?, val value: Long)
+    }
+    /** The app's own weekly or monthly review, or its nudge, drawn as a card (scenario AL17). */
+    data class Review(
+        override val id: String,
+        val kind: String,
+        val mood: String,
+        val emoji: String,
+        val title: String,
+        val currency: String?,
+        val headline: Headline?,
+        val chart: Chart?,
+        val ring: Ring?,
+        val categoriesTitle: String?,
+        val categories: List<Category>,
+        val facts: List<String>,
+        val ideasTitle: String?,
+        val ideas: List<Idea>,
+        val note: String?,
+        val fallback: String,
+    ) : ChatItem {
+        data class Headline(val label: String, val value: java.math.BigDecimal, val delta: Delta?)
+        data class Delta(val text: String, val dir: String, val good: Boolean)
+        data class Bar(val label: String, val value: java.math.BigDecimal, val value2: java.math.BigDecimal?, val current: Boolean)
+        data class Chart(val title: String, val bars: List<Bar>, val usual: java.math.BigDecimal?, val usualLabel: String,
+                         val legend: List<String>)
+        data class Ring(val pct: Float, val label: String, val display: String, val text: String)
+        data class Category(val name: String, val value: java.math.BigDecimal, val sub: String, val dir: String,
+                            val width: Float, val usualAt: Float?)
+        data class Idea(val icon: String, val text: String, val ask: String)
     }
     /** A bank statement read and checked against the books: what matched, what differs, the balance. */
     data class Statement(
@@ -133,6 +163,7 @@ fun ChatItem.asText(lang: String, sides: Pair<String, String>): String? = when (
     is ChatItem.Statement -> listOfNotNull(bank, listOfNotNull(from, to).joinToString(" – ").ifBlank { null })
         .joinToString(" · ").let { Numbers.digits(it, lang) }
     is ChatItem.File -> name
+    is ChatItem.Review -> fallback
     else -> null
 }?.trim()?.takeIf { it.isNotEmpty() }
 
@@ -222,6 +253,41 @@ fun parseBlock(b: JsonObject): ChatItem {
             voucher = b.obj("posted")?.str("voucher"),
             postedDate = b.obj("posted")?.obj("date")?.str("display"),
         )
+        "review" -> {
+            fun float(o: JsonObject?, key: String): Float? = (o?.get(key) as? JsonPrimitive)?.floatOrNull
+            val head = b.obj("headline")
+            val chart = b.obj("chart")
+            val ring = b.obj("ring")
+            ChatItem.Review(
+                id = id, kind = b.str("kind").orEmpty(), mood = b.str("mood") ?: "calm", emoji = b.str("emoji") ?: "🙂",
+                title = b.str("title").orEmpty(), currency = b.str("currency"),
+                headline = head?.let { h ->
+                    ChatItem.Review.Headline(h.str("label").orEmpty(), h.money("value") ?: java.math.BigDecimal.ZERO,
+                        h.obj("delta")?.let { d -> ChatItem.Review.Delta(d.str("text").orEmpty(), d.str("dir") ?: "same", d.bool("good")) })
+                },
+                chart = chart?.let { ch ->
+                    ChatItem.Review.Chart(ch.str("title").orEmpty(), ch["bars"].array().map { bar ->
+                        ChatItem.Review.Bar(bar.str("label").orEmpty(), bar.money("value") ?: java.math.BigDecimal.ZERO,
+                                            bar.money("value2"), bar.bool("current"))
+                    }, ch.money("usual"), ch.str("usual_label").orEmpty(),
+                        (ch["legend"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }.orEmpty())
+                }?.takeIf { it.bars.size >= 2 },
+                ring = ring?.let { r -> ChatItem.Review.Ring(float(r, "pct") ?: 0f, r.str("label").orEmpty(), r.str("display").orEmpty(),
+                                                              r.str("text").orEmpty()) },
+                categoriesTitle = b.str("categories_title"),
+                categories = b["categories"].array().map { c ->
+                    ChatItem.Review.Category(c.str("name").orEmpty(), c.money("value") ?: java.math.BigDecimal.ZERO, c.str("sub").orEmpty(),
+                                             c.str("dir") ?: "same", float(c, "width") ?: 0f, float(c, "usual_at"))
+                },
+                facts = (b["facts"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }.orEmpty(),
+                ideasTitle = b.str("ideas_title"),
+                ideas = b["ideas"].array().mapNotNull { i ->
+                    i.str("ask")?.let { ask -> ChatItem.Review.Idea(i.str("icon") ?: "💡", i.str("text").orEmpty(), ask) }
+                },
+                note = b.str("note"),
+                fallback = b.str("fallback_text").orEmpty(),
+            )
+        }
         "chart" -> {
             fun point(o: JsonObject?) = o?.whole("value")?.let { ChatItem.Chart.Point(o.str("x"), it) }
             val points = listOfNotNull(point(b.obj("start"))) + b["points"].array().mapNotNull { point(it) }

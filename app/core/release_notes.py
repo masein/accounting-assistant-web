@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.20.1"
+CURRENT_RELEASE = "2026.10.20.2"
 
 
 @dataclass(frozen=True)
@@ -2031,6 +2031,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "از دستیار بخواهید اسم کیف پول یا حسابی را عوض کند؛ یک کارت اسمش را عوض می‌کند و از آن به بعد همهٔ کارت‌ها و گزارش‌ها اسم تازه را نشان می‌دهند. ناهار، شام و کافه در «تفریح و رستوران» ثبت می‌شود، نه «خوراک و سوپرمارکت». دوستی که فقط با او غذا خورده‌اید به اشخاص اضافه نمی‌شود و کسی که در دفترتان هست دوباره ساخته نمی‌شود. هر کارت شخصی را که نام می‌برد نشان می‌دهد، در گوشی و در وب.",
                     "es": "Pide al asistente que llame de otra forma a una cartera o cuenta y una tarjeta la renombra, así cada tarjeta e informe muestra el nombre nuevo. Una comida, una cena o un café van a Ocio y restaurantes, no a la compra. Un amigo con quien solo comiste no se añade a tus personas, y alguien que ya está en tus cuentas nunca se añade dos veces. Cada tarjeta muestra la persona que nombra, en el móvil y en la web.",
                     "ar": "اطلب من المساعد تسمية محفظة أو حساب باسم آخر فتغيّره بطاقة، فتُظهر كل البطاقات والتقارير الاسم الجديد. والغداء والعشاء والمقهى تحت «الترفيه والمطاعم» لا «الطعام والبقالة». والصديق الذي أكلت معه فقط لا يُضاف إلى أشخاصك، ومن هو في دفاترك لا يُضاف مرتين. وتُظهر كل بطاقة الشخص الذي تسمّيه، في الهاتف والويب.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.20.2",
+        date="2026-10-20",
+        highlights=(
+            Highlight(
+                key="weekly-monthly-reviews",
+                page="ai-accountant",
+                roles=("owner", "cfo", "accountant", "personal"),
+                title={
+                    "en": "A review each week and each month, with ideas",
+                    "fa": "مرور هر هفته و هر ماه، با پیشنهاد",
+                    "es": "Un resumen cada semana y cada mes, con ideas",
+                    "ar": "مراجعة كل أسبوع وكل شهر، مع اقتراحات",
+                },
+                body={
+                    "en": "At the start of each week and month the assistant reviews your books on its own, as a card with charts: what you spent against your usual week, where it went, income, who owes whom; for a company, money in and out, cash and runway, overdue invoices and bills due. Up to two ideas come with it, each with a button: put money aside for a goal, set a budget for a category running hot, a budget about to be passed, someone owed for a month. It's in your chat and a notification; switch any of it off under Reviews and reminders, or just say so.",
+                    "fa": "اول هر هفته و هر ماه، دستیار خودش دفترتان را مرور می‌کند، در کارتی با نمودار: خرج هفته در برابر هفته‌های معمول، کجا خرج شد، درآمد، کی به کی بدهکار است؛ و برای شرکت، ورود و خروج پول، نقدینگی و دوامش، فاکتورهای سررسیدگذشته و صورت‌حساب‌های پیش رو. حداکثر دو پیشنهاد هم با آن می‌آید، هر کدام با یک دکمه: کنار گذاشتن پول برای یک هدف، بودجه برای دسته‌ای که خرجش بالا رفته، بودجه‌ای که نزدیک است رد شود، کسی که یک ماه است بدهکار است. در گفتگو و به‌صورت اعلان می‌آید؛ هر کدام را در «مرورها و یادآوری‌ها» خاموش کنید، یا فقط بگویید.",
+                    "es": "Al empezar cada semana y cada mes, el asistente revisa tus cuentas por su cuenta, en una tarjeta con gráficos: lo gastado frente a una semana normal, en qué se fue, los ingresos, quién debe a quién; en una empresa, el dinero que entró y salió, la caja y cuánto dura, las facturas vencidas y las que vencen. Trae hasta dos ideas, cada una con un botón: apartar dinero para una meta, un presupuesto para una categoría disparada, un presupuesto a punto de superarse, alguien que debe desde hace un mes. Llega al chat y como notificación; desactiva lo que quieras en Resúmenes y avisos, o simplemente dilo.",
+                    "ar": "في بداية كل أسبوع وكل شهر يراجع المساعد دفاترك من تلقاء نفسه في بطاقة برسوم بيانية: ما أنفقته مقارنةً بأسبوعك المعتاد، وأين ذهب، والدخل، ومن يدين لمن؛ وللشركة: المال الداخل والخارج، والنقد ومدة تغطيته، والفواتير المتأخرة والمستحقة. ويأتي معه اقتراحان على الأكثر، لكل منهما زر: ادّخار مال لهدف، أو ميزانية لفئة ارتفع إنفاقها، أو ميزانية على وشك التجاوز، أو شخص مدين منذ شهر. يصلك في المحادثة وكإشعار؛ أوقف أيًّا منها من «المراجعات والتذكيرات» أو قل ذلك فحسب.",
                 },
             ),
         ),

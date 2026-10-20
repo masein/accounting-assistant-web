@@ -2999,6 +2999,7 @@ window.I18N_PACKS.es = Object.assign({
         aiReviewMonthly: 'Resumen mensual',
         aiReviewSuggestions: 'Sugerencias en los resúmenes',
         aiReviewNudge: 'Un aviso tras unos días sin registros',
+        aiReviewNudgeBadge: 'Recordatorio',
         chatStmtContinue: 'Continuar con tus instrucciones',
         fieldDate: 'fecha',
         fieldAmount: 'importe',

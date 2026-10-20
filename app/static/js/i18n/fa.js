@@ -3013,6 +3013,7 @@ window.I18N_PACKS.fa = Object.assign({
         aiReviewMonthly: 'مرور ماهانه',
         aiReviewSuggestions: 'پیشنهادها در مرورها',
         aiReviewNudge: 'یادآوری بعد از چند روز بی‌ثبت',
+        aiReviewNudgeBadge: 'یادآوری',
         chatStmtContinue: 'ادامه با دستور شما',
         fieldDate: 'تاریخ',
         fieldAmount: 'مبلغ',

@@ -1182,11 +1182,12 @@ def reviews(
     for r in said:
         db.add(AIChatMessage(session_id=session.id, role="assistant",
                              content={"role": "assistant", "text": r["text"], "review": r["review_id"],
-                                      "choices": r["choices"], "blocks": r["blocks"]},
+                                      "choices": r["choices"], "blocks": r["blocks"], "card": r["card"]},
                              created_at=datetime.now(timezone.utc)))
     db.commit()
     return ReviewsResponse(session_id=str(session.id),
-                           reviews=[{"kind": r["kind"], "text": r["text"], "choices": r["choices"]} for r in said])
+                           reviews=[{"kind": r["kind"], "text": r["text"], "choices": r["choices"], "card": r["card"]}
+                                    for r in said])
 
 
 class ReviewPrefs(BaseModel):

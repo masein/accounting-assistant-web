@@ -108,8 +108,18 @@ def test_al1_a_persons_week_against_their_usual_week(person, db):
     assert en["headline"].startswith("You spent 5,000,000")
     fa = render(review, "fa")                                                     # AL16
     assert "این هفته ۵٬۰۰۰٬۰۰۰ ریال ایران خرج کردید؛ ۶۷٪ بیشتر از هفته‌های معمولتان" in fa["text"]
-    table = next(b for b in fa["blocks"] if b["type"] == "table")
-    assert table["rows"][0]["sub"] == "۲۰۰٪ بیشتر از معمول" and table["rows"][1]["sub"] == "معمول"
+    card = fa["card"]                                                             # AL17: the card
+    assert (card["mood"], card["emoji"]) == ("watch", "👀")                       # 67% above the usual week
+    assert card["headline"]["label"] == "خرج این هفته" and card["headline"]["value"] == 5_000_000
+    assert card["headline"]["delta"] == {"pct": 67, "dir": "up", "good": False, "text": "۶۷٪ بیشتر از معمول"}
+    bars = card["chart"]["bars"]
+    assert [b["value"] for b in bars] == [3_000_000] * 4 + [5_000_000] and bars[-1]["current"]
+    assert bars[-1]["label"] == "این هفته" and card["chart"]["usual"] == 3_000_000
+    cats = card["categories"]
+    assert cats[0]["sub"] == "۲۰۰٪ بیشتر از معمول" and cats[1]["sub"] == "معمول"
+    assert cats[0]["width"] == 1.0 and cats[0]["usual_at"] == round(1_000_000 / 3_000_000, 4)
+    assert card["ideas"][0]["icon"] == "🔥" and card["ideas"][0]["ask"] == fa["choices"][0]
+    assert [b["type"] for b in fa["blocks"]] == ["review"] and fa["blocks"][0]["fallback_text"].startswith("مرور هفته")
 
 
 def test_al1_the_jalali_week_runs_saturday_to_friday(person, db):
@@ -145,9 +155,11 @@ def test_al4_al5_the_phone_is_told_then_shown_it_once(person, db):
     assert item["title"] == "Your weekly review is ready" and item["body"].startswith("You spent 5,000,000")
     blocks = client.post(f"{API}/briefing", headers=phone, json={}).json()["blocks"]
     ours = [b for b in blocks if str(b["id"]).startswith("review")]
-    assert [b["type"] for b in ours] == ["text", "table", "text"]
-    assert ours[0]["kind"] == "review" and ours[0]["text"].startswith("**Your week, 12 Oct – 18 Oct 2026**")
-    assert ours[2]["choices"] and "stop the weekly review" in ours[2]["text"]           # said the first time
+    assert [b["type"] for b in ours] == ["review"]
+    assert ours[0]["kind"] == "weekly" and ours[0]["title"] == "Your week, 12 Oct – 18 Oct 2026"
+    assert ours[0]["ideas"] and "stop the weekly review" in ours[0]["note"]             # said the first time
+    from tests.test_mobile_contract import contract_errors
+    assert contract_errors(ours[0]) == []
     again = client.post(f"{API}/briefing", headers=phone, json={}).json()["blocks"]
     assert not [b for b in again if str(b["id"]).startswith("review")]                 # once
     assert not [i for i in client.get(f"{API}/feed", headers=phone).json()["items"] if i["kind"] == "review"]
@@ -165,9 +177,11 @@ def test_al4_the_web_chat_gets_it_whenever_the_chat_opens(person, db):
     out = web.post("/ai-accountant/reviews", json={}).json()
     [said] = out["reviews"]
     assert said["kind"] == "weekly" and said["text"].startswith("**Your week") and said["choices"]
+    assert said["card"]["headline"]["value"] == 5_000_000 and said["card"]["chart"]["bars"]
     msgs = web.get(f"/ai-accountant/sessions/{out['session_id']}/messages").json()
     kept = [m["content"] for m in msgs if (m.get("content") or {}).get("review")]
     assert len(kept) == 1 and kept[0]["text"].startswith("**Your week") and kept[0]["choices"]   # in its history
+    assert kept[0]["card"]["mood"] == "watch"                                                   # drawn again as a card
     assert web.post("/ai-accountant/reviews", json={"session_id": out["session_id"]}).json()["reviews"] == []
 
 
@@ -258,6 +272,10 @@ def test_al3_al11_the_month_and_its_repeating_payments(person, db):
     en = render(review, "en")
     assert "Your month: Oct 2026" in en["text"] and "saved 13,200,000 Iranian rial (66% of income)" in en["text"]
     assert "2 payments repeat every month, 800,000 Iranian rial a month in all: Netflix, Spotify." in en["text"]
+    card = en["card"]                                                             # saved two thirds: a trophy
+    assert (card["mood"], card["emoji"]) == ("good", "🏆") and card["ring"]["pct"] == 66.0
+    assert card["headline"]["label"] == "Spent in Oct 2026" and [b["label"] for b in card["chart"]["bars"]] == \
+        ["Jul", "Aug", "Sep", "Oct"]
 
 
 # --- AL12: a company's suggestions ---------------------------------------------------------------------------

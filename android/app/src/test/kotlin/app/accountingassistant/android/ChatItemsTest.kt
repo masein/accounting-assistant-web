@@ -41,6 +41,28 @@ class ChatItemsTest {
         assertEquals(emptyList<ChatItem.Proposal.Person>(), none.people)          // an older server sends none
     }
 
+    /** The app's own week as a card: its figures raw for the bars, its words said; an idea's button asks (AL17). */
+    @Test fun aReviewIsACardWithItsBarsAndIdeas() {
+        val item = parseBlock(block("""{"type":"review","id":"review:w1","kind":"weekly","mood":"watch","emoji":"👀",
+            "title":"مرور هفته","currency":"OMR",
+            "headline":{"label":"خرج این هفته","value":41.5,"display":"۴۱٫۵۰۰ ریال عمان",
+                        "delta":{"pct":37,"dir":"up","good":false,"text":"۳۷٪ بیشتر از معمول"}},
+            "chart":{"title":"پنج هفتهٔ اخیر","usual":30.25,"usual_label":"معمول","legend":["خرج"],
+                     "bars":[{"label":"۲۸ شهریور","value":28,"current":false},{"label":"این هفته","value":41.5,"current":true}]},
+            "ring":null,"categories_title":"کجا خرج شد",
+            "categories":[{"name":"تفریح و رستوران","value":18.5,"sub":"۱۶۴٪ بیشتر از معمول","dir":"up","width":1.0,"usual_at":0.378}],
+            "facts":["درآمد: ۶۰۰٫۰۰۰ ریال عمان."],"ideas_title":"پیشنهادها",
+            "ideas":[{"key":"hot_category","icon":"🔥","text":"…","ask":"برای تفریح و رستوران بودجهٔ ماهانه بگذار"}],
+            "note":null,"fallback_text":"مرور هفته …"}""")) as ChatItem.Review
+        assertEquals(java.math.BigDecimal("41.5"), item.headline!!.value)
+        assertEquals(false, item.headline!!.delta!!.good)
+        assertEquals(listOf(false, true), item.chart!!.bars.map { it.current })
+        assertEquals(java.math.BigDecimal("30.25"), item.chart!!.usual)
+        assertEquals(0.378f, item.categories.single().usualAt!!, 0.0001f)
+        assertEquals("برای تفریح و رستوران بودجهٔ ماهانه بگذار", item.ideas.single().ask)
+        assertEquals("مرور هفته …", item.asText("fa", "To" to "From"))
+    }
+
     /** Opened again, a seal came back blank and an undone voucher came back posted (phone QA, 2026-10-12). */
     @Test fun aPostedCardOpenedAgainKeepsItsSealOrSaysItWasUndone() {
         fun card(undone: Boolean) = parseBlock(block("""{"type":"proposal","id":"proposal:t2","token":"t2","title":"Printer",

@@ -255,6 +255,8 @@ fun ChatScreen(
                             delta = null, deltaIsBad = false,
                             freshness = null, series = emptyList()) } }
                         is ChatItem.Table -> Held(item, lang, sides, reply) { held -> Box(held) { TableCard(item, lang) } }
+                        // the app's own week or month, as a card that moves (scenario AL17)
+                        is ChatItem.Review -> Held(item, lang, sides, reply) { held -> Box(held) { ReviewCard(item, lang, onAsk = onSuggestion) } }
                         is ChatItem.File -> FileCard(item, onOpen = { onFile(item, false) }, onShare = { onFile(item, true) })
                         is ChatItem.Proposal -> Held(item, lang, sides, reply) { held -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Voucher(

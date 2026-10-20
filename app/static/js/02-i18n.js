@@ -3021,6 +3021,7 @@
         aiReviewMonthly: 'Monthly review',
         aiReviewSuggestions: 'Suggestions in the reviews',
         aiReviewNudge: 'A nudge after a few quiet days',
+        aiReviewNudgeBadge: 'Reminder',
         chatStmtContinue: 'Continue with your instructions',
         fieldDate: 'date',
         fieldAmount: 'amount',

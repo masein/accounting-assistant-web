@@ -314,12 +314,18 @@ def weekly_facts(db: Session, today: date) -> dict | None:
     income, spent, cats = _flows(db, start, end)
     history = [_flows(db, start - timedelta(days=7 * i), end - timedelta(days=7 * i)) for i in range(1, HISTORY_WEEKS + 1)]
     usual, usual_cats = _usual(history, ccy)
+    active = [h for h in history if h[0] or h[1]]
     personal = _personal(db)
     facts: dict[str, Any] = {
         "personal": personal, "currency": ccy, "calendar": cal, "start": start.isoformat(), "end": end.isoformat(),
         "entries": entries, "income": plain(income), "spent": plain(spent),
         "usual": plain(usual) if usual is not None else None, "top": _top(cats, usual_cats),
         "biggest": _biggest(db, start, end),
+        "usual_income": plain(average([h[0] for h in active], ccy)) if len(active) >= 2 else None,
+        # the bars of the card's chart: the four weeks before, then this one (oldest first)
+        "series": [{"start": (start - timedelta(days=7 * i)).isoformat(), "spent": plain(h[1]), "income": plain(h[0])}
+                   for i, h in reversed(list(enumerate(history, start=1)))]
+                  + [{"start": start.isoformat(), "spent": plain(spent), "income": plain(income)}],
     }
     if personal:
         from app.services.ai_accountant.personal_tools import people_balances
@@ -359,6 +365,12 @@ def monthly_facts(db: Session, today: date) -> dict | None:
                      top=[{"name": n, "amount": plain(a), "usual": plain(p_cats[n]) if p_cats.get(n) else None}
                           for n, a in sorted(cats.items(), key=lambda kv: -kv[1])[:TOP]])
         facts.update(_company_position(db))
+    series = []
+    for i in range(3, -1, -1):
+        k = "%04d-%02d" % shift(y, m, -i)
+        inc, sp, _c = _flows(db, *key_bounds(k))
+        series.append({"month": k, "spent": plain(sp), "income": plain(inc)})
+    facts["series"] = series
     facts["label"] = month_label(key, "en")
     return facts
 
@@ -595,6 +607,30 @@ W: dict[str, dict[str, str]] = {
               "es": "No se registra nada desde {day}. ¿Algo que añadir?", "ar": "لم يُسجَّل شيء منذ {day} — هل هناك ما نضيفه؟"},
 }
 
+# the card's own words (scenario AL17): a headline, its change, the chart, the ring
+C: dict[str, dict[str, str]] = {
+    "spent_week": {"en": "Spent this week", "fa": "خرج این هفته", "es": "Gastado esta semana", "ar": "إنفاق هذا الأسبوع"},
+    "spent_month": {"en": "Spent in {month}", "fa": "خرج {month}", "es": "Gastado en {month}", "ar": "إنفاق {month}"},
+    "revenue_week": {"en": "Revenue this week", "fa": "درآمد این هفته", "es": "Ingresos esta semana", "ar": "إيرادات هذا الأسبوع"},
+    "profit_month": {"en": "Profit in {month}", "fa": "سود {month}", "es": "Beneficio en {month}", "ar": "ربح {month}"},
+    "weeks": {"en": "The last five weeks", "fa": "پنج هفتهٔ اخیر", "es": "Las últimas cinco semanas", "ar": "آخر خمسة أسابيع"},
+    "months": {"en": "The last four months", "fa": "چهار ماه اخیر", "es": "Los últimos cuatro meses", "ar": "آخر أربعة أشهر"},
+    "this_week": {"en": "This week", "fa": "این هفته", "es": "Esta semana", "ar": "هذا الأسبوع"},
+    "usual": {"en": "usual", "fa": "معمول", "es": "lo normal", "ar": "المعتاد"},
+    "spending": {"en": "Spending", "fa": "خرج", "es": "Gastos", "ar": "الإنفاق"},
+    "income": {"en": "Income", "fa": "درآمد", "es": "Ingresos", "ar": "الدخل"},
+    "revenue": {"en": "Revenue", "fa": "درآمد", "es": "Ingresos", "ar": "الإيرادات"},
+    "expenses": {"en": "Expenses", "fa": "هزینه", "es": "Gastos", "ar": "المصروفات"},
+    "saved": {"en": "Saved", "fa": "پس‌انداز", "es": "Ahorrado", "ar": "المدّخر"},
+    "of_income": {"en": "of income", "fa": "از درآمد", "es": "de los ingresos", "ar": "من الدخل"},
+    "where": {"en": "Where it went", "fa": "کجا خرج شد", "es": "En qué se fue", "ar": "أين ذهب"},
+    "ideas": {"en": "Ideas", "fa": "پیشنهادها", "es": "Ideas", "ar": "اقتراحات"},
+}
+_EMOJI = {"good_weekly": "🎉", "good_monthly": "🏆", "watch": "👀", "calm": "🌿", "nudge": "✏️"}
+_IDEA_ICONS = {"goal_behind": "🎯", "goal_payday": "💰", "budget_pace": "⏳", "hot_category": "🔥",
+               "owed_long_you_owe": "🤝", "owed_long_owes_you": "🤝", "subscriptions": "🔁",
+               "overdue_invoices": "🧾", "runway": "🛟"}
+
 S: dict[str, dict[str, dict[str, str]]] = {
     "goal_behind": {
         "say": {"en": "To reach “{goal}” by {by}, it needs {needed} a month; the last three months put aside {pace} a month.",
@@ -717,8 +753,9 @@ def render(review: ProactiveReview, lang: str, *, first: bool = False, ideas: bo
         last = date.fromisoformat(f["last"])
         day = (_WEEKDAYS[lang][last.weekday()] if (date.today() - last).days < 7 else _day(f["last"], cal, lang))
         text = _say(W, "nudge", lang, day=day)
-        return {"headline": text, "title": text, "text": text, "choices": [],
-                "blocks": [{"type": "text", "id": f"review:{review.id}", "kind": "review", "text": text, "fallback_text": text}]}
+        card = _card(review, lang, title=text, lines=[], rows=[], picked=[], ideas=[], note=None)
+        return {"headline": text, "title": text, "text": text, "choices": [], "card": card,
+                "blocks": [{"type": "review", "id": f"review:{review.id}", **card, "fallback_text": text}]}
 
     if review.kind == "weekly":
         start, end = _span(f["start"], f["end"], cal, lang)
@@ -789,7 +826,8 @@ def render(review: ProactiveReview, lang: str, *, first: bool = False, ideas: bo
         for c in f.get("top") or []:
             rows.append({"label": c["name"], "sub": _against(c, lang, monthly=True), "value": c["amount"], "currency": ccy})
 
-    ideas = [_suggestion(s, lang, ccy, cal) for s in f.get("suggestions") or []] if ideas else []
+    picked = list(f.get("suggestions") or []) if ideas else []
+    ideas = [_suggestion(s, lang, ccy, cal) for s in picked]
     choices = [ask for _say_, ask in ideas]
     words = "\n".join(lines)
     web = f"**{title}**\n{words}"
@@ -800,21 +838,126 @@ def render(review: ProactiveReview, lang: str, *, first: bool = False, ideas: bo
         web += f"\n{idea_text}"
     if first:
         web += f"\n{W['first_time'][lang]}"
-    blocks: list[dict] = [{"type": "text", "id": f"review:{review.id}", "kind": "review", "text": f"**{title}**\n{words}",
-                           "fallback_text": f"{title}\n{words}"}]
-    if rows:
-        blocks.append({"type": "table", "id": f"review-table:{review.id}", "kind": "review_categories",
-                       "title": W["categories"][lang].rstrip(":"),
-                       "rows": [{"label": r["label"], "sub": r["sub"], "value": r["value"], "currency": r["currency"]}
-                                for r in rows],
-                       "fallback_text": "\n".join(f"{r['label']}: {m(r['value'])}" for r in rows)})
-    tail = "\n".join(x for x in (idea_text, W["first_time"][lang] if first else "") if x)
-    if tail:
-        block = {"type": "text", "id": f"review-ideas:{review.id}", "kind": "review", "text": tail, "fallback_text": tail}
-        if choices:
-            block["choices"] = choices
-        blocks.append(block)
-    return {"headline": headline, "title": title, "text": web, "choices": choices, "blocks": blocks}
+    card = _card(review, lang, title=title, lines=lines[1:], rows=rows, picked=picked, ideas=ideas,
+                 note=W["first_time"][lang] if first else None)
+    plain_text = web.replace("**", "")
+    # one block the phone draws as a card (an older app says its words: fallback_text)
+    blocks: list[dict] = [{"type": "review", "id": f"review:{review.id}", **card, "fallback_text": plain_text}]
+    return {"headline": headline, "title": title, "text": web, "choices": choices, "blocks": blocks, "card": card}
+
+
+def _mood(review: ProactiveReview) -> str:
+    f = review.facts or {}
+    if review.kind == "nudge":
+        return "nudge"
+    spent, income = f.get("spent") or 0, f.get("income") or 0
+    if not f.get("personal"):
+        if not spent and not income:
+            return "calm"
+        return "good" if income >= spent else "watch"
+    if review.kind == "monthly":
+        prev = (f.get("previous") or {}).get("spending")
+        if f.get("rate") is not None and f["rate"] >= 10:
+            return "good"
+        return "watch" if prev and spent > prev * 1.15 else "calm"
+    usual = f.get("usual")
+    if not usual:
+        return "calm"
+    return "good" if spent <= usual * 0.95 else ("watch" if spent >= usual * 1.15 else "calm")
+
+
+def _short(label: str) -> str:
+    """«۲۵ مهر ۱۴۰۵» → «۲۵ مهر»; "Oct 2026" → "Oct": a bar's label."""
+    parts = label.split()
+    return " ".join(parts[:-1]) if len(parts) > 1 else label
+
+
+def _delta(value, usual, lang: str, *, monthly: bool, lower_is_good: bool) -> dict | None:
+    if not usual:
+        return None
+    change = (value - usual) / usual * 100
+    if abs(change) < 5:
+        return {"pct": 0, "dir": "same", "good": True, "text": W["cat_same"][lang]}
+    up = change > 0
+    key = ("cat_more" if up else "cat_less") + ("_m" if monthly else "")
+    return {"pct": int(round(abs(change))), "dir": "up" if up else "down", "good": (not up) if lower_is_good else up,
+            "text": _say(W, key, lang, pct=_pct(change, lang))}
+
+
+def _card(review: ProactiveReview, lang: str, *, title: str, lines: list[str], rows: list[dict], picked: list[dict],
+          ideas: list[tuple[str, str]], note: str | None) -> dict:
+    """The review as a card for the phone and the web (scenario AL17): its mood and emoji, a headline that
+    counts up, its change against the usual, a chart, the categories as bars, the ideas with a button each.
+    Words come said; numbers come raw, for the bars to be drawn to scale."""
+    f = review.facts or {}
+    cal, ccy = f.get("calendar", "gregorian"), f.get("currency", "")
+    m = lambda v: _money(v, ccy, lang)        # noqa: E731
+    mood = _mood(review)
+    emoji = _EMOJI["good_" + review.kind] if mood == "good" else _EMOJI[mood]
+    card: dict[str, Any] = {"kind": review.kind, "mood": mood, "emoji": emoji, "title": title, "currency": ccy}
+    if review.kind == "nudge":
+        return {**card, "headline": None, "chart": None, "ring": None, "categories": [], "facts": [], "ideas": [],
+                "note": None}
+    personal = f.get("personal")
+    monthly = review.kind == "monthly"
+    month = _month_name(f["month"], lang) if monthly else None
+    if personal:
+        value, usual = f.get("spent") or 0, (f.get("usual") if not monthly else (f.get("previous") or {}).get("spending"))
+        label = _say(C, "spent_month", lang, month=month) if monthly else C["spent_week"][lang]
+        delta = _delta(value, usual, lang, monthly=monthly, lower_is_good=True)
+    elif monthly:
+        value, usual = f.get("profit") or 0, (f.get("previous") or {}).get("profit")
+        label = _say(C, "profit_month", lang, month=month)
+        delta = _delta(value, usual, lang, monthly=True, lower_is_good=False) if usual and usual > 0 else None
+    else:
+        value, usual = f.get("income") or 0, f.get("usual_income")
+        label = C["revenue_week"][lang]
+        delta = _delta(value, usual, lang, monthly=False, lower_is_good=False)
+    card["headline"] = {"label": label, "value": value, "display": m(value), "delta": delta}
+
+    series = f.get("series") or []
+    if len(series) >= 2:
+        bars = []
+        for i, point in enumerate(series):
+            current = i == len(series) - 1
+            if monthly:
+                name = _short(_month_name(point["month"], lang))
+            else:
+                name = C["this_week"][lang] if current else _short(_day(point["start"], cal, lang))
+            bar = {"label": name, "value": point["spent"], "display": m(point["spent"]), "current": current}
+            if not personal:
+                bar.update(value=point["income"], display=m(point["income"]), value2=point["spent"], display2=m(point["spent"]))
+            bars.append(bar)
+        card["chart"] = {"title": C["months" if monthly else "weeks"][lang], "bars": bars,
+                         "usual": (f.get("usual") if personal and not monthly else None), "usual_label": C["usual"][lang],
+                         "legend": ([C["revenue"][lang], C["expenses"][lang]] if not personal else [C["spending"][lang]])}
+    else:
+        card["chart"] = None
+    card["ring"] = None
+    if personal and monthly and f.get("income") and f.get("rate") is not None:
+        rate = max(0.0, min(100.0, float(f["rate"])))
+        card["ring"] = {"pct": rate, "label": C["saved"][lang], "display": m(f.get("saved") or 0),
+                        "text": f"{_pct(f['rate'], lang)} {C['of_income'][lang]}"}
+    top = max([r["value"] for r in rows] + [c.get("usual") or 0 for c in f.get("top") or []] + [0])
+    usuals = {c["name"]: c.get("usual") for c in f.get("top") or []}
+    def way(name: str, value) -> str:
+        u = usuals.get(name)
+        if not u:
+            return "new"
+        change = (float(value) - float(u)) / float(u) * 100
+        return "same" if abs(change) < 10 else ("up" if change > 0 else "down")
+    card["categories"] = [{"name": r["label"], "value": r["value"], "display": m(r["value"]), "sub": r["sub"],
+                           "dir": way(r["label"], r["value"]),
+                           "width": round(float(r["value"]) / float(top), 4) if top else 0,
+                           "usual_at": (round(float(usuals[r["label"]]) / float(top), 4)
+                                        if top and usuals.get(r["label"]) else None)} for r in rows]
+    card["categories_title"] = C["where"][lang]
+    card["facts"] = lines
+    card["ideas"] = [{"key": s["key"], "icon": _IDEA_ICONS.get(s["key"], "💡"), "text": said, "ask": ask}
+                     for s, (said, ask) in zip(picked, ideas)]
+    card["ideas_title"] = C["ideas"][lang]
+    card["note"] = note
+    return card
 
 
 def _against(c: dict, lang: str, *, monthly: bool) -> str:
@@ -885,6 +1028,6 @@ def take_for_chat(db: Session, session_user, lang: str) -> list[dict]:
     for i, review in enumerate(reviews):
         said = render(review, lang, first=first and i == len(reviews) - 1 and review.kind != "nudge", ideas=ideas)
         out.append({"review_id": str(review.id), "kind": review.kind, "text": said["text"], "blocks": said["blocks"],
-                    "choices": said["choices"]})
+                    "choices": said["choices"], "card": said["card"]})
     mark_seen(db, user, reviews)
     return out

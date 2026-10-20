@@ -33,6 +33,9 @@
     <string name="voucher_person_new">شخص جديد: %1$s</string>
     <string name="voucher_party">الطرف: %1$s</string>
     <string name="voucher_party_new">طرف جديد: %1$s</string>
+    <string name="review_weekly">المراجعة الأسبوعية</string>
+    <string name="review_monthly">المراجعة الشهرية</string>
+    <string name="review_nudge">تذكير</string>
     <string name="voucher_title">قيد</string>
     <string name="suggestions_intro">اسأل عن دفاترك أو أخبرني بما أسجّله. هذه تُجاب فورًا:</string>
     <string name="listening">أستمع… اترك للإيقاف</string>

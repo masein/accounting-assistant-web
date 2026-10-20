@@ -2999,6 +2999,7 @@ window.I18N_PACKS.ar = Object.assign({
         aiReviewMonthly: 'المراجعة الشهرية',
         aiReviewSuggestions: 'الاقتراحات في المراجعات',
         aiReviewNudge: 'تذكير بعد أيام بلا تسجيل',
+        aiReviewNudgeBadge: 'تذكير',
         chatStmtContinue: 'المتابعة بتعليماتك',
         fieldDate: 'التاريخ',
         fieldAmount: 'المبلغ',

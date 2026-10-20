@@ -33,6 +33,9 @@
     <string name="voucher_person_new">New person: %1$s</string>
     <string name="voucher_party">Party: %1$s</string>
     <string name="voucher_party_new">New party: %1$s</string>
+    <string name="review_weekly">Weekly review</string>
+    <string name="review_monthly">Monthly review</string>
+    <string name="review_nudge">Reminder</string>
     <string name="voucher_title">Voucher</string>
     <string name="suggestions_intro">Ask about your books, or tell me what to record. These answer at once:</string>
     <string-array name="suggestions">

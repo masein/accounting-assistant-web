@@ -1,0 +1,96 @@
+{
+  "conversation": "review-month-en",
+  "blocks": [
+    {
+      "type": "review",
+      "id": "review:monthly-1",
+      "kind": "monthly",
+      "mood": "good",
+      "emoji": "🏆",
+      "title": "Your month: Sep 2026",
+      "currency": "GBP",
+      "headline": {
+        "label": "Spent in Sep 2026",
+        "value": 2480.5,
+        "display": "2,480.50 Pound sterling",
+        "delta": {
+          "pct": 6,
+          "dir": "down",
+          "good": true,
+          "text": "6% less than last month"
+        }
+      },
+      "chart": {
+        "title": "The last four months",
+        "bars": [
+          {
+            "label": "Jun",
+            "value": 2550,
+            "display": "2,550.00 Pound sterling",
+            "current": false
+          },
+          {
+            "label": "Jul",
+            "value": 2700,
+            "display": "2,700.00 Pound sterling",
+            "current": false
+          },
+          {
+            "label": "Aug",
+            "value": 2650,
+            "display": "2,650.00 Pound sterling",
+            "current": false
+          },
+          {
+            "label": "Sep",
+            "value": 2480.5,
+            "display": "2,480.50 Pound sterling",
+            "current": true
+          }
+        ],
+        "usual": null,
+        "usual_label": "usual",
+        "legend": [
+          "Spending"
+        ]
+      },
+      "ring": {
+        "pct": 22.5,
+        "label": "Saved",
+        "display": "719.50 Pound sterling",
+        "text": "22% of income"
+      },
+      "categories": [
+        {
+          "name": "Rent",
+          "value": 1200,
+          "display": "1,200.00 Pound sterling",
+          "sub": "as usual",
+          "dir": "same",
+          "width": 1.0,
+          "usual_at": 1.0
+        },
+        {
+          "name": "Food & groceries",
+          "value": 410.25,
+          "display": "410.25 Pound sterling",
+          "sub": "as usual",
+          "dir": "same",
+          "width": 0.3419,
+          "usual_at": 0.3167
+        }
+      ],
+      "categories_title": "Where it went",
+      "facts": [
+        "Spending is 6% less than Aug 2026.",
+        "2 of 2 budgets kept.",
+        "Net worth rose by 719.50 Pound sterling.",
+        "Goals: Holiday 40%."
+      ],
+      "ideas": [],
+      "ideas_title": "Ideas",
+      "note": null,
+      "fallback_text": "Your month: Sep 2026\nIncome 3,200.00 Pound sterling, spending 2,480.50 Pound sterling, saved 719.50 Pound sterling (22% of income).\nSpending is 6% less than Aug 2026.\n2 of 2 budgets kept.\nNet worth rose by 719.50 Pound sterling.\nGoals: Holiday 40%.\nWhere it went:\n• Rent: 1,200.00 Pound sterling (as usual)\n• Food & groceries: 410.25 Pound sterling (as usual)"
+    }
+  ]
+}

@@ -6,50 +6,83 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 
 from playwright.sync_api import expect
 
 from tests_e2e.conftest import ARTIFACTS, switch_language
 
-REVIEW = {"kind": "weekly", "choices": ["۸۰٫۰۰۰ ریال عمان برای هدف لپ‌تاپ به پس‌انداز ارزی منتقل کن",
-                                        "برای تفریح و رستوران بودجهٔ ماهانه بگذار"],
-          "text": "**مرور هفته، ۲۵ مهر تا ۱ آبان ۱۴۰۵**\n"
-                  "این هفته ۴۱٫۵۰۰ ریال عمان خرج کردید؛ ۳۷٪ بیشتر از هفته‌های معمولتان (۳۰٫۲۵۰ ریال عمان).\n"
-                  "درآمد: ۶۰۰٫۰۰۰ ریال عمان.\nبیشترین خرج: شام تولد، ۱۲٫۵۰۰ ریال عمان (۲۹ مهر ۱۴۰۵).\n"
-                  "کجا خرج شد:\n• تفریح و رستوران: ۱۸٫۵۰۰ ریال عمان (۱۶۴٪ بیشتر از معمول)\n"
-                  "• خوراک و سوپرمارکت: ۱۵٫۰۰۰ ریال عمان (معمول)\n"
-                  "این هفته درآمد داشتید — ۸۰٫۰۰۰ ریال عمان برای «لپ‌تاپ» کنار بگذارید؟\n"
-                  "خرج «تفریح و رستوران» ۱۶۴٪ بیشتر از معمول بود — بودجهٔ ماهانه برایش بگذارید؟"}
+# the cards as the server draws them (app/services/proactive_reviews.py render(...)["card"])
+CARDS = json.loads((Path(__file__).parent / "fixtures" / "review_cards.json").read_text(encoding="utf-8"))
+
+
+def _review(card, text="—"):
+    return {"kind": card["kind"], "text": text, "choices": [i["ask"] for i in card["ideas"]], "card": card}
 
 
 def test_a_weekly_review_in_the_chat_and_its_buttons(flow_page):
+    """AL17: the week as a card — its emoji, the figure counted up, the change, five bars and the usual
+    line, the categories as bars, two ideas with a button each; then the month with its ring."""
     page, watch = flow_page("e2e_reviews")
     served = []
+    reviews = [_review(CARDS["week_fa"]), _review(CARDS["month_fa"])]
     page.route("**/ai-accountant/reviews", lambda route: (served.append(1), route.fulfill(
         status=200, content_type="application/json",
-        body=json.dumps({"session_id": None, "reviews": [REVIEW] if len(served) == 1 else []}, ensure_ascii=False)))[-1])
+        body=json.dumps({"session_id": None, "reviews": reviews if len(served) == 1 else []}, ensure_ascii=False)))[-1])
     asked = []
     page.route("**/ai-accountant/chat", lambda route: (asked.append(json.loads(route.request.post_data or "{}")), route.fulfill(
         status=200, content_type="application/json",
         body=json.dumps({"session_id": "s-al", "turns": 1, "stop_reason": "end_turn", "tool_calls": [], "proposals": [],
-                         "text": "میانگین سه ماه گذشتهٔ تفریح و رستوران ۲۰٫۰۰۰ ریال عمان است."}, ensure_ascii=False)))[-1])
+                         "text": "کارت آماده است: بودجهٔ ماهانهٔ ۳۰٫۰۰۰ ریال عمان برای «تفریح و رستوران»."},
+                        ensure_ascii=False)))[-1])
     try:
         switch_language(page, "fa")
         page.evaluate("() => { location.hash = 'ai-accountant'; }")
         page.wait_for_load_state("networkidle")
-        bubble = page.locator(".msg-row.assistant .msg").filter(has_text="مرور هفته")
-        expect(bubble).to_be_visible()
-        expect(bubble.locator("strong").first).to_have_text("مرور هفته، ۲۵ مهر تا ۱ آبان ۱۴۰۵")     # its title, bold
-        chips = page.locator(".ai-choices .chip")
-        expect(chips).to_have_count(2)
+        week = page.locator(".ai-review-card.mood-watch")
+        expect(week).to_be_visible()
+        expect(week.locator(".ai-review-emoji")).to_have_text("👀")
+        expect(week.locator(".ai-review-title")).to_have_text("مرور هفته، ۲۵ مهر تا ۱ آبان ۱۴۰۵")
+        expect(week.locator(".ai-review-figure")).to_have_text("۴۱٫۵۰۰")            # counted up to the books' figure
+        expect(week.locator(".ai-review-delta")).to_contain_text("۳۷٪ بیشتر از معمول")
+        expect(week.locator(".ai-review-col")).to_have_count(5)
+        expect(week.locator(".ai-review-col-label.is-current")).to_have_text("این هفته")
+        expect(week.locator(".ai-review-usual")).to_have_count(1)
+        expect(week.locator(".ai-review-cat")).to_have_count(3)
+        expect(week.locator(".ai-review-idea")).to_have_count(2)
+        month = page.locator(".ai-review-card.mood-good")
+        expect(month.locator(".ai-review-emoji")).to_have_text("🏆")
+        expect(month.locator(".ai-review-ring-pct")).to_have_text("۳۲٪ از درآمد")
         os.makedirs(ARTIFACTS, exist_ok=True)
-        page.locator("#ai-acct-messages").screenshot(path=os.path.join(ARTIFACTS, "chat-weekly-review-fa.png"))
-        chips.nth(1).click()                                     # a button asks the assistant, as typed
-        expect(page.locator("#ai-acct-messages")).to_contain_text("میانگین سه ماه گذشته")
-        assert asked and asked[-1]["message"] == "برای تفریح و رستوران بودجهٔ ماهانه بگذار"
+        for card, name in ((week, "review-week-fa.png"), (month, "review-month-fa.png")):
+            card.scroll_into_view_if_needed()
+            page.wait_for_timeout(1300)                                           # the bars grown, the ring filled
+            card.screenshot(path=os.path.join(ARTIFACTS, name))
+        week.locator(".ai-review-ask").nth(1).click()                             # an idea's button asks, as typed
+        expect(page.locator("#ai-acct-messages")).to_contain_text("کارت آماده است: بودجهٔ ماهانهٔ")
+        assert asked and asked[-1]["message"] == CARDS["week_fa"]["ideas"][1]["ask"]
+        expect(week.locator(".ai-review-ask").first).to_be_disabled()
         assert watch.problems() == [], watch.problems()
     finally:
         switch_language(page, "en")
+
+
+def test_an_english_month_on_a_phone_sized_screen(flow_page):
+    page, watch = flow_page("e2e_reviews")
+    page.set_viewport_size({"width": 400, "height": 900})
+    page.route("**/ai-accountant/reviews", lambda route: route.fulfill(
+        status=200, content_type="application/json",
+        body=json.dumps({"session_id": None, "reviews": [_review(CARDS["month_en"])]}, ensure_ascii=False)))
+    page.evaluate("() => { location.hash = 'ai-accountant'; }")
+    page.wait_for_load_state("networkidle")
+    card = page.locator(".ai-review-card.mood-good")
+    expect(card).to_be_visible()
+    expect(card.locator(".ai-review-headline .ai-review-label")).to_have_text("Spent in Mehr 1405")
+    page.wait_for_timeout(1300)
+    assert page.evaluate("() => document.documentElement.scrollWidth <= window.innerWidth + 1")   # no sideways scroll
+    os.makedirs(ARTIFACTS, exist_ok=True)
+    card.screenshot(path=os.path.join(ARTIFACTS, "review-month-en-narrow.png"))
+    assert watch.problems() == [], watch.problems()
 
 
 def test_the_switches_are_the_readers_own(flow_page):

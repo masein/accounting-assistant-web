@@ -33,6 +33,9 @@
     <string name="voucher_person_new">Persona nueva: %1$s</string>
     <string name="voucher_party">Tercero: %1$s</string>
     <string name="voucher_party_new">Tercero nuevo: %1$s</string>
+    <string name="review_weekly">Resumen semanal</string>
+    <string name="review_monthly">Resumen mensual</string>
+    <string name="review_nudge">Recordatorio</string>
     <string name="voucher_title">Asiento</string>
     <string name="suggestions_intro">Pregunta por tus libros o dime qué registrar. Estas se responden al instante:</string>
     <string name="listening">Escuchando… suelta para terminar</string>

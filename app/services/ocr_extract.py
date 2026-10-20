@@ -19,6 +19,7 @@ digit scraper).
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
@@ -321,7 +322,17 @@ def ocr_engine_available() -> bool:
         return False
 
 
-def _rasterize_pages(path: Path, ctype: str, max_pages: int = 4) -> list[tuple[str, str]]:
+def pdf_page_count(path: Path) -> int:
+    """How many pages a PDF has (0 when it can't be opened)."""
+    try:
+        import fitz  # PyMuPDF
+        with fitz.open(str(path)) as doc:
+            return int(doc.page_count)
+    except Exception:  # noqa: BLE001 — unreadable here is the caller's soft failure
+        return 0
+
+
+def _rasterize_pages(path: Path, ctype: str, max_pages: int = 4, first_page: int = 0) -> list[tuple[str, str]]:
     """Return ``(mime_type, base64)`` page images for the document. Images
     pass through as-is; PDFs are rendered page-by-page via PyMuPDF.
 
@@ -344,7 +355,7 @@ def _rasterize_pages(path: Path, ctype: str, max_pages: int = 4) -> list[tuple[s
         doc = fitz.open(str(path))
         # 220 DPI keeps dense Persian invoice digits legible to the model.
         zoom = fitz.Matrix(220 / 72, 220 / 72)
-        for page in doc[:max_pages]:
+        for page in doc[first_page:first_page + max_pages]:
             pix = page.get_pixmap(matrix=zoom)
             png = pix.tobytes("png")
             pages.append(("image/png", base64.b64encode(png).decode("ascii")))
@@ -544,41 +555,125 @@ def _parse_json_array(content: str) -> list[dict[str, Any]]:
     return [r for r in out if isinstance(r, dict)]
 
 
-async def extract_statement_rows(path: str, content_type: str) -> list[dict[str, Any]]:
-    """Vision-extract a bank statement (image/PDF) into normalized rows:
-    ``{date(ISO|None), description, amount, balance, direction}``. Uses the
-    same rasterize + Gemini/gpt-4o vision path as the invoice extractor (which
-    reads dense Persian tables that the free-text row parser can't). Raises
-    OCRExtractError on any failure so the caller can fall back / return a
-    clean 422 — never a 500."""
+# A statement is read a page at a time, a few pages at once: the whole of it in
+# one call read only its first 4 pages — 40 of a 22-page Day Bank statement's
+# rows, the other 18 pages never said (2026-10-20, scenario AJ1).
+STATEMENT_PAGES_MAX = 60
+STATEMENT_PAGES_AT_ONCE = 4
+
+_STATEMENT_HEAD_PROMPT = (
+    "This is the first page of a document. Return ONLY a JSON object: "
+    '{"is_bank_statement": true or false (an account statement: a table of dated transactions with a running '
+    'balance), "bank": string or null (the bank\'s name as printed, e.g. "Day Bank", "بانک ملت"), '
+    '"account_number": string or null (the account / deposit number as printed, Persian digits converted to '
+    "0-9)}."
+)
+
+
+def _statement_row(r: dict[str, Any]) -> dict[str, Any] | None:
+    amount = coerce_amount(r.get("amount"))
+    if amount is None or amount <= 0:
+        return None
+    direction = str(r.get("direction") or "").strip().lower()
+    if direction not in ("debit", "credit"):
+        # Infer from a signed amount if the model didn't label it.
+        direction = "debit" if str(r.get("amount") or "").strip().startswith("-") else "credit"
+    return {
+        "date": _normalize_date(r.get("date")),
+        "description": str(r.get("description") or "").strip(),
+        "amount": amount,
+        "balance": coerce_amount(r.get("balance")),
+        "direction": direction,
+    }
+
+
+async def read_statement_head(path: str, content_type: str) -> dict[str, Any]:
+    """What a statement's first page says of itself: is it one, which bank,
+    which account. A scanned PDF has no text to tell (scenarios AJ5, AJ7).
+    Best-effort: {} when it can't be read."""
+    p = Path(path)
+    ctype = (content_type or "").lower()
+    try:
+        pages = _rasterize_pages(p, ctype, max_pages=1)
+        out = _parse_json_blob(await _vision_raw(pages, _STATEMENT_HEAD_PROMPT))
+    except AIBudgetExceeded:
+        raise
+    except Exception:  # noqa: BLE001
+        logger.warning("statement head OCR failed for %s", p.name, exc_info=True)
+        return {}
+    number = re.sub(r"\D", "", str(out.get("account_number") or "").translate(_PERSIAN_DIGITS))
+    return {"is_bank_statement": bool(out.get("is_bank_statement")),
+            "bank": (str(out.get("bank") or "").strip() or None), "account_number": number or None}
+
+
+async def extract_statement_pages(path: str, content_type: str, *, on_page=None) -> dict[str, Any]:
+    """Every page of a statement (image/PDF) read into normalized rows, each
+    with its ``page``, in the statement's order: ``{rows, pages, pages_read,
+    failed_pages, beyond}``. A page is read on its own (a dense page's rows
+    fit one answer), a few at once, and once more when it fails; a page that
+    fails twice is named, never dropped silently (AJ4). ``on_page(done,
+    total)`` is told as each page is read. Raises OCRExtractError when no page
+    can be read at all."""
     p = Path(path)
     if not p.exists():
         raise OCRExtractError("Attachment file not found")
     ctype = (content_type or "").lower()
     if ctype.startswith("image/jpeg") or ctype.startswith("image/jpg"):
         ctype = "image/jpeg"
+    total = pdf_page_count(p) if ctype == "application/pdf" else 1
+    whole = ctype != "application/pdf" or total == 0
+    if whole:
+        # a picture, or a PDF whose pages can't be counted: read as one, the way it always was
+        total = 1
+    pages = min(total, STATEMENT_PAGES_MAX)
+    gate = asyncio.Semaphore(STATEMENT_PAGES_AT_ONCE)
+    read: dict[int, list[dict[str, Any]]] = {}
+    failed: list[int] = []
+    done = 0
 
-    pages = _rasterize_pages(p, ctype)  # raises OCREngineMissing if no PyMuPDF
-    content = await _vision_raw(pages, _STATEMENT_PROMPT)
-    raw_rows = _parse_json_array(content)
+    async def one(i: int) -> None:
+        nonlocal done
+        async with gate:
+            for attempt in (1, 2):
+                try:
+                    images = _rasterize_pages(p, ctype) if whole \
+                        else _rasterize_pages(p, ctype, max_pages=1, first_page=i)
+                    raw = _parse_json_array(await _vision_raw(images, _STATEMENT_PROMPT))
+                    read[i] = [row for row in (_statement_row(r) for r in raw) if row]
+                    break
+                except (AIBudgetExceeded, OCREngineMissing):
+                    raise
+                except Exception:  # noqa: BLE001 — once more, then named
+                    if attempt == 2:
+                        logger.warning("statement page %d of %s unread", i + 1, p.name, exc_info=True)
+                        failed.append(i + 1)
+            done += 1
+            if on_page is not None:
+                try:
+                    on_page(done, pages)
+                except Exception:  # noqa: BLE001 — progress is best effort
+                    logger.warning("statement progress callback failed", exc_info=True)
 
+    outcomes = await asyncio.gather(*(one(i) for i in range(pages)), return_exceptions=True)
+    for outcome in outcomes:
+        if isinstance(outcome, (AIBudgetExceeded, OCREngineMissing)):
+            raise outcome
     rows: list[dict[str, Any]] = []
-    for r in raw_rows:
-        amount = coerce_amount(r.get("amount"))
-        if amount is None or amount <= 0:
-            continue
-        direction = str(r.get("direction") or "").strip().lower()
-        if direction not in ("debit", "credit"):
-            # Infer from a signed amount if the model didn't label it.
-            direction = "debit" if str(r.get("amount") or "").strip().startswith("-") else "credit"
-        rows.append({
-            "date": _normalize_date(r.get("date")),
-            "description": str(r.get("description") or "").strip(),
-            "amount": amount,
-            "balance": coerce_amount(r.get("balance")),
-            "direction": direction,
-        })
-    return rows
+    for i in range(pages):
+        for row in read.get(i, []):
+            rows.append({**row, "page": i + 1})
+    if not read:
+        raise OCRExtractError("No page of the statement could be read")
+    return {"rows": rows, "pages": total, "pages_read": pages - len(failed), "failed_pages": sorted(failed),
+            "beyond": max(0, total - pages)}
+
+
+async def extract_statement_rows(path: str, content_type: str) -> list[dict[str, Any]]:
+    """Vision-extract a bank statement (image/PDF) into normalized rows:
+    ``{date(ISO|None), description, amount, balance, direction, page}``, every
+    page of it (``extract_statement_pages``). Raises OCRExtractError on any
+    failure so the caller can fall back / return a clean 422 — never a 500."""
+    return (await extract_statement_pages(path, content_type))["rows"]
 
 
 def _normalize_extracted(out: dict[str, Any]) -> dict[str, Any]:

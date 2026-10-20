@@ -21,13 +21,14 @@ lives here and both callers share it:
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json as _json
 import logging
 import re
 import unicodedata
 import uuid
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -117,6 +118,7 @@ _BANK_NAMES = (
     ("maskan", "Maskan"), ("مسکن", "Maskan"), ("ayandeh", "Ayandeh"), ("آینده", "Ayandeh"),
     ("shahr", "Shahr"), ("شهر", "Shahr"), ("sina", "Sina"), ("سینا", "Sina"),
     ("resalat", "Resalat"), ("رسالت", "Resalat"), ("blu", "Blu"), ("بلو", "Blu"),
+    ("day bank", "Day"), ("بانک دی", "Day"), ("dey bank", "Day"),          # never «دی» alone: a month
     ("hsbc", "HSBC"), ("barclays", "Barclays"), ("lloyds", "Lloyds"), ("natwest", "NatWest"),
     ("monzo", "Monzo"), ("revolut", "Revolut"),
 )
@@ -131,180 +133,38 @@ def guess_bank_name(*sources: str, document_text: str = "") -> str:
     into a "Refah" one (QA 2026-09-24)."""
     hint = _norm(" ".join(s for s in sources if s))
     for key, name in _BANK_NAMES:
-        if key in hint:
+        if _names(key, hint):
             return name
     # Only the first line — a statement's title, never its rows.
     first = ((document_text or "").strip().splitlines() or [""])[0]
     head = _norm(first[:160])
     for key, name in _BANK_NAMES:
-        if key in head:
+        if _names(key, head):
             return name
     return "Unknown"
+
+
+def _names(key: str, text: str) -> bool:
+    """A bank's name as a word of ``text``: «درآمد شهریه» named Bank Shahr, and a father's
+    instructions for a Day Bank statement went to a «Shahr» one (2026-10-20). Latin names
+    still match inside a file name («mellat-transactions», "parsian2026")."""
+    if key.isascii():
+        return key in text
+    return re.search(rf"(?<!\w){re.escape(key)}(?!\w)", text) is not None
 
 
 # ---------------------------------------------------------------------------
 # Import
 # ---------------------------------------------------------------------------
 
-async def import_statement_bytes(
-    db: Session,
-    *,
-    content: bytes,
-    filename: str,
-    content_type: str | None,
-    bank_name: str = "Unknown",
-    column_map: dict[str, int] | str | None = None,
-    confirm_duplicate: bool = False,
-    pdf_password: str | None = None,
-) -> BankStatementUploadResponse:
-    """Parse and persist a bank statement. Raises HTTPException for the same
-    conditions the upload endpoint always did (bad type, unreadable file,
-    zero rows); returns ``status="duplicate"`` / ``"needs_mapping"``
-    responses instead of raising for those soft outcomes."""
-    filename = filename or "unknown"
-    ext = Path(filename).suffix.lower()
-
-    from app.services.bank_statement_parser import (
-        parse_csv,
-        parse_excel,
-        parse_ocr_rows,
-    )
-
-    if ext not in SUPPORTED_STATEMENT_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}")
-
-    # File-level duplicate detection: hash the raw bytes. If we've imported an
-    # identical file before, flag it and ask the user to confirm rather than
-    # silently importing the same transactions twice.
-    content_hash = hashlib.sha256(content).hexdigest()
-    if not confirm_duplicate:
-        existing = db.execute(
-            select(BankStatement).where(BankStatement.content_hash == content_hash)
-            .order_by(BankStatement.created_at.desc())
-        ).scalars().first()
-        if existing:
-            return BankStatementUploadResponse(
-                id=None,
-                status="duplicate",
-                total_rows=0,
-                bank_name=bank_name,
-                source_type=ext.lstrip("."),
-                duplicate=True,
-                duplicate_of=existing.id,
-                errors=[
-                    f"This file was already imported on {existing.created_at:%Y-%m-%d} "
-                    f"as '{existing.source_filename}'."
-                ],
-            )
-
-    # A locked PDF is unlocked in memory first (the duplicate check above used
-    # the file as it came); without the right password the caller asks for it.
-    if ext == ".pdf":
-        from app.services.pdf_unlock import PasswordNeeded, unlock
-        try:
-            content = unlock(content, pdf_password)
-        except PasswordNeeded as exc:
-            return BankStatementUploadResponse(
-                id=None, status="needs_password", total_rows=0, bank_name=bank_name, source_type="pdf",
-                needs_password=True, password_wrong=exc.wrong,
-                errors=["The PDF password isn't right." if exc.wrong else "This PDF is password-protected."],
-            )
-
-    parsed_column_map: dict[str, int] | None = None
-    if column_map:
-        try:
-            raw = _json.loads(column_map) if isinstance(column_map, str) else column_map
-            parsed_column_map = {str(k): int(v) for k, v in raw.items()}
-        except (ValueError, TypeError, AttributeError):
-            raise HTTPException(status_code=422, detail="Invalid column_map: expected a JSON object of role → column index.")
-
-    # Any failure parsing the document (corrupt file, OCR/model error, an
-    # unreadable Persian PDF) must surface as a clean JSON 422 — never an
-    # unhandled 500 / plain-text "Internal Server Error" that the frontend
-    # then chokes on with "Unexpected token 'I'…".
-    try:
-        if ext in (".csv", ".tsv"):
-            result = parse_csv(content, bank_name=bank_name, column_map=parsed_column_map)
-        elif ext in (".xlsx", ".xls"):
-            tmp_path = Path("/tmp") / f"bs_{uuid.uuid4().hex}{ext}"
-            tmp_path.write_bytes(content)
-            try:
-                result = parse_excel(str(tmp_path), bank_name=bank_name, column_map=parsed_column_map)
-            finally:
-                tmp_path.unlink(missing_ok=True)
-        else:  # image / PDF → vision row-extraction, fall back to text scraping
-            from app.services.bank_statement_parser import parse_vision_rows
-            from app.services import ocr_extract
-
-            ctype = content_type or ("application/pdf" if ext == ".pdf" else "image/jpeg")
-            tmp_path = Path("/tmp") / f"bs_{uuid.uuid4().hex}{ext}"
-            tmp_path.write_bytes(content)
-            try:
-                result = None
-                # Primary: same vision pipeline the invoice path uses, asking
-                # for row-structured JSON — reads dense Persian RTL tables the
-                # free-text regex parser can't.
-                try:
-                    vrows = await ocr_extract.extract_statement_rows(str(tmp_path), ctype)
-                    if vrows:
-                        result = parse_vision_rows(vrows, bank_name=bank_name)
-                except Exception:
-                    logger.warning("vision statement OCR failed for %s — falling back to text", filename, exc_info=True)
-                # Fallback: embedded-text row scraping.
-                if result is None or not result.rows:
-                    ocr_result = await ocr_extract.extract_from_attachment(str(tmp_path), ctype)
-                    raw_text = ocr_result.get("raw_text", "") or ""
-                    result = parse_ocr_rows(raw_text, bank_name=bank_name)
-                result.source_type = "ocr_pdf" if ext == ".pdf" else "ocr_image"
-            finally:
-                tmp_path.unlink(missing_ok=True)
-    except HTTPException:
-        raise
-    except Exception:
-        logger.exception("bank-statement parse failed for %s", filename)
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                "Couldn't read this statement automatically. Try exporting it as "
-                "CSV or Excel, or check that an AI model is configured for OCR."
-            ),
-        )
-
-    # Unknown column layout → return a structured "needs mapping" response so
-    # the UI can present a mapping step, rather than rejecting the file.
-    if getattr(result, "needs_mapping", False):
-        return BankStatementUploadResponse(
-            id=None,
-            status="needs_mapping",
-            total_rows=0,
-            bank_name=bank_name,
-            source_type=result.source_type,
-            needs_mapping=True,
-            headers=result.headers,
-            required_fields=["date", "amount", "description"],
-            errors=result.errors,
-        )
-
-    # A document we opened but couldn't extract any rows from is still a
-    # soft failure for the user — tell them clearly instead of saving an
-    # empty statement that looks like success.
-    if not result.rows:
-        raise HTTPException(status_code=422, detail=(
-            f"No transaction rows could be read from this statement. {'; '.join(result.errors[:3])}" if result.errors
-            else "No transaction rows could be read from this statement."))
-
-    stmt = BankStatement(
-        bank_name=bank_name,
-        account_number=result.account_number,
-        source_type=result.source_type,
-        source_filename=filename,
-        content_hash=content_hash,
-        from_date=result.from_date,
-        to_date=result.to_date,
-        status="parsed",
-        total_rows=len(result.rows),
-    )
+async def _store_rows(db: Session, stmt: BankStatement, result) -> set[int]:
+    """A statement's rows into the books' review: amounts to the currency's
+    places, rows already on file flagged, each row's account suggested.
+    Flushed; the caller commits. Returns the indexes of the duplicate rows."""
     stmt.currency = (result.currency or "").strip().upper() or statement_currency(db, stmt)
+    dates = [r.tx_date for r in result.rows if r.tx_date]
+    if dates and stmt.from_date is None:
+        stmt.from_date, stmt.to_date = min(dates), max(dates)
     # the reader keeps what the file says (7.50); the books keep the currency's
     # places — pence for pounds, whole rials
     from app.core.money import quantize
@@ -312,7 +172,8 @@ async def import_statement_bytes(
         r.debit, r.credit = quantize(r.debit or 0, stmt.currency), quantize(r.credit or 0, stmt.currency)
         if r.balance is not None:
             r.balance = quantize(r.balance, stmt.currency)
-    db.add(stmt)
+    if stmt not in db:
+        db.add(stmt)
     db.flush()
 
     from app.services.statement_categorizer import suggest_for_row
@@ -373,6 +234,191 @@ async def import_statement_bytes(
         except Exception:  # noqa: BLE001 - never fail an import over this
             logger.warning("LLM categorization pass skipped", exc_info=True)
 
+    return dupe_idx
+
+
+async def import_statement_bytes(
+    db: Session,
+    *,
+    content: bytes,
+    filename: str,
+    content_type: str | None,
+    bank_name: str = "Unknown",
+    column_map: dict[str, int] | str | None = None,
+    confirm_duplicate: bool = False,
+    pdf_password: str | None = None,
+) -> BankStatementUploadResponse:
+    """Parse and persist a bank statement. Raises HTTPException for the same
+    conditions the upload endpoint always did (bad type, unreadable file,
+    zero rows); returns ``status="duplicate"`` / ``"needs_mapping"``
+    responses instead of raising for those soft outcomes."""
+    filename = filename or "unknown"
+    ext = Path(filename).suffix.lower()
+
+    from app.services.bank_statement_parser import (
+        parse_csv,
+        parse_excel,
+        parse_ocr_rows,
+    )
+
+    if ext not in SUPPORTED_STATEMENT_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}")
+
+    # File-level duplicate detection: hash the raw bytes. If we've imported an
+    # identical file before, flag it and ask the user to confirm rather than
+    # silently importing the same transactions twice.
+    content_hash = hashlib.sha256(content).hexdigest()
+    if not confirm_duplicate:
+        existing = db.execute(
+            select(BankStatement).where(BankStatement.content_hash == content_hash,
+                                        BankStatement.status != "failed")      # a read that stopped: read it again (AJ8)
+            .order_by(BankStatement.created_at.desc())
+        ).scalars().first()
+        if existing is not None:
+            settle_stale_reading(db, existing)
+            if existing.status == "failed":
+                existing = None
+        if existing:
+            return BankStatementUploadResponse(
+                id=None,
+                status="duplicate",
+                total_rows=0,
+                bank_name=bank_name,
+                source_type=ext.lstrip("."),
+                duplicate=True,
+                duplicate_of=existing.id,
+                errors=[
+                    f"This file was already imported on {existing.created_at:%Y-%m-%d} "
+                    f"as '{existing.source_filename}'."
+                ],
+            )
+
+    # A locked PDF is unlocked in memory first (the duplicate check above used
+    # the file as it came); without the right password the caller asks for it.
+    if ext == ".pdf":
+        from app.services.pdf_unlock import PasswordNeeded, unlock
+        try:
+            content = unlock(content, pdf_password)
+        except PasswordNeeded as exc:
+            return BankStatementUploadResponse(
+                id=None, status="needs_password", total_rows=0, bank_name=bank_name, source_type="pdf",
+                needs_password=True, password_wrong=exc.wrong,
+                errors=["The PDF password isn't right." if exc.wrong else "This PDF is password-protected."],
+            )
+
+    report: dict | None = None           # what a picture's reading found (scenarios AJ2–AJ4)
+    parsed_column_map: dict[str, int] | None = None
+    if column_map:
+        try:
+            raw = _json.loads(column_map) if isinstance(column_map, str) else column_map
+            parsed_column_map = {str(k): int(v) for k, v in raw.items()}
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(status_code=422, detail="Invalid column_map: expected a JSON object of role → column index.")
+
+    # Any failure parsing the document (corrupt file, OCR/model error, an
+    # unreadable Persian PDF) must surface as a clean JSON 422 — never an
+    # unhandled 500 / plain-text "Internal Server Error" that the frontend
+    # then chokes on with "Unexpected token 'I'…".
+    try:
+        if ext in (".csv", ".tsv"):
+            result = parse_csv(content, bank_name=bank_name, column_map=parsed_column_map)
+        elif ext in (".xlsx", ".xls"):
+            tmp_path = Path("/tmp") / f"bs_{uuid.uuid4().hex}{ext}"
+            tmp_path.write_bytes(content)
+            try:
+                result = parse_excel(str(tmp_path), bank_name=bank_name, column_map=parsed_column_map)
+            finally:
+                tmp_path.unlink(missing_ok=True)
+        else:  # image / PDF → vision row-extraction, fall back to text scraping
+            from app.services.bank_statement_parser import parse_vision_rows
+            from app.services import ocr_extract
+
+            ctype = content_type or ("application/pdf" if ext == ".pdf" else "image/jpeg")
+            if ext == ".pdf":
+                ctype = "application/pdf"
+            tmp_path = Path("/tmp") / f"bs_{uuid.uuid4().hex}{ext}"
+            tmp_path.write_bytes(content)
+            if ext == ".pdf" and ocr_extract.pdf_page_count(tmp_path) > SYNC_PAGES:
+                # every page, read after the upload returns: 22 pages in one call read the
+                # first 4 and said nothing of the rest (2026-10-20, scenario AJ1)
+                tmp_path.unlink(missing_ok=True)
+                return await _start_reading(db, content=content, filename=filename, ctype=ctype,
+                                            bank_name=bank_name, content_hash=content_hash)
+            try:
+                result = None
+                # Primary: same vision pipeline the invoice path uses, asking
+                # for row-structured JSON — reads dense Persian RTL tables the
+                # free-text regex parser can't. Every page, each on its own.
+                try:
+                    head_account = None
+                    if bank_name in ("", "Unknown") and ext == ".pdf" and not _has_text(tmp_path):
+                        # pictures only: its first page names the bank (AJ5); a PDF with text, the text does
+                        bank_name, head_account = await _bank_from_head(str(tmp_path), ctype)
+                    out = await ocr_extract.extract_statement_pages(str(tmp_path), ctype)
+                    if out["rows"]:
+                        report = _reading_report(out)                  # mends a misread amount first (AJ3)
+                        result = parse_vision_rows(out["rows"], bank_name=bank_name)
+                        result.account_number = result.account_number or head_account
+                except Exception:
+                    logger.warning("vision statement OCR failed for %s — falling back to text", filename, exc_info=True)
+                # Fallback: embedded-text row scraping.
+                if result is None or not result.rows:
+                    ocr_result = await ocr_extract.extract_from_attachment(str(tmp_path), ctype)
+                    raw_text = ocr_result.get("raw_text", "") or ""
+                    result = parse_ocr_rows(raw_text, bank_name=bank_name)
+                result.source_type = "ocr_pdf" if ext == ".pdf" else "ocr_image"
+            finally:
+                tmp_path.unlink(missing_ok=True)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("bank-statement parse failed for %s", filename)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Couldn't read this statement automatically. Try exporting it as "
+                "CSV or Excel, or check that an AI model is configured for OCR."
+            ),
+        )
+
+    # Unknown column layout → return a structured "needs mapping" response so
+    # the UI can present a mapping step, rather than rejecting the file.
+    if getattr(result, "needs_mapping", False):
+        return BankStatementUploadResponse(
+            id=None,
+            status="needs_mapping",
+            total_rows=0,
+            bank_name=bank_name,
+            source_type=result.source_type,
+            needs_mapping=True,
+            headers=result.headers,
+            required_fields=["date", "amount", "description"],
+            errors=result.errors,
+        )
+
+    # A document we opened but couldn't extract any rows from is still a
+    # soft failure for the user — tell them clearly instead of saving an
+    # empty statement that looks like success.
+    if not result.rows:
+        raise HTTPException(status_code=422, detail=(
+            f"No transaction rows could be read from this statement. {'; '.join(result.errors[:3])}" if result.errors
+            else "No transaction rows could be read from this statement."))
+
+    stmt = BankStatement(
+        bank_name=bank_name,
+        account_number=result.account_number,
+        source_type=result.source_type,
+        source_filename=filename,
+        content_hash=content_hash,
+        from_date=result.from_date,
+        to_date=result.to_date,
+        status="parsed",
+        total_rows=len(result.rows),
+    )
+    if report:
+        stmt.read_report = _json.dumps(report, ensure_ascii=False)
+        stmt.pages_total, stmt.pages_read = report.get("pages"), report.get("pages_read")
+    dupe_idx = await _store_rows(db, stmt, result)
     db.commit()
     return BankStatementUploadResponse(
         id=stmt.id,
@@ -383,7 +429,165 @@ async def import_statement_bytes(
         errors=result.errors,
         skipped_rows=getattr(result, "skipped_rows", 0),
         duplicate_rows=len(dupe_idx),
+        pages_total=stmt.pages_total,
+        read_report=report,
     )
+
+
+# ---------------------------------------------------------------------------
+# A statement of pictures, read page by page (scenarios AJ1–AJ9)
+# ---------------------------------------------------------------------------
+
+# Up to this many pages a picture statement is read while the upload waits; a longer one after it returns.
+SYNC_PAGES = 2
+# A read that hasn't moved for this long stopped (the server restarted): it is said, and the file can come again.
+STALE_READING = timedelta(minutes=20)
+_READING: set = set()                   # the reads in flight, kept from the garbage collector
+
+
+def _reading_report(out: dict) -> dict:
+    """What a picture's reading found: its pages, the pages read and not,
+    its rows, the amounts its own balances mended, and its running
+    balance's check (scenarios AJ2–AJ4). Mends ``out["rows"]`` in place."""
+    from app.services.statement_checks import balance_check, mend_amounts
+    rows = out.get("rows") or []
+    mended = mend_amounts(rows)
+    return {"pages": out.get("pages"), "pages_read": out.get("pages_read"),
+            "failed_pages": out.get("failed_pages") or [], "beyond": out.get("beyond") or 0,
+            "rows": len(rows), "mended": mended, "balance": balance_check(rows)}
+
+
+def read_report(stmt: BankStatement) -> dict | None:
+    try:
+        return _json.loads(stmt.read_report) if stmt.read_report else None
+    except ValueError:
+        return None
+
+
+def settle_stale_reading(db: Session, stmt: BankStatement) -> None:
+    """A read that stopped (the server restarted) is said to have, not left «reading» for ever (AJ8)."""
+    if stmt.status != "reading":
+        return
+    moved = stmt.updated_at or stmt.created_at
+    if moved is not None and moved.tzinfo is None:
+        moved = moved.replace(tzinfo=timezone.utc)
+    if moved is not None and datetime.now(timezone.utc) - moved > STALE_READING:
+        stmt.status = "failed"
+        stmt.read_report = _json.dumps({**(read_report(stmt) or {}), "stopped": True}, ensure_ascii=False)
+        db.commit()
+
+
+def _has_text(path: Path) -> bool:
+    from app.services.ocr_extract import _extract_pdf_text
+    try:
+        return bool((_extract_pdf_text(path) or "").strip())
+    except Exception:  # noqa: BLE001
+        return False
+
+
+async def _bank_from_head(path: str, ctype: str) -> tuple[str, str | None]:
+    """The bank and account a statement's first page names (scenario AJ5)."""
+    from app.services import ocr_extract
+    head = await ocr_extract.read_statement_head(path, ctype)
+    bank = guess_bank_name(head.get("bank") or "") if head.get("bank") else "Unknown"
+    return bank, head.get("account_number")
+
+
+async def _start_reading(db: Session, *, content: bytes, filename: str, ctype: str, bank_name: str,
+                         content_hash: str) -> BankStatementUploadResponse:
+    """A long statement of pictures: on file at once as «reading», read after the upload returns."""
+    import tempfile
+
+    from app.db.tenant import get_current_company
+    from app.services import ocr_extract
+    folder = Path(tempfile.gettempdir()) / "statement_reading"
+    folder.mkdir(parents=True, exist_ok=True)
+    stmt = BankStatement(bank_name=bank_name or "Unknown", source_type="ocr_pdf", source_filename=filename,
+                         content_hash=content_hash, status="reading", total_rows=0, pages_read=0)
+    stmt.currency = statement_currency(db, stmt)
+    db.add(stmt)
+    db.flush()
+    path = folder / f"{stmt.id}.pdf"
+    path.write_bytes(content)
+    stmt.pages_total = ocr_extract.pdf_page_count(path)
+    db.commit()
+    job = _read_in_background(stmt.id, get_current_company(), str(path), ctype,
+                              bind=db.get_bind() if settings.statement_read_inline else None)
+    if settings.statement_read_inline:
+        await job
+        db.expire_all()
+    else:
+        task = asyncio.get_running_loop().create_task(job)
+        _READING.add(task)
+        task.add_done_callback(_READING.discard)
+    stmt = db.get(BankStatement, stmt.id)
+    return BankStatementUploadResponse(
+        id=stmt.id, status=stmt.status, total_rows=stmt.total_rows, bank_name=stmt.bank_name,
+        source_type="ocr_pdf", pages_total=stmt.pages_total, read_report=read_report(stmt))
+
+
+async def _read_in_background(statement_id, company_id, path: str, ctype: str, *, bind=None) -> None:
+    """Every page of a statement of pictures, read and stored, its progress
+    said as it goes; any failure leaves it «failed» with why, never «reading»."""
+    from app.db.session import SessionLocal
+    from app.db.tenant import use_company
+    from app.services import ocr_extract
+    from app.services.bank_statement_parser import parse_vision_rows
+    import contextlib
+    db = Session(bind=bind) if bind is not None else SessionLocal()
+    scope = (lambda: use_company(company_id)) if company_id is not None else contextlib.nullcontext
+    try:
+        with scope():
+            stmt = db.get(BankStatement, statement_id)
+            if stmt is None:
+                return
+
+            def progress(done: int, total: int) -> None:
+                stmt.pages_read = done
+                db.commit()
+
+            try:
+                bank, account = (stmt.bank_name, None)
+                if stmt.bank_name in ("", "Unknown"):
+                    bank, account = await _bank_from_head(path, ctype)
+                out = await ocr_extract.extract_statement_pages(path, ctype, on_page=progress)
+                report = _reading_report(out)                          # mends a misread amount first (AJ3)
+                result = parse_vision_rows(out["rows"], bank_name=bank)
+            except Exception as exc:  # noqa: BLE001 — said on the statement, never left «reading»
+                logger.warning("statement %s couldn't be read", statement_id, exc_info=True)
+                db.rollback()
+                stmt.status = "failed"
+                stmt.read_report = _json.dumps({"error": str(exc)[:300]}, ensure_ascii=False)
+                db.commit()
+                return
+            if not result.rows:
+                stmt.status = "failed"
+                stmt.read_report = _json.dumps({**report, "error": "no rows"}, ensure_ascii=False)
+                db.commit()
+                return
+            stmt.bank_name = bank or stmt.bank_name
+            stmt.account_number = stmt.account_number or result.account_number or account
+            stmt.source_type = "ocr_pdf"
+            stmt.total_rows = len(result.rows)
+            await _store_rows(db, stmt, result)
+            stmt.status = "parsed"
+            stmt.pages_total, stmt.pages_read = report["pages"], report["pages_read"]
+            stmt.read_report = _json.dumps(report, ensure_ascii=False)
+            db.commit()
+    except Exception:  # noqa: BLE001
+        logger.exception("statement %s reading failed", statement_id)
+        try:
+            db.rollback()
+            with scope():
+                stmt = db.get(BankStatement, statement_id)
+                if stmt is not None and stmt.status == "reading":
+                    stmt.status = "failed"
+                    db.commit()
+        except Exception:  # noqa: BLE001
+            pass
+    finally:
+        db.close()
+        Path(path).unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------------------

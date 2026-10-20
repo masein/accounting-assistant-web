@@ -65,7 +65,9 @@ def test_the_phone_dates_and_names_what_the_text_does_not(client, db, co, phone)
     assert row.tx_date == YESTERDAY and row.bank_name.startswith("Saman") and row.debit == 40_000
     # a hint that isn't a bank is not taken
     out = _send(client, phone, ("برداشت:41,000\nمانده:919,000", {"bank": "Nowhere"}))
-    assert out["added"] == 1 and _rows(db, co)[-1].bank_name.startswith("Bank")
+    # by its amount: both statements' rows are row 1, in no set order on Postgres
+    [other] = [r for r in _rows(db, co) if r.debit == 41_000]
+    assert out["added"] == 1 and other.bank_name.startswith("Bank")
 
 
 def test_y3_what_isnt_a_movement_and_too_many(client, db, co, phone):

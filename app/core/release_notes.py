@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.19"
+CURRENT_RELEASE = "2026.10.20"
 
 
 @dataclass(frozen=True)
@@ -1985,6 +1985,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "دفاترتان را در گفتگو بیندازید — همهٔ فایل‌ها، هر کدام با کارتی که می‌گوید چند سند دارد و از کی تا کی — و سندهای آمادهٔ هر فایل را از کارتش وارد کنید؛ هر سند کامل وارد می‌شود و گفتگو می‌گوید چه وارد شد. حساب‌هایی که باید تطبیق شوند، صفحهٔ ورود سندها را روی همان فایل باز می‌کنند. کدهای حساب‌ها در دفاتر خودتان نگه داشته می‌شود: ۱۳۰۰ یا ۱۳۰۲ را بنویسید تا حسابی که شده‌اند پیدا شود، و کارت‌ها هر دو کد را نشان می‌دهند. ورود قبلی که فایلی را نادرست خوانده بود، در صفحهٔ «مهاجرت» فهرست می‌شود تا با تأیید شما حذف شود.",
                     "es": "Suelta tus diarios en el chat — todos los archivos, cada uno con una tarjeta que dice cuántos asientos tiene y de cuándo a cuándo — e importa desde su tarjeta los asientos listos; cada uno entra entero y el chat dice qué entró. Las cuentas por asignar abren la importación de diarios con el mismo archivo. Se guardan los códigos que tus cuentas tenían en tus propios libros: escribe 1300 o 1302 y aparece la cuenta en que se convirtieron, y las tarjetas muestran ambos códigos. Una importación anterior que leyó mal un archivo aparece en Migración, para quitarla cuando lo confirmes.",
                     "ar": "أسقط دفاترك في المحادثة — كل الملفات، ولكل ملف بطاقة تقول كم قيدًا فيه ومن متى إلى متى — واستورد القيود الجاهزة من بطاقته؛ يدخل كل قيد كاملًا وتقول المحادثة ما الذي دخل. والحسابات التي يلزم ربطها تفتح استيراد القيود على الملف نفسه. وتُحفظ رموز حساباتك في دفاترك: اكتب 1300 أو 1302 فيظهر الحساب الذي صارت إليه، وتعرض البطاقات الرمزين. واستيراد سابق قرأ ملفًا خطأً يظهر في صفحة «الترحيل» لحذفه بتأكيدك.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.20",
+        date="2026-10-20",
+        highlights=(
+            Highlight(
+                key="scanned-statements-every-page",
+                page="ai-accountant",
+                roles=("owner", "cfo", "accountant", "personal"),
+                title={
+                    "en": "A scanned bank statement, every page of it",
+                    "fa": "صورتحساب اسکن‌شدهٔ بانک، همهٔ صفحه‌هایش",
+                    "es": "Un extracto bancario escaneado, todas sus páginas",
+                    "ar": "كشف بنكي ممسوح ضوئيًا، بكل صفحاته",
+                },
+                body={
+                    "en": "A statement that is only pictures — Day Bank's 22 pages, say — is now read to its last page, a few pages at a time, while you carry on; its card shows how far it has got. The running balance is checked from each row to the next: an amount misread by a digit is set right from the balances on either side and named, and a row that still doesn't follow is named by its page and row. Dropped in the chat with your instructions, «Continue with your instructions» applies them once it's read.",
+                    "fa": "صورتحسابی که فقط تصویر است — مثلاً ۲۲ صفحهٔ بانک دی — حالا تا صفحهٔ آخر خوانده می‌شود، چند صفحه با هم، و شما کارتان را ادامه می‌دهید؛ کارتش نشان می‌دهد تا کجا خوانده شده. مانده از هر ردیف به ردیف بعد بررسی می‌شود: مبلغی که یک رقمش نادرست خوانده شده از روی مانده‌های دو طرفش درست و نام برده می‌شود، و ردیفی که باز جور نباشد با صفحه و ردیفش گفته می‌شود. اگر با دستورتان در گفتگو بیندازید، وقتی خوانده شد «ادامه با دستور شما» آن را اعمال می‌کند.",
+                    "es": "Un extracto que solo son imágenes — por ejemplo, las 22 páginas del Day Bank — ahora se lee hasta la última página, unas pocas a la vez, mientras sigues trabajando; su tarjeta muestra el avance. El saldo se comprueba de cada fila a la siguiente: un importe mal leído en un dígito se corrige con los saldos de ambos lados y se indica, y una fila que aun así no cuadra se señala por su página y fila. Si lo sueltas en el chat con tus instrucciones, «Continuar con tus instrucciones» las aplica cuando termina de leerse.",
+                    "ar": "الكشف الذي هو صور فقط — صفحات بنك دي الاثنتان والعشرون مثلًا — يُقرأ الآن حتى صفحته الأخيرة، بضع صفحات معًا، وأنت تتابع عملك؛ وتُظهر بطاقته إلى أين وصلت القراءة. ويُفحص الرصيد من كل صف إلى الذي يليه: المبلغ الذي قُرئ أحد أرقامه خطأً يُصحَّح من الرصيدين على جانبيه ويُذكر، والصف الذي يبقى غير متّسق يُسمّى بصفحته وصفّه. وإذا أسقطته في المحادثة مع تعليماتك، يطبّقها زر «المتابعة بتعليماتك» بعد انتهاء القراءة.",
                 },
             ),
         ),

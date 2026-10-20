@@ -287,8 +287,8 @@ def _statement_handoff(db: Session, turn, message: str | None) -> str | None:
     """The model's context for a statement just imported, when the user's words say what to do with its
     rows (scenario AF2); None when they don't, and the import's own summary answers."""
     sid = (turn.intake or {}).get("statement_id")
-    if not sid or not _gives_rules(message):
-        return None
+    if not sid or not _gives_rules(message) or (turn.intake or {}).get("status") == "reading":
+        return None                  # still being read: «continue with your instructions» comes when it is (AJ6)
     from app.services.ai_accountant.statement_posting import context_for_model
     text = context_for_model(db, sid)
     return "\n\n" + text if text else None
@@ -1368,3 +1368,33 @@ def get_proposal(
         expires_at=(created + PROPOSAL_TTL).isoformat() if created else "",
         user_message=row.user_message,
     )
+
+
+@router.get("/statements/{statement_id}/card")
+def statement_card(statement_id: UUID, db: Session = Depends(get_db),
+                   user: SessionUser = Depends(get_current_user)) -> dict:
+    """A statement dropped in the chat, as it stands: still being read (how far), read (its card and
+    what was read), or stopped. The chat's «reading» card asks every few seconds (scenarios AJ1, AJ6)."""
+    from app.models.bank_statement import BankStatement
+    from app.services.ai_accountant import statement_intake as si
+    from app.services.locale_service import get_display_calendar
+    from app.services.statement_import import read_report, settle_stale_reading
+    stmt = db.get(BankStatement, statement_id)
+    if stmt is None:
+        raise HTTPException(status_code=404, detail="Statement not found")
+    settle_stale_reading(db, stmt)
+    lang = _user_language(db, user)
+    report = read_report(stmt)
+    out = {"status": stmt.status, "pages_total": stmt.pages_total, "pages_read": stmt.pages_read}
+    if stmt.status == "reading":
+        return out
+    if stmt.status == "failed":
+        return {**out, "text": si.reading_said(report or {"error": True}, lang)}
+    intake = {"kind": "bank_statement", "status": "imported", "statement_id": str(stmt.id),
+              "bank_name": stmt.bank_name, "bank_label": si.bank_label(stmt.bank_name, lang),
+              "file_name": stmt.source_filename, **si._review_fields(db, stmt.id)}
+    text = si._reply(lang, intake, jalali=get_display_calendar(db) == "jalali")
+    if report:
+        intake["read_report"] = report
+        text += " " + si.reading_said(report, lang)
+    return {**out, "intake": intake, "text": text}

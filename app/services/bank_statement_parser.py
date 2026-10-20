@@ -331,7 +331,7 @@ def parse_vision_rows(vision_rows: list[dict], bank_name: str = "") -> ParseResu
             balance=_parse_amount(balance) if isinstance(balance, (int, float, str)) and str(balance).strip() else None,
             counterparty=_extract_counterparty(desc),
             raw_text=desc,
-            confidence=0.85,
+            confidence=0.6 if r.get("mended") else 0.85,     # set right from its balances: amber in the table (AJ3)
         ))
     if result.rows:
         result.from_date = min(r.tx_date for r in result.rows)

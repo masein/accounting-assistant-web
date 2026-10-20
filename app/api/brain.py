@@ -164,6 +164,13 @@ async def upload_bank_statement(
     return await run_in_threadpool(said, out, request, db)
 
 
+def _reading_fields(db: Session, s: BankStatement) -> dict:
+    """How far a scanned statement's reading is, and what was read (scenarios AJ1–AJ4, AJ8)."""
+    from app.services.statement_import import read_report, settle_stale_reading
+    settle_stale_reading(db, s)
+    return {"pages_total": s.pages_total, "pages_read": s.pages_read, "read_report": read_report(s)}
+
+
 def _bank_account_fields(db: Session, s: BankStatement) -> dict:
     from app.services.statement_import import resolve_bank_account
     code, source = resolve_bank_account(db, s)
@@ -238,6 +245,7 @@ def list_bank_statements(
             currency=s.currency, from_date=s.from_date, to_date=s.to_date,
             status=s.status, total_rows=s.total_rows,
             matched_rows=s.matched_rows, new_rows=s.new_rows, origin=s.origin, **_bank_account_fields(db, s),
+            **_reading_fields(db, s),
             rows=[BankStatementRowRead(
                 id=r.id, row_index=r.row_index, tx_date=r.tx_date,
                 description=r.description, reference=r.reference,
@@ -267,6 +275,7 @@ def get_bank_statement(statement_id: UUID, db: Session = Depends(get_db)) -> Ban
         currency=s.currency, from_date=s.from_date, to_date=s.to_date,
         status=s.status, total_rows=s.total_rows,
         matched_rows=s.matched_rows, new_rows=s.new_rows, origin=s.origin, **_bank_account_fields(db, s),
+        **_reading_fields(db, s),
         rows=[BankStatementRowRead(
             id=r.id, row_index=r.row_index, tx_date=r.tx_date,
             description=r.description, reference=r.reference,
@@ -278,6 +287,16 @@ def get_bank_statement(statement_id: UUID, db: Session = Depends(get_db)) -> Ban
             user_approved=r.user_approved,
         ) for r in rows],
     )
+
+
+@router.get("/bank-statements/{statement_id}/reading")
+def bank_statement_reading(statement_id: UUID, db: Session = Depends(get_db)) -> dict:
+    """How far a scanned statement's reading is — light enough to ask every few seconds (scenario AJ1)."""
+    s = db.get(BankStatement, statement_id)
+    if not s:
+        raise HTTPException(status_code=404, detail="Statement not found")
+    fields = _reading_fields(db, s)
+    return {"id": str(s.id), "status": s.status, "total_rows": s.total_rows, "bank_name": s.bank_name, **fields}
 
 
 # ─── Reconciliation Endpoints ──────────────────────────────────────

@@ -620,3 +620,19 @@ The two schools (منادی حق, فرهنگ نو) were imported before the jour
 | AI5 | Nobody else's | After AI3 | Every other company is as it was, payment methods included |
 | AI6 | Import again | Drop the school's files in the chat after AI3 | Every voucher goes in, with the school's own codes beside the app's and one heading per ledger |
 | AI7 | The owner's own wipe | Settings → «پاک کردن دفاتر» in the school | The same complete wipe of its own books, as before typed by its name, its chart re-seeded |
+
+## AJ. A bank's statement as a scanned PDF, every page of it (2026-10-20)
+
+From the owner: «20261015_133322_receipt.pdf», Day Bank's own statement of فرهنگ نو's account 0105222028000, ۱ تیر to ۳۱ شهریور ۱۴۰۵, 22 pages of pictures (no text in it), about ten rows a page, each with its time, a long narrative, a signed amount (+ / −) and the balance. The vision reader read it right — 40 rows, the balance agreeing from each row to the next — and stopped there: it reads the first 4 pages only, said nothing of the other 18, and took 73 s for those four in one call. The file is called a receipt, Day Bank wasn't a bank the app knew, and a scanned PDF is a statement only when its name or the message says so.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| AJ1 | Every page | Bank statements → upload the 22-page PDF | It is read in the background, page by page, a few at a time; the page shows «در حال خواندن: ۷ از ۲۲ صفحه» until done. Every row of every page is imported, in the statement's order |
+| AJ2 | The balance agrees | When it's read | «۲۲ صفحه، ۲۰۵ ردیف خوانده شد؛ مانده‌ها از هر ردیف به ردیف بعد جور است» |
+| AJ3 | A misread is set right, or named | (a) An amount misread by a digit, its balances on either side vouched for by their own neighbours — the real file had two: 847,522,020 read as 47,522,020 (page 8, row 2) and 320,000 as 32,000 (page 21, row 9). (b) A balance misread, or a row the reader skipped | (a) The amount the balances say is kept, said («۲ مبلغ نادرست خوانده شده بود و از روی مانده‌های دو طرفش درست شد: صفحهٔ ۸، ردیف ۲: ۴۷٬۵۲۲٬۰۲۰ ← ۸۴۷٬۵۲۲٬۰۲۰ …»), and the row shown amber (60%) in the table; the balance then agrees on every link. (b) Never guessed: «مانده در صفحهٔ ۷، ردیف ۶ جور نیست — آن ردیف را بررسی کنید», the rows kept for review. Only a one-digit slip (or which way the money went) is mended, never across a page not read |
+| AJ4 | A page it can't read | One page fails twice | The others are imported; «صفحهٔ ۱۲ خوانده نشد» is said, never silent |
+| AJ5 | Its bank and account | The statement's header | Day Bank, account 0105222028000, read from its first page: the statement is the books' «بانک دی» |
+| AJ6 | In the chat, with rules | Drop it in the chat with «واریزها به درآمد شهریه، برداشت‌ها به مخارج مدرسه، کارمزدها به کارمزد بانکی، به تفکیک تاریخ» | «صورتحساب بانک دی، ۲۲ صفحه، در حال خواندن…» with the pages as they're read; when done, «ادامه با دستور شما» makes the one card of AF2 — a voucher a day |
+| AJ7 | A scanned statement called a receipt | Drop it with no words | Recognised as a bank statement from its first page, not read as a receipt |
+| AJ8 | Stopped half-way | The server restarts while it reads | Not left «reading» for ever: said to have stopped, and the same file can be uploaded again |
+| AJ9 | Short ones as before | A 1–2 page PDF or a photo | Read at once, as before, with its balance check |

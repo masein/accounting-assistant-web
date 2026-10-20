@@ -34,8 +34,8 @@ class ContractTest {
     @Test fun everyRecordedConversationIsHere() {
         assertTrue("run tests/test_mobile_contract.py to record them", dir.isDirectory)
         assertEquals(setOf("approval-fa", "balance-en", "budgets-fa", "cash-fa", "draft-fa", "forecast-fa", "intake-en",
-                           "invoice-pdf-en", "invoices-en", "net-worth-fa", "pay-history-fa", "payroll-runs-fa", "posted-fa", "spending-fa",
-                           "statement-fa"), recordings().keys)
+                           "invoice-pdf-en", "invoices-en", "net-worth-fa", "pay-history-fa", "payroll-runs-fa", "posted-fa", "review-fa",
+                           "review-month-en", "spending-fa", "statement-fa"), recordings().keys)
     }
 
     @Test fun everyBlockBecomesTheItemItShould() {
@@ -53,6 +53,7 @@ class ContractTest {
                 "file" -> ChatItem.File::class
                 // a bank statement is drawn as its card; other intakes as their sentence, for now
                 "intake" -> if (b.str("kind") == "bank_statement") ChatItem.Statement::class else ChatItem.Fallback::class
+                "review" -> ChatItem.Review::class                // the app's own week or month, as its card (AL17)
                 else -> ChatItem.Fallback::class
             }
             assertEquals("$name: $type", expected, item::class)
@@ -62,7 +63,7 @@ class ContractTest {
             if (item is ChatItem.Fallback) assertTrue("$name: $type has a sentence to show", item.text.isNotBlank() || wordsFollow)
             drawn += type
         }
-        assertEquals(setOf("text", "figure", "chart", "table", "proposal", "approval", "file", "intake"), drawn)
+        assertEquals(setOf("text", "figure", "chart", "table", "proposal", "approval", "file", "intake", "review"), drawn)
     }
 
     @Test fun theFieldsArriveWhereTheScreenReadsThem() {

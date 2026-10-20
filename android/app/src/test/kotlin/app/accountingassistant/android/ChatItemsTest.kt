@@ -55,9 +55,9 @@ class ChatItemsTest {
             "ideas":[{"key":"hot_category","icon":"🔥","text":"…","ask":"برای تفریح و رستوران بودجهٔ ماهانه بگذار"}],
             "note":null,"fallback_text":"مرور هفته …"}""")) as ChatItem.Review
         assertEquals(java.math.BigDecimal("41.5"), item.headline!!.value)
-        assertEquals(false, item.headline!!.delta!!.good)
+        assertEquals(false, item.headline?.delta?.good)
         assertEquals(listOf(false, true), item.chart!!.bars.map { it.current })
-        assertEquals(java.math.BigDecimal("30.25"), item.chart!!.usual)
+        assertEquals(java.math.BigDecimal("30.25"), item.chart?.usual)
         assertEquals(0.378f, item.categories.single().usualAt!!, 0.0001f)
         assertEquals("برای تفریح و رستوران بودجهٔ ماهانه بگذار", item.ideas.single().ask)
         assertEquals("مرور هفته …", item.asText("fa", "To" to "From"))

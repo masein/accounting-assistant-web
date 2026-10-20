@@ -103,6 +103,66 @@ class ProposeMoneyPlace(BaseTool):
         return {"confirmation_token": str(token), "status": "pending", "summary": summary, "preview": payload}
 
 
+class ProposeRenamePlaceInput(BaseModel):
+    place: str = Field(..., min_length=1, max_length=120,
+                       description="The place as it is called now, or as the person calls it, or its code: «کیف پول سبز», 112001.")
+    new_name: str = Field(..., min_length=1, max_length=120, description="What it should be called: «کیف پول قشنگم».")
+
+
+def _places(db) -> list:
+    """Every place money is kept: the accounts under cash on hand and the bank account."""
+    from app.models.account import Account
+    parents = db.execute(select(Account.id).where(Account.code.in_((CASH, BANK)))).scalars().all()
+    if not parents:
+        return []
+    return db.execute(select(Account).where(Account.parent_id.in_(parents)).order_by(Account.code)).scalars().all()
+
+
+def resolve_place(db, said: str):
+    """The place ``said`` names: by its code, its name, or the words the person
+    was remembered calling it by (an earlier «call it کیف پول قشنگم», kept only
+    as a wording before places could be renamed — scenario AK6)."""
+    places = _places(db)
+    want = _fold(said)
+    for acc in places:
+        if want in (_fold(acc.code), _fold(acc.name)):
+            return acc
+    from app.services.learned_preferences import lookup
+    learned = lookup(db, said, want="account")
+    if learned is not None and learned.score >= 0.99:
+        return next((a for a in places if a.code == learned.preference.account_code), None)
+    return None
+
+
+class ProposeRenamePlace(BaseTool):
+    name = "propose_rename_place"
+    category = "proposal"
+    description = (
+        "Call a place money is kept — a wallet, a vault, a bank account, a card — by another name: «اسم کیف پول سبز رو "
+        "بکن کیف پول قشنگم», 'call my blue wallet the travel wallet'. Renames the account itself, keeping its entries "
+        "and balance; every card and report then shows the new name. Returns a confirm card. Use this, never "
+        "propose_remember_preference, to rename a place."
+    )
+    InputSchema = ProposeRenamePlaceInput
+
+    async def run(self, ctx: ToolContext, args: ProposeRenamePlaceInput) -> dict[str, Any]:
+        acc = resolve_place(ctx.db, args.place)
+        if acc is None:
+            known = "; ".join(f"{a.code} {a.name}" for a in _places(ctx.db)) or "none yet"
+            raise ToolError(f"No place called {args.place!r}. The places are: {known}. Ask which one.", code="no_place")
+        new = " ".join(args.new_name.split())
+        if _fold(new) == _fold(acc.name):
+            raise ToolError(f"{acc.code} is already called {acc.name}.", code="same_name")
+        if any(_fold(a.name) == _fold(new) for a in _places(ctx.db) if a.id != acc.id):
+            raise ToolError(f"Another place is already called {new}: ask whether it's that one.", code="name_taken")
+        arrow = " ← " if _persian(acc.name + new) else " → "
+        payload = {"account_code": acc.code, "old_name": acc.name, "new_name": new,
+                   "description": f"{acc.name}{arrow}{new}"}
+        token = _register(ctx, self.name, payload)
+        return {"confirmation_token": str(token), "status": "pending", "preview": payload,
+                "summary": f"Rename {acc.code} {acc.name} → {new}; its entries and balance stay as they are."}
+
+
 class ProposeBooksCurrencyInput(BaseModel):
     currency: str = Field(..., min_length=3, max_length=3, description="The currency to count the books in: OMR, AED, USD…")
 
@@ -186,6 +246,8 @@ def execute_money_proposal(db, proposal, *, actor_user_id: str, actor_username: 
         audit_id = _audit(db, proposal, entity_type="company", entity_id=str(get_current_company()),
                           detail={"books_currency": out["currency"], "from": p.get("from")}, **common)
         return None, audit_id
+    if proposal.tool_name == "propose_rename_place":
+        return None, _rename_place(db, proposal, p, common)
     # propose_money_place: the place (made now if it's new), then its starting balance in its own currency
     parent, acc = find_place(db, p["place"], p["parent_code"])
     if acc is None:
@@ -203,7 +265,35 @@ def execute_money_proposal(db, proposal, *, actor_user_id: str, actor_username: 
     return (str(txn.id) if txn else None), audit_id
 
 
+def _rename_place(db, proposal, p: dict, common: dict) -> str:
+    """The account itself takes the new name; a bank party kept on it, called
+    what the account was, is renamed with it (scenarios AK5, AK6)."""
+    import json
+
+    from app.models.account import Account
+    from app.models.audit_log import AuditLog
+    from app.models.entity import Entity
+    from app.services.chart_service import rename
+    acc = db.execute(select(Account).where(Account.code == p["account_code"])).scalars().first()
+    if acc is None:
+        raise ValueError(f"{p['account_code']} is no longer in the books.")
+    old = acc.name
+    rename(db, acc, name=p["new_name"])
+    for party in db.execute(select(Entity).where(Entity.type == "bank", Entity.code == acc.code)).scalars():
+        if _fold(party.name) == _fold(old):
+            party.name = acc.name
+    audit = AuditLog(action="update", entity_type="account", entity_id=str(acc.id),
+                     user_id=common["actor_user_id"], username=common["actor_username"], ip_address=common["ip_address"],
+                     actor_source="ai-assistant", session_id=proposal.session_id, tool_name=proposal.tool_name,
+                     confirmation_token=proposal.confirmation_token, user_message=proposal.user_message,
+                     detail=json.dumps({"code": acc.code, "old_name": old, "new_name": acc.name}, ensure_ascii=False))
+    db.add(audit)
+    db.flush()
+    return str(audit.id)
+
+
 def register_money_tools(registry) -> None:
     registry.register(ProposeMoneyPlace())
+    registry.register(ProposeRenamePlace())
     registry.register(ProposeBooksCurrency())
     registry.register(AskWithChoices())

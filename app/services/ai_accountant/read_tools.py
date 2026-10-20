@@ -694,7 +694,10 @@ class SearchAccounts(BaseTool):
             .join(Transaction, Transaction.id == TransactionLine.transaction_id)
             .where(Transaction.deleted_at.is_(None))
             .group_by(TransactionLine.account_id)).all())
-        established = sum(used.values()) >= _ESTABLISHED_LINES
+        # A person's chart is the one they were given — no company chart beside it — so a category
+        # they've never used is still the one asked for: «ناهار» went to groceries, in use, over
+        # 6180 dining out, never used (2026-10-20, scenario AK1).
+        established = sum(used.values()) >= _ESTABLISHED_LINES and alias_key != "personal"
         # A heading takes no entries: the assistant offered 6211 «مخارج مدرسه», which it
         # had just been told can't take one; its accounts are offered instead. And the
         # codes an account had in the user's own books find it: «باید ۱۳۰۰ میبوده»

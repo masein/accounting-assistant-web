@@ -29,6 +29,10 @@
     <string name="send">Send</string>
     <string name="voucher_undone">Undone — the books are as they were</string>
     <string name="voucher_cancelled">Cancelled</string>
+    <string name="voucher_person">Person: %1$s</string>
+    <string name="voucher_person_new">New person: %1$s</string>
+    <string name="voucher_party">Party: %1$s</string>
+    <string name="voucher_party_new">New party: %1$s</string>
     <string name="voucher_title">Voucher</string>
     <string name="suggestions_intro">Ask about your books, or tell me what to record. These answer at once:</string>
     <string-array name="suggestions">

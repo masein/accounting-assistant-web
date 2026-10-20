@@ -675,7 +675,7 @@ def _voucher_cards(db: Session, proposals: list[dict], *, lang: str) -> dict[str
             if not ((p.get("preview") or {}).get("lines") if isinstance(p.get("preview"), dict) else None):
                 continue
             b = B.proposal_block(db, p, calendar=calendar, lang=lang, names=names)
-            out[str(p["confirmation_token"])] = {k: b[k] for k in ("title", "amount", "date", "lines")}
+            out[str(p["confirmation_token"])] = {k: b[k] for k in ("title", "amount", "date", "lines", "people")}
     except Exception:  # noqa: BLE001 — the summary still says it
         logger.warning("voucher cards for the web chat failed", exc_info=True)
     return out
@@ -920,7 +920,7 @@ def _history_cards(db: Session, sid: uuid.UUID, user: SessionUser, rows: list[AI
         card = None
         if item["preview"].get("lines"):
             b = B.proposal_block(db, item, calendar=calendar, lang=lang, names=names)
-            card = {k: b[k] for k in ("title", "amount", "date", "lines")}
+            card = {k: b[k] for k in ("title", "amount", "date", "lines", "people")}
         parties = [e for e in (item["preview"].get("new_entities") or []) if isinstance(e, dict) and e.get("name")]
         answer = next((m for m in answers if utc(m.created_at) >= made), answers[-1])
         out.setdefault(str(answer.id), []).append({

@@ -31,6 +31,16 @@ class ChatItemsTest {
         assertEquals(ChatItem.Proposal.Phase.Posted, item.phase)          // redrawn from history
     }
 
+    /** «امیر هم به‌عنوان طرف معامله جدید به کارت اضافه شده» — and the card named no one (scenario AK4). */
+    @Test fun aCardSaysWhoItNames() {
+        val item = parseBlock(block("""{"type":"proposal","id":"proposal:t7","token":"t7","title":"پول امیر",
+            "amount":{"value":20,"currency":"OMR"},"lines":[],"needs_approval":false,
+            "people":[{"name":"امیر","new":false},{"name":"سارا","new":true},{"name":"","new":true}]}""")) as ChatItem.Proposal
+        assertEquals(listOf(ChatItem.Proposal.Person("امیر", false), ChatItem.Proposal.Person("سارا", true)), item.people)
+        val none = parseBlock(block("""{"type":"proposal","id":"p8","token":"t8","title":"x","lines":[]}""")) as ChatItem.Proposal
+        assertEquals(emptyList<ChatItem.Proposal.Person>(), none.people)          // an older server sends none
+    }
+
     /** Opened again, a seal came back blank and an undone voucher came back posted (phone QA, 2026-10-12). */
     @Test fun aPostedCardOpenedAgainKeepsItsSealOrSaysItWasUndone() {
         fun card(undone: Boolean) = parseBlock(block("""{"type":"proposal","id":"proposal:t2","token":"t2","title":"Printer",

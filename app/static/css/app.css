@@ -1124,6 +1124,7 @@
     [dir="rtl"] .ai-voucher-amount { text-align: right; }
     .ai-voucher-ccy { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-inline-start: 0.4rem; }
     .ai-voucher-what { font-size: 0.85rem; color: var(--text-muted); unicode-bidi: plaintext; text-align: start; }
+    .ai-voucher-people { font-size: 0.8rem; color: var(--text); font-weight: 600; unicode-bidi: plaintext; text-align: start; }
     .ai-voucher-lines { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.35rem 0.7rem; background: #f1f5f9; border-radius: 10px; }
     .ai-voucher-line { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.88rem; padding: 0.15rem 0; }
     .ai-voucher-code { color: var(--text-muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; }

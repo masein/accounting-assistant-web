@@ -66,3 +66,46 @@ def test_every_card_names_amir_made_once(flow_page):
         assert watch.problems() == [], watch.problems()
     finally:
         switch_language(page, "en")
+
+
+def test_a_card_names_the_amir_already_in_the_books(flow_page):
+    """AK3, AK4: «۲۰ ریال عمان از پول امیر رو دادم» — Amir is in the books already, so the card links him and says
+    so above its lines; a lunch only shared with him names no one."""
+    page, watch = flow_page("e2e_people")
+    page.evaluate("() => { location.hash = 'ai-accountant'; }")
+    page.wait_for_load_state("networkidle")
+    page.wait_for_selector("#ai-acct-input")
+    token = "7f1c2a9e-0000-4000-8000-0000000ak301"
+    lunch = "7f1c2a9e-0000-4000-8000-0000000ak302"
+    reply = {"session_id": "s-ak", "turns": 2, "stop_reason": "end_turn", "tool_calls": [],
+             "text": "کارت‌ها آماده است.",
+             "proposals": [
+                 {"confirmation_token": token, "tool_name": "propose_create_transaction", "summary": "پرداخت به امیر",
+                  "preview": {"description": "پرداخت به امیر"}, "expires_at": None, "new_entities": [],
+                  "card": {"title": "پرداخت به امیر", "amount": {"value": 20, "currency": "OMR"},
+                           "date": {"iso": "2026-10-20", "display": "۲۸ مهر ۱۴۰۵"},
+                           "people": [{"name": "امیر", "new": False}],
+                           "lines": [{"account": "2130", "name": "بدهی به دیگران", "debit": 20, "credit": 0},
+                                     {"account": "112001", "name": "کیف پول قشنگم", "debit": 0, "credit": 20}]}},
+                 {"confirmation_token": lunch, "tool_name": "propose_create_transaction", "summary": "ناهار با امیر",
+                  "preview": {"description": "ناهار با امیر"}, "expires_at": None, "new_entities": [],
+                  "card": {"title": "ناهار با امیر", "amount": {"value": 7, "currency": "OMR"},
+                           "date": {"iso": "2026-10-20", "display": "۲۸ مهر ۱۴۰۵"}, "people": [],
+                           "lines": [{"account": "6180", "name": "تفریح و رستوران", "debit": 7, "credit": 0},
+                                     {"account": "112001", "name": "کیف پول قشنگم", "debit": 0, "credit": 7}]}}]}
+    try:
+        switch_language(page, "fa")
+        page.evaluate("() => { currentRole = 'personal'; }")
+        page.route("**/ai-accountant/chat", lambda route: route.fulfill(
+            status=200, content_type="application/json", body=json.dumps(reply, ensure_ascii=False)))
+        page.fill("#ai-acct-input", "۲۰ ریال عمان از پول امیر رو از کیف پول دادم، ناهار با امیر ۷ ریال")
+        page.click("#ai-acct-send")
+        card = page.locator(f".ai-card[data-token='{token}']")
+        expect(card.locator(".ai-voucher-people")).to_have_text("شخص: امیر")
+        expect(card.locator(".ai-card-note")).to_have_count(0)                         # nobody made
+        expect(page.locator(f".ai-card[data-token='{lunch}'] .ai-voucher-people")).to_have_count(0)
+        os.makedirs(ARTIFACTS, exist_ok=True)
+        page.locator("#ai-acct-messages").screenshot(path=os.path.join(ARTIFACTS, "chat-personal-known-amir-fa.png"))
+        assert watch.problems() == [], watch.problems()
+    finally:
+        switch_language(page, "en")

@@ -827,6 +827,16 @@
           what.appendChild(bdi);
         }
         box.appendChild(what);
+        // who the card names, already in the books (one it makes says so below: ➕) — scenario AK4
+        const known = (card.people || []).filter((p) => !p.new).map((p) => p.name);
+        if (known.length) {
+          const who = document.createElement('div');
+          who.className = 'ai-voucher-people';
+          who.setAttribute('dir', 'auto');
+          who.textContent = tf(currentRole === 'personal' ? 'aiCardPerson' : 'aiCardParty',
+                               { name: known.join(['fa', 'ar'].includes(currentLanguage) ? '، ' : ', ') });
+          box.appendChild(who);
+        }
         const lines = document.createElement('div');
         lines.className = 'ai-voucher-lines';
         card.lines.forEach((line) => {

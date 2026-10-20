@@ -3005,6 +3005,8 @@ window.I18N_PACKS.fa = Object.assign({
         bsReadStopped: 'خواندن صورتحساب پیش از پایان متوقف شد. فایل را دوباره بارگذاری کنید تا خوانده شود.',
         chatStmtReading: 'در حال خواندن: {done} از {total} صفحه…',
         chatStmtReadingTitle: 'صورتحساب بانکی',
+        aiCardPerson: 'شخص: {name}',
+        aiCardParty: 'طرف حساب: {name}',
         chatStmtContinue: 'ادامه با دستور شما',
         fieldDate: 'تاریخ',
         fieldAmount: 'مبلغ',

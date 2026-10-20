@@ -109,6 +109,34 @@ def card_names(db: Session, proposals: list | None) -> dict[str, str]:
 _EDITABLE = {"propose_create_transaction"}           # kept in step with proposal_edit.EDITABLE (a test checks)
 
 
+def card_people(db: Session, p: Any, preview: Any) -> list[dict]:
+    """The people a card names, as the phone and the web say them under its
+    description: those already in the books (its ``entity_links``) and those
+    confirming makes (``new``). Banks are its lines, not people (scenario AK4)."""
+    import uuid as _uuid
+
+    from app.models.entity import Entity
+    from app.services.ai_accountant.entity_create import normalize_match_name
+    if not isinstance(preview, dict):
+        return []
+    out: list[dict] = []
+    ids = []
+    for link in preview.get("entity_links") or []:
+        try:
+            ids.append(_uuid.UUID(str((link or {}).get("entity_id"))))
+        except (ValueError, TypeError, AttributeError):
+            continue
+    if ids:
+        for name, etype in db.execute(select(Entity.name, Entity.type).where(Entity.id.in_(ids))).all():
+            if etype != "bank":
+                out.append({"name": name, "new": False})
+    for ne in preview.get("new_entities") or _get(p, "new_entities") or []:
+        if isinstance(ne, dict) and ne.get("name") and ne.get("type") != "bank":
+            out.append({"name": ne["name"], "new": True})
+    seen: set[str] = set()
+    return [x for x in out if not (normalize_match_name(x["name"]) in seen or seen.add(normalize_match_name(x["name"])))]
+
+
 def proposal_block(db: Session, p: Any, *, calendar: str, lang: str, names: dict[str, str] | None = None) -> dict:
     """A voucher to confirm: what, how much, which accounts, when."""
     preview = _get(p, "preview") or {}
@@ -159,6 +187,7 @@ def proposal_block(db: Session, p: Any, *, calendar: str, lang: str, names: dict
         "amount": {"value": amount, "currency": currency} if amount is not None else None,
         "date": {"iso": iso, "display": display_date(iso, calendar, lang)} if iso else None,
         "lines": lines,
+        "people": card_people(db, p, preview),
         "new_entities": list(_get(p, "new_entities") or []),
         "needs_approval": needs_approval,
         "approval_threshold": _get(p, "approval_threshold"),

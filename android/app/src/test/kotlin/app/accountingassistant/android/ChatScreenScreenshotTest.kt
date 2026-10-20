@@ -87,6 +87,57 @@ class ChatScreenScreenshotTest {
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-invoice-pdf.png")
     }
 
+    /** The owner's phone, in English, personal books: a lunch in Omani rials, and a card that names Amir (AK1, AK4). */
+    @Test
+    fun englishPersonalCardsSayWhoTheyName() {
+        val lunch = ChatItem.Proposal(
+            id = "p1", token = "t1", title = "ناهار با امیر از کیف پول قشنگم", amount = java.math.BigDecimal("7.000"),
+            currency = "OMR", date = "۲۸ مهر ۱۴۰۵",
+            lines = listOf(VoucherLine("6180", "تفریح و رستوران", debit = java.math.BigDecimal("7.000")),
+                           VoucherLine("112001", "کیف پول قشنگم", java.math.BigDecimal.ZERO, java.math.BigDecimal("7.000"))),
+            needsApproval = false)
+        val back = ChatItem.Proposal(
+            id = "p2", token = "t2", title = "پرداخت به امیر", amount = java.math.BigDecimal("20.000"),
+            currency = "OMR", date = "۲۸ مهر ۱۴۰۵",
+            lines = listOf(VoucherLine("2130", "بدهی به دیگران", debit = java.math.BigDecimal("20.000")),
+                           VoucherLine("112001", "کیف پول قشنگم", java.math.BigDecimal.ZERO, java.math.BigDecimal("20.000"))),
+            needsApproval = false, people = listOf(ChatItem.Proposal.Person("امیر", false)))
+        val sara = back.copy(id = "p3", token = "t3", title = "سارا پول تاکسی رو داد",
+                             lines = listOf(VoucherLine("6130", "حمل‌ونقل", debit = java.math.BigDecimal("3.500")),
+                                            VoucherLine("2130", "بدهی به دیگران", java.math.BigDecimal.ZERO, java.math.BigDecimal("3.500"))),
+                             amount = java.math.BigDecimal("3.500"), people = listOf(ChatItem.Proposal.Person("سارا", true)))
+        compose.setContent {
+            AccountantTheme(dark = true) {
+                ChatScreen(
+                    state = ChatUiState(items = listOf(lunch, back, sara)),
+                    lang = "en", booksName = "masein", personalBooks = true,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithText("Person: امیر").assertExists()
+        compose.onNodeWithText("New person: سارا").assertExists()
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-en-personal-people.png")
+    }
+
+    @Test @Config(qualifiers = "+fa")
+    fun persianCompanyCardSaysItsParty() {
+        val rent = items(true)[2] as ChatItem.Proposal
+        compose.setContent {
+            AccountantTheme(dark = false) {
+                ChatScreen(
+                    state = ChatUiState(items = listOf(rent.copy(people = listOf(ChatItem.Proposal.Person("املاک پارس", true))))),
+                    lang = "fa", booksName = "شرکت بازرگانی آرمان", personalBooks = false,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithText("طرف حساب جدید: املاک پارس").assertExists()
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-company-party.png")
+    }
+
     @Test @Config(qualifiers = "+fa")
     fun persianListeningWithAFile() {
         compose.setContent {

@@ -43,6 +43,7 @@ _NON_POSTING = frozenset({
     "propose_run_payroll", "propose_set_budget",          # a draft run and a limit move no money
     "propose_lock_period", "propose_create_recurring_rule",   # a setting; a schedule that posts later
     "propose_books_currency",                                  # a person's books' currency, before any entry
+    "propose_rename_place",                                    # a wallet's name; its entries stay
 })
 
 

@@ -2991,6 +2991,8 @@ window.I18N_PACKS.ar = Object.assign({
         bsReadStopped: 'توقفت قراءة الكشف قبل اكتمالها. ارفع الملف مرة أخرى لقراءته.',
         chatStmtReading: 'جارٍ القراءة: {done} من {total} صفحة…',
         chatStmtReadingTitle: 'كشف حساب بنكي',
+        aiCardPerson: 'الشخص: {name}',
+        aiCardParty: 'الطرف: {name}',
         chatStmtContinue: 'المتابعة بتعليماتك',
         fieldDate: 'التاريخ',
         fieldAmount: 'المبلغ',

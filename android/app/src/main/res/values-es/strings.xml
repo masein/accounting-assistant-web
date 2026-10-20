@@ -29,6 +29,10 @@
     <string name="send">Enviar</string>
     <string name="voucher_undone">Deshecho: los libros quedan como estaban</string>
     <string name="voucher_cancelled">Cancelado</string>
+    <string name="voucher_person">Persona: %1$s</string>
+    <string name="voucher_person_new">Persona nueva: %1$s</string>
+    <string name="voucher_party">Tercero: %1$s</string>
+    <string name="voucher_party_new">Tercero nuevo: %1$s</string>
     <string name="voucher_title">Asiento</string>
     <string name="suggestions_intro">Pregunta por tus libros o dime qué registrar. Estas se responden al instante:</string>
     <string name="listening">Escuchando… suelta para terminar</string>

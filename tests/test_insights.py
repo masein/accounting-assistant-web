@@ -372,3 +372,23 @@ def test_briefing_text_and_endpoint(auth_client, db, monkeypatch):
     assert r.status_code == 200 and body["count"] == 1 and "2056-01-31" in body["text"]
     msgs = auth_client.get(f"/ai-accountant/sessions/{body['session_id']}/messages").json()
     assert msgs[-1]["role"] == "assistant" and msgs[-1]["content"].get("briefing") is True
+
+
+def test_the_web_briefing_once_a_day_in_a_conversation(auth_client, monkeypatch):
+    """Found by the deep test of 2026-10-20: the page remembers its own day, so each new browser (or the phone
+    and the laptop) asked again, and the same briefing stood three times in one conversation. Said again only
+    when it changed — as the phone's briefing."""
+    ins = Insight(key="d", kind="statement_due", severity="info", page="bank-statements", params={"last": "2057-02-28"})
+    svc.invalidate_insights_cache()
+    monkeypatch.setattr(svc, "DETECTORS", (("one", lambda db_, today: [ins]),))
+    first = auth_client.post("/ai-accountant/briefing", json={"session_id": None}).json()
+    assert first["text"] and first["count"] == 1                    # its date in whichever calendar a test left set
+    again = auth_client.post("/ai-accountant/briefing", json={"session_id": first["session_id"]}).json()
+    assert again["text"] is None and again["session_id"] == first["session_id"]
+    ins2 = Insight(key="e", kind="statement_due", severity="info", page="bank-statements", params={"last": "2057-03-31"})
+    svc.invalidate_insights_cache()
+    monkeypatch.setattr(svc, "DETECTORS", (("one", lambda db_, today: [ins2]),))
+    changed = auth_client.post("/ai-accountant/briefing", json={"session_id": first["session_id"]}).json()
+    assert changed["text"] and changed["text"] != first["text"]
+    msgs = auth_client.get(f"/ai-accountant/sessions/{first['session_id']}/messages").json()
+    assert sum(1 for m in msgs if (m.get("content") or {}).get("briefing")) == 2

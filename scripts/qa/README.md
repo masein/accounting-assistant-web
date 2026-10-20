@@ -34,6 +34,7 @@ python3 scripts/qa/results_md.py scripts/qa/out/results.jsonl > /tmp/results.md 
   | `qa_D.py` | D, reports, plus E chat and migration |
   | `qa_G.py` | G (UK), H (personal) |
   | `qa_J.py` | what shipped after the 2026-10-07 run: Q (pence), S2, T (stock in the books), U (a party's transactions), X (parties from accounts), Y (bank SMS from the phone), Z3 (a person's books currency), AA (what changed on the balance sheet), AC (reply, copy, share), AE (a phone-made voucher on the web) |
+  | `qa_K.py` | what shipped after the 2026-10-16 run: AL (reviews) end to end — real entries, the scheduler's reviews job run on the server for the days they need (`qa_reviews_due.py`, between `qa_K.py seed` and `qa_K.py check`), then the chat's cards and their history, the bell, the phone's feed and briefing, the switches and quiet books; AK7 on the Entities page |
   | `qa_I.py` | I, every page × language × size, with its sections open; I11, the bell's panel and the account menu open |
 
   Later groups read the ids that earlier ones saved in `out/state.json`, so run them in order.

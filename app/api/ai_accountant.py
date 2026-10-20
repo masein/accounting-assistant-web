@@ -1142,6 +1142,15 @@ class BriefingResponse(BaseModel):
     count: int = 0
 
 
+def _briefed_today(db: Session, session_id, text: str) -> bool:
+    """This briefing was already said in this conversation today."""
+    since = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    rows = db.execute(select(AIChatMessage.content).where(
+        AIChatMessage.session_id == session_id, AIChatMessage.role == "assistant",
+        AIChatMessage.created_at >= since).order_by(AIChatMessage.created_at.desc()).limit(50)).scalars().all()
+    return any((c or {}).get("briefing") and (c or {}).get("text") == text for c in rows)
+
+
 @router.post("/briefing", response_model=BriefingResponse)
 def briefing(
     payload: BriefingPayload,
@@ -1163,6 +1172,10 @@ def briefing(
         session = _get_or_create_session(db, user_id=user.user_id, session_id=payload.session_id)
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
+    if _briefed_today(db, session.id, text):
+        # the page remembers its own day, so a second browser or phone asked again: once a day in a
+        # conversation, unless it changed, as the phone's briefing (deep test 2026-10-20)
+        return BriefingResponse(session_id=str(session.id), text=None, count=0)
     db.add(AIChatMessage(session_id=session.id, role="assistant",
                          content={"role": "assistant", "text": text, "briefing": True},
                          created_at=datetime.now(timezone.utc)))

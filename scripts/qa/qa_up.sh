@@ -31,5 +31,7 @@ docker run -d --name aa-qa --network "$NETWORK" -p 127.0.0.1:8899:8000 -v "$WT":
   -e METIS_API_KEY= -e ANTHROPIC_API_KEY= -e AI_API_KEY= -e AI_PROVIDER=lmstudio -e LM_STUDIO_BASE_URL=http://127.0.0.1:9 \
   -e SMTP_HOST= -e SMTP_USERNAME= -e SMTP_PASSWORD= \
   aa-api-test sh -c "python -m app.prestart >/tmp/prestart.log 2>&1; PYTHONPATH=/app python /qa/qa_seed.py; python -m tests_e2e.seed_user >/dev/null; exec uvicorn app.main:app --host 0.0.0.0 --port 8000" >/dev/null
-for i in $(seq 1 90); do curl -fsS http://127.0.0.1:8899/health >/dev/null 2>&1 && break; sleep 2; done
-curl -fsS http://127.0.0.1:8899/health | head -c 200; echo
+# asked inside the container: on 2026-10-20 an SSH tunnel held the host's 8899 and each check hung on it
+health="import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health', timeout=3).read()[:200].decode())"
+for i in $(seq 1 90); do docker exec aa-qa python -c "$health" >/dev/null 2>&1 && break; sleep 2; done
+docker exec aa-qa python -c "$health"

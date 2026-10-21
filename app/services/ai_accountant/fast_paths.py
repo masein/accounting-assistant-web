@@ -171,6 +171,12 @@ _T = {
                  "ar": "{n} فواتير موردين ما زالت مفتوحة: {amounts} للدفع."},
     "spending": {"en": "This month's spending so far: {total_p}.", "fa": "خرج این ماه تا امروز: {total} {cur}.",
                  "es": "Gasto de este mes hasta hoy: {total_p}.", "ar": "إنفاق هذا الشهر حتى اليوم: {total_p}."},
+    "spending_in": {"en": "This month's spending so far: {list}.", "fa": "خرج این ماه تا امروز: {list}.",
+                    "es": "Gasto de este mes hasta hoy: {list}.", "ar": "إنفاق هذا الشهر حتى اليوم: {list}."},
+    "spending_currencies": {"en": "This month's spending so far, each currency as it is: {list}.",
+                            "fa": "خرج این ماه تا امروز، هر ارز جداگانه: {list}.",
+                            "es": "Gasto de este mes hasta hoy, cada moneda tal cual: {list}.",
+                            "ar": "إنفاق هذا الشهر حتى اليوم، كل عملة كما هي: {list}."},
     "budget": {"en": "This month: {actual_p} of {budget_p} spent, {left_p} left.",
                "fa": "این ماه: {actual} از {budget} {cur} خرج شده، {left} مانده.",
                "es": "Este mes: {actual_p} de {budget_p} gastados, quedan {left_p}.",
@@ -400,8 +406,16 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
     elif intent == "spending":
         from app.services.ai_accountant.spending_tools import GetSpendingSummary, GetSpendingSummaryInput
         r = await run(GetSpendingSummary(), GetSpendingSummaryInput(period="this_month"))
-        text = _say("spending", lang, total=_money(r.get("total") or 0, lang), cur=_cur(r.get("currency"), lang),
-                    total_p=_priced(r.get("total") or 0, r.get("currency"), lang))
+        held = r.get("by_currency") or []
+        if held or (r.get("currency") or "IRR").upper() not in ("IRR", *_SYMBOLS):
+            # each currency in its own amounts: Omani rials with no rate read «۰ ریال» (scenario AO4)
+            sep = "، " if lang in ("fa", "ar") else " · "
+            amounts = [(h["total"], h["currency"]) for h in held] or [(r.get("total") or 0, r.get("currency"))]
+            text = _say("spending_currencies" if len(amounts) > 1 else "spending_in", lang,
+                        list=sep.join(_in_currency(n, c, lang) for n, c in amounts))
+        else:
+            text = _say("spending", lang, total=_money(r.get("total") or 0, lang), cur=_cur(r.get("currency"), lang),
+                        total_p=_priced(r.get("total") or 0, r.get("currency"), lang))
     elif intent == "net_worth":
         if mode != "personal":
             return None                     # a company's worth is its equity: the model answers that

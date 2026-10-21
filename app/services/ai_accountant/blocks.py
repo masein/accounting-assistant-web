@@ -234,7 +234,18 @@ def _cash_figure(result: dict, lang: str = "en", **_) -> dict | None:
 
 
 def _spending_table(result: dict, **_) -> dict | None:
-    """get_spending_summary: the period's total and its biggest categories."""
+    """get_spending_summary: the period's total and its biggest categories.
+    Spending in several currencies lists each currency's categories in its own
+    amounts (scenario AO5): one total would add Omani rials to Iranian ones."""
+    held = result.get("by_currency") or []
+    if held:
+        out = [{"label": r.get("category_name") or r.get("category_code"), "sub": r.get("category_code"),
+                "value": json_amount(r.get("amount") or 0), "currency": h.get("currency")}
+               for h in held for r in (h.get("by_category") or [])[:5]]
+        if not out:
+            return None
+        return {"type": "table", "kind": "spending", "rows": out,
+                "fallback_text": " · ".join(f"{grouped(json_amount(h.get('total') or 0))} {h.get('currency')}" for h in held)}
     rows = result.get("by_category")
     if not isinstance(rows, list) or not rows:
         return None

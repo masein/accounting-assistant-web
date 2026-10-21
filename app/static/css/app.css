@@ -1509,3 +1509,10 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; vert
 .ai-stmt-choose { display: flex; gap: 0.45rem; flex-wrap: wrap; align-items: center; margin-top: 0.45rem; }
 .ai-stmt-choose select { width: auto; max-width: 100%; margin: 0; }
 .ai-stmt-next { margin: 0.2rem 0 0.6rem; }
+
+/* a company's own account codes (docs/PLAN_OWN_CODES.md, AN3–AN5) */
+.coa-own { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.coa-own th, .coa-own td { padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--border, #e5e7eb); text-align: start; }
+.coa-own input { width: 8rem; max-width: 100%; margin: 0; }
+.coa-own tr.is-clash td { background: #fef2f2; }
+.coa-own td:last-child { color: var(--text-muted); font-size: 0.8rem; }

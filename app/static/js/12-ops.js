@@ -1590,10 +1590,105 @@
         _coaTree = data.accounts || [];
         coaRender();
         coaLoadOpening();
+        coaOwnLoad();
       } catch (_) {
         box.innerHTML = '<p class="fc-note">' + escapeHtml(t('coaLoadError')) + '</p>';
       }
     }
+
+    // A company's own account codes (docs/PLAN_OWN_CODES.md, scenarios AN3–AN5): each account the code its
+    // books came with, twins merged, the app's unused accounts in the way put aside; nothing changes until
+    // the owner confirms, and no report moves.
+    let _coaOwn = null;
+    async function coaOwnLoad() {
+      const panel = document.getElementById('coa-own-panel');
+      if (!panel) return;
+      let data = null;
+      try {
+        const res = await fetch(API + '/accounts/own-codes');
+        data = res.ok ? await res.json() : null;
+      } catch (_) { data = null; }
+      const proposed = data ? data.accounts.filter((a) => a.proposed && !a.merged_into) : [];
+      if (!data || !proposed.length) { panel.style.display = 'none'; return; }
+      _coaOwn = data;
+      panel.style.display = '';
+      const byId = Object.fromEntries(data.accounts.map((a) => [a.id, a]));
+      const aside = Object.fromEntries(data.aside.map((a) => [a.id, a.new_code]));
+      const clashed = new Set(data.clashes.flatMap((c) => c.accounts));
+      document.getElementById('coa-own-summary').textContent = tf('coaOwnSummary', {
+        recoded: localDigits(String(data.counts.recoded)), merged: localDigits(String(data.counts.merged)),
+        aside: localDigits(String(data.counts.aside)) });
+      const rows = data.accounts.filter((a) => a.proposed || a.merged_into || aside[a.id] || clashed.has(a.id));
+      const table = document.createElement('table');
+      table.className = 'coa-own';
+      const head = document.createElement('tr');
+      ['coaOwnColName', 'coaOwnColApp', 'coaOwnColYours', 'coaOwnColNote'].forEach((k) => {
+        const th = document.createElement('th');
+        th.textContent = t(k);
+        head.appendChild(th);
+      });
+      table.appendChild(head);
+      rows.forEach((a) => {
+        const tr = document.createElement('tr');
+        if (clashed.has(a.id)) tr.className = 'is-clash';
+        const name = document.createElement('td');
+        name.textContent = a.name;
+        const app = document.createElement('td');
+        app.textContent = localCode(a.code);
+        const yours = document.createElement('td');
+        const note = document.createElement('td');
+        if (a.merged_into) {
+          yours.textContent = '—';
+          note.textContent = tf('coaOwnMerged', { name: (byId[a.merged_into] || {}).name || '' });
+        } else {
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.inputMode = 'numeric';
+          input.maxLength = 16;
+          input.dataset.account = a.id;
+          input.value = a.proposed || aside[a.id] || a.code;
+          input.setAttribute('aria-label', tf('coaOwnCodeFor', { name: a.name }));
+          yours.appendChild(input);
+          if (aside[a.id]) note.textContent = t('coaOwnAside');
+          else if (clashed.has(a.id)) note.textContent = t('coaOwnClash');
+          else if ((a.options || []).length > 1) note.textContent = tf('coaOwnOptions', { codes: a.options.map(localCode).join('، ') });
+        }
+        tr.append(name, app, yours, note);
+        table.appendChild(tr);
+      });
+      const box = document.getElementById('coa-own-table');
+      box.innerHTML = '';
+      box.appendChild(table);
+      document.getElementById('coa-own-msg').textContent = data.clashes.length ? t('coaOwnClashes') : '';
+    }
+
+    async function coaOwnApply() {
+      if (!_coaOwn) return;
+      const codes = {};
+      document.querySelectorAll('#coa-own-table input[data-account]').forEach((i) => {
+        codes[i.dataset.account] = asciiDigits(i.value).trim();
+      });
+      const ok = await uiConfirm({ message: t('coaOwnConfirm'), confirmLabel: t('coaOwnApply'), danger: true });
+      if (!ok) return;
+      const btn = document.getElementById('coa-own-apply');
+      btn.disabled = true;
+      try {
+        const res = await fetch(API + '/accounts/own-codes', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codes, merges: _coaOwn.merges.map((m) => ({ keep: m.keep, merge: m.merge })) }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : t('msgFailed'));
+        showAlert(tf('coaOwnDone', { n: localDigits(String(data.recoded)), merged: localDigits(String(data.merged)) }));
+        _coaOwn = null;
+        loadChartOfAccounts();
+      } catch (e) {
+        showAlert(e.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+    document.getElementById('coa-own-apply')?.addEventListener('click', coaOwnApply);
 
     function coaNode(id) { return coaFlatten(_coaTree, 0, []).find((n) => n.id === id); }
 

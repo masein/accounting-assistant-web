@@ -635,19 +635,29 @@ def _names_agree(a: str, b: str) -> bool:
     return a in b or b in a or difflib.SequenceMatcher(None, a, b).ratio() >= 0.5
 
 
-def create_account_for(db: Session, name: str, target: str, ledger: str = "") -> str:
+def create_account_for(db: Session, name: str, target: str, ledger: str = "", code: str = "") -> str:
     """Create (or find) the account a "new:…" choice names; returns its code.
     A bank is a bank as the contacts page makes one. Under a group, the line's
     own ledger (کل, «بستانکاران») is created first and the sub-ledger (معین,
     «تامین اجتماعی») under it, as the source keeps them — every account
     straight under the group used up its four-digit codes (2196–2199 for one
     school's liabilities, 2026-10-12). Each takes its balance-sheet line from
-    its title (a petty cash at 1151 would otherwise read by its code)."""
+    its title (a petty cash at 1151 would otherwise read by its code). Books that use their own codes
+    (docs/PLAN_OWN_CODES.md, scenario AN8) make it under the file's own ``code``, its class from its ledger."""
     from app.models.account import Account
     from app.models.entity import Entity
     from app.services.chart_service import create_account
+    from app.services.chart_codes import own_codes_in_use
     from app.services.reporting.statement_lines import infer
     title = (name or "").strip()[:512] or "—"
+    own = own_codes_in_use()
+
+    def free(c: str) -> str | None:
+        """The file's own code for a new account, when the books use their own codes and it's free."""
+        c = (c or "").strip()
+        if not (own and c.isdigit()):
+            return None
+        return None if db.execute(select(Account.id).where(Account.code == c)).first() else c
     if target == "new:bank":
         found = db.execute(select(Entity).where(Entity.type == "bank", Entity.code.isnot(None))).scalars().all()
         for e in found:
@@ -661,10 +671,18 @@ def create_account_for(db: Session, name: str, target: str, ledger: str = "") ->
         for e in found:
             if number and (e.account_number or "").strip() == number:
                 return e.code
-        code, _created = _resolve_bank_account(db, bank_name, None, None)
-        db.add(Entity(type="bank", name=bank_name, code=code, account_number=number))
+        mine = free(code)
+        if mine:                                   # a bank of books in their own codes: its file code
+            from app.services.book_text import bt
+            group = db.execute(select(Account).where(Account.class_code == "11")).scalars().first()
+            acc = create_account(db, name=bt(db, "bank_account_name", name=bank_name),
+                                 parent_code=group.code if group else None, code=mine)
+            bank_code = acc.code
+        else:
+            bank_code, _created = _resolve_bank_account(db, bank_name, None, None)
+        db.add(Entity(type="bank", name=bank_name, code=bank_code, account_number=number))
         db.flush()
-        return code
+        return bank_code
     from app.models.account import AccountLevel
 
     def child_named(parent: Account | None, wanted: str) -> Account | None:
@@ -675,9 +693,9 @@ def create_account_for(db: Session, name: str, target: str, ledger: str = "") ->
                 return child
         return None
 
-    def make(parent_code: str, wanted: str) -> Account:
-        acc = create_account(db, name=wanted, parent_code=parent_code)
-        line = infer(acc.code, wanted)
+    def make(parent_code: str, wanted: str, own_code: str | None = None) -> Account:
+        acc = create_account(db, name=wanted, parent_code=parent_code, code=own_code)
+        line = infer(acc.class_code or acc.code, wanted)            # by what it is, not its own digits
         if line:
             acc.statement_line = line
             db.flush()
@@ -709,7 +727,7 @@ def create_account_for(db: Session, name: str, target: str, ledger: str = "") ->
         parent = child_named(parent, ledger) or heading_named(ledger) \
             or make(ledger_group(ledger, parent), ledger)
     found = child_named(parent, title)
-    return found.code if found is not None else make(parent.code, title).code
+    return found.code if found is not None else make(parent.code, title, free(code)).code
 
 
 def match_accounts(db: Session, vouchers: list[Voucher], overrides: dict[str, str] | None = None) -> list[dict[str, Any]]:
@@ -1078,7 +1096,8 @@ def apply(db: Session, parsed: dict[str, Any], *, account_map: dict[str, str], c
     for a in accounts:
         if a["mapped_to"] and a["mapped_to"].startswith("new:") and any(
                 problems[v.key] is None and any(ln.account_key == a["key"] for ln in v.lines) for v in parsed["vouchers"]):
-            a["mapped_to"], a["how"] = create_account_for(db, a["name"], a["mapped_to"], a.get("ledger") or ""), "created"
+            a["mapped_to"], a["how"] = create_account_for(db, a["name"], a["mapped_to"], a.get("ledger") or "",
+                                                          code=a.get("code") or ""), "created"
             created += 1
     mapped = {a["key"]: a["mapped_to"] for a in accounts}
     default_ccy = (currency or get_reporting_currency(db) or "IRR").strip().upper()

@@ -253,6 +253,10 @@ for _m, _p in [("POST", "/accounts"), ("PATCH", "/accounts/{account_id}"), ("DEL
                ("PUT", "/accounts/opening-balances"), ("PUT", "/accounts/posting-roles")]:
     _add(_m, _p, Perm.BOOKS_WRITE)
 
+# A company switched to its own account codes (docs/PLAN_OWN_CODES.md): a migration's step, the whole chart.
+_reads(["/accounts/own-codes"], Perm.MIGRATION_WRITE)
+_add("POST", "/accounts/own-codes", Perm.MIGRATION_WRITE)
+
 # --- Books: transactions ----------------------------------------------------
 _reads(["/transactions", "/transactions/{transaction_id}",
         "/transactions/fees/methods", "/transactions/fees"],

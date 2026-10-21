@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.21"
+CURRENT_RELEASE = "2026.10.21.1"
 
 
 @dataclass(frozen=True)
@@ -2123,6 +2123,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "در گفتگو، در وب و گوشی، فایل تا ۲۰ مگابایت فرستاده می‌شود، مثل صفحهٔ صورتحساب‌های بانکی: صورتحساب اسکن‌شدهٔ بلند ۱۰ مگابایتی و بیشتر هم پذیرفته و صفحه به صفحه خوانده می‌شود.",
                     "es": "En el chat, en la web y en el móvil, caben archivos de hasta 20 MB, como en la página de extractos bancarios: un extracto escaneado largo de 10 MB o más se acepta y se lee página a página.",
                     "ar": "في المحادثة، على الويب والهاتف، تُقبل الملفات حتى 20 ميغابايت كما في صفحة كشوف الحسابات البنكية: يُقبل كشف ممسوح طويل بحجم 10 ميغابايت أو أكثر ويُقرأ صفحة صفحة.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.21.1",
+        date="2026-10-21",
+        highlights=(
+            Highlight(
+                key="own-account-codes",
+                page="accounts",
+                roles=("owner", "cfo", "accountant"),
+                title={
+                    "en": "Your books in your own account codes",
+                    "fa": "دفاتر شما با کدهای حساب خودتان",
+                    "es": "Tus libros con tus propios códigos de cuenta",
+                    "ar": "دفاترك برموز حساباتك الخاصة",
+                },
+                body={
+                    "en": "Books imported from your own journals can now carry your own codes (3000, 3001…) instead of the app's: on the Chart of accounts, check the codes and switch. Every report stays as it is, accounts that are one under two names become one, and later files in the same codes go straight in.",
+                    "fa": "دفاتری که از دفتر روزنامهٔ خودتان وارد شده‌اند حالا می‌توانند کدهای خودتان (۳۰۰۰، ۳۰۰۱…) را به جای کدهای برنامه داشته باشند: در صفحهٔ کدینگ حساب‌ها کدها را ببینید و تغییر دهید. همهٔ گزارش‌ها همان می‌مانند، حسابی که با دو نام آمده یکی می‌شود، و فایل‌های بعدی با همین کدها مستقیم وارد می‌شوند.",
+                    "es": "Los libros importados de tus propios diarios ya pueden llevar tus propios códigos (3000, 3001…) en lugar de los de la aplicación: en el Plan de cuentas, revisa los códigos y cambia. Ningún informe cambia, las cuentas que son una con dos nombres se unen y los archivos siguientes con los mismos códigos entran directamente.",
+                    "ar": "الدفاتر المستوردة من دفاتر يوميتك يمكنها الآن أن تحمل رموزك الخاصة (3000، 3001…) بدل رموز التطبيق: في دليل الحسابات راجع الرموز وانتقل إليها. تبقى كل التقارير كما هي، ويتوحد الحساب الذي جاء باسمين، وتدخل الملفات التالية بالرموز نفسها مباشرة.",
                 },
             ),
         ),

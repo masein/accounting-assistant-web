@@ -28,6 +28,19 @@ def _iso(value: str, lang: str) -> str:
 
 
 EXACT: dict[str, dict[str, str]] = {
+    # a company switched to its own account codes (docs/PLAN_OWN_CODES.md, scenarios AN3–AN7)
+    "These books already use their own codes.": {
+        "fa": "این دفاتر همین حالا کدهای خودشان را دارند.",
+        "es": "Estos libros ya usan sus propios códigos.",
+        "ar": "هذه الدفاتر تستخدم رموزها الخاصة بالفعل."},
+    "An account in the request isn't in these books.": {
+        "fa": "یکی از حساب‌های درخواست در این دفاتر نیست.",
+        "es": "Una de las cuentas de la solicitud no está en estos libros.",
+        "ar": "أحد حسابات الطلب ليس في هذه الدفاتر."},
+    "Choose the account it goes under: its kind comes from there.": {
+        "fa": "حسابی را که زیر آن قرار می‌گیرد انتخاب کنید؛ نوع حساب از آن معلوم می‌شود.",
+        "es": "Elige la cuenta de la que cuelga: su tipo viene de ahí.",
+        "ar": "اختر الحساب الذي يندرج تحته: نوعه يأتي من هناك."},
     # a company's books cleared from the companies console (scenarios AI2, AI5)
     "Type the company's name exactly to reset its books.": {
         "fa": "برای پاک کردن دفاتر، نام شرکت را دقیقاً بنویسید.",
@@ -904,10 +917,16 @@ PATTERNS: list[_Pattern] = [
     _Pattern(r"^A child of (?P<code>\S+) needs a code that starts with it\.$",
              {"fa": "زیرحسابِ {code} باید کدی داشته باشد که با آن شروع شود.", "es": "Una subcuenta de {code} necesita un código que empiece por él.",
               "ar": "يحتاج الحساب الفرعي لـ {code} إلى رمز يبدأ به."}),
+    _Pattern(r"^Code (?P<code>\S+) is given to more than one account\.$",
+             {"fa": "کد {code} به بیش از یک حساب داده شده است.", "es": "El código {code} se da a más de una cuenta.",
+              "ar": "الرمز {code} مُعطى لأكثر من حساب."}),
     _Pattern(r"^Account (?P<code>\S+) already exists\.$",
              {"fa": "حساب {code} قبلاً وجود دارد.", "es": "La cuenta {code} ya existe.", "ar": "الحساب {code} موجود بالفعل."}),
     _Pattern(r"^Account (?P<code>\S+) is inactive\.$",
              {"fa": "حساب {code} غیرفعال است.", "es": "La cuenta {code} está inactiva.", "ar": "الحساب {code} غير نشط."}),
+    _Pattern(r"^No free class left under (?P<code>\S+)\.$",
+             {"fa": "زیر ماهیت {code} جای آزادی نمانده است.", "es": "No queda clase libre bajo {code}.",
+              "ar": "لم تبقَ فئة متاحة تحت {code}."}),
     _Pattern(r"^No free code left under (?P<code>\S+)\.$",
              {"fa": "زیر {code} کد آزادی نمانده است.", "es": "No quedan códigos libres bajo {code}.", "ar": "لم يبقَ رمز متاح تحت {code}."}),
     _Pattern(r"^Parent account not found: (?P<code>.+)$",

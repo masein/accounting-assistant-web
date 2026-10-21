@@ -79,9 +79,40 @@ def _ever_used(db: Session, account_id) -> bool:
                           .limit(1)).first() is not None
 
 
+def _own_child_code(db: Session, parent: Account) -> str:
+    """A company with codes of its own numbers as it does: after 3006 under 3000 comes 3007; the first
+    under 1600 is 1601 (scenario AN7)."""
+    taken = set(db.execute(select(Account.code)).scalars())
+    siblings = [c for c in db.execute(select(Account.code).where(Account.parent_id == parent.id,
+                                                                 Account.is_active.is_(True))).scalars() if c.isdigit()]
+    start = max((int(c) for c in siblings), default=int(parent.code) if parent.code.isdigit() else 0) + 1
+    width = max((len(c) for c in siblings), default=len(parent.code))
+    for n in range(start, start + 10_000):
+        code = f"{n:0{width}d}"
+        if code not in taken:
+            return code
+    raise HTTPException(status_code=409, detail=f"No free code left under {parent.code}.")
+
+
+def _child_class(db: Session, parent: Account) -> str:
+    """What a new account under ``parent`` is: the next class under the parent's class (6131 → 613109)."""
+    head = parent.class_code or parent.code
+    taken = set(db.execute(select(Account.class_code).where(Account.class_code.isnot(None))).scalars()) | \
+        set(db.execute(select(Account.code)).scalars())
+    width = 2
+    for n in range(1, 10 ** width):
+        cls = f"{head}{n:0{width}d}"
+        if cls not in taken:
+            return cls
+    raise HTTPException(status_code=409, detail=f"No free class left under {head}.")
+
+
 def suggest_code(db: Session, parent: Account) -> str:
     """The next free child code: the parent's code plus two digits (GROUP → two
     more digits for a four-digit کل code as the seeded charts use)."""
+    from app.services.chart_codes import own_codes_in_use
+    if own_codes_in_use():
+        return _own_child_code(db, parent)
     width = 2
     existing = {a.code for a in db.execute(select(Account).where(Account.parent_id == parent.id)).scalars()}
     siblings = [c for c in existing if c.startswith(parent.code) and c[len(parent.code):].isdigit()]
@@ -109,18 +140,23 @@ def create_account(db: Session, *, name: str, parent_code: str | None, code: str
             raise HTTPException(status_code=422, detail="A detail (تفصیلی) account can't have children.")
         if not parent.is_active:
             raise HTTPException(status_code=422, detail="The parent account is inactive.")
+    from app.services.chart_codes import own_codes_in_use
+    own = own_codes_in_use()            # codes of the company's own: any free code; the class from the parent
+    if own and parent is None:
+        raise HTTPException(status_code=422, detail="Choose the account it goes under: its kind comes from there.")
     code = (code or "").strip() or (suggest_code(db, parent) if parent else None)
     if not code:
         raise HTTPException(status_code=422, detail="A top-level group needs a code.")
     if not code.isdigit() or len(code) > 16:
         raise HTTPException(status_code=422, detail="An account code is digits only, at most 16.")
-    if parent and (not code.startswith(parent.code) or code == parent.code):
+    if parent and not own and (not code.startswith(parent.code) or code == parent.code):
         raise HTTPException(status_code=422, detail=f"A child of {parent.code} needs a code that starts with it.")
     if _by_code(db, code) is not None:
         raise HTTPException(status_code=409, detail=f"Account {code} already exists.")
     level = _CHILD_LEVEL[parent.level] if parent else AccountLevel.GROUP
     acc = Account(code=code, name=name[:512], level=level, parent_id=parent.id if parent else None,
-                  detail_type=(detail_type or None), is_active=True)
+                  detail_type=(detail_type or None), is_active=True,
+                  class_code=_child_class(db, parent) if own else None)
     db.add(acc)
     db.flush()
     return acc

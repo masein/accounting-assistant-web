@@ -152,6 +152,33 @@ def put_posting_roles(payload: PostingRolesUpdate, db: Session = Depends(get_db)
     return posting_roles.view(db)
 
 
+class OwnCodesApply(BaseModel):
+    """The preview's codes with the user's changes (account id → its code), and the twins to merge."""
+    codes: dict[str, str] = Field(default_factory=dict)
+    merges: list[dict] = Field(default_factory=list)
+
+
+@router.get("/own-codes")
+def own_codes_preview(db: Session = Depends(get_db)) -> dict:
+    """What switching these books to their own codes would do: each account's code from the books it came
+    from, twins to merge, clashes to settle, app accounts put aside (docs/PLAN_OWN_CODES.md, AN3–AN5)."""
+    from app.services import own_codes
+    return own_codes.preview(db)
+
+
+@router.post("/own-codes")
+def own_codes_apply(payload: OwnCodesApply, db: Session = Depends(get_db)) -> dict:
+    """Switch the books to their own codes: every account keeps what it is (its class), and everything that
+    names an account by its code follows it (AN3–AN6)."""
+    from app.services import own_codes
+    codes = {str(k): ascii_digits(str(v)).strip() for k, v in payload.codes.items()}
+    merges = [{"keep": str(m.get("keep")), "merge": [str(x) for x in (m.get("merge") or [])]} for m in payload.merges
+              if m.get("keep") and m.get("merge")]
+    out = own_codes.apply(db, codes=codes, merges=merges)
+    db.commit()
+    return out
+
+
 @router.get("/by-code/{code}", response_model=AccountRead)
 def get_account_by_code(
     code: str,

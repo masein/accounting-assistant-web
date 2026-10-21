@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.21.6"
+CURRENT_RELEASE = "2026.10.21.7"
 
 
 @dataclass(frozen=True)
@@ -2261,6 +2261,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "قیمتی به ریال عمان بپرسید تا با ریال عمانی‌هایتان سنجیده شود — بی‌نیاز از نرخ ارز. «چه تغییر کرد»، خرج‌های غیرمعمول و پرداخت‌های تکراری هم برای هر ارز جداگانه گفته می‌شوند.",
                     "es": "Pregunta por un precio en riales omaníes y se compara con tus riales omaníes, sin tipo de cambio. Lo que cambió, los gastos inusuales y los pagos repetidos también se dicen para cada moneda.",
                     "ar": "اسأل عن سعر بالريال العُماني فيُقاس على ما لديك من الريال العُماني — دون حاجة إلى سعر صرف. وما تغيّر والإنفاق غير المعتاد والمدفوعات المتكررة تُذكر لكل عملة أيضًا.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.21.7",
+        date="2026-10-21",
+        highlights=(
+            Highlight(
+                key="home-supplies-category",
+                page="ai-accountant",
+                roles=("personal",),
+                title={
+                    "en": "A category for the home",
+                    "fa": "دسته‌ای برای لوازم خانه",
+                    "es": "Una categoría para el hogar",
+                    "ar": "فئة لمستلزمات المنزل",
+                },
+                body={
+                    "en": "Power adapters, light bulbs, stationery, a key cut, small repairs: they now go under «Home supplies & repairs» instead of Family & gifts. Ask «what categories do you have?» to see them all.",
+                    "fa": "مبدل برق، لامپ، لوازم‌تحریر، ساخت کلید و تعمیرات کوچک حالا زیر «لوازم و تعمیرات خانه» می‌روند، نه خانواده و هدایا. بپرسید «چه دسته‌بندی‌هایی داری؟» تا همه را ببینید.",
+                    "es": "Adaptadores, bombillas, papelería, una copia de llave, pequeñas reparaciones: ahora van a «Suministros y reparaciones del hogar», no a Familia y regalos. Pregunta «¿qué categorías tienes?» para verlas todas.",
+                    "ar": "محولات الكهرباء والمصابيح والقرطاسية ونسخ المفاتيح والإصلاحات الصغيرة تذهب الآن إلى «مستلزمات المنزل وإصلاحاته» لا إلى العائلة والهدايا. اسأل «ما الفئات لديك؟» لتراها كلها.",
                 },
             ),
         ),

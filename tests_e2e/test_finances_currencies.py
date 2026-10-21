@@ -137,9 +137,10 @@ def test_on_a_phone_sized_screen(flow_page):
     expect(page.locator("#pd-ccy-rows .pd-ccy-row")).to_have_count(2)
     # no sideways scroll, once the charts have taken the phone's width: Chart.js resizes a canvas a moment
     # after it is drawn, and on CI the check ran first (the three canvases still 449 px wide)
+    from tests_e2e.conftest import wait_until
     try:
-        page.wait_for_function("() => document.documentElement.scrollWidth <= window.innerWidth + 1", timeout=5000)
-    except Exception:  # noqa: BLE001 — say which elements stick out
+        wait_until(page, "() => document.documentElement.scrollWidth <= window.innerWidth + 1")
+    except AssertionError:                 # say which elements stick out
         wide = page.evaluate("""() => [...document.querySelectorAll('[data-page="personal-dashboard"] *')]
             .filter(e => e.offsetParent && e.getBoundingClientRect().right > window.innerWidth + 1)
             .slice(0, 6).map(e => (e.id || e.className || e.tagName) + ':' + Math.round(e.getBoundingClientRect().right))""")

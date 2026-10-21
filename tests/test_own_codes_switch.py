@@ -141,6 +141,28 @@ def test_an3_an4_the_ledger_reads_the_schools_codes_and_the_statements_do_not_mo
     assert sum(v[2] for v in ledger_before.values()) - sum(v[2] for v in ledger.values()) == 80 * M
 
 
+def test_an6_a_code_given_to_one_and_taken_from_another_moves_each_once(db):
+    """Petty cash 111003 takes 1110 as the app's own 1110 goes aside to 11100: a rule on petty cash ends on
+    1110, one on the app's 1110 on 11100 — whichever order the pairs come in (one pair at a time, Postgres
+    moved petty cash's rule on to 11100)."""
+    from app.models.recurring import RecurringRule
+    from app.services.own_codes import _follow
+    cid = _company(db)
+    for moved in ({"111003": "1110", "1110": "11100"}, {"1110": "11100", "111003": "1110"}):
+        with _in(cid):
+            db.execute(RecurringRule.__table__.delete())
+            for code in ("111003", "1110"):
+                db.add(RecurringRule(name=f"rule {code}", direction="payment", frequency="monthly", amount=M,
+                                     start_date=date(2026, 6, 1), next_run_date=date(2026, 6, 1),
+                                     bank_account_code="1100", counter_account_code=code))
+            db.commit()
+            _follow(db, moved, {})
+            db.commit()
+            db.expire_all()
+            got = {r.name: r.counter_account_code for r in db.execute(select(RecurringRule)).scalars()}
+        assert got == {"rule 111003": "1110", "rule 1110": "11100"}, moved
+
+
 def test_an6_everything_that_names_an_account_follows_it(db):
     from app.models.account import Account
     from app.models.app_setting import AppSetting

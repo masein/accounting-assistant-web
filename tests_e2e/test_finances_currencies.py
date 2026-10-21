@@ -135,10 +135,15 @@ def test_on_a_phone_sized_screen(flow_page):
     page.evaluate("() => { currentRole = 'personal'; location.hash = 'personal-dashboard'; }")
     page.wait_for_load_state("networkidle")
     expect(page.locator("#pd-ccy-rows .pd-ccy-row")).to_have_count(2)
-    wide = page.evaluate("""() => [...document.querySelectorAll('[data-page="personal-dashboard"] *')]
-        .filter(e => e.offsetParent && e.getBoundingClientRect().right > window.innerWidth + 1)
-        .slice(0, 6).map(e => (e.id || e.className || e.tagName) + ':' + Math.round(e.getBoundingClientRect().right))""")
-    assert page.evaluate("() => document.documentElement.scrollWidth <= window.innerWidth + 1"), wide   # no sideways scroll
+    # no sideways scroll, once the charts have taken the phone's width: Chart.js resizes a canvas a moment
+    # after it is drawn, and on CI the check ran first (the three canvases still 449 px wide)
+    try:
+        page.wait_for_function("() => document.documentElement.scrollWidth <= window.innerWidth + 1", timeout=5000)
+    except Exception:  # noqa: BLE001 — say which elements stick out
+        wide = page.evaluate("""() => [...document.querySelectorAll('[data-page="personal-dashboard"] *')]
+            .filter(e => e.offsetParent && e.getBoundingClientRect().right > window.innerWidth + 1)
+            .slice(0, 6).map(e => (e.id || e.className || e.tagName) + ':' + Math.round(e.getBoundingClientRect().right))""")
+        raise AssertionError(f"the page scrolls sideways at 400 px: {wide}")
     os.makedirs(ARTIFACTS, exist_ok=True)
     page.locator("#pd-ccy-rows").screenshot(path=os.path.join(ARTIFACTS, "finances-currencies-en-narrow.png"))
     assert watch.problems() == [], watch.problems()

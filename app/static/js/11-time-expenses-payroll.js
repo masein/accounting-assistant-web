@@ -1207,8 +1207,9 @@
     function auditDetailHtml(text) {
       const parts = auditDetailParts(text);
       if (!parts) return '<bdi dir="ltr">' + escapeHtml(String(text || '').substring(0, 120)) + '</bdi>';
-      return '<bdi dir="auto">' + parts.map((p) => (p.code ? '<bdi dir="ltr">' + escapeHtml(p.text) + '</bdi>' : escapeHtml(p.text)))
-        .join(' · ') + '</bdi>';
+      const ltr = (code) => '<bdi dir="ltr">' + escapeHtml(code) + '</bdi>';
+      const items = parts.map((p) => (p.code ? ltr(p.text) : escapeHtml(p.text)));
+      return '<bdi dir="auto">' + items.join(' · ') + '</bdi>';
     }
 
     async function loadAuditLogs() {

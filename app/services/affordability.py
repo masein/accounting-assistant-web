@@ -47,8 +47,9 @@ class AffordError(ValueError):
         self.code = code
 
 
-def _cash_now(db: Session, today: date) -> Any:
-    """The money in the cash and bank places today, at its base value."""
+def _cash_now(db: Session, today: date, currency: str | None = None) -> Any:
+    """The money in the cash and bank places today, at its base value; with ``currency``, that currency's
+    own (a person's Omani rials, docs/PLAN_CURRENCIES.md phase 5)."""
     from app.models.account import Account
     from app.models.transaction import Transaction, TransactionLine
     from app.services.ai_accountant.cash_tools import cash_account_codes
@@ -57,11 +58,15 @@ def _cash_now(db: Session, today: date) -> Any:
     codes = cash_account_codes(db, locale=get_reporting_locale(db), mode="personal" if _personal(db) else "default")
     if not codes:
         return 0
-    d, c = db.execute(
-        select(func.coalesce(func.sum(TransactionLine.base_debit), 0), func.coalesce(func.sum(TransactionLine.base_credit), 0))
-        .join(Account, Account.id == TransactionLine.account_id)
-        .join(Transaction, Transaction.id == TransactionLine.transaction_id)
-        .where(Account.code.in_(codes), Transaction.deleted_at.is_(None), Transaction.date <= today)).one()
+    dr, cr = ((TransactionLine.debit, TransactionLine.credit) if currency
+              else (TransactionLine.base_debit, TransactionLine.base_credit))
+    q = (select(func.coalesce(func.sum(dr), 0), func.coalesce(func.sum(cr), 0))
+         .join(Account, Account.id == TransactionLine.account_id)
+         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
+         .where(Account.code.in_(codes), Transaction.deleted_at.is_(None), Transaction.date <= today))
+    if currency:
+        q = q.where(func.upper(Transaction.currency) == currency)
+    d, c = db.execute(q).one()
     return plain(d or 0) - plain(c or 0)
 
 
@@ -71,11 +76,14 @@ def _due_soon(db: Session, today: date, base: str) -> Any:
                       if r.due_date <= today + timedelta(days=DUE_DAYS)), 0))
 
 
-def _goals_need(db: Session, today: date) -> Any:
+def _goals_need(db: Session, today: date, currency: str | None = None) -> Any:
+    """What the goals need each month — with ``currency``, the goals that save in it (a goal counts in its
+    account's currency)."""
     try:
         from app.services.personal_goals import list_goals
         return plain(sum((g["needed_per_month"] or 0 for g in list_goals(db, today=today)
-                          if not g["reached"] and g.get("needed_per_month")), 0))
+                          if not g["reached"] and g.get("needed_per_month")
+                          and (currency is None or g.get("currency") == currency)), 0))
     except Exception:  # noqa: BLE001 — a company has no goals
         return 0
 
@@ -86,12 +94,21 @@ def check(db: Session, *, price, currency: str | None = None, item: str | None =
     from app.services.calendar_periods import company_calendar, key_bounds, previous_month_key, shift
     from app.services.fx_base import base_currency, rate_to_base
     from app.services.report_card import _flows
+    from app.services.proactive_reviews import _personal
+    from app.services.reporting.repository import distinct_currencies
     today = today or date.today()
-    base = base_currency(db)
-    ccy = (currency or base).strip().upper()
+    books = base_currency(db)
+    ccy = (currency or books).strip().upper()
     price = plain(price)
     if price <= 0:
         raise AffordError("invalid_amount", "The price must be more than zero.")
+    # A person keeps each currency as it is (docs/PLAN_CURRENCIES.md phase 5): a price in Omani rials is
+    # judged on the Omani rials — their cash, their months, the goals that save in them — never exchanged.
+    # A price in a currency they hold nothing in is still converted to the books'.
+    personal = _personal(db)
+    held = {(c or books).strip().upper() for c in distinct_currencies(db)} if personal else set()
+    base = ccy if ccy in held else books               # the currency the money is counted in
+    view = base if personal else None                  # a person's: its own amounts; a company's: every one at base value
     rate = None
     price_base = price
     if ccy != base:
@@ -104,14 +121,14 @@ def check(db: Session, *, price, currency: str | None = None, item: str | None =
     last = previous_month_key(today, cal)
     y, m = int(last[:4]), int(last[5:7])
     keys = ["%04d-%02d" % shift(y, m, -i) for i in range(HISTORY_MONTHS)]
-    flows = [_flows(db, *key_bounds(k)) for k in keys]
+    flows = [_flows(db, *key_bounds(k), view) for k in keys]
     active = [f for f in flows if f[0] or f[1]]
     income = plain(average([f[0] for f in active], base)) if active else None
     spending = plain(average([f[1] for f in active], base)) if active else None
 
-    cash = _cash_now(db, today)
-    due = _due_soon(db, today, base)
-    goals = _goals_need(db, today)
+    cash = _cash_now(db, today, view)
+    due = _due_soon(db, today, base) if base == books else 0        # installments and cheques are in the books' currency
+    goals = _goals_need(db, today, view)
     cushion = (spending or 0) + due
     free = cash - cushion
     spare = (income - spending) if active else None

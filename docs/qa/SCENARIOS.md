@@ -784,3 +784,17 @@ A budget was in the books' currency and counted spending at its base value, so O
 | AS5 | The alert | AS1 at 90% | «Budget at 90%: dining», «45.000 OMR of 50.000 OMR»; the rials' budget alerts on its own |
 | AS6 | On My finances | Books with two currencies | The budget form offers the currency; each budget shows its own; the next months copy each in its own currency |
 | AS7 | A company | A company's budget with a USD expense at its rate | As before: base currency, every expense at its base value |
+
+## AT. Can I afford it, insights and repeating payments, in each currency (2026-10-21, `docs/PLAN_CURRENCIES.md` phase 5)
+
+«Can I afford it?», the insights («What changed», the briefing) and the repeating payments all counted the books' currency at its base value. A price in Omani rials needed an exchange rate, and Omani-rial spending never showed as a spike.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| AT1 | A price in Omani rials | Personal books in IRR with 300 OMR in the wallet and three months of Omani-rial income and spending, no OMR rate. «می‌تونم یه گوشی ۲۰۰ ریال عمانی بخرم؟» | Judged on the Omani rials: their cash, their months, the goals that save in them; the card in Omani rials, no rate asked for |
+| AT2 | A price in a currency not held | The same books, a price in dollars, no USD held | As before: converted at the latest rate on file, or asked for in the books' currency |
+| AT3 | A spike in Omani rials | Dining at 10 OMR a month for three months, then 40 OMR this month | «تفریح و رستوران حدود ۴٫۰ برابر معمول است», with «40.000 OMR» against «10.000 OMR» |
+| AT4 | Each currency's income | Omani-rial salary falls by half, rial income steady | An income drop for the Omani rials only |
+| AT5 | Round amounts | Fifty entries in rials and a few in Omani rials | Each currency against its own typical entry: 50 OMR isn't small beside rials |
+| AT6 | Repeating payments in Omani rials | Two Omani-rial subscriptions each month on the Omani-rial card | «۲ پرداخت هر ماه تکرار می‌شود، روی هم ماهی … ریال عمان» on that card |
+| AT7 | A company stays as it was | A company with a USD expense at its rate | Its insights at base value, one total |

@@ -136,18 +136,22 @@ def _existing_rule_keys(db: Session) -> set[str]:
     }
 
 
-def detect_recurring(db: Session, *, today: date | None = None, txns: list | None = None) -> list[RecurringCandidate]:
+def detect_recurring(db: Session, *, today: date | None = None, txns: list | None = None,
+                     currency: str | None = None) -> list[RecurringCandidate]:
     """``txns``: entries already loaded reaching back at least LOOKBACK_DAYS
-    (the insights run shares one window); filtered here the same way."""
+    (the insights run shares one window); filtered here the same way.
+    ``currency``: the series in that currency, in its own amounts (a person's
+    Omani-rial subscriptions, docs/PLAN_CURRENCIES.md phase 5); the books'
+    by default."""
     today = today or date.today()
     since = today - timedelta(days=LOOKBACK_DAYS)
 
     # Recurring rules post in the base currency: only base-currency entries
     # can suggest one (a $50 subscription is not a £50 standing order).
     from app.services.fx_base import base_currency
-    base = base_currency(db)
+    base = (currency or base_currency(db)).strip().upper()
     if txns is not None:
-        txns = [t for t in txns if t.date >= since and t.currency == base]
+        txns = [t for t in txns if t.date >= since and (t.currency or "").upper() == base]
     else:
         txns = db.execute(
             select(Transaction)

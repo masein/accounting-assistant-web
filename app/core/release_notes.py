@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.21.5"
+CURRENT_RELEASE = "2026.10.21.6"
 
 
 @dataclass(frozen=True)
@@ -2238,6 +2238,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "هر بودجه حالا ارز خودش را دارد: بودجهٔ رستوران به ریال عمان، خرج‌های ریال عمانی را می‌شمارد، و می‌توانید کنارش بودجه‌ای به ریال هم داشته باشید. در امور مالی من تعیینش کنید یا در گفتگو بگویید.",
                     "es": "Un presupuesto ahora tiene su moneda: un presupuesto de restaurantes en riales omaníes cuenta lo que gastas en riales omaníes, y puedes tener otro en riales al lado. Fíjalo en Mis finanzas o pídelo en el chat.",
                     "ar": "للميزانية الآن عملتها: ميزانية المطاعم بالريال العُماني تحسب ما تنفقه بالريال العُماني، ويمكنك أن تحتفظ بأخرى بالريال بجانبها. حدِّدها في أموري المالية أو اطلبها في المحادثة.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.21.6",
+        date="2026-10-21",
+        highlights=(
+            Highlight(
+                key="afford-and-insights-each-currency",
+                page="ai-accountant",
+                roles=("personal",),
+                title={
+                    "en": "Can I afford it?, in its own currency",
+                    "fa": "می‌توانم بخرم؟ به ارز خودش",
+                    "es": "¿Me lo puedo permitir?, en su moneda",
+                    "ar": "هل أستطيع شراءه؟ بعملته",
+                },
+                body={
+                    "en": "Ask about a price in Omani rials and it is weighed against your Omani rials — no exchange rate needed. What changed, unusual spending and repeating payments are told for each currency too.",
+                    "fa": "قیمتی به ریال عمان بپرسید تا با ریال عمانی‌هایتان سنجیده شود — بی‌نیاز از نرخ ارز. «چه تغییر کرد»، خرج‌های غیرمعمول و پرداخت‌های تکراری هم برای هر ارز جداگانه گفته می‌شوند.",
+                    "es": "Pregunta por un precio en riales omaníes y se compara con tus riales omaníes, sin tipo de cambio. Lo que cambió, los gastos inusuales y los pagos repetidos también se dicen para cada moneda.",
+                    "ar": "اسأل عن سعر بالريال العُماني فيُقاس على ما لديك من الريال العُماني — دون حاجة إلى سعر صرف. وما تغيّر والإنفاق غير المعتاد والمدفوعات المتكررة تُذكر لكل عملة أيضًا.",
                 },
             ),
         ),

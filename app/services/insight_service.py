@@ -255,6 +255,37 @@ from app.core.money import plain, grouped, round_amount
 _CALENDAR: ContextVar[str] = ContextVar("insight_calendar", default="gregorian")
 # ... and its base currency, whose places the amounts are written to
 _BASE: ContextVar[str | None] = ContextVar("insight_base_currency", default=None)
+# A person's books count each currency on its own (docs/PLAN_CURRENCIES.md phase 5): a spike in Omani-rial
+# dining is against the Omani-rial months, never against rials at a rate they may not have
+_OWN: ContextVar[bool] = ContextVar("insight_own_currencies", default=False)
+
+
+def _ccy(t) -> str | None:
+    """The currency an entry counts in for this run: its own in a person's books, None (base value) else."""
+    return (t.currency or _BASE.get() or "IRR").strip().upper() if _OWN.get() else None
+
+
+def _dc(ln, ccy: str | None) -> tuple:
+    """A line's (debit, credit): its own amounts when counted in its currency, else at base value."""
+    if ccy:
+        return plain(ln.debit or 0), plain(ln.credit or 0)
+    return plain(ln.base_debit or 0), plain(ln.base_credit or 0)
+
+
+def _fmt_in(n, ccy: str | None) -> str:
+    """``_fmt`` in a currency's own places, named when it isn't the books' («41.500 OMR»)."""
+    if n is None or not ccy:
+        return _fmt(n)
+    from app.core.money import exponent, to_decimal
+    places = exponent(ccy)
+    # to the currency's places: «40.000 OMR», not «40 OMR» beside «10.125»
+    text = f"{to_decimal(round_amount(n, ccy)):,.{places}f}" if places else grouped(round_amount(n, ccy))
+    return text if ccy == _BASE.get() else f"{text} {ccy}"
+
+
+def _suffix(ccy: str | None) -> str:
+    """A key's tail for another currency's insight, so each is told on its own."""
+    return f"-{ccy}" if ccy and ccy != _BASE.get() else ""
 # The entries of the last WINDOW days, loaded once per insights run and shared by
 # the detectors: each loaded its own overlapping window, and the first insights of
 # a day took 10.6 s on a year of books (performance pass, 2026-10-06).
@@ -473,17 +504,19 @@ def detect_expense_spikes(db: Session, today: date, *, txns: list[Transaction] |
     for _ in range(3):
         start = _prev_month_first(start)
     txns = txns if txns is not None else _expense_rows(db, start, today)
-    per_acc: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    per_acc: dict[tuple, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     names: dict[str, str] = {}
     for t in txns:
         m = _month_key(t.date)
+        ccy = _ccy(t)
         for ln in t.lines:
             code = ln.account.code or ""
             if classify_account_code(code) == EXPENSE:
-                per_acc[code][m] += plain(ln.base_debit or 0) - plain(ln.base_credit or 0)
+                d, c = _dc(ln, ccy)
+                per_acc[(code, ccy)][m] += d - c
                 names[code] = ln.account.name
     out: list[Insight] = []
-    for code, months in per_acc.items():
+    for (code, ccy), months in per_acc.items():
         cur = months.get(cur_m, 0)
         base = [v for m, v in months.items() if m != cur_m and v > 0]
         if cur <= 0 or len(base) < 2:
@@ -492,15 +525,17 @@ def detect_expense_spikes(db: Session, today: date, *, txns: list[Transaction] |
         if avg <= 0 or cur * 2 < avg * 3 or (cur - avg) * 2 < avg:     # under 1.5× the average
             continue
         out.append(Insight(
-            key=f"expense-spike-{code}-{cur_m}", kind="expense_spike", severity="warning",
+            key=f"expense-spike-{code}-{cur_m}{_suffix(ccy)}", kind="expense_spike", severity="warning",
             page="dashboard",
-            params={"account": names.get(code, code), "ratio": f"{cur / avg:.1f}", "current": _fmt(cur),
-                    "average": _fmt(avg), "month": cur_m},
+            params={"account": names.get(code, code), "ratio": f"{cur / avg:.1f}", "current": _fmt_in(cur, ccy),
+                    "average": _fmt_in(avg, ccy), "month": cur_m},
             amount=plain(cur - avg),
             data={"account_code": code, "account_name": names.get(code, code), "current": cur,
-                  "average": int(avg), "month": cur_m},
+                  "average": int(avg) if not ccy else round_amount(avg, ccy), "month": cur_m,
+                  **({"currency": ccy} if ccy else {})},
         ))
-    out.sort(key=lambda i: -(i.amount or 0))
+    # amounts in different currencies don't compare: a person's spikes go by how far above usual they are
+    out.sort(key=lambda i: -float(i.params["ratio"]) if _OWN.get() else -(i.amount or 0))
     return out[:3]
 
 
@@ -511,30 +546,36 @@ def detect_revenue_drop(db: Session, today: date, *, txns: list[Transaction] | N
         start = _prev_month_first(start)
     last_end = _first_of_month(today) - timedelta(days=1)
     txns = txns if txns is not None else _expense_rows(db, start, last_end)
-    rev: dict[str, int] = defaultdict(int)
+    by_ccy: dict = defaultdict(lambda: defaultdict(int))       # each currency's own months (a person's books)
     for t in txns:
         if t.date > last_end:
             continue
         m = _month_key(t.date)
+        ccy = _ccy(t)
         for ln in t.lines:
             if classify_account_code(ln.account.code or "") == REVENUE:
-                rev[m] += plain(ln.base_credit or 0) - plain(ln.base_debit or 0)
+                d, c = _dc(ln, ccy)
+                by_ccy[ccy][m] += c - d
     last_m = _month_key(last_first)
-    prior = [rev.get(_month_key(m), 0) for m in _iter_months(start, last_first) if _month_key(m) != last_m]
-    prior = [v for v in prior if v > 0]
-    if len(prior) < 2:
-        return []
-    avg = sum(prior) / len(prior)
-    cur = rev.get(last_m, 0)
-    if avg <= 0 or cur * 4 >= avg * 3:      # at least three quarters of the average
-        return []
-    pct = (avg - cur) / avg * 100
-    return [Insight(
-        key=f"revenue-drop-{last_m}", kind="revenue_drop", severity="warning", page="dashboard",
-        params={"pct": f"{pct:.0f}", "month": last_m, "current": _fmt(cur), "average": _fmt(avg)},
-        amount=plain(avg - cur),
-        data={"month": last_m, "revenue": cur, "prior_average": int(avg), "pct": round(pct, 1)},
-    )]
+    out: list[Insight] = []
+    for ccy, rev in (by_ccy.items() or [(None, {})]):
+        prior = [rev.get(_month_key(m), 0) for m in _iter_months(start, last_first) if _month_key(m) != last_m]
+        prior = [v for v in prior if v > 0]
+        if len(prior) < 2:
+            continue
+        avg = sum(prior) / len(prior)
+        cur = rev.get(last_m, 0)
+        if avg <= 0 or cur * 4 >= avg * 3:      # at least three quarters of the average
+            continue
+        pct = (avg - cur) / avg * 100
+        out.append(Insight(
+            key=f"revenue-drop-{last_m}{_suffix(ccy)}", kind="revenue_drop", severity="warning", page="dashboard",
+            params={"pct": f"{pct:.0f}", "month": last_m, "current": _fmt_in(cur, ccy), "average": _fmt_in(avg, ccy)},
+            amount=plain(avg - cur),
+            data={"month": last_m, "revenue": cur, "prior_average": int(avg) if not ccy else round_amount(avg, ccy),
+                  "pct": round(pct, 1), **({"currency": ccy} if ccy else {})},
+        ))
+    return out
 
 
 def _iter_months(start: date, end: date):
@@ -543,18 +584,19 @@ def _iter_months(start: date, end: date):
         yield p.start
 
 
-def runway_insight(cash: int, burn: int, today: date) -> Insight | None:
-    """Pure helper: months of runway from cash and average monthly net burn."""
+def runway_insight(cash: int, burn: int, today: date, ccy: str | None = None) -> Insight | None:
+    """Pure helper: months of runway from cash and average monthly net burn (``ccy``: one currency's own)."""
     if burn <= 0 or cash <= 0:
         return None
     months = cash / burn
     if months >= 6:
         return None
     return Insight(
-        key=f"runway-{_month_key(today)}", kind="runway",
+        key=f"runway-{_month_key(today)}{_suffix(ccy)}", kind="runway",
         severity="high" if months < 3 else "warning", page="dashboard",
-        params={"months": f"{months:.1f}", "cash": _fmt(cash), "burn": _fmt(burn)},
-        amount=cash, data={"cash": cash, "monthly_net_burn": burn, "runway_months": round(months, 1)},
+        params={"months": f"{months:.1f}", "cash": _fmt_in(cash, ccy), "burn": _fmt_in(burn, ccy)},
+        amount=cash, data={"cash": cash, "monthly_net_burn": burn, "runway_months": round(months, 1),
+                           **({"currency": ccy} if ccy else {})},
     )
 
 
@@ -567,27 +609,44 @@ def detect_runway(db: Session, today: date) -> list[Insight]:
         start = _prev_month_first(start)
     last_end = _first_of_month(today) - timedelta(days=1)
     txns = _expense_rows(db, start, last_end)
-    net: dict[str, int] = defaultdict(int)
+    by_ccy: dict = defaultdict(lambda: defaultdict(int))
     for t in txns:
         m = _month_key(t.date)
+        ccy = _ccy(t)
         for ln in t.lines:
             kind = classify_account_code(ln.account.code or "")
+            d, c = _dc(ln, ccy)
             if kind == EXPENSE:
-                net[m] += plain(ln.base_debit or 0) - plain(ln.base_credit or 0)
+                by_ccy[ccy][m] += d - c
             elif kind == REVENUE:
-                net[m] -= plain(ln.base_credit or 0) - plain(ln.base_debit or 0)
-    if len(net) < 2:
-        return []
-    burn = int(sum(net.values()) / 3)
-    cash = cash_on_hand(db, locale=get_reporting_locale(db), as_of=today)
-    ins = runway_insight(cash, burn, today)
-    return [ins] if ins else []
+                by_ccy[ccy][m] -= c - d
+    if _OWN.get():
+        # a person's money in each currency lasts on its own: the wallets counted, never exchanged
+        from app.services.personal_currencies import _cash_by_currency
+        held = _cash_by_currency(db, today, _BASE.get() or "IRR")
+    out: list[Insight] = []
+    for ccy, net in by_ccy.items():
+        if len(net) < 2:
+            continue
+        burn = sum(net.values()) / 3
+        burn = int(burn) if not ccy else round_amount(burn, ccy)
+        cash = held.get(ccy, 0) if ccy else cash_on_hand(db, locale=get_reporting_locale(db), as_of=today)
+        ins = runway_insight(cash, burn, today, ccy)
+        if ins:
+            out.append(ins)
+    return out
 
 
 def detect_vendor_outliers(db: Session, today: date) -> list[Insight]:
     from app.services.cash_service import company_cash_predicate
 
     is_cash = company_cash_predicate(db)
+    if _OWN.get():
+        # a person pays from the bank and the wallets under cash on hand (AB4)
+        from app.services.ai_accountant.cash_tools import cash_account_codes
+        from app.services.locale_service import get_reporting_locale
+        mine = set(cash_account_codes(db, locale=get_reporting_locale(db), mode="personal"))
+        is_cash = lambda code, _m=mine: code in _m      # noqa: E731
     since = today - timedelta(days=395)
     shared = _within(db, since)
     if shared is not None:
@@ -605,15 +664,17 @@ def detect_vendor_outliers(db: Session, today: date) -> list[Insight]:
     # (entity_id) -> [(date, amount, txn)]
     payments: dict = defaultdict(list)
     for t in txns:
-        paid = sum(plain(ln.base_credit or 0) for ln in t.lines if is_cash(ln.account.code or ""))
+        ccy = _ccy(t)
+        paid = sum(_dc(ln, ccy)[1] for ln in t.lines if is_cash(ln.account.code or ""))
         if paid <= 0:
             continue
         for link in t.entity_links:
             if link.role in ("supplier", "payee"):
-                payments[link.entity_id].append((t.date, paid, t, link.entity.name if link.entity else ""))
+                # each currency's payments against its own: 50 OMR is not compared with 5,000,000 IRR
+                payments[(link.entity_id, ccy)].append((t.date, paid, t, link.entity.name if link.entity else ""))
     out: list[Insight] = []
     recent_cut = today - timedelta(days=30)
-    for eid, items in payments.items():
+    for (eid, ccy), items in payments.items():
         items.sort(key=lambda x: x[0])
         for d, amount, t, name in items:
             if d < recent_cut:
@@ -626,11 +687,12 @@ def detect_vendor_outliers(db: Session, today: date) -> list[Insight]:
                 continue
             out.append(Insight(
                 key=f"vendor-outlier-{t.id}", kind="vendor_outlier", severity="warning", page="entities",
-                params={"name": name, "amount": _fmt(amount), "date": d.isoformat(), "typical": _fmt(typical)},
+                params={"name": name, "amount": _fmt_in(amount, ccy), "date": d.isoformat(),
+                        "typical": _fmt_in(typical, ccy)},
                 amount=amount,
                 data={"entity_id": str(eid), "entity_name": name, "transaction_id": str(t.id),
-                      "amount": amount, "typical": int(typical), "date": d.isoformat(),
-                      "description": t.description},
+                      "amount": amount, "typical": int(typical) if not ccy else round_amount(typical, ccy),
+                      "date": d.isoformat(), "description": t.description, **({"currency": ccy} if ccy else {})},
             ))
     out.sort(key=lambda i: -(i.amount or 0))
     return out[:3]
@@ -735,7 +797,8 @@ def invalidate_insights_cache() -> None:
 
 def compute_insights(db: Session, *, today: date | None = None, use_cache: bool = True) -> list[Insight]:
     """Run every detector, tolerate individual failures, rank and cap. Money
-    is compared at base value, so every currency counts (roadmap §4.6)."""
+    is compared at base value, so every currency counts (roadmap §4.6) — in
+    a person's books, each currency on its own (docs/PLAN_CURRENCIES.md)."""
     from app.db.tenant import get_current_company
 
     today = today or date.today()
@@ -744,9 +807,12 @@ def compute_insights(db: Session, *, today: date | None = None, use_cache: bool 
     cal_token = _CALENDAR.set(company_calendar(db))
     base_token = _BASE.set(base_currency(db))
     rows_token = _ROWS.set({"today": today})
+    from app.services.proactive_reviews import _personal
+    own_token = _OWN.set(_personal(db))
     try:
         return _compute_insights(db, today=today, use_cache=use_cache)
     finally:
+        _OWN.reset(own_token)
         _ROWS.reset(rows_token)
         _BASE.reset(base_token)
         _CALENDAR.reset(cal_token)

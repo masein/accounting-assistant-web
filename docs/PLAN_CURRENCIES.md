@@ -18,6 +18,8 @@ The rest of a person's books still totals everything in the books' currency at i
 
 ## Phases (one PR each, scenarios first)
 
+All five are done, on 2026-10-21: #394 (AP), #395 (AQ), #396 (AR), #397 (AS) and the last one (AT).
+
 1. **Reviews and the report card.**
    - `_flows` per currency.
    - A personal review carries each currency's facts; the chat shows one card per currency (the phone already draws each review block), and the headline and bell come from the first.

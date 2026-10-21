@@ -238,6 +238,11 @@ def _is_round(amount: int) -> bool:
     return amount % magnitude == 0
 
 
+def _base(db: Session) -> str:
+    from app.services.fx_base import base_currency
+    return base_currency(db)
+
+
 def detect_round_weekend(db: Session, today: date) -> list[Insight]:
     weekend = _weekend_days(db)
     since = today - timedelta(days=90)
@@ -253,12 +258,20 @@ def detect_round_weekend(db: Session, today: date) -> list[Insight]:
     sizes = [v for v in totals.values() if v > 0]
     if len(sizes) < 10:
         return []
-    typical = median(sizes)
+    # each currency's typical entry: one median of rials and Omani rials made 50 OMR small and every
+    # round rial amount large (docs/PLAN_CURRENCIES.md phase 5)
+    by_ccy: dict = defaultdict(list)
+    for tid, v in totals.items():
+        if v > 0:
+            by_ccy[meta[tid][1]].append(v)
+    typical = {c: median(v) for c, v in by_ccy.items()}
     recent_cut = today - timedelta(days=RECENT_DAYS)
     hits = []
     for tid, amount in totals.items():
         d, cur, desc = meta[tid]
-        if d >= recent_cut and d.weekday() in weekend and _is_round(amount) and amount >= typical:
+        if len(by_ccy[cur]) < 5:
+            continue                                   # too few in that currency to know what's usual
+        if d >= recent_cut and d.weekday() in weekend and _is_round(amount) and amount >= typical[cur]:
             hits.append({"transaction_id": str(tid), "date": d.isoformat(), "amount": amount, "currency": cur,
                          "description": desc})
     if not hits:
@@ -266,7 +279,8 @@ def detect_round_weekend(db: Session, today: date) -> list[Insight]:
     hits.sort(key=lambda h: -h["amount"])
     return [Insight(
         key=f"round-weekend-{today:%Y-%m}-{len(hits)}", kind="round_weekend", severity="info", page="transactions",
-        params={"count": len(hits), "largest": _fmt(hits[0]["amount"]), "date": hits[0]["date"]},
+        params={"count": len(hits), "date": hits[0]["date"],
+                "largest": _fmt(hits[0]["amount"]) + (f" {hits[0]['currency']}" if hits[0]["currency"] != _base(db) else "")},
         amount=hits[0]["amount"], data={"entries": hits[:10]},
     )]
 

@@ -231,11 +231,14 @@ def _follow(db: Session, moved: dict[str, str], merged: dict[str, str]) -> None:
     remap = {**moved, **merged}
     if not remap:
         return
+    from sqlalchemy import case
     for module, cls_name, attr in CODE_REFERENCES:
         cls = getattr(importlib.import_module(module), cls_name)
         col = getattr(cls, attr)
-        for old, new in remap.items():
-            db.execute(update(cls).where(col == old).values({attr: new}).execution_options(synchronize_session=False))
+        # one update, each row by the code it had: one pair at a time moved petty cash 111003 → 1110 and then,
+        # as the app's own 1110 went aside, on to 11100 — on Postgres, whose order the pairs came in (AN6)
+        db.execute(update(cls).where(col.in_(list(remap))).values({attr: case(remap, value=col)})
+                   .execution_options(synchronize_session=False))
     from app.models.app_setting import AppSetting
     from app.services.journal_import import MAP_KEY
     from app.services.posting_roles import SETTINGS_KEY as ROLES_KEY

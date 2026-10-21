@@ -99,6 +99,7 @@ window.I18N_PACKS.fa = Object.assign({
         nwTitle: 'خالص دارایی',
         nwAssets: 'دارایی‌ها',
         nwDebts: 'بدهی‌ها',
+        nwOthers: 'ارزهای دیگر',
         nwUnrealized: 'سود تحقق‌نیافته',
         nwMissingRate: 'برای {units} نرخی ثبت نشده — در بخش ارز نرخ را وارد کنید.',
         nwHoldingsTitle: 'طلا و ارز',

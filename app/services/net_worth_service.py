@@ -93,21 +93,25 @@ def _month_ends(as_of: date, months: int) -> list[date]:
     return list(reversed(ends))
 
 
-def _balances_by_account(db: Session, on: date) -> dict[str, int]:
+def _balances_by_account(db: Session, on: date, currency: str | None = None) -> dict[str, int]:
     """Signed balance per account code up to ``on``, in its natural direction:
-    assets debit-positive, liabilities credit-positive."""
-    rows = db.execute(
-        select(TransactionLine, Transaction.date, Account.code)
-        .join(Transaction, TransactionLine.transaction_id == Transaction.id)
-        .join(Account, TransactionLine.account_id == Account.id)
-        .where(Transaction.deleted_at.is_(None), Transaction.date <= on)
-    ).all()
+    assets debit-positive, liabilities credit-positive. With ``currency``, the
+    entries in that currency only, in their own amounts (docs/PLAN_CURRENCIES.md)."""
+    from sqlalchemy import func
+    q = (select(TransactionLine, Transaction.date, Account.code)
+         .join(Transaction, TransactionLine.transaction_id == Transaction.id)
+         .join(Account, TransactionLine.account_id == Account.id)
+         .where(Transaction.deleted_at.is_(None), Transaction.date <= on))
+    if currency:
+        q = q.where(func.upper(Transaction.currency) == currency)
+    rows = db.execute(q).all()
     out: dict[str, int] = {}
     for line, _d, code in rows:
         # book values in the reporting currency: every line at its base
         # value (roadmap §4.6) — dollars were added to rials as they were
         nature = classify_account_code(code)
-        d, c = plain(line.base_debit or 0), plain(line.base_credit or 0)
+        d, c = ((plain(line.debit or 0), plain(line.credit or 0)) if currency
+                else (plain(line.base_debit or 0), plain(line.base_credit or 0)))
         if nature == ASSET:
             out[code] = out.get(code, 0) + d - c
         elif nature == LIABILITY:
@@ -164,16 +168,48 @@ def _market_value(
             (rates[0] if len(rates) == 1 else None))
 
 
-def compute_net_worth(
-    db: Session, *, as_of: date | None = None, with_trend: bool = True
-) -> NetWorth:
+def currencies_held(db: Session, as_of: date | None = None) -> list[str]:
+    """The currencies a person owns or owes something in, the books' own first, then the busiest: each is
+    its own net worth, never exchanged (docs/PLAN_CURRENCIES.md phase 3)."""
+    from sqlalchemy import func
     as_of = as_of or date.today()
-    currency = get_reporting_currency(db)
+    base = (get_reporting_currency(db) or "IRR").strip().upper()
+    rows = db.execute(
+        select(Transaction.currency, Account.code, func.count(TransactionLine.id))
+        .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
+        .join(Account, Account.id == TransactionLine.account_id)
+        .where(Transaction.deleted_at.is_(None), Transaction.date <= as_of)
+        .group_by(Transaction.currency, Account.code)).all()        # the raw column: Postgres (#371)
+    count: dict[str, int] = {}
+    for ccy, code, n in rows:
+        if classify_account_code(code) in (ASSET, LIABILITY):
+            c = (ccy or base).strip().upper()
+            count[c] = count.get(c, 0) + int(n)
+    return sorted(count, key=lambda c: (c != base, -count[c], c))
+
+
+def net_worth_by_currency(db: Session, *, as_of: date | None = None, with_trend: bool = False) -> list[NetWorth]:
+    """Each currency's own net worth, the books' first; the books' currency alone when nothing is held."""
+    out = [compute_net_worth(db, as_of=as_of, with_trend=with_trend, currency=c) for c in currencies_held(db, as_of)]
+    return [nw for nw in out if nw.assets or nw.liabilities] or [
+        compute_net_worth(db, as_of=as_of, with_trend=with_trend, currency=get_reporting_currency(db))]
+
+
+def compute_net_worth(
+    db: Session, *, as_of: date | None = None, with_trend: bool = True, currency: str | None = None
+) -> NetWorth:
+    """Every currency at its base value; with ``currency``, that currency's own (a person's books: each
+    currency on its own). Gold and currency holdings are priced in the books' currency, so they count in
+    its view and the combined one."""
+    as_of = as_of or date.today()
+    base = (get_reporting_currency(db) or "IRR").strip().upper()
+    only = (currency or "").strip().upper() or None
+    currency = only or base
     result = NetWorth(as_of=as_of, currency=currency)
 
     accounts = {a.code: a for a in db.execute(select(Account)).scalars().all()}
-    balances = _balances_by_account(db, as_of)
-    holdings = _holdings_by_account(db)
+    balances = _balances_by_account(db, as_of, only)
+    holdings = _holdings_by_account(db) if currency == base else {}
 
     # Holdings on an account with no book balance yet (gold bought before the
     # purchase was ever posted, say) must still be valued — iterating only
@@ -208,7 +244,7 @@ def compute_net_worth(
         (result.assets if nature == ASSET else result.liabilities).append(line)
 
     if with_trend:
-        result.trend = _compute_trend(db, as_of, currency, holdings, accounts)
+        result.trend = _compute_trend(db, as_of, currency, holdings, accounts, only)
     return result
 
 
@@ -218,6 +254,7 @@ def _compute_trend(
     currency: str,
     holdings: dict[str, list[PersonalHolding]],
     accounts: dict[str, Account],
+    only: str | None = None,
 ) -> list[tuple[str, int]]:
     """Month-end net worth, oldest first.
 
@@ -234,7 +271,7 @@ def _compute_trend(
     first_posted = _first_postings(db, list(holdings))
     series: list[tuple[str, int]] = []
     for end in _month_ends(as_of, TREND_MONTHS):
-        balances = _balances_by_account(db, end)
+        balances = _balances_by_account(db, end, only)
         for code in holdings:           # value held assets even before any posting
             balances.setdefault(code, 0)
         total = 0

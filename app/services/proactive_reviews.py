@@ -240,13 +240,14 @@ def suggestions(db: Session, kind: str, facts: dict, today: date) -> list[dict]:
             g = behind[0]
             out.append({"key": "goal_behind", "params": {"goal": g["name"], "needed": g["needed_per_month"],
                                                          "pace": max(0, plain(g["pace_per_month"] or 0)),
-                                                         "by": g["target_date"]}})
+                                                         "by": g["target_date"], "currency": g.get("currency")}})
         elif kind == "weekly" and facts.get("income", 0) > 0 and goals:
             g = goals[0]
             amount = g.get("needed_per_month") or None
             if amount:
                 out.append({"key": "goal_payday", "params": {"goal": g["name"], "amount": amount,
-                                                             "account": g.get("account_name") or g["name"]}})
+                                                             "account": g.get("account_name") or g["name"],
+                                                             "currency": g.get("currency")}})
     if not personal and (facts.get("runway") is not None) and 0 <= facts["runway"] < 3:
         out.append({"key": "runway", "params": {"months": round(float(facts["runway"]), 1)}})
     if not personal and facts.get("overdue"):
@@ -373,10 +374,15 @@ def _series(db: Session, y: int, m: int, only: str | None) -> list[dict]:
 def _month(db: Session, key: str, prev_key: str, ccy: str) -> dict[str, Any]:
     """Another currency's month in a person's books, in its own amounts."""
     from app.services.calendar_periods import key_bounds
+    from app.services.net_worth_service import compute_net_worth
     from app.services.report_card import _rate
-    income, spent, cats = _flows(db, *key_bounds(key), ccy)
+    start, end = key_bounds(key)
+    income, spent, cats = _flows(db, start, end, ccy)
     p_income, p_spent, _p = _flows(db, *key_bounds(prev_key), ccy)
+    worth = (compute_net_worth(db, as_of=end, with_trend=False, currency=ccy).net_worth
+             - compute_net_worth(db, as_of=start - timedelta(days=1), with_trend=False, currency=ccy).net_worth)
     return {"currency": ccy, "income": plain(income), "spent": plain(spent), "saved": plain(income - spent),
+            "net_worth_change": plain(worth),
             "rate": _rate(income, spent),
             "previous": {"income": plain(p_income), "spending": plain(p_spent), "saved": plain(p_income - p_spent)},
             "top": [{"name": n, "amount": plain(a), "usual": plain(_p[n]) if _p.get(n) else None}
@@ -409,8 +415,7 @@ def monthly_facts(db: Session, today: date) -> dict | None:
                            "usual": plain(c["previous"]) if c["previous"] else None} for c in rc["categories"][:TOP]],
                      budgets=rc["budgets"],
                      goals=[{"name": g["name"], "percent": g["percent"]} for g in rc["goals"][:2]])
-        if rc["net_worth"]["currency"] == rc["currency"]:        # in the books' currency until phase 3
-            facts["net_worth_change"] = plain(rc["net_worth"]["change"])
+        facts["net_worth_change"] = plain(rc["net_worth"]["change"])        # in the card's own currency
         if moved[1:]:
             facts["others"] = [_month(db, key, prev_key, c) for c in moved[1:]]
     else:
@@ -804,7 +809,8 @@ def _suggestion(s: dict, lang: str, ccy: str, cal: str) -> tuple[str, str]:
     p = dict(s.get("params") or {})
     for k in ("needed", "pace", "amount", "spent", "limit", "total", "budget"):
         if k in p and p[k] is not None:
-            p[k] = _money(p[k], p.get("currency") if k == "amount" and p.get("currency") else ccy, lang)
+            # a suggestion in another currency names it (a goal saving Omani rials, someone owed dollars)
+            p[k] = _money(p[k], p.get("currency") or ccy, lang)
     for k in ("by", "on", "last"):
         if p.get(k):
             p[k] = _day(p[k], cal, lang)

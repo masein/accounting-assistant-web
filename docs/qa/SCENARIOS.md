@@ -757,3 +757,16 @@ My finances and the phone's widget showed one figure in the books' currency, so 
 | AQ3 | Only Omani rials moved | Books in IRR with only OMR entries | No rows and no switch: the three figures as before, in Omani rials, never «۰ ریال» |
 | AQ4 | The widget | AQ1, on the phone's home screen | «۵۸٫۵۰۰ ریال عمان» or the books' first currency large, the others under it («۷٬۰۰۰٬۰۰۰ ریال · …»), the budget left below |
 | AQ5 | One currency | Books with entries in one currency | My finances and the widget as before |
+
+## AR. Net worth and savings goals in each currency (2026-10-21, `docs/PLAN_CURRENCIES.md` phase 3)
+
+Net worth added everything up in the books' currency at its base value, and a goal counted its account the same way. Omani rials with no rate counted as nothing, so a goal saving into an Omani-rial wallet read 0%.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| AR1 | Net worth per currency | Personal books in IRR: 10,000,000 IRR at the bank, 100 OMR in the wallet, 30 OMR owed to a friend | Net worth 10,000,000 IRR and 70 OMR, each on its own; My finances shows the chosen currency's, with «ارزهای دیگر: ۷۰٫۰۰۰ ریال عمان» under it |
+| AR2 | Asked in the chat | «دارایی خالصم چقدره؟» | «دارایی خالص شما امروز، هر ارز جداگانه: ۱۰٬۰۰۰٬۰۰۰ ریال، ۷۰٫۰۰۰ ریال عمان.», and a card listing each currency |
+| AR3 | A goal in Omani rials | A goal of 500 OMR on the Omani-rial savings wallet holding 100 OMR, by a date 4 months away | 20%, 400 OMR to go, 100 OMR a month: in Omani rials, not 0% |
+| AR4 | The review's goal idea | AR3, the goal behind | «… ۱۰۰٫۰۰۰ ریال عمان در ماه …»: the goal's own currency |
+| AR5 | The report card and the month | A month in two currencies | Each card's net-worth change is in its own currency |
+| AR6 | Gold at today's rate | Gold holdings on a rial account | Still valued at today's rate, in the rials' net worth |

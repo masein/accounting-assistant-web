@@ -99,6 +99,7 @@ window.I18N_PACKS.es = Object.assign({
         nwTitle: 'Patrimonio neto',
         nwAssets: 'Activos',
         nwDebts: 'Deudas',
+        nwOthers: 'Otras monedas',
         nwUnrealized: 'Ganancia no realizada',
         nwMissingRate: 'No hay tipo de cambio para {units}; defínelo en Divisas.',
         nwHoldingsTitle: 'Oro y divisas',

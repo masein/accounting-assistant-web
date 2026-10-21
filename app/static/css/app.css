@@ -225,6 +225,7 @@
     .pd-ccy-btn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
     /* their display beats the hidden attribute otherwise: a person with one currency saw an empty switch */
     .pd-ccy-rows[hidden], .pd-ccy-pick[hidden], #pd-kpi-grid[hidden] { display: none; }
+    .nw-others { font-size: 0.82rem; color: var(--text-muted); margin-top: 0.3rem; }
     /* a phone: each currency one row of three, not three cards stacked for every currency */
     @media (max-width: 560px) {
       .pd-ccy-row .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; }

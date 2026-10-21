@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.20.4"
+CURRENT_RELEASE = "2026.10.21"
 
 
 @dataclass(frozen=True)
@@ -2100,6 +2100,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "مرور هفتگی و ماهانه و «می‌تونم بخرمش؟» حالا در دفترهایی هم که مبلغ‌هایشان اعشار دارد (پنس، بیسه) کار می‌کند؛ پیش از این مرور نشان داده نمی‌شد و پیام صبح گوشی ممکن بود نرسد. تغییر نام بانک در صفحهٔ اشخاص حسابش را هم تغییر می‌دهد، و خلاصهٔ صبح با باز کردن گفتگو در دستگاه دیگر تکرار نمی‌شود.",
                     "es": "Los resúmenes semanales y mensuales, y ¿Me lo puedo permitir?, ya funcionan en libros con importes con decimales (peniques, baisas): antes el resumen no aparecía y el mensaje de la mañana del móvil podía fallar. Renombrar un banco en Entidades renombra también su cuenta, y el resumen de la mañana no se repite al abrir el chat en otro dispositivo.",
                     "ar": "المراجعات الأسبوعية والشهرية و«هل أستطيع شراءه؟» تعمل الآن في الدفاتر التي لمبالغها كسور (بنس، بيسة): من قبل لم تظهر المراجعة وقد تتعطل رسالة الصباح في الهاتف. وإعادة تسمية بنك في صفحة الكيانات تعيد تسمية حسابه أيضًا، ولا يتكرر موجز الصباح عند فتح المحادثة على جهاز آخر.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.21",
+        date="2026-10-21",
+        highlights=(
+            Highlight(
+                key="chat-files-20mb",
+                page="ai-accountant",
+                roles=("owner", "cfo", "accountant", "personal"),
+                title={
+                    "en": "A bank's scanned statement fits in the chat",
+                    "fa": "صورتحساب اسکن‌شدهٔ بانک در گفتگو جا می‌شود",
+                    "es": "El extracto escaneado del banco cabe en el chat",
+                    "ar": "كشف البنك الممسوح ضوئيًا يتّسع في المحادثة",
+                },
+                body={
+                    "en": "Files up to 20 MB can go in the chat, on the web and the phone, as on the Bank Statements page: a long scanned statement of 10 MB or more is taken and read page by page.",
+                    "fa": "در گفتگو، در وب و گوشی، فایل تا ۲۰ مگابایت فرستاده می‌شود، مثل صفحهٔ صورتحساب‌های بانکی: صورتحساب اسکن‌شدهٔ بلند ۱۰ مگابایتی و بیشتر هم پذیرفته و صفحه به صفحه خوانده می‌شود.",
+                    "es": "En el chat, en la web y en el móvil, caben archivos de hasta 20 MB, como en la página de extractos bancarios: un extracto escaneado largo de 10 MB o más se acepta y se lee página a página.",
+                    "ar": "في المحادثة، على الويب والهاتف، تُقبل الملفات حتى 20 ميغابايت كما في صفحة كشوف الحسابات البنكية: يُقبل كشف ممسوح طويل بحجم 10 ميغابايت أو أكثر ويُقرأ صفحة صفحة.",
                 },
             ),
         ),

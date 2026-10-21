@@ -604,7 +604,7 @@ def mobile_undo(audit_log_id: str, db: Session = Depends(get_db), user: SessionU
 @router.post("/uploads", status_code=201)
 def mobile_upload(file: UploadFile = File(...), db: Session = Depends(get_db)) -> dict:
     """A photo of a receipt, a PDF, a statement: stored like the web's
-    attachments (types checked by their bytes, 8 MB), its id then sent with
+    attachments (types checked by their bytes, 20 MB), its id then sent with
     the chat message."""
     from app.api.transactions import upload_attachment
     a = upload_attachment(file=file, db=db)

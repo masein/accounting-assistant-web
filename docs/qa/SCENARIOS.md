@@ -637,6 +637,7 @@ From the owner: «20261015_133322_receipt.pdf», Day Bank's own statement of ف�
 | AJ7 | A scanned statement called a receipt | Drop it with no words | Recognised as a bank statement from its first page, not read as a receipt |
 | AJ8 | Stopped half-way | The server restarts while it reads | Not left «reading» for ever: said to have stopped, and the same file can be uploaded again |
 | AJ9 | Short ones as before | A 1–2 page PDF or a photo | Read at once, as before, with its balance check |
+| AJ10 | A big scan in the chat | The owner, 2026-10-21: the same 22-page statement, 10.4 MB, dropped in the web chat (and shared to the phone's chat) | Taken, as the Bank Statements page takes it: up to 20 MB on the web, the phone and the Bank Statements page alike. Over 20 MB, refused before it is sent, in words with the limit («حداکثر ۲۰ مگابایت»). It was refused at 8 MB: «حجم فایل زیاد است — حداکثر ۸ مگابایت» |
 
 ## AK. A lunch with a friend, from the phone (2026-10-20)
 

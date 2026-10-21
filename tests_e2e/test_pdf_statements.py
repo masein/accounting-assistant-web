@@ -138,3 +138,31 @@ def test_the_bank_page_follows_the_reading(flow_page):
         assert watch.problems() == [], watch.problems()
     finally:
         switch_language(page, "en")
+
+
+def test_aj10_a_ten_megabyte_scan_goes_in_the_chat(flow_page):
+    """AJ10 (the owner, 2026-10-21): the same 22-page scan is 10.4 MB, and the chat refused it at 8 MB while the
+    Bank Statements page took it. Up to 20 MB now; over that, it is said before anything is sent."""
+    page, watch = flow_page("e2e_pdfstmt")
+    page.evaluate("() => { location.hash = 'ai-accountant'; }")
+    page.wait_for_load_state("networkidle")
+    page.wait_for_selector("#ai-acct-input")
+    try:
+        switch_language(page, "fa")
+        scan = b"%PDF-1.4\n" + b"0" * 10_400_000
+        with page.expect_response(lambda r: r.url.endswith("/transactions/attachments") and r.request.method == "POST") as res:
+            page.set_input_files("#ai-acct-file", files=[{"name": "20261015_133322_receipt.pdf", "mimeType": "application/pdf",
+                                                          "buffer": scan}])
+        assert res.value.status == 201, res.value.text()[:200]
+        expect(page.locator("#ai-acct-attachments .ai-attachment")).to_contain_text("20261015_133322_receipt.pdf")
+        os.makedirs(ARTIFACTS, exist_ok=True)
+        page.locator("#ai-acct-attachments").screenshot(path=os.path.join(ARTIFACTS, "chat-pdf-10mb-fa.png"))
+        sent = []
+        page.on("request", lambda r: sent.append(r.url) if r.url.endswith("/transactions/attachments") else None)
+        page.set_input_files("#ai-acct-file", files=[{"name": "too-big.pdf", "mimeType": "application/pdf",
+                                                      "buffer": b"%PDF-1.4\n" + b"0" * (21 * 1024 * 1024)}])
+        expect(page.locator("#alert")).to_contain_text("حداکثر ۲۰ مگابایت")
+        assert sent == []                                                               # refused before it is sent
+        assert watch.problems() == [], watch.problems()
+    finally:
+        switch_language(page, "en")

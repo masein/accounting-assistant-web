@@ -23,7 +23,8 @@ def test_n33_cash_and_the_budget_left(client, db, co, phone):
     r = client.get(f"{API}/summary", headers=phone)
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["cash"] == {"total": 49_600_000, "currency": "IRR"} and body["as_of"]
+    assert body["cash"] == {"total": 49_600_000, "currency": "IRR",
+                            "by_currency": [{"currency": "IRR", "total": 49_600_000}]} and body["as_of"]
     assert body["budget"] is None                                  # no budgets set this month
 
 

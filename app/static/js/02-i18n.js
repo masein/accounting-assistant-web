@@ -1285,6 +1285,8 @@
         jiSheet: "Sheet",
         jiSheetRows: "{name} — {n} rows",
         jiYearsTitle: "{n} vouchers are dated outside the file's year ({year}) — a typed year?",
+        jiStrayItem: "Voucher {number}, {date}: {amount} — Dr {dr} · Cr {cr}",
+        jiStrayMoved: "{written}, now {date}",
         jiYearsFix: "Use {year} for them",
         jiYearsKeep: "Keep the dates as written",
         jiCodeReused: "In the file, code {code} is {n} accounts: {names} — each is kept apart.",

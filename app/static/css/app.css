@@ -1516,3 +1516,7 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; vert
 .coa-own input { width: 8rem; max-width: 100%; margin: 0; }
 .coa-own tr.is-clash td { background: #fef2f2; }
 .coa-own td:last-child { color: var(--text-muted); font-size: 0.8rem; }
+
+/* the vouchers a journal's out-of-year question means (scenario P10) */
+.ji-stray { margin: 0.2rem 0 0.5rem; padding-inline-start: 1.2rem; font-size: 0.84rem; color: var(--text-muted); }
+.ji-stray li { margin: 0.15rem 0; }

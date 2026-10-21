@@ -889,6 +889,8 @@ def settle_years(db: Session, parsed: dict[str, Any], mode: str | None) -> dict[
     «keep»: post them as written; unsaid: they are held back for the owner."""
     main, stray = stray_years(db, parsed)
     parsed["file_year"], parsed["stray_years"], parsed["years_mode"] = main, stray, mode
+    # each one's date as the file writes it, still shown once it's moved (scenario P10)
+    parsed["stray_written"] = {v.key: v.on.isoformat() for v in parsed["vouchers"] if v.key in stray and v.on}
     if mode == "fix" and stray:
         jalali = parsed.get("jalali_dates") or _jalali_books(db)
         for v in parsed["vouchers"]:
@@ -1078,7 +1080,44 @@ def review(db: Session, parsed: dict[str, Any], overrides: dict[str, str] | None
         "years_mode": parsed.get("years_mode"), "create_groups": _group_labels(db),
         "debit_total": sum(v.debit for v in vouchers), "credit_total": sum(v.credit for v in vouchers),
         "codes_reused": codes_reused(vouchers),
+        "stray_vouchers": _stray_vouchers(parsed),
     }
+
+
+def _as_written(on: "date | str | None", parsed: dict[str, Any]) -> str | None:
+    """A date in the file's own calendar and shape: «1404/01/05» for a Jalali journal, else ISO."""
+    if not on:
+        return None
+    d = date.fromisoformat(on) if isinstance(on, str) else on
+    if parsed.get("jalali_dates"):
+        from app.utils.jalali import gregorian_to_jalali
+        y, m, dd = gregorian_to_jalali(d)
+        return f"{y:04d}/{m:02d}/{dd:02d}"
+    return d.isoformat()
+
+
+def _stray_vouchers(parsed: dict[str, Any]) -> list[dict[str, Any]]:
+    """The vouchers the out-of-year question means: number, the date written and the one it has now, amount,
+    words and accounts — «تاریخ ۱ سند بیرون از سال فایل» left the owner asking which (2026-10-21, P10)."""
+    written = parsed.get("stray_written") or {}
+    out = []
+    for v in parsed["vouchers"]:
+        if v.key not in written:
+            continue
+        def names(side: str) -> list[str]:
+            got: list[str] = []
+            for ln in v.lines:
+                name = (ln.account_name or ln.account_code or "").strip()
+                if getattr(ln, side) and name and name not in got:
+                    got.append(name)
+            return got[:2]
+        words = next((ln.description.strip() for ln in v.lines if (ln.description or "").strip()), "") or (v.reference or "")
+        out.append({"number": v.number, "written": written[v.key], "date": v.on.isoformat() if v.on else None,
+                    # as the file writes it: a Jalali journal's «1404/01/05», whatever calendar the books show
+                    "written_as": _as_written(written[v.key], parsed), "date_as": _as_written(v.on, parsed),
+                    "amount": v.debit, "description": words[:120], "debit_accounts": names("debit"),
+                    "credit_accounts": names("credit")})
+    return out[:20]
 
 
 def apply(db: Session, parsed: dict[str, Any], *, account_map: dict[str, str], currency: str | None = None,

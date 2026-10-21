@@ -1236,6 +1236,8 @@ window.I18N_PACKS.ar = Object.assign({
         jiSheet: "الورقة",
         jiSheetRows: "{name} — {n} صفًا",
         jiYearsTitle: "تاريخ {n} من القيود خارج سنة الملف ({year}) — سنة مكتوبة خطأ؟",
+        jiStrayItem: "القيد {number}، {date}: {amount} — مدين {dr} · دائن {cr}",
+        jiStrayMoved: "{written}، الآن {date}",
         jiYearsFix: "استخدام {year} لها",
         jiYearsKeep: "إبقاء التواريخ كما كُتبت",
         jiCodeReused: "في الملف، الرمز {code} هو {n} حسابات: {names}؛ يُحفظ كل منها على حدة.",

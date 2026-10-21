@@ -284,14 +284,15 @@ def suggestions(db: Session, kind: str, facts: dict, today: date) -> list[dict]:
     if personal and kind == "monthly":
         try:
             from app.services.recurring_detection import detect_recurring
-            subs = [c for c in detect_recurring(db, today=today)
+            # the card's currency: Omani-rial subscriptions on the Omani-rial card, in their own amounts
+            subs = [c for c in detect_recurring(db, today=today, currency=ccy)
                     if c.direction == "payment" and c.frequency == "monthly"]
         except Exception:  # noqa: BLE001
             subs = []
         if len(subs) >= 2:
             out.append({"key": "subscriptions", "params": {
                 "count": len(subs), "total": plain(sum(c.typical_amount for c in subs)),
-                "names": [c.description for c in subs[:3]]}})
+                "names": [c.description for c in subs[:3]], "currency": ccy}})
     return out[:MAX_SUGGESTIONS]
 
 

@@ -378,5 +378,179 @@
    }
   ],
   "note": null
- }
+ },
+ "week_two_fa": [
+  {
+   "kind": "weekly",
+   "mood": "watch",
+   "emoji": "👀",
+   "title": "مرور هفته، ۱۲ اکتبر تا ۱۸ اکتبر ۲۰۲۶ · ریال ایران",
+   "currency": "IRR",
+   "headline": {
+    "label": "خرج این هفته",
+    "value": 3000000,
+    "display": "۳٬۰۰۰٬۰۰۰ ریال ایران",
+    "delta": {
+     "pct": 20,
+     "dir": "up",
+     "good": false,
+     "text": "۲۰٪ بیشتر از معمول"
+    }
+   },
+   "chart": {
+    "title": "پنج هفتهٔ اخیر",
+    "bars": [
+     {
+      "label": "۱۴ سپتامبر",
+      "value": 2500000,
+      "display": "۲٬۵۰۰٬۰۰۰ ریال ایران",
+      "current": false
+     },
+     {
+      "label": "۲۱ سپتامبر",
+      "value": 2500000,
+      "display": "۲٬۵۰۰٬۰۰۰ ریال ایران",
+      "current": false
+     },
+     {
+      "label": "۲۸ سپتامبر",
+      "value": 2500000,
+      "display": "۲٬۵۰۰٬۰۰۰ ریال ایران",
+      "current": false
+     },
+     {
+      "label": "۵ اکتبر",
+      "value": 2500000,
+      "display": "۲٬۵۰۰٬۰۰۰ ریال ایران",
+      "current": false
+     },
+     {
+      "label": "این هفته",
+      "value": 3000000,
+      "display": "۳٬۰۰۰٬۰۰۰ ریال ایران",
+      "current": true
+     }
+    ],
+    "usual": 2500000,
+    "usual_label": "معمول",
+    "legend": [
+     "خرج"
+    ]
+   },
+   "ring": null,
+   "categories": [
+    {
+     "name": "خوراک و سوپرمارکت",
+     "value": 3000000,
+     "display": "۳٬۰۰۰٬۰۰۰ ریال ایران",
+     "sub": "۲۰٪ بیشتر از معمول",
+     "dir": "up",
+     "width": 1.0,
+     "usual_at": 0.8333
+    }
+   ],
+   "categories_title": "کجا خرج شد",
+   "facts": [
+    "بیشترین خرج: خرید ماهانه، ۳٬۰۰۰٬۰۰۰ ریال ایران (۱۴ اکتبر ۲۰۲۶)."
+   ],
+   "ideas": [],
+   "ideas_title": "پیشنهادها",
+   "note": null
+  },
+  {
+   "kind": "weekly",
+   "mood": "watch",
+   "emoji": "👀",
+   "title": "مرور هفته، ۱۲ اکتبر تا ۱۸ اکتبر ۲۰۲۶ · ریال عمان",
+   "currency": "OMR",
+   "headline": {
+    "label": "خرج این هفته",
+    "value": 41.5,
+    "display": "۴۱٫۵۰۰ ریال عمان",
+    "delta": {
+     "pct": 315,
+     "dir": "up",
+     "good": false,
+     "text": "۳۱۵٪ بیشتر از معمول"
+    }
+   },
+   "chart": {
+    "title": "پنج هفتهٔ اخیر",
+    "bars": [
+     {
+      "label": "۱۴ سپتامبر",
+      "value": 10,
+      "display": "۱۰٫۰۰۰ ریال عمان",
+      "current": false
+     },
+     {
+      "label": "۲۱ سپتامبر",
+      "value": 10,
+      "display": "۱۰٫۰۰۰ ریال عمان",
+      "current": false
+     },
+     {
+      "label": "۲۸ سپتامبر",
+      "value": 10,
+      "display": "۱۰٫۰۰۰ ریال عمان",
+      "current": false
+     },
+     {
+      "label": "۵ اکتبر",
+      "value": 10,
+      "display": "۱۰٫۰۰۰ ریال عمان",
+      "current": false
+     },
+     {
+      "label": "این هفته",
+      "value": 41.5,
+      "display": "۴۱٫۵۰۰ ریال عمان",
+      "current": true
+     }
+    ],
+    "usual": 10,
+    "usual_label": "معمول",
+    "legend": [
+     "خرج"
+    ]
+   },
+   "ring": null,
+   "categories": [
+    {
+     "name": "خوراک و سوپرمارکت",
+     "value": 20.25,
+     "display": "۲۰٫۲۵۰ ریال عمان",
+     "sub": "تازه",
+     "dir": "new",
+     "width": 1.0,
+     "usual_at": null
+    },
+    {
+     "name": "تفریح و رستوران",
+     "value": 17.5,
+     "display": "۱۷٫۵۰۰ ریال عمان",
+     "sub": "۷۵٪ بیشتر از معمول",
+     "dir": "up",
+     "width": 0.8642,
+     "usual_at": 0.4938
+    },
+    {
+     "name": "حمل‌ونقل",
+     "value": 3.75,
+     "display": "۳٫۷۵۰ ریال عمان",
+     "sub": "تازه",
+     "dir": "new",
+     "width": 0.1852,
+     "usual_at": null
+    }
+   ],
+   "categories_title": "کجا خرج شد",
+   "facts": [
+    "بیشترین خرج: لولو، ۲۰٫۲۵۰ ریال عمان (۱۴ اکتبر ۲۰۲۶)."
+   ],
+   "ideas": [],
+   "ideas_title": "پیشنهادها",
+   "note": null
+  }
+ ]
 }

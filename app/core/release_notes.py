@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.21.1"
+CURRENT_RELEASE = "2026.10.21.2"
 
 
 @dataclass(frozen=True)
@@ -2146,6 +2146,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "دفاتری که از دفتر روزنامهٔ خودتان وارد شده‌اند حالا می‌توانند کدهای خودتان (۳۰۰۰، ۳۰۰۱…) را به جای کدهای برنامه داشته باشند: در صفحهٔ کدینگ حساب‌ها کدها را ببینید و تغییر دهید. همهٔ گزارش‌ها همان می‌مانند، حسابی که با دو نام آمده یکی می‌شود، و فایل‌های بعدی با همین کدها مستقیم وارد می‌شوند.",
                     "es": "Los libros importados de tus propios diarios ya pueden llevar tus propios códigos (3000, 3001…) en lugar de los de la aplicación: en el Plan de cuentas, revisa los códigos y cambia. Ningún informe cambia, las cuentas que son una con dos nombres se unen y los archivos siguientes con los mismos códigos entran directamente.",
                     "ar": "الدفاتر المستوردة من دفاتر يوميتك يمكنها الآن أن تحمل رموزك الخاصة (3000، 3001…) بدل رموز التطبيق: في دليل الحسابات راجع الرموز وانتقل إليها. تبقى كل التقارير كما هي، ويتوحد الحساب الذي جاء باسمين، وتدخل الملفات التالية بالرموز نفسها مباشرة.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.21.2",
+        date="2026-10-21",
+        highlights=(
+            Highlight(
+                key="each-currency-on-its-own",
+                page="ai-accountant",
+                roles=("personal",),
+                title={
+                    "en": "Each currency on its own",
+                    "fa": "هر ارز جداگانه",
+                    "es": "Cada moneda por separado",
+                    "ar": "كل عملة على حدة",
+                },
+                body={
+                    "en": "Money you keep in Omani rials, dollars or rials is told in its own amounts: ask what you spent and you get each currency's total and categories, and your weekly and monthly reviews have a card for each currency. Nothing is exchanged or added together.",
+                    "fa": "پولی که به ریال عمان، دلار یا ریال دارید با مبلغ خودش گفته می‌شود: بپرسید چقدر خرج کرده‌اید تا جمع و دسته‌بندی هر ارز را جداگانه ببینید، و مرور هفتگی و ماهانه برای هر ارز یک کارت دارد. هیچ ارزی تبدیل یا با دیگری جمع نمی‌شود.",
+                    "es": "El dinero que guardas en riales omaníes, dólares o riales se cuenta en sus propios importes: pregunta cuánto gastaste y verás el total y las categorías de cada moneda, y tus resúmenes semanales y mensuales tienen una tarjeta por moneda. Nada se cambia ni se suma.",
+                    "ar": "المال الذي تحتفظ به بالريال العُماني أو الدولار أو الريال يُذكر بمبالغه الخاصة: اسأل كم أنفقت لترى مجموع كل عملة وفئاتها، وفي مراجعاتك الأسبوعية والشهرية بطاقة لكل عملة. لا يُحوَّل شيء ولا يُجمع مع غيره.",
                 },
             ),
         ),

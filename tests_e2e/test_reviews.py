@@ -67,6 +67,33 @@ def test_a_weekly_review_in_the_chat_and_its_buttons(flow_page):
         switch_language(page, "en")
 
 
+def test_a_week_in_two_currencies_is_a_card_for_each(flow_page):
+    """AP1, AP6: rials and Omani rials, never added together — the rials' card first, then the Omani rials'."""
+    page, watch = flow_page("e2e_reviews")
+    cards = CARDS["week_two_fa"]
+    page.route("**/ai-accountant/reviews", lambda route: route.fulfill(
+        status=200, content_type="application/json",
+        body=json.dumps({"session_id": None, "reviews": [{**_review(cards[0]), "cards": cards}]}, ensure_ascii=False)))
+    try:
+        switch_language(page, "fa")
+        page.evaluate("() => { location.hash = 'ai-accountant'; }")
+        page.wait_for_load_state("networkidle")
+        drawn = page.locator(".ai-review-card")
+        expect(drawn).to_have_count(2)
+        expect(drawn.nth(0).locator(".ai-review-title")).to_contain_text("· ریال ایران")
+        expect(drawn.nth(1).locator(".ai-review-title")).to_contain_text("· ریال عمان")
+        expect(drawn.nth(1).locator(".ai-review-figure")).to_have_text("۴۱٫۵۰۰")
+        expect(drawn.nth(1).locator(".ai-review-cat")).to_have_count(3)
+        os.makedirs(ARTIFACTS, exist_ok=True)
+        for i, name in ((0, "review-two-rials-fa.png"), (1, "review-two-omani-fa.png")):
+            drawn.nth(i).scroll_into_view_if_needed()
+            page.wait_for_timeout(1300)
+            drawn.nth(i).screenshot(path=os.path.join(ARTIFACTS, name))
+        assert watch.problems() == [], watch.problems()
+    finally:
+        switch_language(page, "en")
+
+
 def test_an_english_month_on_a_phone_sized_screen(flow_page):
     page, watch = flow_page("e2e_reviews")
     page.set_viewport_size({"width": 400, "height": 900})

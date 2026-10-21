@@ -209,7 +209,15 @@ data class SummaryReply(
 )
 
 @Serializable
-data class SummaryCash(val total: Double, val currency: String? = null)       // 23915.5: pence kept
+data class SummaryCash(
+    val total: Double,                                                           // 23915.5: pence kept
+    val currency: String? = null,
+    /** Each currency as it is, the books' first; [total] is the first's (docs/PLAN_CURRENCIES.md). */
+    @SerialName("by_currency") val byCurrency: List<SummaryHeld> = emptyList(),
+)
+
+@Serializable
+data class SummaryHeld(val currency: String, val total: Double)
 
 @Serializable
 data class SummaryBudget(val left: Double, val total: Double, val currency: String? = null)

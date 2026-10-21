@@ -745,3 +745,15 @@ The owner: «i want to have different currencies. isn't that ok?» It is. A pers
 | AP5 | The report card | «کارنامه ماه قبلم چطوره؟»; the My finances report card | The first currency's month, the others listed in their own amounts; asked for OMR, the Omani-rial month |
 | AP6 | On the web | The chat after AP1, and again after a reload | Both cards, in order, each with its own figures |
 | AP7 | A company stays as it was | A company in IRR with a USD expense whose rate is on file | One card, in rials, with the dollars counted at their rate |
+
+## AQ. Each currency on My finances and the widget (2026-10-21, `docs/PLAN_CURRENCIES.md` phase 2)
+
+My finances and the phone's widget showed one figure in the books' currency, so Omani rials with no rate showed as nothing there.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| AQ1 | A row for each currency | Personal books in IRR: 10,000,000 IRR at the bank and 100 OMR in the wallet; this month 3,000,000 IRR of groceries and 41.500 OMR of food, dining and transport. Open My finances | A row for «ریال ایران» (cash 7,000,000, spent 3,000,000) and one for «ریال عمان» (cash 58.500, spent 41.500), the currencies that moved this month first; nothing added together |
+| AQ2 | The details in one currency | AQ1; tap «ریال عمان» under «نمایش جزئیات به» | The categories, the months' spending and the report card in Omani rials (20.250, 17.500, 3.750); back to «ریال ایران», the rials' |
+| AQ3 | Only Omani rials moved | Books in IRR with only OMR entries | No rows and no switch: the three figures as before, in Omani rials, never «۰ ریال» |
+| AQ4 | The widget | AQ1, on the phone's home screen | «۵۸٫۵۰۰ ریال عمان» or the books' first currency large, the others under it («۷٬۰۰۰٬۰۰۰ ریال · …»), the budget left below |
+| AQ5 | One currency | Books with entries in one currency | My finances and the widget as before |

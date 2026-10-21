@@ -43,6 +43,7 @@ window.I18N_PACKS.es = Object.assign({
         pdSubtitle: 'A dónde fue tu dinero, mes a mes — categorías, tendencias y presupuestos.',
         pdKpiSpent: 'Gastado este mes',
         pdKpiSaved: 'Ahorrado este mes',
+        pdCcyShow: 'Ver detalles en',
         pdSpendByCategory: 'Gasto por categoría',
         pdTrend: 'Gasto mensual',
         cmNav: 'Cuotas y cheques',

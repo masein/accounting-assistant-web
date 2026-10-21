@@ -812,12 +812,20 @@ async def mobile_summary(db: Session = Depends(get_db), user: SessionUser = Depe
     from app.services.ai_accountant.base import ToolContext
     from app.services.ai_accountant.cash_tools import GetCashPosition, GetCashPositionInput
     from app.services.ai_accountant.period_tools import GetBudgetStatus, GetBudgetStatusInput
-    ctx = ToolContext(db=db, user_id=str(user.user_id), username=user.username)
+    # a person's money is the bank and cash on hand with the wallets under it, as the chat counts it (AB4)
+    mode = "personal" if (getattr(user, "role", "") or "").lower() == "personal" else "default"
+    ctx = ToolContext(db=db, user_id=str(user.user_id), username=user.username, mode=mode)
     cash = await GetCashPosition().run(ctx, GetCashPositionInput())
     budget = await GetBudgetStatus().run(ctx, GetBudgetStatusInput())
+    # each currency as it is, the books' first (docs/PLAN_CURRENCIES.md): the widget shows the first and lists
+    # the rest; Omani rials with no rate made a rial total of nothing, so the first is in its own amount too
+    held = [{"currency": h["currency"], "total": plain(h["total"])} for h in cash.get("by_currency") or [] if h.get("total")]
+    total, ccy = plain(cash.get("total") or 0), cash.get("currency")
+    if len(held) > 1 or (held and held[0]["currency"] != ccy):
+        total, ccy = held[0]["total"], held[0]["currency"]
     return {
         "as_of": cash.get("as_of"),
-        "cash": {"total": plain(cash.get("total") or 0), "currency": cash.get("currency")},
+        "cash": {"total": total, "currency": ccy, "by_currency": held},
         "budget": {"left": plain(budget["total_left"]), "total": plain(budget["total_budget"]), "currency": budget.get("currency")}
         if budget.get("budgets") else None,
     }

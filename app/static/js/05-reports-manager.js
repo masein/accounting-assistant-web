@@ -1852,15 +1852,73 @@
       if (btn) btn.addEventListener('click', () => saveBooksCurrency().catch(() => {}));
     })();
 
+    // Each currency the books hold, on its own (docs/PLAN_CURRENCIES.md phase 2): a row of figures for each,
+    // and the details — categories, the months, the report card — in the one chosen. Omani rials with no
+    // rate counted as nothing when everything was in the books' currency.
+    let _pdCurrency = null;
+    async function pdLoadCurrencies() {
+      try {
+        const res = await fetch(API + '/personal/currencies');
+        if (!res.ok) return [];
+        return (await res.json()).currencies || [];
+      } catch (_) { return []; }
+    }
+    function pdRenderCurrencies(list) {
+      const rows = document.getElementById('pd-ccy-rows');
+      const pick = document.getElementById('pd-ccy-pick');
+      if (!rows || !pick) return;
+      // the figures come from here even in one currency: a person's cash is the bank and the wallets
+      // (the dashboard's counted a company's, and left the wallet out)
+      const several = list.length > 1;
+      rows.hidden = !list.length;
+      pick.hidden = !several;
+      if (!several) pick.innerHTML = '';
+      const card = (label, v, ccy) => `<div class="kpi-card"><div class="label">${escapeHtml(label)}</div>`
+        + `<div class="value">${escapeHtml(formatKpiValue(v, ccy))}</div></div>`;
+      rows.innerHTML = list.map(c => `<div class="pd-ccy-row" data-ccy="${escapeHtml(c.currency)}">`
+        + (several ? `<div class="pd-ccy-name">${escapeHtml(c.name)}</div>` : '') + '<div class="kpi-grid">'
+        + card(t('kpiCashOnHand'), c.cash, c.currency) + card(t('pdKpiSpent'), c.spent, c.currency)
+        + card(t('pdKpiSaved'), c.saved, c.currency) + '</div></div>').join('');
+      if (!several) return;
+      pick.innerHTML = `<span class="pd-ccy-label">${escapeHtml(t('pdCcyShow'))}</span>` + list.map(c =>
+        `<button type="button" class="pd-ccy-btn" data-ccy="${escapeHtml(c.currency)}" aria-pressed="${c.currency === _pdCurrency}">`
+        + `${escapeHtml(c.name)}</button>`).join('');
+    }
+    document.getElementById('pd-ccy-pick')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('.pd-ccy-btn');
+      if (!btn || btn.dataset.ccy === _pdCurrency) return;
+      _pdCurrency = btn.dataset.ccy;
+      document.querySelectorAll('#pd-ccy-pick .pd-ccy-btn').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+      pdLoadDetail();
+      loadReportCard();
+    });
+
     async function loadPersonalDashboard() {
       const grid = document.getElementById('pd-kpi-grid');
       if (!grid) return;
       loadInsightsPanel('pd-insights-wrap');
       loadBooksCurrency().catch(() => {});
+      const list = await pdLoadCurrencies();
+      if (!list.some(c => c.currency === _pdCurrency)) _pdCurrency = list.length ? list[0].currency : null;
+      pdRenderCurrencies(list);
+      grid.hidden = list.length > 0;            // each currency's own row instead
+      await pdLoadDetail();
+      pdFillBudgetCategories();
+      pdLoadBudgets();
+      loadNetWorth();
+      loadReportCard();
+      loadGoals();
+      loadHousehold();
+    }
+
+    async function pdLoadDetail() {
+      const grid = document.getElementById('pd-kpi-grid');
+      if (!grid) return;
+      const ccy = _pdCurrency || undefined;
       try {
         if (!window.__FX_META) { try { await loadFxMetadata(); } catch (_) { /* offline */ } }
         await loadReportingCurrency();
-        const res = await fetch(API + '/reports/owner-dashboard');
+        const res = await fetch(API + '/reports/owner-dashboard' + (ccy ? '?currency=' + encodeURIComponent(ccy) : ''));
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || t('msgFailed'));
         const kpis = data.kpis || [];
@@ -1886,8 +1944,9 @@
 
         const cats = data.expense_by_category || [];
         renderMiniTable('pd-cat-wrap', ['category', 'amount'],
-          cats.map(r => [escapeHtml(r.category), formatAmount(r.amount)]));
+          cats.map(r => [escapeHtml(r.category), formatAmount(r.amount, ccy)]));
         const catCanvas = document.getElementById('pd-cat-chart');
+        if (_pdCatChart && !cats.length) { _pdCatChart.destroy(); _pdCatChart = null; }
         if (typeof Chart !== 'undefined' && catCanvas && cats.length) {
           if (_pdCatChart) _pdCatChart.destroy();
           _pdCatChart = new Chart(catCanvas, {
@@ -1902,6 +1961,7 @@
 
         const series = data.monthly_expense_series || [];
         const trendCanvas = document.getElementById('pd-trend-chart');
+        if (_pdTrendChart && !series.length) { _pdTrendChart.destroy(); _pdTrendChart = null; }
         if (typeof Chart !== 'undefined' && trendCanvas && series.length) {
           if (_pdTrendChart) _pdTrendChart.destroy();
           _pdTrendChart = new Chart(trendCanvas, {
@@ -1916,12 +1976,6 @@
       } catch (_) {
         grid.innerHTML = '<p class="empty-state">' + escapeHtml(t('errorLoadingOwnerDashboard')) + '</p>';
       }
-      pdFillBudgetCategories();
-      pdLoadBudgets();
-      loadNetWorth();
-      loadReportCard();
-      loadGoals();
-      loadHousehold();
     }
 
     // ═══════ A shared household (personal, roadmap §4.12) ═══════
@@ -1986,8 +2040,10 @@
     // Names from the chart can be Persian inside an English line (and the other
     // way round); numbers with a sign flip in right-to-left text. Isolate both.
     function rcName(text) { return `<bdi>${escapeHtml(text)}</bdi>`; }
-    function rcSigned(n, suffix = '') {
-      return '\u2066' + (n > 0 ? '+' : '') + formatAmount(n) + suffix + '\u2069';
+    // «،» in Persian and Arabic: «·» beside Persian digits reads as a zero («۲۰٫۲۵۰ · تفریح»)
+    function rcSep() { return ['fa', 'ar'].includes(rcLang()) ? '، ' : ' · '; }
+    function rcSigned(n, suffix = '', ccy) {
+      return '\u2066' + (n > 0 ? '+' : '') + formatAmount(n, ccy) + suffix + '\u2069';
     }
 
     async function loadReportCard() {
@@ -1996,6 +2052,7 @@
       if (!sel || !figs) return;
       const q = new URLSearchParams({ lang: rcLang() });
       if (sel.value) q.set('month', sel.value);
+      if (_pdCurrency) q.set('currency', _pdCurrency);
       let d;
       try {
         const res = await fetch(API + '/personal/report-card?' + q.toString());
@@ -2018,10 +2075,12 @@
       const fig = (label, value, sub, cls) => `<div class="rc-fig ${cls || ''}"><div class="lbl">${escapeHtml(label)}</div>`
         + `<div class="val">${escapeHtml(value)}</div>${sub ? `<div class="sub">${escapeHtml(sub)}</div>` : ''}</div>`;
       const rate = (r) => (r === null || r === undefined) ? '—' : `${formatNum(r)}%`;
+      const cur = d.currency;                     // the month in one currency's own amounts
+      const amt = (v) => formatAmount(v, cur);
       figs.innerHTML = [
-        fig(t('rcIncome'), formatAmount(d.income), tf('rcLastMonth', { v: formatAmount(prev.income || 0) })),
-        fig(t('rcSpending'), formatAmount(d.spending), d.average_spending_3m == null ? '' : tf('rcAverage', { v: formatAmount(d.average_spending_3m) })),
-        fig(t('rcSaved'), formatAmount(d.saved), tf('rcLastMonth', { v: formatAmount(prev.saved || 0) }), d.saved >= 0 ? 'good' : 'bad'),
+        fig(t('rcIncome'), amt(d.income), tf('rcLastMonth', { v: amt(prev.income || 0) })),
+        fig(t('rcSpending'), amt(d.spending), d.average_spending_3m == null ? '' : tf('rcAverage', { v: amt(d.average_spending_3m) })),
+        fig(t('rcSaved'), amt(d.saved), tf('rcLastMonth', { v: amt(prev.saved || 0) }), d.saved >= 0 ? 'good' : 'bad'),
         fig(t('rcRate'), rate(d.savings_rate), tf('rcLastMonth', { v: rate(prev.savings_rate) })),
       ].join('');
       const marks = { true: ['ok', '✓'], false: ['warn', '!'], null: ['info', '•'] };
@@ -2033,16 +2092,19 @@
       const bits = [];
       if (d.categories.length) {
         bits.push(`<p><strong>${escapeHtml(t('rcTopCategories'))}:</strong> ` + d.categories.map(c =>
-          `${rcName(c.category)} <bdi dir="ltr">${escapeHtml(formatAmount(c.amount))}</bdi>`
-          + (c.change_pct == null ? '' : ` <span class="goal-meta">(${escapeHtml(rcSigned(c.change_pct, '%'))})</span>`)).join(' · ') + '</p>');
+          `${rcName(c.category)} <bdi dir="ltr">${escapeHtml(amt(c.amount))}</bdi>`
+          + (c.change_pct == null ? '' : ` <span class="goal-meta">(${escapeHtml(rcSigned(c.change_pct, '%'))})</span>`)).join(rcSep()) + '</p>');
       }
       if (d.biggest_rise) {
-        bits.push(`<p>${escapeHtml(tf('rcBiggestRise', { cat: '\u2068' + d.biggest_rise.category + '\u2069', v: rcSigned(d.biggest_rise.increase) }))}</p>`);
+        bits.push(`<p>${escapeHtml(tf('rcBiggestRise', { cat: '\u2068' + d.biggest_rise.category + '\u2069', v: rcSigned(d.biggest_rise.increase, '', cur) }))}</p>`);
       }
       const nw = d.net_worth || {};
-      bits.push(`<p>${escapeHtml(tf('rcNetWorth', { v: rcSigned(nw.change || 0), end: formatAmount(nw.end || 0) }))}</p>`);
+      // net worth is in the books' currency until it is per currency (docs/PLAN_CURRENCIES.md phase 3)
+      if (!nw.currency || nw.currency === cur) {
+        bits.push(`<p>${escapeHtml(tf('rcNetWorth', { v: rcSigned(nw.change || 0, '', cur), end: amt(nw.end || 0) }))}</p>`);
+      }
       if (d.goals.length) {
-        bits.push(`<p>${escapeHtml(t('goalsTitle'))}: ` + d.goals.map(g => `${rcName(g.name)} <bdi dir="ltr">${escapeHtml(formatNum(g.percent))}%</bdi>`).join(' · ') + '</p>');
+        bits.push(`<p>${escapeHtml(t('goalsTitle'))}: ` + d.goals.map(g => `${rcName(g.name)} <bdi dir="ltr">${escapeHtml(formatNum(g.percent))}%</bdi>`).join(rcSep()) + '</p>');
       }
       document.getElementById('rc-details').innerHTML = bits.join('');
     }

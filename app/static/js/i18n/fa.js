@@ -43,6 +43,7 @@ window.I18N_PACKS.fa = Object.assign({
         pdSubtitle: 'پولت ماه به ماه کجا رفته — دسته‌بندی‌ها، روندها و بودجه‌ها.',
         pdKpiSpent: 'خرج این ماه',
         pdKpiSaved: 'پس‌انداز این ماه',
+        pdCcyShow: 'نمایش جزئیات به',
         pdSpendByCategory: 'هزینه به تفکیک دسته',
         pdTrend: 'هزینه ماهانه',
         cmNav: 'اقساط و چک‌ها',

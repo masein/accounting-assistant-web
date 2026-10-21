@@ -43,6 +43,7 @@ window.I18N_PACKS.ar = Object.assign({
         pdSubtitle: 'أين ذهبت أموالك شهرًا بشهر — الفئات والاتجاهات والميزانيات.',
         pdKpiSpent: 'المصروف هذا الشهر',
         pdKpiSaved: 'المدَّخر هذا الشهر',
+        pdCcyShow: 'عرض التفاصيل بـ',
         pdSpendByCategory: 'الإنفاق حسب الفئة',
         pdTrend: 'الإنفاق الشهري',
         cmNav: 'الأقساط والشيكات',

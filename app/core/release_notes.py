@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.21.2"
+CURRENT_RELEASE = "2026.10.21.3"
 
 
 @dataclass(frozen=True)
@@ -2169,6 +2169,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "پولی که به ریال عمان، دلار یا ریال دارید با مبلغ خودش گفته می‌شود: بپرسید چقدر خرج کرده‌اید تا جمع و دسته‌بندی هر ارز را جداگانه ببینید، و مرور هفتگی و ماهانه برای هر ارز یک کارت دارد. هیچ ارزی تبدیل یا با دیگری جمع نمی‌شود.",
                     "es": "El dinero que guardas en riales omaníes, dólares o riales se cuenta en sus propios importes: pregunta cuánto gastaste y verás el total y las categorías de cada moneda, y tus resúmenes semanales y mensuales tienen una tarjeta por moneda. Nada se cambia ni se suma.",
                     "ar": "المال الذي تحتفظ به بالريال العُماني أو الدولار أو الريال يُذكر بمبالغه الخاصة: اسأل كم أنفقت لترى مجموع كل عملة وفئاتها، وفي مراجعاتك الأسبوعية والشهرية بطاقة لكل عملة. لا يُحوَّل شيء ولا يُجمع مع غيره.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.21.3",
+        date="2026-10-21",
+        highlights=(
+            Highlight(
+                key="finances-each-currency",
+                page="personal-dashboard",
+                roles=("personal",),
+                title={
+                    "en": "My finances in each currency",
+                    "fa": "امور مالی من، هر ارز جداگانه",
+                    "es": "Mis finanzas en cada moneda",
+                    "ar": "أموري المالية بكل عملة",
+                },
+                body={
+                    "en": "My finances shows a row for each currency you keep — cash, spent and saved this month — and the categories, the months and the report card in the one you choose. The phone's widget lists each currency too.",
+                    "fa": "امور مالی من برای هر ارزی که دارید یک ردیف نشان می‌دهد — موجودی، خرج و پس‌انداز این ماه — و دسته‌بندی‌ها، ماه‌ها و کارنامه را به ارزی که انتخاب کنید. ویجت گوشی هم هر ارز را جداگانه می‌گوید.",
+                    "es": "Mis finanzas muestra una fila por cada moneda que tienes —efectivo, gastado y ahorrado este mes— y las categorías, los meses y el resumen en la que elijas. El widget del teléfono también muestra cada moneda.",
+                    "ar": "تعرض أموري المالية صفًا لكل عملة لديك — النقد والمنفق والمدَّخر هذا الشهر — والفئات والأشهر وبطاقة التقرير بالعملة التي تختارها. وأداة الهاتف تعرض كل عملة أيضًا.",
                 },
             ),
         ),

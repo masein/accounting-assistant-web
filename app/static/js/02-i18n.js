@@ -45,6 +45,7 @@
         pdSubtitle: 'Where your money went, month by month — categories, trends, and budgets.',
         pdKpiSpent: 'Spent this month',
         pdKpiSaved: 'Saved this month',
+        pdCcyShow: 'Show details in',
         pdSpendByCategory: 'Spending by category',
         pdTrend: 'Monthly spending',
         cmNav: 'Installments & cheques',

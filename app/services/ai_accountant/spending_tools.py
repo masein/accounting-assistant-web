@@ -18,7 +18,7 @@ from typing import Any, Literal
 
 import jdatetime
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.money import plain
 from app.models.account import Account
@@ -193,6 +193,11 @@ class GetSpendingSummaryInput(BaseModel):
         None,
         description="Optional account code or prefix to restrict to one category (e.g. food). Omit for the total.",
     )
+    currency: str | None = Field(
+        None,
+        description=("Omit for the usual answer. Give a code (OMR, USD…) for the entries in that currency only, "
+                     "in their own amounts: «ریال عمانش رو بگو» is OMR."),
+    )
 
 
 class GetSpendingSummary(BaseTool):
@@ -205,7 +210,8 @@ class GetSpendingSummary(BaseTool):
         "dates yourself, and returns the total, a breakdown by category, the transaction "
         "count and the resolved period with labels in both calendars. ALWAYS use this for "
         "'how much did I spend/earn <time word>' questions, and quote the period label from "
-        "the result. Pure read."
+        "the result. Money spent in another currency than the books' is also in ``by_currency``, "
+        "each currency in its own amounts with its own categories. Pure read."
     )
     InputSchema = GetSpendingSummaryInput
 
@@ -250,37 +256,82 @@ class GetSpendingSummary(BaseTool):
             from app.services.chart_codes import class_expr, class_of      # by class (docs/PLAN_OWN_CODES.md)
             stmt = stmt.where(class_expr().like(f"{class_of(args.category_code.strip())}%"))
 
+        base = (get_reporting_currency(ctx.db) or "IRR").strip().upper()
+        only = (args.currency or "").strip().upper() or None
+        if only:
+            stmt = stmt.where(func.upper(Transaction.currency) == only)
+
+        # Each currency in its own amounts, and the base view beside it. A line with
+        # no rate has no base value: an Omani-rial week in rial books summed to zero
+        # and the assistant said nothing could be told (scenarios AO1–AO2).
+        own: dict[str, dict[str, dict[str, Any]]] = {}
+        own_txns: dict[str, set] = {}
         by_code: dict[str, dict[str, Any]] = {}
         txn_ids: set = set()
+        not_counted: dict[str, Any] = {}                # per currency: what the base total leaves out
         for txn, line, acc in ctx.db.execute(stmt).all():
             if classify_account_code(acc.code) != wanted:
                 continue
-            # base value: every currency in one total (roadmap §4.6)
-            d, c = plain(line.base_debit or 0), plain(line.base_credit or 0)
+            ccy = (txn.currency or base).strip().upper()
+            d, c = plain(line.debit or 0), plain(line.credit or 0)
             amount = (d - c) if wanted == EXPENSE else (c - d)
+            slot = own.setdefault(ccy, {}).setdefault(
+                acc.code, {"category_code": acc.code, "category_name": acc.name, "amount": 0, "count": 0})
+            slot["amount"] = plain(slot["amount"] + amount)
+            slot["count"] += 1
+            own_txns.setdefault(ccy, set()).add(txn.id)
+            if ccy != base and line.base_debit is None and line.base_credit is None:
+                not_counted[ccy] = plain(not_counted.get(ccy, 0) + amount)
+            # base value: every currency in one total (roadmap §4.6)
+            bd, bc = plain(line.base_debit or 0), plain(line.base_credit or 0)
+            b_amount = (bd - bc) if wanted == EXPENSE else (bc - bd)
             slot = by_code.setdefault(acc.code, {"category_code": acc.code, "category_name": acc.name, "amount": 0, "count": 0})
-            slot["amount"] += amount
+            slot["amount"] = plain(slot["amount"] + b_amount)
             slot["count"] += 1
             txn_ids.add(txn.id)
 
-        categories = sorted((v for v in by_code.values() if v["amount"]), key=lambda v: -v["amount"])
-        total = sum(v["amount"] for v in categories)
+        def _ranked(slots: dict) -> list[dict[str, Any]]:
+            return sorted((v for v in slots.values() if v["amount"]), key=lambda v: -v["amount"])
+
+        per_currency = []
+        for ccy in sorted(own, key=lambda k: (k != base, k)):
+            cats = _ranked(own[ccy])
+            if cats:
+                per_currency.append({"currency": ccy, "total": plain(sum(v["amount"] for v in cats)),
+                                     "transaction_count": len(own_txns[ccy]), "by_category": cats[:12]})
+
+        currency = base
+        if only:
+            # one currency asked for: its own amounts
+            currency, categories = only, _ranked(own.get(only, {}))
+        elif len(per_currency) == 1 and per_currency[0]["currency"] != base and not_counted:
+            # all of it in one other currency that has no rate: that currency is the answer
+            currency, categories = per_currency[0]["currency"], per_currency[0]["by_category"]
+        else:
+            categories = _ranked(by_code)
+        total = plain(sum(v["amount"] for v in categories))
         out: dict[str, Any] = {
             "kind": args.kind,
             "period": period.as_dict(),
             "today": today.isoformat(),
-            "currency": get_reporting_currency(ctx.db),
+            "currency": currency,
             "total": total,
-            "transaction_count": len(txn_ids),
+            "transaction_count": len(own_txns.get(currency, ())) if (only or currency != base) else len(txn_ids),
             "by_category": categories[:12],
         }
+        if not only and (len(per_currency) > 1 or (per_currency and per_currency[0]["currency"] != currency)):
+            out["by_currency"] = per_currency
+        if not only and currency == base and not_counted:
+            left = ", ".join(f"{plain(v)} {k}" for k, v in sorted(not_counted.items()))
+            out["note"] = (f"The total in {base} leaves out {left}: no exchange rate yet. Say each currency's own "
+                           "total and categories from by_currency; never add them together, never say it is zero.")
         if cal == "jalali":
             out["today_jalali"] = format_jalali(today)
             out["today_jalali_long"] = format_jalali_long(today)
         from app.services.fx_base import unconverted_note
-        if (left_out := unconverted_note(ctx.db)):
+        if not only and currency == base and (left_out := unconverted_note(ctx.db)):
             out["unconverted"] = left_out
-        if not categories:
+        if not categories and not out.get("by_currency"):
             out["note"] = f"No {args.kind} recorded between {period.from_date.isoformat()} and {period.to_date.isoformat()}."
         return out
 

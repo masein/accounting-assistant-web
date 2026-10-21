@@ -725,7 +725,7 @@ From the owner's phone: personal books that count in Iranian rials, a week of sp
 
 | ID | Scenario | Steps | Expected |
 |----|----------|-------|----------|
-| AO1 | A week in Omani rials | Personal books in IRR; last week 4 entries in OMR (food 12.500, groceries 20.250, transport 3.750, food 5.000), no OMR rate. «هفته گذشته خرج ما چیا بوده و توی چه دسته بندی هایی؟» | «۴۱٫۵۰۰ ریال عمان» with the categories in Omani rials (خوراک ۱۷٫۵۰۰، خواربار ۲۰٫۲۵۰، حمل‌ونقل ۳٫۷۵۰); never "zero", never "can't tell" |
+| AO1 | A week in Omani rials | Personal books in IRR; last week 4 entries in OMR (a restaurant 12.500, groceries 20.250, a taxi 3.750, a café 5.000), no OMR rate. «هفته گذشته خرج ما چیا بوده و توی چه دسته بندی هایی؟» | «۴۱٫۵۰۰ ریال عمان» with the categories in Omani rials (خوراک و سوپرمارکت ۲۰٫۲۵۰، تفریح و رستوران ۱۷٫۵۰۰، حمل‌ونقل ۳٫۷۵۰); never "zero", never "can't tell" |
 | AO2 | Asked for one currency | «خب ریال عمانش رو بگو» | The same week in Omani rials, from the tool asked for OMR |
 | AO3 | Two currencies in one week | AO1 plus 3,000,000 IRR of groceries paid from a rial bank account | Each currency on its own, nothing added together: «۴۱٫۵۰۰ ریال عمان و ۳٬۰۰۰٬۰۰۰ ریال», each with its categories |
 | AO4 | The quick answer | «این ماه چقدر خرج کردم؟» in AO3's books | Each currency listed, not «۰ ریال» |

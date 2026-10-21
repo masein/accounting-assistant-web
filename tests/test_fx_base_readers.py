@@ -119,6 +119,9 @@ def test_the_balance_cash_and_spending_tools_are_in_the_base_currency(books, db)
     assert cash["currency"] == "GBP" and cash["total"] == 1120 and "AED" in cash["unconverted"]
     spent = _tool(GetSpendingSummary, db, cid, period="this_year")
     assert spent["total"] == 280 and spent["currency"] == "GBP"                # £200 + $100 at 0.8
+    # the dollars in their own amounts too; nothing left out (scenario AO6)
+    assert [(h["currency"], h["total"]) for h in spent["by_currency"]] == [("GBP", 200), ("USD", 100)]
+    assert "note" not in spent
 
 
 # ─── 2. Services that named no currency ────────────────────────────────────────

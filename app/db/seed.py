@@ -216,6 +216,7 @@ PERSONAL_SEED_ACCOUNTS = [
     # Living expenses
     ("6110", "خوراک و سوپرمارکت", "Food & groceries", AccountLevel.GENERAL),
     ("6120", "مسکن و اجاره", "Housing & rent", AccountLevel.GENERAL),
+    ("6125", "لوازم و تعمیرات خانه", "Home supplies & repairs", AccountLevel.GENERAL),   # added 2026-10-21 (migration 085)
     ("6130", "حمل‌ونقل", "Transport", AccountLevel.GENERAL),
     ("6140", "قبوض و خدمات", "Utilities & bills", AccountLevel.GENERAL),
     ("6150", "سلامت و درمان", "Health", AccountLevel.GENERAL),

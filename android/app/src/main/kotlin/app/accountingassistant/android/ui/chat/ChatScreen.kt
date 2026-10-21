@@ -41,6 +41,8 @@ import androidx.compose.ui.focus.FocusRequester
 import app.accountingassistant.android.data.Queued
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -153,7 +155,12 @@ fun ChatScreen(
         while (true) { delay(1000); value = System.currentTimeMillis() }
     }
     // follow the newest item; an older page prepended keeps the place
-    LaunchedEffect(state.items.lastOrNull()?.id) { if (state.items.isNotEmpty()) list.animateScrollToItem(state.items.lastIndex) }
+    LaunchedEffect(state.items.lastOrNull()?.id) {
+        if (state.items.isEmpty()) return@LaunchedEffect
+        list.animateScrollToItem(state.items.lastIndex)
+        // and all of it: a chosen answer's bubble stayed under the composer, its top only in view (2026-10-21)
+        if (list.canScrollForward) list.animateScrollBy(100_000f)
+    }
     // The composer floats over the list with whatever sits above it — a file waiting to be sent,
     // a notice — so the list keeps clear of all of it, not a fixed 104dp: a chosen file covered
     // the last answer (phone QA, 2026-10-12). When it grows, the conversation moves up with it.
@@ -290,7 +297,9 @@ fun ChatScreen(
                 }
             }
         }
+        // the ground behind the composer, to the screen's edge: the conversation goes under it, not through it
         Column(Modifier.align(Alignment.BottomCenter).onSizeChanged { overlayPx = it.height }
+                   .background(Brush.verticalGradient(0f to c.ground.copy(alpha = 0f), 0.3f to c.ground, 1f to c.ground))
                    .navigationBarsPadding().imePadding().padding(10.dp),
                verticalArrangement = Arrangement.spacedBy(6.dp)) {
             val notice = when (state.notice) {
@@ -370,8 +379,14 @@ fun ChatScreen(
 private fun TableCard(item: ChatItem.Table, lang: String) {
     val c = LocalAccountantColors.current
     Surface(color = c.surface, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, c.line)) {
+        // each currency said (docs/PLAN_CURRENCIES.md): rows in two currencies each name theirs; a table all in
+        // one currency that isn't rials names it once — «7.450» alone could be anything (2026-10-21)
+        val ccys = item.rows.mapNotNull { it.currency?.uppercase() }.distinct()
+        val mixed = ccys.size > 1
+        val caption = ccys.singleOrNull()?.takeIf { it != "IRR" && currencySymbol(it) == null }?.let { currencyName(it, lang) }
+        val heading = listOfNotNull(item.title, caption).joinToString(" — ").ifBlank { null }
         Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp)) {
-            item.title?.let { Text(it, color = c.muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)) }
+            heading?.let { Text(it, color = c.muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)) }
             item.rows.forEachIndexed { i, row ->
                 if (i > 0) HorizontalDivider(color = c.line, thickness = 1.dp)
                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -381,7 +396,7 @@ private fun TableCard(item: ChatItem.Table, lang: String) {
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         // «£360» like the cards around it; a rial table keeps bare numbers, no unit on every row
-                        val shown = if (row.currency?.let { currencySymbol(it) } != null) priced(row.value, row.currency, lang)
+                        val shown = if (mixed || row.currency?.let { currencySymbol(it) } != null) priced(row.value, row.currency, lang)
                                     else Numbers.amount(row.value, lang, Numbers.places(row.currency))
                         Text(shown, color = c.ink, fontSize = 13.sp, fontWeight = FontWeight(700))
                         row.gain?.let { g ->
@@ -468,9 +483,23 @@ private fun Queue(q: Queued, onRetry: () -> Unit, onDiscard: () -> Unit) {
  * ۲۴۱۴۰۵» (scenario AC9). A Persian or Arabic date follows a comma.
  */
 internal fun summaryOf(title: String, date: String?): String {
-    val rtl = date?.any { Character.getDirectionality(it).let { d ->
-        d == Character.DIRECTIONALITY_RIGHT_TO_LEFT || d == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC } } == true
-    return listOfNotNull(title.ifBlank { null }, date?.let { (if (rtl) "\u2067" else "\u2066") + it + "\u2069" })
+    fun isRtl(ch: Char) = Character.getDirectionality(ch).let { d ->
+        d == Character.DIRECTIONALITY_RIGHT_TO_LEFT || d == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC }
+    val rtl = date?.any(::isRtl) == true
+    // the title's own direction: its first letter that has one
+    val titleRtl = title.firstOrNull { Character.getDirectionality(it).let { d ->
+        d == Character.DIRECTIONALITY_LEFT_TO_RIGHT || isRtl(it) } }?.let(::isRtl) == true
+    // A Persian date after a Persian title is marked right-to-left, not isolated: inside an isolate, after a
+    // title with numbers in it («دریافت ۳۰۰ ریال …»), Android ran its numbers together — «۲۹۱۴۰۵ مهر» (2026-10-21).
+    // A date in the other direction is isolated, as before.
+    val said = date?.let {
+        when {
+            rtl && titleRtl -> "\u200F$it\u200F"
+            rtl -> "\u2067$it\u2069"
+            else -> "\u2066$it\u2069"
+        }
+    }
+    return listOfNotNull(title.ifBlank { null }, said)
         // beside Persian digits a middle dot reads as a zero, «۲۴۰ مهر»: a comma there
         .joinToString(if (rtl) "، " else " · ")
 }

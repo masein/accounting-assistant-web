@@ -798,3 +798,16 @@ A budget was in the books' currency and counted spending at its base value, so O
 | AT5 | Round amounts | Fifty entries in rials and a few in Omani rials | Each currency against its own typical entry: 50 OMR isn't small beside rials |
 | AT6 | Repeating payments in Omani rials | Two Omani-rial subscriptions each month on the Omani-rial card | «۲ پرداخت هر ماه تکرار می‌شود، روی هم ماهی … ریال عمان» on that card |
 | AT7 | A company stays as it was | A company with a USD expense at its rate | Its insights at base value, one total |
+
+## AU. The owner's phone, 2026-10-21 (five screenshots)
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| AU1 | The place they named | Places «کیف پول سبز» (112001) and «کیف پول قشنگم»; «where is Amir's cash?» answered «کیف پول قشنگم» | The card's cash line is «کیف پول قشنگم», whatever code the model gave; a name the person taught the assistant for a place counts as that place; two places named (a transfer) are left as they are |
+| AU2 | An answer never drops the list | «These were lent to me: 300 Oman Rials from Amir, $333.77 Muscat Airbnb, … $350.00 Yerevan Airbnb», then «one Amir gave in cash, the rest Amin paid» | A card for every item: Amir's 300 OMR into the place, and one Travel card per dollar line against «بدهی به دیگران» with Amin on each; «چقدر به امین بدهکارم؟» before they are confirmed says what was told and makes the cards, never only "nothing recorded" |
+| AU3 | Things for the home | «دو تا مبدل برق خریدم ۲ ریال عمان», stationery, a key cut | Under «لوازم و تعمیرات خانه» (Home supplies & repairs), not «خانواده و هدایا»; books kept from before get the category once |
+| AU4 | What categories there are | «چه دسته‌بندی‌هایی داری؟» (even typed «چه دسته بندی هوایی داری؟») | The categories by name, spending and income, at once; «هفته گذشته خرج ما چیا بوده و توی چه دسته‌بندی‌هایی؟» is still the week's spending |
+| AU5 | Baisa always written | Any Omani-rial amount in a reply | «۲٫۰۰۰ ریال عمان», «۷٫۴۵۰ ریال عمان», never «۲ ریال عمان» |
+| AU6 | The card names its currency | A week's spending in Omani rials; a table in rials and Omani rials | «OMR» (or «ریال عمان») once above the rows; each row names its currency when there are two |
+| AU7 | The card's date in order | A Persian card «دریافت ۳۰۰ ریال عمانی قرض از امیر، در کیف پول قشنگم» dated ۲۹ مهر ۱۴۰۵, in an English app | «…قشنگم، ۲۹ مهر ۱۴۰۵», not «۲۹۱۴۰۵ مهر» |
+| AU8 | Nothing behind the composer | Scroll the conversation; tap a choice | The messages pass under the composer, not through it; the newest message is above it, whole |

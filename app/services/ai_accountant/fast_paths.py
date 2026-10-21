@@ -41,8 +41,18 @@ _ACTIONS = re.compile(
     re.IGNORECASE,
 )
 
+# «چه دسته‌بندی‌هایی داری؟» asks for the categories themselves (2026-10-21: it was answered with the year's
+# spending); «هفته گذشته خرج ما چیا بوده و توی چه دسته‌بندی‌هایی؟» asks for spending, so it isn't this one
+_SPENT = re.compile(r"خرج|هزینه|پول|هفته|ماه|امسال|سال|امروز|دیروز|\bspen[dt]|\bspending\b|\bweek|\bmonth|\byear|\btoday"
+                    r"|gast|semana|\bmes\b|año|أنفق|صرف|إنفاق|أسبوع|شهر|سنة|اليوم", re.IGNORECASE)
+
 # Payables before receivables: «به کی بدهکاریم؟» (who do we owe) contains «کی بدهکار».
 _INTENTS: list[tuple[str, re.Pattern]] = [
+    ("categories", re.compile(
+        r"\bwhat (spending |expense |income )?categories\b|\bwhich categories\b|\b(list|show) (my |the )?categories\b"
+        r"|چه دسته[‌ ]?بندی|دسته[‌ ]?بندی[‌ ]?(ها|های)?(م|مون|ت)? ?(چی|چیا|کدوم|کدام)|کدوم دسته[‌ ]?بندی|چه دسته[‌ ]?(ها|های)"
+        r"|qu[eé] categor[ií]as|cu[aá]les son (mis|las) categor[ií]as|ما (هي )?الفئات|أي فئات",
+        re.IGNORECASE)),
     ("payables", re.compile(
         r"\bwhat do (we|i) owe\b|\bpayables?\b|\bbills? (due|to pay)\b|\bwho do (we|i) owe\b"
         r"|به کی بدهکار|بستانکارا?ن|بدهی[‌ ]?(ها|های) ?(ما|مون|من)|چقدر بدهکاری?م"
@@ -98,6 +108,8 @@ def match(message: str) -> str | None:
     if _FUTURE.search(text):
         return None
     for name, pattern in _INTENTS:
+        if name == "categories" and _SPENT.search(text):
+            continue                                  # what was spent in them is the model's (or spending's)
         if pattern.search(text):
             return name
     return None
@@ -171,6 +183,10 @@ _T = {
                  "ar": "{n} فواتير موردين ما زالت مفتوحة: {amounts} للدفع."},
     "spending": {"en": "This month's spending so far: {total_p}.", "fa": "خرج این ماه تا امروز: {total} {cur}.",
                  "es": "Gasto de este mes hasta hoy: {total_p}.", "ar": "إنفاق هذا الشهر حتى اليوم: {total_p}."},
+    "categories": {"en": "Spending categories: {spend}. Income: {income}.",
+                   "fa": "دسته‌بندی‌های خرج: {spend}. درآمد: {income}.",
+                   "es": "Categorías de gasto: {spend}. Ingresos: {income}.",
+                   "ar": "فئات الإنفاق: {spend}. الدخل: {income}."},
     "spending_in": {"en": "This month's spending so far: {list}.", "fa": "خرج این ماه تا امروز: {list}.",
                     "es": "Gasto de este mes hasta hoy: {list}.", "ar": "إنفاق هذا الشهر حتى اليوم: {list}."},
     "spending_currencies": {"en": "This month's spending so far, each currency as it is: {list}.",
@@ -311,6 +327,21 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
         return result
 
     calls: list[dict[str, Any]] = []
+    if intent == "categories":
+        if mode != "personal":
+            return None                                   # a company's chart is the Chart of accounts page
+        from sqlalchemy import select
+
+        from app.models.account import Account
+        from app.services.reporting.common import EXPENSE, REVENUE, classify_account_code
+        accounts = db.execute(select(Account).order_by(Account.code)).scalars().all()
+        parents = {a.parent_id for a in accounts if a.parent_id}
+        def names(kind):
+            return [a.name for a in accounts if a.id not in parents and getattr(a, "is_active", True)
+                    and classify_account_code(a.code) == kind]
+        sep = "، " if lang in ("fa", "ar") else ", "
+        text = _say("categories", lang, spend=sep.join(names(EXPENSE)), income=sep.join(names(REVENUE)))
+        return FastAnswer(intent=intent, text=text, tool_calls=calls)
     if intent == "cash":
         from app.services.ai_accountant.cash_tools import GetCashPosition, GetCashPositionInput
         named = _named_bank(message)

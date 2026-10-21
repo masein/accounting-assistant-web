@@ -219,7 +219,9 @@ class ChatItemsTest {
 
     /** Scenario AC9: the date in the direction of its own words, inside a line that follows its first word. */
     @Test fun aCardsDateIsIsolatedInItsOwnDirection() {
-        assertEquals("کیف پول سبز، \u2067۲۴ مهر ۱۴۰۵\u2069", summaryOf("کیف پول سبز", "۲۴ مهر ۱۴۰۵"))
+        assertEquals("کیف پول سبز، \u200F۲۴ مهر ۱۴۰۵\u200F", summaryOf("کیف پول سبز", "۲۴ مهر ۱۴۰۵"))
+        // an English title keeps the Persian date isolated
+        assertEquals("Loan from Amir، \u2067۲۹ مهر ۱۴۰۵\u2069", summaryOf("Loan from Amir", "۲۹ مهر ۱۴۰۵"))
         assertEquals("Office rent · \u206610 Oct 2026\u2069", summaryOf("Office rent", "10 Oct 2026"))
         assertEquals("Office rent", summaryOf("Office rent", null))
     }

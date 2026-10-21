@@ -130,14 +130,15 @@
             const r = await fetch(API + '/accounts?limit=500');
             if (r.ok) {
               const list = await r.json();
-              const codes = new Set((list || []).map((a) => String(a.code)));
+              // by what each account is: a company's own codes number as they please (docs/PLAN_OWN_CODES.md)
+              const byClass = new Map((list || []).map((a) => [String(a.class_code || a.code), String(a.code)]));
               // Whichever primary cash/bank code the seeded chart contains
               // wins; the reporting locale only breaks the tie if both exist.
               const candidates = window.__REPORTING_LOCALE === 'uk' ? ['1200', '1110'] : ['1110', '1200'];
-              let code = candidates.find((c) => codes.has(c));
+              let code = candidates.map((c) => byClass.get(c)).find(Boolean);
               if (!code) {
                 const guess = (list || []).find((a) =>
-                  /^1\d{2,3}$/.test(String(a.code)) && /(bank|cash|بانک|صندوق|نقد)/i.test(String(a.name || '')));
+                  /^1\d{2,3}$/.test(String(a.class_code || a.code)) && /(bank|cash|بانک|صندوق|نقد)/i.test(String(a.name || '')));
                 code = guess ? String(guess.code) : null;
               }
               if (code) window.__DEFAULT_CASH_CODE = code;
@@ -399,10 +400,11 @@
         // the chart's expense accounts, offered as the category is typed; a
         // category given as a code reads with its name ("6112" alone did)
         const names = await accountNamesByCode();
+        const classes = await accountClasses();
         const list = document.getElementById('budget-category-list');
         if (list && !list.options.length) {
           list.innerHTML = Object.entries(names)
-            .filter(([code]) => '56789'.includes(code[0]) && !code.startsWith('91'))
+            .filter(([code]) => { const k = classes[code] || code; return '56789'.includes(k[0]) && !k.startsWith('91'); })
             .map(([code, name]) => `<option value="${escapeHtml(code)}">${escapeHtml(name)}</option>`).join('');
         }
         const category = (c) => names[c] ? c + ' — ' + names[c] : c;

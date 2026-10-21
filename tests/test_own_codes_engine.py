@@ -214,3 +214,28 @@ def test_an2_renumbered_with_their_classes_kept_the_figures_do_not_move(db, loca
         after = _as_before(_reports(db, locale), moved)
     diffs = _differences(before, after)
     assert diffs == [], "\n".join(diffs[:40])
+
+
+def test_an2_the_pages_drill_down_by_class(db):
+    """A chart's drill-down asks for «41,42,43» (revenue) and the CFO's lists for asset accounts: by what
+    each account is, so a company's own codes still answer (docs/PLAN_OWN_CODES.md phase 4)."""
+    from app.api.manager_reports import accounts_list
+    from app.api.reports import search_transactions
+    from app.services.ai_accountant.entity_create import _resolve_bank_account
+    from app.models.entity import Entity
+    cid = _company(db)
+    with _in(cid):
+        bank, _ = _resolve_bank_account(db, "بانک ملت", None, None)
+        db.add(Entity(type="bank", name="بانک ملت", code=bank))
+        db.commit()
+        _year(db, bank, IR)
+        db.commit()
+        kw = dict(account_code=None, month=None, from_date=date(YEAR, 1, 1), to_date=date(YEAR, 12, 31), search=None,
+                  entity_name=None, currency=None, page=1, page_size=200, sort_by="date", sort_dir="desc", db=db)
+        before = search_transactions(account_code_prefix="41,42,43", **kw)
+        moved = _renumber(db)
+        after = search_transactions(account_code_prefix="41,42,43", **kw)
+        assert before.total_count == after.total_count == 12 and before.total_credit == after.total_credit
+        assert all(moved.get(r.account_code, "").startswith("41") for r in after.rows)
+        listed = {a["code"]: a["class_code"] for a in accounts_list(db=db)}
+        assert listed["81110"] == "1110"                                       # the pages read the class

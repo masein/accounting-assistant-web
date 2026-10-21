@@ -276,7 +276,7 @@
         case 'general_journal': return '/manager-reports/books/general-journal';
         case 'general_ledger': return '/manager-reports/books/general-ledger';
         case 'trial_balance': return '/manager-reports/books/trial-balance';
-        case 'account_ledger': return '/manager-reports/books/account-ledger/' + encodeURIComponent((mgrAccountCodeEl.value || '1110').trim() || '1110');
+        case 'account_ledger': return '/manager-reports/books/account-ledger/' + encodeURIComponent((mgrAccountCodeEl.value || window.__DEFAULT_CASH_CODE || '1110').trim() || '1110');
         case 'debtor_creditor': return '/manager-reports/operational/debtor-creditor';
         case 'inventory_balance': return '/manager-reports/inventory/balance';
         case 'inventory_movement': return '/manager-reports/inventory/movements';
@@ -1562,7 +1562,7 @@
         if (!res.ok) return;
         const accs = await res.json();
         sel.innerHTML = accs
-          .filter(a => (a.code || '').length > 2 && (a.code.startsWith('61') || a.code.startsWith('62')))
+          .filter(a => { const k = a.class_code || a.code || ''; return k.length > 2 && (k.startsWith('61') || k.startsWith('62')); })
           .map(a => `<option value="${escapeHtml(a.name)}">${escapeHtml(a.name)}</option>`)
           .join('');
       } catch (_) { /* offline */ }
@@ -2054,7 +2054,7 @@
         const res = await fetch(API + '/manager-reports/accounts/list');
         if (!res.ok) return;
         const accs = await res.json();
-        sel.innerHTML = accs.filter(a => (a.code || '').startsWith('1'))
+        sel.innerHTML = accs.filter(a => (a.class_code || a.code || '').startsWith('1'))           // assets, by class
           .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(localCode(a.code))} — ${escapeHtml(a.name)}</option>`).join('');
       } catch (_) { /* offline */ }
     }
@@ -2151,7 +2151,7 @@
         const accs = await res.json();
         // Only asset accounts can hold gold/currency.
         sel.innerHTML = accs
-          .filter(a => (a.code || '').startsWith('1'))
+          .filter(a => (a.class_code || a.code || '').startsWith('1'))
           .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(localCode(a.code))} — ${escapeHtml(a.name)}</option>`)
           .join('');
         // Default to the gold savings account when the chart has one.

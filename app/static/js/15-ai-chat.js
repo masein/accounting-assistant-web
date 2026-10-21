@@ -446,7 +446,7 @@
       // Invoice/receipt files uploaded for the NEXT chat turn. Each entry is
       // the AttachmentRead returned by POST /transactions/attachments.
       let pendingAttachments = [];
-      const MAX_ATTACH_BYTES = 8 * 1024 * 1024;
+      const MAX_ATTACH_BYTES = 20 * 1024 * 1024;     // as the server and the Bank Statements page (AJ10)
       const ALLOWED_ATTACH_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf',
         'text/csv', 'application/csv', 'text/tab-separated-values',
         'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
@@ -476,7 +476,10 @@
           const name = document.createElement('span');
           name.className = 'name';
           const size = _fmtSize(att.size_bytes);
-          name.textContent = (isImg ? '🖼 ' : (isSheet ? '📊 ' : '📄 ')) + (att.file_name || t('msgDocumentDefault')) + (size ? ' · ' + size : '');
+          // the file's name kept whole between isolates: on a Persian page the size had landed inside
+          // «20261015_133322_receipt.pdf» (AJ10, 2026-10-21)
+          name.textContent = (isImg ? '🖼 ' : (isSheet ? '📊 ' : '📄 ')) + '\u2068' + (att.file_name || t('msgDocumentDefault')) + '\u2069'
+            + (size ? ' · ' + size : '');
           chip.appendChild(name);
           const rm = document.createElement('button');
           rm.type = 'button';

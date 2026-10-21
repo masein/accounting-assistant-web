@@ -503,7 +503,7 @@ belong to. Items marked **auto** should also exist as pytest suites (see
 
 | id | check | expected |
 |---|---|---|
-| 7.30 | Each upload route with a file just over its cap: attachments 8 MB, invoice OCR 10 MB, migration 20 MB, Excel 20 MB, statement 20 MB, logo/signature 2 MB | 400/413 before the file is fully read into memory |
+| 7.30 | Each upload route with a file just over its cap: attachments 20 MB, invoice OCR 10 MB, migration 20 MB, Excel 20 MB, statement 20 MB, logo/signature 2 MB | 400/413 before the file is fully read into memory |
 | 7.31 | Chat message of 200 kB; 500 attachment ids | bounded → 413/422 (today unbounded) |
 | 7.32 | 10k-row statement CSV and a 5k-line Excel journal | completes < 30 s, UI stays responsive, preview paginated |
 | 7.33 | Password-protected PDF, 0-byte file, HEIC | clear error, no 500 |

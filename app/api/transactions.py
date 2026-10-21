@@ -108,7 +108,7 @@ class _RateLimiter:
 # budget (app/services/ai_usage.py, roadmap §2.5); the old single global
 # chat bucket let one user lock everybody out.
 from app.services.ai_usage import guard_ai_request  # noqa: E402
-MAX_ATTACHMENT_SIZE_BYTES = 8 * 1024 * 1024
+MAX_ATTACHMENT_SIZE_BYTES = 20 * 1024 * 1024  # a bank's scanned statement runs to 10 MB and more (AJ10), as the Bank Statements page takes
 ALLOWED_ATTACHMENT_TYPES = {
     "image/jpeg",
     "image/png",
@@ -330,7 +330,7 @@ def attachment_type(declared: str | None, file_name: str | None) -> str:
 
 
 def store_attachment(db: Session, raw: bytes, file_name: str | None, content_type: str) -> TransactionAttachment:
-    """Check an attachment's bytes (not empty, what they claim to be, 8 MB at
+    """Check an attachment's bytes (not empty, what they claim to be, 20 MB at
     most), write them and add the row; the caller commits."""
     from app.core.file_validation import validate_file_magic
 
@@ -338,7 +338,7 @@ def store_attachment(db: Session, raw: bytes, file_name: str | None, content_typ
         raise HTTPException(status_code=400, detail="Attachment is empty.")
     validate_file_magic(raw, content_type)
     if len(raw) > MAX_ATTACHMENT_SIZE_BYTES:
-        raise HTTPException(status_code=400, detail="Attachment too large. Max size is 8 MB.")
+        raise HTTPException(status_code=400, detail="Attachment too large. Max size is 20 MB.")
     # The stored extension comes from the VALIDATED content type, never from
     # the user's file name: "evil.html" declared as text/csv used to be saved
     # as .html and served from our origin as HTML (stored XSS, review H2).

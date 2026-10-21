@@ -51,6 +51,17 @@ def test_attachment_cap(auth_client, txn):
     assert ok.status_code in (200, 201), ok.text
 
 
+def test_aj10_a_bank_scan_of_ten_megabytes_is_taken(auth_client):
+    """The owner, 2026-10-21: Day Bank's 22-page scanned statement is 10.4 MB, and the chat refused it at 8 MB
+    while the Bank Statements page took it. Attachments now take up to 20 MB, as that page does."""
+    from app.api.brain import MAX_STATEMENT_UPLOAD_BYTES
+    from app.api.transactions import MAX_ATTACHMENT_SIZE_BYTES
+    assert MAX_ATTACHMENT_SIZE_BYTES == MAX_STATEMENT_UPLOAD_BYTES == 20 * 1024 * 1024
+    scan = b"%PDF-1.4\n" + b"0" * 10_400_000
+    r = auth_client.post("/transactions/attachments", files={"file": ("20261015_133322_receipt.pdf", scan, "application/pdf")})
+    assert r.status_code == 201, r.text[:200]
+
+
 def test_excel_preview_cap(auth_client):
     big = b"PK" + b"\x00" * (20 * 1024 * 1024 - 1)
     r = auth_client.post("/transactions/excel-import/preview", files={"file": ("big.xlsx", big, XLSX_MIME)})

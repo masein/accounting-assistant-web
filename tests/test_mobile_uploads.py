@@ -133,8 +133,12 @@ def test_n37_a_file_that_does_not_match_its_hash_starts_over(client, db, co, pho
 def test_n37_what_is_refused_before_and_after_the_bytes(client, db, co, phone):
     assert _begin(client, phone, b"", sha="0" * 64).status_code == 422          # nothing to send
     r = client.post(f"{API}/uploads/begin", headers=phone, json={
-        "file_name": "huge.pdf", "content_type": "application/pdf", "size_bytes": 9 * 1024 * 1024, "sha256": "a" * 64})
-    assert r.status_code == 400 and "8 MB" in r.json()["detail"]
+        "file_name": "huge.pdf", "content_type": "application/pdf", "size_bytes": 21 * 1024 * 1024, "sha256": "a" * 64})
+    assert r.status_code == 400 and "20 MB" in r.json()["detail"]
+    r = client.post(f"{API}/uploads/begin", headers=phone, json={                 # AJ10: a 10.4 MB bank scan is taken
+        "file_name": "20261015_133322_receipt.pdf", "content_type": "application/pdf", "size_bytes": 10_400_000,
+        "sha256": "b" * 64})
+    assert r.status_code in (200, 201), r.text
     assert _begin(client, phone, b"MZ..", name="x.exe", kind="application/x-msdownload").status_code == 400
     assert _begin(client, phone, b"abcd", sha="not-a-hash").status_code == 422
     data = _pdf(PIECE + 10)

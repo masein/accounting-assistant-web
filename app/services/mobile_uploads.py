@@ -12,7 +12,7 @@ says how much is already here.
   whose reply was lost, or one after a gap) writes nothing; the reply says
   where to go on, so the phone never needs to know what happened.
 - The last piece is checked: the bytes must match the hash, then they go
-  through the same checks as any attachment (type by content, 8 MB) and
+  through the same checks as any attachment (type by content, 20 MB) and
   become one. A mismatch starts the upload over.
 - The same file sent again, while its attachment isn't part of a voucher yet,
   is attached at once without its bytes.
@@ -73,7 +73,7 @@ def begin(db: Session, user_id: str | uuid.UUID, *, file_name: str, content_type
     uid = uuid.UUID(str(user_id))
     kind = attachment_type(content_type, file_name)
     if size_bytes > MAX_ATTACHMENT_SIZE_BYTES:
-        raise HTTPException(status_code=400, detail="Attachment too large. Max size is 8 MB.")
+        raise HTTPException(status_code=400, detail="Attachment too large. Max size is 20 MB.")
     _sweep(db)
     done = db.execute(
         select(MobileUpload)

@@ -182,3 +182,24 @@ def test_p4_to_p8_a_schools_year_goes_in_whole(co, db):
     assert q["counts"] == {"opening_repeat": 1, "ready": 1, "year_end_closing": 1}
     plan = {a["name"]: a["how"] for a in q["accounts"]}
     assert plan["درآمد شهریه"] == "chosen" and plan["بانک ملت جاری 7748"] == "chosen"
+
+
+def test_p10_the_vouchers_the_wrong_year_question_means(co, db):
+    """«تاریخ ۱ سند بیرون از سال فایل (۱۴۰۵) است» left the owner asking which (2026-10-21): the review lists
+    them — number, the date written, amount, words and accounts — and still does once they're moved."""
+    from app.utils.jalali import gregorian_to_jalali
+    api = co["api"]
+    p = _preview(api, _workbook(_journal_rows()))
+    listed = {s["number"]: s for s in p["stray_vouchers"]}
+    assert sorted(listed) == ["1", "6"]
+    one = listed["1"]
+    assert gregorian_to_jalali(__import__("datetime").date.fromisoformat(one["written"])) == (1401, 1, 20)
+    assert one["written_as"] == "1401/01/20"                                    # as the file writes it
+    assert one["amount"] == 200_000_000 and one["description"] == "واریز شهریه"
+    assert one["debit_accounts"] == ["بانک ملت جاری 7748"] and one["credit_accounts"] == ["درآمد شهریه"]
+    assert listed["6"]["debit_accounts"] == ["هزینه های پرسنلی"]               # a ledger with no sub-ledger: its own name
+    fixed = api.post("/migration/journals/review", json={"token": p["token"], "years": "fix"}).json()
+    moved = {s["number"]: s for s in fixed["stray_vouchers"]}
+    assert moved["1"]["written"] == one["written"] and moved["1"]["date_as"] == "1404/01/20"   # written, and now
+    from datetime import date
+    assert gregorian_to_jalali(date.fromisoformat(moved["1"]["date"])) == (1404, 1, 20)

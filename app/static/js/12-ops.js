@@ -1874,6 +1874,22 @@
             + '<button type="button" class="btn btn-primary btn-sm" data-ji-years="fix">' + escapeHtml(tf('jiYearsFix', { year })) + '</button> '
             + '<button type="button" class="btn btn-secondary btn-sm" data-ji-years="keep">' + escapeHtml(t('jiYearsKeep')) + '</button>')
           + '</div>';
+        // which vouchers it means: «تاریخ ۱ سند بیرون از سال فایل» left the owner asking which (scenario P10)
+        if ((r.stray_vouchers || []).length) {
+          const sep = ['fa', 'ar'].includes(currentLanguage) ? '، ' : ', ';
+          const items = r.stray_vouchers.map((sv) => {
+            // the date as the file writes it (its own calendar), and the one it now has
+            const asWritten = (iso, said) => (said ? localDigits(said) : formatDisplayDate(iso));
+            const when = sv.date && sv.date !== sv.written
+              ? tf('jiStrayMoved', { written: asWritten(sv.written, sv.written_as), date: asWritten(sv.date, sv.date_as) })
+              : asWritten(sv.written, sv.written_as);
+            let said = tf('jiStrayItem', { number: localDigits(String(sv.number || '')), date: when, amount: formatAmount(sv.amount),
+              dr: (sv.debit_accounts || []).join(sep), cr: (sv.credit_accounts || []).join(sep) });
+            if (sv.description) said += ' — «' + sv.description + '»';
+            return '<li>' + escapeHtml(said) + '</li>';
+          });
+          html += '<ul class="ji-stray">' + items.join('') + '</ul>';
+        }
       }
       if (counts) html += '<div style="display:flex; gap:0.35rem; flex-wrap:wrap; margin:0.3rem 0;">' + counts + '</div>';
       if (r.rounded_lines) html += '<p class="fc-note">' + escapeHtml(tf('jiRounded', { n: r.rounded_lines })) + '</p>';

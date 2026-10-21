@@ -1280,6 +1280,8 @@ window.I18N_PACKS.fa = Object.assign({
         jiSheet: "برگه",
         jiSheetRows: "{name} — {n} ردیف",
         jiYearsTitle: "تاریخ {n} سند بیرون از سال فایل ({year}) است؛ سال اشتباه تایپ شده؟",
+        jiStrayItem: "سند {number}، {date}: {amount} — بدهکار {dr} · بستانکار {cr}",
+        jiStrayMoved: "{written}، حالا {date}",
         jiYearsFix: "برای آن‌ها {year} گذاشته شود",
         jiYearsKeep: "تاریخ‌ها همان‌طور که نوشته شده بماند",
         jiCodeReused: "در فایل، کد {code} نام {n} حساب است: {names}؛ هر کدام جدا نگه داشته می‌شود.",

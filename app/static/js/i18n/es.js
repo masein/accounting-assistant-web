@@ -1236,6 +1236,8 @@ window.I18N_PACKS.es = Object.assign({
         jiSheet: "Hoja",
         jiSheetRows: "{name} — {n} filas",
         jiYearsTitle: "{n} asientos tienen fecha fuera del año del archivo ({year}): ¿un año mal escrito?",
+        jiStrayItem: "Asiento {number}, {date}: {amount} — Debe {dr} · Haber {cr}",
+        jiStrayMoved: "{written}, ahora {date}",
         jiYearsFix: "Usar {year} para ellos",
         jiYearsKeep: "Dejar las fechas como están",
         jiCodeReused: "En el archivo, el código {code} es {n} cuentas: {names}; cada una se mantiene aparte.",

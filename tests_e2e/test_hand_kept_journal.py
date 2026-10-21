@@ -27,6 +27,13 @@ def test_the_import_page_reads_a_schools_workbook(flow_page):
     assert dict(sheets)["دفتر روزنامه 1404"] is True                          # the journal, not the first sheet
     years = page.locator("[data-ji-years=fix]")
     assert years.is_visible() and "۱۴۰۴" in years.inner_text()                # two vouchers typed 1401 and 1403
+    # which ones (scenario P10): each voucher under the question, its date as the file writes it
+    stray = page.locator(".ji-stray li")
+    assert stray.count() == 2, stray.count()
+    first = stray.first.inner_text()
+    assert "سند" in first and "بدهکار" in first and "بستانکار" in first and "۱۴۰۱" in first, first
+    os.makedirs(ARTIFACTS, exist_ok=True)
+    page.locator(".ji-stray").screenshot(path=os.path.join(ARTIFACTS, "journal-stray-vouchers-fa.png"))
     tuition = page.locator("#ji-result tr", has_text="درآمد شهریه").locator("select")
     chosen = tuition.evaluate("(s) => s.options[s.selectedIndex].textContent")
     assert chosen.startswith("ساختن «درآمد شهریه» زیر"), chosen              # created under revenue by default

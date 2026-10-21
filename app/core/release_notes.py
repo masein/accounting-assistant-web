@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.21.4"
+CURRENT_RELEASE = "2026.10.21.5"
 
 
 @dataclass(frozen=True)
@@ -2215,6 +2215,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "دارایی خالص برای هر ارزی که دارید با مبلغ خودش نشان داده می‌شود، و هر هدف پس‌انداز به ارز حسابی که در آن جمع می‌شود حساب می‌شود — هدفی روی کیف پول ریال عمان با ریال عمان سنجیده می‌شود.",
                     "es": "Tu patrimonio neto se muestra por cada moneda que tienes, en sus propios importes, y una meta de ahorro cuenta en la moneda de la cuenta donde ahorras: una meta en una cartera de riales omaníes se mide en riales omaníes.",
                     "ar": "يُعرض صافي ثروتك لكل عملة تملكها بمبالغها الخاصة، ويُحسب هدف الادخار بعملة الحساب الذي تدّخر فيه — فهدف على محفظة بالريال العُماني يُقاس بالريال العُماني.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.21.5",
+        date="2026-10-21",
+        highlights=(
+            Highlight(
+                key="budgets-each-currency",
+                page="personal-dashboard",
+                roles=("personal",),
+                title={
+                    "en": "Budgets in each currency",
+                    "fa": "بودجه به هر ارز",
+                    "es": "Presupuestos en cada moneda",
+                    "ar": "ميزانيات بكل عملة",
+                },
+                body={
+                    "en": "A budget now has its currency: a dining budget in Omani rials counts what you spend in Omani rials, and you can keep one in rials beside it. Set it on My finances or ask in the chat.",
+                    "fa": "هر بودجه حالا ارز خودش را دارد: بودجهٔ رستوران به ریال عمان، خرج‌های ریال عمانی را می‌شمارد، و می‌توانید کنارش بودجه‌ای به ریال هم داشته باشید. در امور مالی من تعیینش کنید یا در گفتگو بگویید.",
+                    "es": "Un presupuesto ahora tiene su moneda: un presupuesto de restaurantes en riales omaníes cuenta lo que gastas en riales omaníes, y puedes tener otro en riales al lado. Fíjalo en Mis finanzas o pídelo en el chat.",
+                    "ar": "للميزانية الآن عملتها: ميزانية المطاعم بالريال العُماني تحسب ما تنفقه بالريال العُماني، ويمكنك أن تحتفظ بأخرى بالريال بجانبها. حدِّدها في أموري المالية أو اطلبها في المحادثة.",
                 },
             ),
         ),

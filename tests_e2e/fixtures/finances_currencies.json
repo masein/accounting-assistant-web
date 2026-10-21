@@ -698,5 +698,42 @@
    "months_to_go": 12,
    "archived": false
   }
- ]
+ ],
+ "budgets": {
+  "rows": [
+   {
+    "id": "d52a8c8e-eb05-4f8c-927d-4853c18059b7",
+    "month": "2026-10",
+    "category": "6180",
+    "currency": "OMR",
+    "label": "6180 — تفریح و رستوران",
+    "limit_amount": 15,
+    "actual_amount": 17.5,
+    "variance": -2.5,
+    "utilization_pct": 116.67
+   },
+   {
+    "id": "45fd941c-072f-48e1-9f9b-b5cf9fb7d493",
+    "month": "2026-10",
+    "category": "6110",
+    "currency": "OMR",
+    "label": "6110 — خوراک و سوپرمارکت",
+    "limit_amount": 25,
+    "actual_amount": 20.25,
+    "variance": 4.75,
+    "utilization_pct": 81.0
+   },
+   {
+    "id": "d650e04d-1798-4099-bac3-71776579d6c1",
+    "month": "2026-10",
+    "category": "6110",
+    "currency": "IRR",
+    "label": "6110 — خوراک و سوپرمارکت",
+    "limit_amount": 5000000,
+    "actual_amount": 3000000,
+    "variance": 2000000,
+    "utilization_pct": 60.0
+   }
+  ]
+ }
 }

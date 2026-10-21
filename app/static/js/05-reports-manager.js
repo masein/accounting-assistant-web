@@ -1592,7 +1592,7 @@
           return `
             <div style="margin-bottom:0.55rem;">
               <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
-                <span>${escapeHtml(r.category)}</span>
+                <span>${escapeHtml(r.label || r.category)}</span>
                 <span><bdi>${formatAmount(r.actual_amount, r.currency)} / ${formatAmount(r.limit_amount, r.currency)}${several ? ' ' + escapeHtml(r.currency || '') : ''}</bdi> (${escapeHtml(String(r.utilization_pct))}%)</span>
               </div>
               <div style="background:var(--border); border-radius:6px; height:8px; overflow:hidden;">

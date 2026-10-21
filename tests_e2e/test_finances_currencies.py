@@ -98,6 +98,33 @@ def test_net_worth_and_a_goal_in_their_own_currencies(flow_page):
         switch_language(page, "en")
 
 
+def test_budgets_each_in_its_own_currency(flow_page):
+    """AS6: the budget form offers the currency; each budget shows its own."""
+    page, watch = flow_page("e2e_finances")
+    page.route("**/personal/currencies", lambda route: route.fulfill(
+        status=200, content_type="application/json", body=json.dumps(DATA["currencies"], ensure_ascii=False)))
+    page.route("**/reports/owner-dashboard*", _by_currency("dashboard"))
+    page.route("**/personal/report-card*", _by_currency("card"))
+    page.route("**/budgets/actual-vs-budget*", lambda route: route.fulfill(
+        status=200, content_type="application/json", body=json.dumps(DATA["budgets"], ensure_ascii=False)))
+    try:
+        switch_language(page, "fa")
+        page.evaluate("() => { currentRole = 'personal'; location.hash = 'personal-dashboard'; }")
+        page.wait_for_load_state("networkidle")
+        cell = page.locator("#pd-budget-currency-cell")
+        expect(cell).to_be_visible()
+        expect(page.locator("#pd-budget-currency option")).to_have_count(2)
+        wrap = page.locator("#pd-budget-wrap")
+        expect(wrap).to_contain_text("OMR")
+        expect(wrap).to_contain_text("خوراک و سوپرمارکت")
+        os.makedirs(ARTIFACTS, exist_ok=True)
+        wrap.locator("xpath=..").scroll_into_view_if_needed()
+        wrap.locator("xpath=..").screenshot(path=os.path.join(ARTIFACTS, "finances-budgets-fa.png"))
+        assert watch.problems() == [], watch.problems()
+    finally:
+        switch_language(page, "en")
+
+
 def test_on_a_phone_sized_screen(flow_page):
     page, watch = flow_page("e2e_finances")
     page.set_viewport_size({"width": 400, "height": 900})

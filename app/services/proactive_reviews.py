@@ -106,9 +106,15 @@ def _currency(db: Session) -> str:
     return base_currency(db)
 
 
-def _flows(db: Session, start: date, end: date):
+def _flows(db: Session, start: date, end: date, currency: str | None = None):
     from app.services.report_card import _flows as flows
-    return flows(db, start, end)
+    return flows(db, start, end, currency)
+
+
+def _moved(db: Session, start: date, end: date, ccy: str) -> list[str]:
+    """A person's currencies that moved, the books' own first: each is its own card (docs/PLAN_CURRENCIES.md)."""
+    from app.services.report_card import currencies_moved
+    return currencies_moved(db, start, end) or [ccy]
 
 
 def _entries(db: Session, start: date, end: date) -> int:
@@ -117,18 +123,19 @@ def _entries(db: Session, start: date, end: date) -> int:
         Transaction.date >= start, Transaction.date <= end, Transaction.deleted_at.is_(None))).scalar() or 0)
 
 
-def _biggest(db: Session, start: date, end: date) -> dict | None:
-    """The week's biggest spend: one expense line."""
+def _biggest(db: Session, start: date, end: date, currency: str | None = None) -> dict | None:
+    """The week's biggest spend: one expense line (with ``currency``, in that currency's own amounts)."""
     from app.models.account import Account
     from app.models.transaction import Transaction, TransactionLine
     from app.services.reporting.common import EXPENSE, classify_account_code
-    rows = db.execute(
-        select(Transaction.description, Transaction.date, Account.code, Account.name, TransactionLine.base_debit)
-        .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
-        .join(Account, Account.id == TransactionLine.account_id)
-        .where(Transaction.date >= start, Transaction.date <= end, Transaction.deleted_at.is_(None),
-               TransactionLine.base_debit > 0)
-        .order_by(TransactionLine.base_debit.desc()).limit(50)).all()
+    amount_col = TransactionLine.debit if currency else TransactionLine.base_debit
+    q = (select(Transaction.description, Transaction.date, Account.code, Account.name, amount_col)
+         .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
+         .join(Account, Account.id == TransactionLine.account_id)
+         .where(Transaction.date >= start, Transaction.date <= end, Transaction.deleted_at.is_(None), amount_col > 0))
+    if currency:
+        q = q.where(func.upper(Transaction.currency) == currency)
+    rows = db.execute(q.order_by(amount_col.desc()).limit(50)).all()
     for desc, on, code, name, amount in rows:
         if classify_account_code(code) == EXPENSE:
             return {"what": (desc or name or "").strip()[:80], "category": name, "amount": plain(amount),
@@ -258,7 +265,10 @@ def suggestions(db: Session, kind: str, facts: dict, today: date) -> list[dict]:
                 break
     budgeted = {_label(r) for r in _budget_rows(db, today)}
     spent = facts.get("spent") or 0
-    for c in facts.get("top") or []:
+    # a budget counts in the books' currency (until docs/PLAN_CURRENCIES.md phase 4): no budget of 70 rials
+    # for a category spent in Omani rials
+    in_books = (facts.get("currency") or _currency(db)) == _currency(db)
+    for c in (facts.get("top") or []) if in_books else []:
         # float(): books with pence or baisa hold Decimals, and a Decimal times a float is a TypeError
         if c.get("usual") and float(c["amount"]) >= HOT * float(c["usual"]) and spent \
                 and float(c["amount"]) >= HOT_SHARE * float(spent) and c["name"] not in budgeted:
@@ -305,6 +315,25 @@ def _monthly_budget(db: Session, cat: dict, kind: str, today: date) -> int:
 
 # --- the facts of a period -------------------------------------------------------------------------------------
 
+def _week(db: Session, start: date, end: date, ccy: str, only: str | None) -> dict[str, Any]:
+    """A week's figures in ``ccy``: with ``only``, that currency's entries in their own amounts."""
+    income, spent, cats = _flows(db, start, end, only)
+    history = [_flows(db, start - timedelta(days=7 * i), end - timedelta(days=7 * i), only)
+               for i in range(1, HISTORY_WEEKS + 1)]
+    usual, usual_cats = _usual(history, ccy)
+    active = [h for h in history if h[0] or h[1]]
+    return {
+        "currency": ccy, "income": plain(income), "spent": plain(spent),
+        "usual": plain(usual) if usual is not None else None, "top": _top(cats, usual_cats),
+        "biggest": _biggest(db, start, end, only),
+        "usual_income": plain(average([h[0] for h in active], ccy)) if len(active) >= 2 else None,
+        # the bars of the card's chart: the four weeks before, then this one (oldest first)
+        "series": [{"start": (start - timedelta(days=7 * i)).isoformat(), "spent": plain(h[1]), "income": plain(h[0])}
+                   for i, h in reversed(list(enumerate(history, start=1)))]
+                  + [{"start": start.isoformat(), "spent": plain(spent), "income": plain(income)}],
+    }
+
+
 def weekly_facts(db: Session, today: date) -> dict | None:
     from app.services.calendar_periods import week_start
     cal, ccy = _calendar(db), _currency(db)
@@ -313,28 +342,46 @@ def weekly_facts(db: Session, today: date) -> dict | None:
     entries = _entries(db, start, end)
     if not entries:
         return None                                   # AL15: a quiet week is the nudge's, not a review
-    income, spent, cats = _flows(db, start, end)
-    history = [_flows(db, start - timedelta(days=7 * i), end - timedelta(days=7 * i)) for i in range(1, HISTORY_WEEKS + 1)]
-    usual, usual_cats = _usual(history, ccy)
-    active = [h for h in history if h[0] or h[1]]
     personal = _personal(db)
-    facts: dict[str, Any] = {
-        "personal": personal, "currency": ccy, "calendar": cal, "start": start.isoformat(), "end": end.isoformat(),
-        "entries": entries, "income": plain(income), "spent": plain(spent),
-        "usual": plain(usual) if usual is not None else None, "top": _top(cats, usual_cats),
-        "biggest": _biggest(db, start, end),
-        "usual_income": plain(average([h[0] for h in active], ccy)) if len(active) >= 2 else None,
-        # the bars of the card's chart: the four weeks before, then this one (oldest first)
-        "series": [{"start": (start - timedelta(days=7 * i)).isoformat(), "spent": plain(h[1]), "income": plain(h[0])}
-                   for i, h in reversed(list(enumerate(history, start=1)))]
-                  + [{"start": start.isoformat(), "spent": plain(spent), "income": plain(income)}],
-    }
+    if personal:
+        # each currency its own week, never exchanged: Omani rials in rial books read as nothing (AP1)
+        main, *others = [_week(db, start, end, c, c) for c in _moved(db, start, end, ccy)]
+    else:
+        main, others = _week(db, start, end, ccy, None), []
+    facts: dict[str, Any] = {"personal": personal, "calendar": cal, "start": start.isoformat(), "end": end.isoformat(),
+                             "entries": entries, **main}
+    if others:
+        facts["others"] = others
     if personal:
         from app.services.ai_accountant.personal_tools import people_balances
         facts["people"] = [p for p in people_balances(db, with_last=True)["people"]][:3]
     else:
         facts.update(_company_position(db))
     return facts
+
+
+def _series(db: Session, y: int, m: int, only: str | None) -> list[dict]:
+    from app.services.calendar_periods import key_bounds, shift
+    series = []
+    for i in range(3, -1, -1):
+        k = "%04d-%02d" % shift(y, m, -i)
+        inc, sp, _c = _flows(db, *key_bounds(k), only)
+        series.append({"month": k, "spent": plain(sp), "income": plain(inc)})
+    return series
+
+
+def _month(db: Session, key: str, prev_key: str, ccy: str) -> dict[str, Any]:
+    """Another currency's month in a person's books, in its own amounts."""
+    from app.services.calendar_periods import key_bounds
+    from app.services.report_card import _rate
+    income, spent, cats = _flows(db, *key_bounds(key), ccy)
+    p_income, p_spent, _p = _flows(db, *key_bounds(prev_key), ccy)
+    return {"currency": ccy, "income": plain(income), "spent": plain(spent), "saved": plain(income - spent),
+            "rate": _rate(income, spent),
+            "previous": {"income": plain(p_income), "spending": plain(p_spent), "saved": plain(p_income - p_spent)},
+            "top": [{"name": n, "amount": plain(a), "usual": plain(_p[n]) if _p.get(n) else None}
+                    for n, a in sorted(cats.items(), key=lambda kv: -kv[1])[:TOP]],
+            "series": _series(db, int(key[:4]), int(key[5:7]), ccy)}
 
 
 def monthly_facts(db: Session, today: date) -> dict | None:
@@ -350,15 +397,22 @@ def monthly_facts(db: Session, today: date) -> dict | None:
     prev_key = "%04d-%02d" % shift(y, m, -1)
     facts: dict[str, Any] = {"personal": personal, "currency": ccy, "calendar": cal, "month": key, "previous_month": prev_key,
                              "start": start.isoformat(), "end": end.isoformat(), "entries": entries}
+    only = None
     if personal:
         from app.services.report_card import report_card
-        rc = report_card(db, key, lang="en", today=today)
+        moved = _moved(db, start, end, ccy)
+        rc = report_card(db, key, lang="en", today=today, currency=moved[0])
+        only = facts["currency"] = rc["currency"]
         facts.update(income=plain(rc["income"]), spent=plain(rc["spending"]), saved=plain(rc["saved"]),
                      rate=rc["savings_rate"], previous={k: rc["previous"][k] for k in ("income", "spending", "saved")},
                      top=[{"name": c["category"], "amount": plain(c["amount"]),
                            "usual": plain(c["previous"]) if c["previous"] else None} for c in rc["categories"][:TOP]],
-                     budgets=rc["budgets"], net_worth_change=plain(rc["net_worth"]["change"]),
+                     budgets=rc["budgets"],
                      goals=[{"name": g["name"], "percent": g["percent"]} for g in rc["goals"][:2]])
+        if rc["net_worth"]["currency"] == rc["currency"]:        # in the books' currency until phase 3
+            facts["net_worth_change"] = plain(rc["net_worth"]["change"])
+        if moved[1:]:
+            facts["others"] = [_month(db, key, prev_key, c) for c in moved[1:]]
     else:
         income, spent, cats = _flows(db, start, end)
         p_income, p_spent, p_cats = _flows(db, *key_bounds(prev_key))
@@ -367,12 +421,7 @@ def monthly_facts(db: Session, today: date) -> dict | None:
                      top=[{"name": n, "amount": plain(a), "usual": plain(p_cats[n]) if p_cats.get(n) else None}
                           for n, a in sorted(cats.items(), key=lambda kv: -kv[1])[:TOP]])
         facts.update(_company_position(db))
-    series = []
-    for i in range(3, -1, -1):
-        k = "%04d-%02d" % shift(y, m, -i)
-        inc, sp, _c = _flows(db, *key_bounds(k))
-        series.append({"month": k, "spent": plain(sp), "income": plain(inc)})
-    facts["series"] = series
+    facts["series"] = _series(db, y, m, only)
     facts["label"] = month_label(key, "en")
     return facts
 
@@ -772,11 +821,33 @@ def _suggestion(s: dict, lang: str, ccy: str, cal: str) -> tuple[str, str]:
     return _say(table, "say", lang, **p), _say(table, "ask", lang, isolate=False, **p)
 
 
+_SHARED = ("personal", "calendar", "start", "end", "entries", "month", "previous_month", "label")
+
+
 def render(review: ProactiveReview, lang: str, *, first: bool = False, ideas: bool = True) -> dict:
     """What a reader is shown: a headline (the notification), the chat's words for the web, the phone's
-    blocks (words, a table of categories, the ideas with a button each), and the buttons' questions."""
+    blocks (words, a table of categories, the ideas with a button each), and the buttons' questions.
+    A person's books that moved in several currencies get a card for each, in its own amounts, the
+    books' own first (docs/PLAN_CURRENCIES.md); ``cards`` has them all, ``card`` the first."""
     lang = lang if lang in ("en", "fa", "es", "ar") else "en"
     f = _figures(review.facts or {})
+    others = (f.pop("others", None) or []) if review.kind != "nudge" else []
+    if not others:
+        one = _render_one(review, f, lang, first=first, ideas=ideas)
+        return {**one, "cards": [one["card"]]}
+    shared = {k: f[k] for k in _SHARED if k in f}
+    parts = [_render_one(review, f, lang, first=False, ideas=ideas, several=True)]
+    for i, o in enumerate(others):
+        parts.append(_render_one(review, {**shared, **o}, lang, first=first and i == len(others) - 1, ideas=False,
+                                 several=True))
+    main = parts[0]
+    return {"headline": main["headline"], "title": main["title"], "text": "\n\n".join(p["text"] for p in parts),
+            "choices": main["choices"], "blocks": [b for p in parts for b in p["blocks"]], "card": main["card"],
+            "cards": [p["card"] for p in parts]}
+
+
+def _render_one(review: ProactiveReview, f: dict, lang: str, *, first: bool, ideas: bool, several: bool = False) -> dict:
+    """One currency's review (``f``: its facts)."""
     cal, ccy = f.get("calendar", "gregorian"), f.get("currency", "")
     personal = f.get("personal")
     lines: list[str] = []
@@ -788,7 +859,7 @@ def render(review: ProactiveReview, lang: str, *, first: bool = False, ideas: bo
         last = date.fromisoformat(f["last"])
         day = (_WEEKDAYS[lang][last.weekday()] if (date.today() - last).days < 7 else _day(f["last"], cal, lang))
         text = _say(W, "nudge", lang, day=day)
-        card = _card(review, lang, title=text, lines=[], rows=[], picked=[], ideas=[], note=None)
+        card = _card(review, lang, title=text, lines=[], rows=[], picked=[], ideas=[], note=None, f=f)
         return {"headline": text, "title": text, "text": text, "choices": [], "card": card,
                 "blocks": [{"type": "review", "id": f"review:{review.id}", **card, "fallback_text": text}]}
 
@@ -861,6 +932,9 @@ def render(review: ProactiveReview, lang: str, *, first: bool = False, ideas: bo
         for c in f.get("top") or []:
             rows.append({"label": c["name"], "sub": _against(c, lang, monthly=True), "value": c["amount"], "currency": ccy})
 
+    if several:
+        from app.core.currencies import name as currency_name
+        title = f"{title} · {currency_name(ccy, lang)}"
     picked = list(f.get("suggestions") or []) if ideas else []
     ideas = [_suggestion(s, lang, ccy, cal) for s in picked]
     choices = [ask for _say_, ask in ideas]
@@ -874,15 +948,17 @@ def render(review: ProactiveReview, lang: str, *, first: bool = False, ideas: bo
     if first:
         web += f"\n{W['first_time'][lang]}"
     card = _card(review, lang, title=title, lines=lines[1:], rows=rows, picked=picked, ideas=ideas,
-                 note=W["first_time"][lang] if first else None)
+                 note=W["first_time"][lang] if first else None, f=f)
     plain_text = web.replace("**", "")
-    # one block the phone draws as a card (an older app says its words: fallback_text)
-    blocks: list[dict] = [{"type": "review", "id": f"review:{review.id}", **card, "fallback_text": plain_text}]
+    # one block the phone draws as a card (an older app says its words: fallback_text); the phone keys its
+    # list by id, so another currency's card has its own
+    bid = f"review:{review.id}" + (f":{ccy}" if several and ccy != (review.facts or {}).get("currency") else "")
+    blocks: list[dict] = [{"type": "review", "id": bid, **card, "fallback_text": plain_text}]
     return {"headline": headline, "title": title, "text": web, "choices": choices, "blocks": blocks, "card": card}
 
 
-def _mood(review: ProactiveReview) -> str:
-    f = _figures(review.facts or {})
+def _mood(review: ProactiveReview, f: dict | None = None) -> str:
+    f = _figures(review.facts or {}) if f is None else f
     if review.kind == "nudge":
         return "nudge"
     spent, income = f.get("spent") or 0, f.get("income") or 0
@@ -920,14 +996,14 @@ def _delta(value, usual, lang: str, *, monthly: bool, lower_is_good: bool) -> di
 
 
 def _card(review: ProactiveReview, lang: str, *, title: str, lines: list[str], rows: list[dict], picked: list[dict],
-          ideas: list[tuple[str, str]], note: str | None) -> dict:
+          ideas: list[tuple[str, str]], note: str | None, f: dict | None = None) -> dict:
     """The review as a card for the phone and the web (scenario AL17): its mood and emoji, a headline that
     counts up, its change against the usual, a chart, the categories as bars, the ideas with a button each.
     Words come said; numbers come raw, for the bars to be drawn to scale."""
-    f = _figures(review.facts or {})
+    f = _figures(review.facts or {}) if f is None else f
     cal, ccy = f.get("calendar", "gregorian"), f.get("currency", "")
     m = lambda v: _money(v, ccy, lang)        # noqa: E731
-    mood = _mood(review)
+    mood = _mood(review, f)
     emoji = _EMOJI["good_" + review.kind] if mood == "good" else _EMOJI[mood]
     card: dict[str, Any] = {"kind": review.kind, "mood": mood, "emoji": emoji, "title": title, "currency": ccy}
     if review.kind == "nudge":
@@ -1063,6 +1139,6 @@ def take_for_chat(db: Session, session_user, lang: str) -> list[dict]:
     for i, review in enumerate(reviews):
         said = render(review, lang, first=first and i == len(reviews) - 1 and review.kind != "nudge", ideas=ideas)
         out.append({"review_id": str(review.id), "kind": review.kind, "text": said["text"], "blocks": said["blocks"],
-                    "choices": said["choices"], "card": said["card"]})
+                    "choices": said["choices"], "card": said["card"], "cards": said["cards"]})
     mark_seen(db, user, reviews)
     return out

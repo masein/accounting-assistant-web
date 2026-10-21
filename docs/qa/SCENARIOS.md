@@ -731,3 +731,17 @@ From the owner's phone: personal books that count in Iranian rials, a week of sp
 | AO4 | The quick answer | «این ماه چقدر خرج کردم؟» in AO3's books | Each currency listed, not «۰ ریال» |
 | AO5 | The card on the phone | AO3 | Each row in its own currency: the OMR categories read «ریال عمان» with their baisa, the IRR one «ریال» |
 | AO6 | A company with rates | A company in IRR with a USD expense whose rate is on file | The total in rials as before; the dollars are also listed in their own amounts |
+
+## AP. Each currency in the reviews (2026-10-21, `docs/PLAN_CURRENCIES.md` phase 1)
+
+The owner: «i want to have different currencies. isn't that ok?» It is. A person's weekly and monthly reviews totalled everything in the books' currency, so a week spent in Omani rials, in books that count in rials, read as nothing.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| AP1 | A week in two currencies | Personal books in IRR; last week 3,000,000 IRR of groceries and 41.500 OMR (groceries 20.250, dining 17.500, transport 3.750); no rate between them | Two cards, the rials first: «… · ریال» with 3,000,000, and «… · ریال عمان» with 41.500 and its three categories and bars; nothing added together. The bell and the phone notification say the first |
+| AP2 | A week in Omani rials only | The same books, only the OMR entries last week | One card in Omani rials: «۴۱٫۵۰۰ ریال عمان», its categories and its own usual week; never «۰ ریال» |
+| AP3 | A month in two currencies | AP1's entries in last month | The rials card keeps the budgets, the net worth and the goals; the Omani-rial card has its own income, spending, saved, savings rate, categories and four months of bars |
+| AP4 | The ideas stay with the first | AP1, with a category at twice its usual in Omani rials | No «set a monthly budget of 70» in rials for an Omani-rial category; the ideas are on the first card only |
+| AP5 | The report card | «کارنامه ماه قبلم چطوره؟»; the My finances report card | The first currency's month, the others listed in their own amounts; asked for OMR, the Omani-rial month |
+| AP6 | On the web | The chat after AP1, and again after a reload | Both cards, in order, each with its own figures |
+| AP7 | A company stays as it was | A company in IRR with a USD expense whose rate is on file | One card, in rials, with the dollars counted at their rate |

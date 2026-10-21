@@ -476,5 +476,227 @@
     "label": "نوامبر ۲۰۲۵"
    }
   ]
- }
+ },
+ "worth_IRR": {
+  "as_of": "2026-10-21",
+  "currency": "IRR",
+  "assets": [
+   {
+    "account_code": "1110",
+    "account_name": "حساب بانکی",
+    "book_value": 7000000,
+    "market_value": 7000000,
+    "unrealized_gain": 0,
+    "revalued": false,
+    "unit": null,
+    "quantity": null,
+    "rate": null
+   }
+  ],
+  "liabilities": [],
+  "total_assets": 7000000,
+  "total_liabilities": 0,
+  "net_worth": 7000000,
+  "unrealized_gain": 0,
+  "trend": [
+   {
+    "period": "2025-11",
+    "value": 0
+   },
+   {
+    "period": "2025-12",
+    "value": 0
+   },
+   {
+    "period": "2026-01",
+    "value": 0
+   },
+   {
+    "period": "2026-02",
+    "value": 0
+   },
+   {
+    "period": "2026-03",
+    "value": 0
+   },
+   {
+    "period": "2026-04",
+    "value": 0
+   },
+   {
+    "period": "2026-05",
+    "value": 0
+   },
+   {
+    "period": "2026-06",
+    "value": 0
+   },
+   {
+    "period": "2026-07",
+    "value": 0
+   },
+   {
+    "period": "2026-08",
+    "value": 0
+   },
+   {
+    "period": "2026-09",
+    "value": 0
+   },
+   {
+    "period": "2026-10",
+    "value": 7000000
+   }
+  ],
+  "missing_rates": [],
+  "by_currency": [
+   {
+    "currency": "IRR",
+    "name": "ریال ایران",
+    "net_worth": 7000000,
+    "total_assets": 7000000,
+    "total_liabilities": 0
+   },
+   {
+    "currency": "OMR",
+    "name": "ریال عمان",
+    "net_worth": 128.5,
+    "total_assets": 158.5,
+    "total_liabilities": 30
+   }
+  ]
+ },
+ "worth_OMR": {
+  "as_of": "2026-10-21",
+  "currency": "OMR",
+  "assets": [
+   {
+    "account_code": "1120",
+    "account_name": "موجودی نقد",
+    "book_value": 58.5,
+    "market_value": 58.5,
+    "unrealized_gain": 0,
+    "revalued": false,
+    "unit": null,
+    "quantity": null,
+    "rate": null
+   },
+   {
+    "account_code": "112009",
+    "account_name": "پس‌انداز سفر",
+    "book_value": 100,
+    "market_value": 100,
+    "unrealized_gain": 0,
+    "revalued": false,
+    "unit": null,
+    "quantity": null,
+    "rate": null
+   }
+  ],
+  "liabilities": [
+   {
+    "account_code": "2130",
+    "account_name": "بدهی به دیگران",
+    "book_value": 30,
+    "market_value": 30,
+    "unrealized_gain": 0,
+    "revalued": false,
+    "unit": null,
+    "quantity": null,
+    "rate": null
+   }
+  ],
+  "total_assets": 158.5,
+  "total_liabilities": 30,
+  "net_worth": 128.5,
+  "unrealized_gain": 0,
+  "trend": [
+   {
+    "period": "2025-11",
+    "value": 0
+   },
+   {
+    "period": "2025-12",
+    "value": 0
+   },
+   {
+    "period": "2026-01",
+    "value": 0
+   },
+   {
+    "period": "2026-02",
+    "value": 0
+   },
+   {
+    "period": "2026-03",
+    "value": 0
+   },
+   {
+    "period": "2026-04",
+    "value": 0
+   },
+   {
+    "period": "2026-05",
+    "value": 0
+   },
+   {
+    "period": "2026-06",
+    "value": 0
+   },
+   {
+    "period": "2026-07",
+    "value": 0
+   },
+   {
+    "period": "2026-08",
+    "value": 0
+   },
+   {
+    "period": "2026-09",
+    "value": 0
+   },
+   {
+    "period": "2026-10",
+    "value": 128.5
+   }
+  ],
+  "missing_rates": [],
+  "by_currency": [
+   {
+    "currency": "IRR",
+    "name": "ریال ایران",
+    "net_worth": 7000000,
+    "total_assets": 7000000,
+    "total_liabilities": 0
+   },
+   {
+    "currency": "OMR",
+    "name": "ریال عمان",
+    "net_worth": 128.5,
+    "total_assets": 158.5,
+    "total_liabilities": 30
+   }
+  ]
+ },
+ "goals": [
+  {
+   "id": "17d2e19c-cb76-4d31-90ff-7b3956975345",
+   "name": "سفر",
+   "account_code": "112009",
+   "account_name": "پس‌انداز سفر",
+   "currency": "OMR",
+   "target_amount": 500,
+   "current": 100,
+   "remaining": 400,
+   "percent": 20.0,
+   "reached": false,
+   "target_date": "2027-01-29",
+   "months_left": 4,
+   "needed_per_month": 100,
+   "pace_per_month": 33.333,
+   "on_track": false,
+   "months_to_go": 12,
+   "archived": false
+  }
+ ]
 }

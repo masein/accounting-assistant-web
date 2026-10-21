@@ -2257,8 +2257,7 @@
         headline.innerHTML = `
           <div style="font-size:1.6rem; font-weight:700;">${escapeHtml(formatAmount(d.net_worth, d.currency))} ${escapeHtml(d.currency)}</div>
           <div style="font-size:0.82rem; color:var(--text-muted);">
-            ${escapeHtml(t('nwAssets'))}: ${escapeHtml(formatAmount(d.total_assets, d.currency))} ·
-            ${escapeHtml(t('nwDebts'))}: ${escapeHtml(formatAmount(d.total_liabilities, d.currency))}
+            ${escapeHtml(t('nwAssets'))}: ${escapeHtml(formatAmount(d.total_assets, d.currency))}${rcSep()}${escapeHtml(t('nwDebts'))}: ${escapeHtml(formatAmount(d.total_liabilities, d.currency))}
           </div>
           ${gain ? `<div style="font-size:0.82rem; color:${gainColor};">${escapeHtml(t('nwUnrealized'))}: ${escapeHtml(formatAmount(gain, d.currency))}</div>` : ''}
           ${(d.missing_rates || []).length ? `<div class="alert-chip medium" style="margin-top:0.35rem;">${escapeHtml(tf('nwMissingRate', { units: d.missing_rates.join(', ') }))}</div>` : ''}
@@ -2266,7 +2265,7 @@
             `<bdi>${escapeHtml(formatAmount(x.net_worth, x.currency))} ${escapeHtml(x.name || x.currency)}</bdi>`).join(rcSep())}</div>` : ''}
         `;
 
-        renderMiniTable('nw-breakdown', ['item', 'value'],
+        renderMiniTable('nw-breakdown', ['account_name', 'value'],          // «Item» had no translation
           [...d.assets, ...d.liabilities].map(l => [
             escapeHtml(l.account_name) + (l.revalued ? ' ★' : ''),
             formatAmount(l.market_value, d.currency),

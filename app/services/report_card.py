@@ -5,7 +5,8 @@ spending, what was saved and the savings rate, against the month before and
 the three months before it; the biggest spending categories and what moved;
 budgets kept; how net worth changed; the savings goals; and three plain
 checks — saved at least a tenth of income, spent no more than the recent
-average, stayed inside the budgets. Amounts are base-currency values.
+average, stayed inside the budgets. Amounts are one currency's own, each
+currency on its own (docs/PLAN_CURRENCIES.md).
 """
 from __future__ import annotations
 
@@ -78,27 +79,49 @@ T = {
 }
 
 
-def _flows(db: Session, start: date, end: date) -> tuple[int, int, dict[str, int]]:
-    """(income, spending, spending by category) between two dates, base values."""
-    rows = db.execute(
-        select(Account.code, Account.name, func.coalesce(func.sum(TransactionLine.base_debit), 0),
-               func.coalesce(func.sum(TransactionLine.base_credit), 0))
-        .join(TransactionLine, TransactionLine.account_id == Account.id)
-        .join(Transaction, Transaction.id == TransactionLine.transaction_id)
-        .where(Transaction.date >= start, Transaction.date <= end, Transaction.deleted_at.is_(None))
-        .group_by(Account.code, Account.name)).all()
+def _flows(db: Session, start: date, end: date, currency: str | None = None) -> tuple[int, int, dict[str, int]]:
+    """(income, spending, spending by category) between two dates: base values; with ``currency``, the
+    entries in that currency only, in their own amounts (a person's books, docs/PLAN_CURRENCIES.md)."""
+    dr, cr = ((TransactionLine.debit, TransactionLine.credit) if currency
+              else (TransactionLine.base_debit, TransactionLine.base_credit))
+    q = (select(Account.code, Account.name, func.coalesce(func.sum(dr), 0), func.coalesce(func.sum(cr), 0))
+         .join(TransactionLine, TransactionLine.account_id == Account.id)
+         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
+         .where(Transaction.date >= start, Transaction.date <= end, Transaction.deleted_at.is_(None)))
+    if currency:
+        q = q.where(func.upper(Transaction.currency) == currency.upper())
+    rows = db.execute(q.group_by(Account.code, Account.name)).all()
     income = spending = 0
     cats: dict[str, int] = {}
-    for code, name, dr, cr in rows:
+    for code, name, dr_sum, cr_sum in rows:
         kind = classify_account_code(code)
         if kind == REVENUE:
-            income += plain(cr) - plain(dr)
+            income += plain(cr_sum) - plain(dr_sum)
         elif kind == EXPENSE:
-            amount = plain(dr) - plain(cr)
+            amount = plain(dr_sum) - plain(cr_sum)
             spending += amount
             if amount:
                 cats[name] = cats.get(name, 0) + amount
-    return income, spending, cats
+    return plain(income), plain(spending), cats
+
+
+def currencies_moved(db: Session, start: date, end: date) -> list[str]:
+    """The currencies that had income or spending between two dates: the books' own first, then the
+    busiest. Money in Omani rials in books that count in rials is its own review, never exchanged."""
+    from app.services.fx_base import base_currency
+    base = base_currency(db)
+    rows = db.execute(
+        select(Transaction.currency, Account.code, func.count(TransactionLine.id))
+        .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
+        .join(Account, Account.id == TransactionLine.account_id)
+        .where(Transaction.date >= start, Transaction.date <= end, Transaction.deleted_at.is_(None))
+        .group_by(Transaction.currency, Account.code)).all()       # the raw column: Postgres (#371)
+    count: dict[str, int] = {}
+    for ccy, code, n in rows:
+        if classify_account_code(code) in (REVENUE, EXPENSE):
+            c = (ccy or base).strip().upper()
+            count[c] = count.get(c, 0) + int(n)
+    return sorted(count, key=lambda c: (c != base, -count[c], c))
 
 
 def _rate(income: int, spending: int) -> float | None:
@@ -110,7 +133,10 @@ def _fmt(n: int, lang: str) -> str:
     return persian_figures(text, thousands=",") if lang == "fa" else text
 
 
-def report_card(db: Session, month: str | None = None, *, lang: str | None = None, today: date | None = None) -> dict:
+def report_card(db: Session, month: str | None = None, *, lang: str | None = None, today: date | None = None,
+                currency: str | None = None) -> dict:
+    """One month in one currency's own amounts: ``currency``, else the first that moved (the books' own
+    when it did). The others that moved come in ``others`` with their income, spending and categories."""
     from app.services.budget_service import budget_utilization
     from app.services.calendar_periods import company_calendar, key_bounds, month_label, previous_month_key, shift
     from app.services.net_worth_service import compute_net_worth
@@ -126,12 +152,15 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
     keys = [f"{py:04d}-{pm:02d}" for py, pm in (shift(y, m, -i) for i in range(1, 4))]
     upto = min(end, today)
 
-    income, spending, cats = _flows(db, start, upto)
-    history = [_flows(db, *key_bounds(k)) for k in keys]
+    from app.services.fx_base import base_currency
+    base = base_currency(db)
+    moved = currencies_moved(db, start, upto)
+    currency = (currency or "").strip().upper() or (moved[0] if moved else base)
+    income, spending, cats = _flows(db, start, upto, currency)
+    history = [_flows(db, *key_bounds(k), currency) for k in keys]
     p_income, p_spending, p_cats = history[0]
     past = [h[1] for h in history if h[0] or h[1]]
-    from app.services.fx_base import base_currency
-    avg3 = average(past, base_currency(db)) if past else None
+    avg3 = average(past, currency) if past else None
 
     top = sorted(cats.items(), key=lambda kv: -kv[1])[:TOP]
     categories = [{"category": c, "amount": a, "previous": p_cats.get(c, 0),
@@ -162,20 +191,34 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
     return {
         "month": key, "label": month_label(key, lang), "from_date": start.isoformat(), "to_date": end.isoformat(),
         "in_progress": end >= today, "note": W["in_progress"] if end >= today else None, "lang": lang,
-        "currency": nw_end.currency,
+        "currency": currency, "currencies": moved or [currency],
         "income": income, "spending": spending, "saved": income - spending, "savings_rate": rate,
         "previous": {"month": keys[0], "income": p_income, "spending": p_spending, "saved": p_income - p_spending,
                      "savings_rate": _rate(p_income, p_spending)},
         "average_spending_3m": avg3,
         "categories": categories, "biggest_rise": biggest_rise,
         "budgets": {"set": len(budgets), "kept": len(budgets) - len(over), "over": over},
+        # in the books' currency (net worth per currency: phase 3)
         "net_worth": {"start": plain(nw_start.net_worth), "end": plain(nw_end.net_worth),
-                      "change": plain(nw_end.net_worth) - plain(nw_start.net_worth)},
+                      "change": plain(nw_end.net_worth) - plain(nw_start.net_worth), "currency": nw_end.currency},
+        "others": [_other(db, c, start, upto, keys[0]) for c in moved if c != currency],
         "goals": [{"name": g["name"], "percent": g["percent"], "on_track": g["on_track"], "reached": g["reached"]}
                   for g in list_goals(db, today=upto)],
         "checks": checks, "passed": sum(1 for c in checks if c["ok"]),
         "scored": sum(1 for c in checks if c["ok"] is not None),
     }
+
+
+def _other(db: Session, currency: str, start: date, upto: date, previous_key: str) -> dict:
+    """Another currency's month, in its own amounts."""
+    from app.services.calendar_periods import key_bounds
+    income, spending, cats = _flows(db, start, upto, currency)
+    p_income, p_spending, p_cats = _flows(db, *key_bounds(previous_key), currency)
+    return {"currency": currency, "income": income, "spending": spending, "saved": plain(income - spending),
+            "savings_rate": _rate(income, spending),
+            "previous": {"income": p_income, "spending": p_spending, "saved": plain(p_income - p_spending)},
+            "categories": [{"category": c, "amount": a, "previous": p_cats.get(c, 0)}
+                           for c, a in sorted(cats.items(), key=lambda kv: -kv[1])[:TOP]]}
 
 
 def _fmt_rate(rate: float, lang: str) -> str:

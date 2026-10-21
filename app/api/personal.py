@@ -267,13 +267,14 @@ def delete_goal(goal_id: UUID, db: Session = Depends(get_db)) -> None:
 def report_card(
     month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$", description="YYYY-MM in the company's calendar; default last month"),
     lang: str | None = Query(None, pattern="^(fa|en|es|ar)$"),
+    currency: str | None = Query(None, pattern=r"^[A-Za-z]{3,8}$", description="one currency's month; default the first that moved"),
     db: Session = Depends(get_db),
 ) -> dict:
     """The month in a page: income, spending, saved, the checks, categories, budgets, net worth, goals."""
     from app.services.calendar_periods import company_calendar, last_n_months
     from app.services.report_card import report_card as _card
     try:
-        out = _card(db, month, lang=lang)
+        out = _card(db, month, lang=lang, currency=currency)
     except (ValueError, KeyError):
         raise HTTPException(status_code=422, detail=f"'{month}' isn't a month (YYYY-MM).")
     out["months"] = [{"key": p.key, "label": p.label}

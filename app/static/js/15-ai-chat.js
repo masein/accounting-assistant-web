@@ -276,7 +276,8 @@
           }
           // the app's own review, drawn again as its card, still (AL17)
           if (m.role === 'assistant' && c.card && typeof c.card === 'object') {
-            appendReviewCard(c.card, { animate: false });
+            // a card for each currency the books moved in (docs/PLAN_CURRENCIES.md)
+            (Array.isArray(c.cards) && c.cards.length ? c.cards : [c.card]).forEach((one) => appendReviewCard(one, { animate: false }));
             return;
           }
           // the cards that came with this answer, each as it stands now (scenarios AE1–AE2)
@@ -341,7 +342,7 @@
           const empty = messagesEl.querySelector('.ai-empty');
           if (empty) empty.remove();
           data.reviews.forEach((rv) => {
-            if (rv.card) appendReviewCard(rv.card);
+            if (rv.card) (Array.isArray(rv.cards) && rv.cards.length ? rv.cards : [rv.card]).forEach((one) => appendReviewCard(one));
             else {
               appendBubble('assistant', rv.text);
               if (Array.isArray(rv.choices) && rv.choices.length) appendChoices(rv.choices);

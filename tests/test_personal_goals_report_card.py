@@ -89,7 +89,7 @@ def test_the_report_card_for_shahrivar(me, db):
     ]
     assert card["biggest_rise"] == {"category": food, "increase": 15_000_000}
     assert card["budgets"] == {"set": 1, "kept": 0, "over": [food]}
-    assert card["net_worth"] == {"start": 120_000_000, "end": 145_000_000, "change": 25_000_000}
+    assert card["net_worth"] == {"start": 120_000_000, "end": 145_000_000, "change": 25_000_000, "currency": "IRR"}
     checks = {c["key"]: c for c in card["checks"]}
     assert (checks["saved"]["ok"], checks["spending"]["ok"], checks["budgets"]["ok"]) == (True, False, False)
     assert checks["spending"]["detail"] == "۹۵,۰۰۰,۰۰۰ در برابر میانگین سه‌ماهه ۶۰,۰۰۰,۰۰۰."

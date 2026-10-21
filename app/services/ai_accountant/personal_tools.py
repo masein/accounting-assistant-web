@@ -13,6 +13,8 @@ from .base import BaseTool, ToolContext, ToolError
 class GetReportCardInput(BaseModel):
     month: str | None = Field(None, pattern=r"^\d{4}-\d{2}$",
                               description="YYYY-MM in the user's calendar (1405-06 = Shahrivar); default last month.")
+    currency: str | None = Field(None, description=("One currency's month in its own amounts (OMR). Omit for the first that "
+                                                   "moved; the others come in ``others``."))
 
 
 class GetReportCard(BaseTool):
@@ -22,14 +24,16 @@ class GetReportCard(BaseTool):
         "The user's monthly report card: income, spending, what they saved and their savings rate, against last month "
         "and the three-month average; the biggest spending categories and what rose; budgets kept; how net worth "
         "changed; savings goals; three checks (saved 10 %+, spent no more than usual, inside the budgets). Use for "
-        "'how did I do last month?', 'کارنامه این ماهم چطوره؟', 'did I save anything in Shahrivar?'. Pure read."
+        "'how did I do last month?', 'کارنامه این ماهم چطوره؟', 'did I save anything in Shahrivar?'. Each currency "
+        "is on its own, in its own amounts: ``currency`` is the card's, ``others`` the rest — say each, never add "
+        "them together. Pure read."
     )
     InputSchema = GetReportCardInput
 
     async def run(self, ctx: ToolContext, args: GetReportCardInput) -> dict[str, Any]:
         from app.services.report_card import report_card
         try:
-            card = report_card(ctx.db, args.month)
+            card = report_card(ctx.db, args.month, currency=args.currency)
         except (ValueError, KeyError) as e:
             raise ToolError(f"{args.month!r} isn't a month (YYYY-MM).", code="bad_month") from e
         return card

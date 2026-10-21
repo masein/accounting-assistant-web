@@ -18,11 +18,19 @@ from app.core.money import json_dumps
 router = APIRouter(prefix="/budgets", tags=["budgets"])
 
 
-def _check_places(db: Session, amount) -> None:
-    """A budget is in the base currency: pence for pounds, whole rials."""
+def _check_places(db: Session, amount, currency: str | None = None) -> None:
+    """A budget is in its currency's places: pence for pounds, baisa for Omani rials, whole rials."""
     from app.services.fx_base import base_currency
     from app.services.ledger_posting import assert_amount_places
-    assert_amount_places(base_currency(db), [amount])
+    assert_amount_places((currency or base_currency(db)).upper(), [amount])
+
+
+def _read(db: Session, row: BudgetLimit) -> BudgetLimitRead:
+    from app.services.budget_service import budget_currency
+    from app.services.fx_base import base_currency
+    out = BudgetLimitRead.model_validate(row)
+    out.currency = budget_currency(row, base_currency(db))
+    return out
 
 
 @router.get("", response_model=list[BudgetLimitRead])
@@ -34,23 +42,29 @@ def list_budgets(
     if month:
         q = q.where(BudgetLimit.month == month)
     rows = db.execute(q).scalars().all()
-    return [BudgetLimitRead.model_validate(r) for r in rows]
+    return [_read(db, r) for r in rows]
 
 
 @router.post("", response_model=BudgetLimitRead, status_code=201)
 def upsert_budget(payload: BudgetLimitCreate, db: Session = Depends(get_db)) -> BudgetLimitRead:
-    _check_places(db, payload.limit_amount)
-    row = db.execute(
-        select(BudgetLimit).where(BudgetLimit.month == payload.month, BudgetLimit.category.ilike(payload.category.strip()))
-    ).scalars().first()
+    from app.services.budget_service import budget_currency, stored_currency
+    from app.services.fx_base import base_currency
+    base = base_currency(db)
+    ccy = (payload.currency or base).upper()
+    _check_places(db, payload.limit_amount, ccy)
+    # one budget per category and currency: dining in rials and dining in Omani rials are two
+    row = next((r for r in db.execute(select(BudgetLimit).where(
+        BudgetLimit.month == payload.month, BudgetLimit.category.ilike(payload.category.strip()))).scalars()
+        if budget_currency(r, base) == ccy), None)
     if row:
         row.limit_amount = payload.limit_amount
     else:
-        row = BudgetLimit(month=payload.month, category=payload.category.strip(), limit_amount=payload.limit_amount)
+        row = BudgetLimit(month=payload.month, category=payload.category.strip(), limit_amount=payload.limit_amount,
+                          currency=stored_currency(ccy, base))
         db.add(row)
     db.commit()
     db.refresh(row)
-    return BudgetLimitRead.model_validate(row)
+    return _read(db, row)
 
 
 @router.patch("/{budget_id}", response_model=BudgetLimitRead)
@@ -61,21 +75,25 @@ def update_budget(budget_id: UUID, payload: BudgetLimitUpdate, db: Session = Dep
         raise HTTPException(status_code=404, detail="Budget not found")
     month = payload.month or row.month
     category = (payload.category.strip() if payload.category else row.category)
-    clash = db.execute(select(BudgetLimit).where(
-        BudgetLimit.month == month, BudgetLimit.category.ilike(category), BudgetLimit.id != row.id)).scalars().first()
+    from app.services.budget_service import budget_currency
+    from app.services.fx_base import base_currency
+    base = base_currency(db)
+    clash = next((r for r in db.execute(select(BudgetLimit).where(
+        BudgetLimit.month == month, BudgetLimit.category.ilike(category), BudgetLimit.id != row.id)).scalars()
+        if budget_currency(r, base) == budget_currency(row, base)), None)
     if clash:
         raise HTTPException(status_code=409, detail=f"{month} already has a budget for {category}.")
     before = {"month": row.month, "category": row.category, "limit_amount": row.limit_amount}
     row.month, row.category = month, category
     if payload.limit_amount is not None:
-        _check_places(db, payload.limit_amount)
+        _check_places(db, payload.limit_amount, budget_currency(row, base))
         row.limit_amount = payload.limit_amount
     log_audit_event(db, action="update", entity_type="budget", entity_id=str(row.id),
                     detail=json_dumps({"from": before, "to": {"month": row.month, "category": row.category,
                                                               "limit_amount": row.limit_amount}}, ensure_ascii=False))
     db.commit()
     db.refresh(row)
-    return BudgetLimitRead.model_validate(row)
+    return _read(db, row)
 
 
 @router.post("/roll-forward")

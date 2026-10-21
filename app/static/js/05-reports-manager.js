@@ -1583,14 +1583,17 @@
           wrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('pdNoBudgets')) + '</p>';
           return;
         }
+        // each in its own currency, named when there are several (docs/PLAN_CURRENCIES.md phase 4)
+        const several = new Set(rows.map(r => r.currency)).size > 1
+          || !document.getElementById('pd-budget-currency-cell')?.hidden;
         wrap.innerHTML = rows.map(r => {
           const pct = Math.max(0, Math.min(150, Number(r.utilization_pct) || 0));
           const color = pct >= 100 ? 'var(--danger)' : (pct >= 85 ? 'var(--accent)' : 'var(--success)');
           return `
             <div style="margin-bottom:0.55rem;">
               <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
-                <span>${escapeHtml(r.category)}</span>
-                <span>${formatAmount(r.actual_amount)} / ${formatAmount(r.limit_amount)} (${escapeHtml(String(r.utilization_pct))}%)</span>
+                <span>${escapeHtml(r.label || r.category)}</span>
+                <span><bdi>${formatAmount(r.actual_amount, r.currency)} / ${formatAmount(r.limit_amount, r.currency)}${several ? ' ' + escapeHtml(r.currency || '') : ''}</bdi> (${escapeHtml(String(r.utilization_pct))}%)</span>
               </div>
               <div style="background:var(--border); border-radius:6px; height:8px; overflow:hidden;">
                 <div style="width:${Math.min(100, pct)}%; height:100%; background:${color};"></div>
@@ -1879,6 +1882,14 @@
         + (several ? `<div class="pd-ccy-name">${escapeHtml(c.name)}</div>` : '') + '<div class="kpi-grid">'
         + card(t('kpiCashOnHand'), c.cash, c.currency) + card(t('pdKpiSpent'), c.spent, c.currency)
         + card(t('pdKpiSaved'), c.saved, c.currency) + '</div></div>').join('');
+      // the budget form's currency, when there are several
+      const bcell = document.getElementById('pd-budget-currency-cell');
+      const bsel = document.getElementById('pd-budget-currency');
+      if (bcell && bsel) {
+        bcell.hidden = !several;
+        bsel.innerHTML = list.map(c => `<option value="${escapeHtml(c.currency)}">${escapeHtml(c.name)}</option>`).join('');
+        if (_pdCurrency) bsel.value = _pdCurrency;
+      }
       if (!several) return;
       pick.innerHTML = `<span class="pd-ccy-label">${escapeHtml(t('pdCcyShow'))}</span>` + list.map(c =>
         `<button type="button" class="pd-ccy-btn" data-ccy="${escapeHtml(c.currency)}" aria-pressed="${c.currency === _pdCurrency}">`
@@ -1889,6 +1900,8 @@
       if (!btn || btn.dataset.ccy === _pdCurrency) return;
       _pdCurrency = btn.dataset.ccy;
       document.querySelectorAll('#pd-ccy-pick .pd-ccy-btn').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+      const bsel = document.getElementById('pd-budget-currency');
+      if (bsel) bsel.value = _pdCurrency;
       pdLoadDetail();
       loadReportCard();
       loadNetWorth();
@@ -2191,10 +2204,12 @@
         const category = document.getElementById('pd-budget-category')?.value || '';
         const limit = Number(document.getElementById('pd-budget-limit')?.value || 0);
         if (!category || !(limit > 0)) return;
+        const cell = document.getElementById('pd-budget-currency-cell');
+        const currency = cell && !cell.hidden ? (document.getElementById('pd-budget-currency')?.value || null) : null;
         try {
           const res = await fetch(API + '/budgets', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ month, category, limit_amount: limit }),
+            body: JSON.stringify({ month, category, limit_amount: limit, ...(currency ? { currency } : {}) }),
           });
           if (res.ok) { showAlert(t('btnSaveBudget') + ' ✓'); pdLoadBudgets(); }
           else { const d = await res.json().catch(() => ({})); showAlert(d.detail || t('msgFailed'), true); }

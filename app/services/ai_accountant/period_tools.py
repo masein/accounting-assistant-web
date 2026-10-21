@@ -63,6 +63,7 @@ def expense_category(ctx: ToolContext, text: str):
 
 class GetBudgetStatusInput(BaseModel):
     month: str | None = Field(None, pattern=MONTH, description="YYYY-MM in the company's calendar; default this month.")
+    currency: str | None = Field(None, description="Only the budgets in this currency (OMR). Omit for every one.")
 
 
 class GetBudgetStatus(BaseTool):
@@ -71,7 +72,8 @@ class GetBudgetStatus(BaseTool):
     description = (
         "Budget vs actual for a month: each expense category's limit, what was spent, what's left and the % used, "
         "flagging the ones over or near their limit; with no budgets, the month's biggest expense categories. Use "
-        "for 'are we over budget?', 'how much of the marketing budget is left?'. Amounts in the base currency. Pure read."
+        "for 'are we over budget?', 'how much of the marketing budget is left?'. Each budget is in its own currency "
+        "(``currency`` on each); ``by_currency`` totals each — never add them together. Pure read."
     )
     InputSchema = GetBudgetStatusInput
 
@@ -81,7 +83,7 @@ class GetBudgetStatus(BaseTool):
         from app.services.fx_base import base_currency
         key = args.month or _this_month(ctx)
         start, end = _check_month(key)
-        rows = budget_utilization(ctx.db, key)
+        rows = budget_utilization(ctx.db, key, (args.currency or "").strip().upper() or None)
         out = {"month": key, "label": month_label(key), "from_date": start.isoformat(), "to_date": end.isoformat(),
                "currency": base_currency(ctx.db)}
         if not rows:
@@ -89,14 +91,21 @@ class GetBudgetStatus(BaseTool):
             top = sorted(actual.items(), key=lambda kv: -kv[1])[:8]
             return {**out, "budgets": [], "note": "No budgets are set for this month.",
                     "top_expenses": [{"category": k, "actual": v} for k, v in top if v]}
-        budgets = [{"category": r["label"], "budget": r["limit_amount"], "actual": r["actual_amount"],
-                    "left": r["variance"], "used_pct": r["utilization_pct"],
+        budgets = [{"category": r["label"], "currency": r["currency"], "budget": r["limit_amount"],
+                    "actual": r["actual_amount"], "left": r["variance"], "used_pct": r["utilization_pct"],
                     "state": "over" if r["utilization_pct"] > 100 else "near" if r["utilization_pct"] >= 80 else "ok"}
                    for r in rows]
-        total_b = sum(b["budget"] for b in budgets)
-        total_a = sum(b["actual"] for b in budgets)
-        return {**out, "budgets": budgets, "total_budget": total_b, "total_actual": total_a,
-                "total_left": total_b - total_a, "over": [b["category"] for b in budgets if b["state"] == "over"]}
+        # each currency's own totals, the books' first: dining in Omani rials is never added to rent in rials
+        by: dict[str, dict] = {}
+        for b in budgets:
+            t = by.setdefault(b["currency"], {"currency": b["currency"], "budget": 0, "actual": 0})
+            t["budget"], t["actual"] = plain(t["budget"] + b["budget"]), plain(t["actual"] + b["actual"])
+        totals = [{**t, "left": plain(t["budget"] - t["actual"])}
+                  for t in sorted(by.values(), key=lambda t: (t["currency"] != out["currency"], t["currency"]))]
+        first = totals[0]
+        return {**out, "currency": first["currency"], "budgets": budgets, "total_budget": first["budget"],
+                "total_actual": first["actual"], "total_left": first["left"], "by_currency": totals,
+                "over": [b["category"] for b in budgets if b["state"] == "over"]}
 
 
 class GetCloseChecklistInput(BaseModel):
@@ -133,7 +142,9 @@ class GetCloseChecklist(BaseTool):
 
 class ProposeSetBudgetInput(BaseModel):
     category: str = Field(..., description="The expense account (name or code) the limit is for.")
-    amount: Money = Field(..., gt=0, description="The monthly limit in the base currency, pence included: £600.50 is 600.50 (never ×100).")
+    amount: Money = Field(..., gt=0, description="The monthly limit, pence or baisa included: £600.50 is 600.50 (never ×100).")
+    currency: str | None = Field(None, description=("The currency the limit is in and counts (OMR for «۷۰ ریال عمان»); "
+                                                   "omit for the books' own."))
     month: str | None = Field(None, pattern=MONTH, description="First month (YYYY-MM, company calendar); default this month.")
     months: int = Field(1, ge=1, le=24, description="How many consecutive months to set (e.g. 12 for the year).")
 
@@ -150,23 +161,26 @@ class ProposeSetBudget(BaseTool):
 
     async def run(self, ctx: ToolContext, args: ProposeSetBudgetInput) -> dict[str, Any]:
         from app.models.budget import BudgetLimit
-        from app.services.budget_service import _key_add
+        from app.services.budget_service import _key_add, budget_currency
         from app.services.fx_base import base_currency
         acc = expense_category(ctx, args.category)
+        base = base_currency(ctx.db)
+        ccy = (args.currency or base).strip().upper()
         from app.core.money import check_places
         try:
-            check_places(args.amount, base_currency(ctx.db))
+            check_places(args.amount, ccy)
         except ValueError as e:
             raise ToolError(str(e), code="invalid_amount") from e
         first = args.month or _this_month(ctx)
         _check_month(first)
         keys = [first] + [_key_add(first, i) for i in range(1, args.months)]
         existing = {b.month: plain(b.limit_amount) for b in ctx.db.execute(
-            select(BudgetLimit).where(BudgetLimit.month.in_(keys), BudgetLimit.category.ilike(acc.name))).scalars()}
+            select(BudgetLimit).where(BudgetLimit.month.in_(keys), BudgetLimit.category.ilike(acc.name))).scalars()
+            if budget_currency(b, base) == ccy}
         changes = [{"month": k, "before": existing.get(k), "after": args.amount} for k in keys]
         from app.services.book_text import bt
         payload = {"category": acc.name, "account_code": acc.code, "amount": args.amount, "months": keys,
-                   "currency": base_currency(ctx.db), "description": bt(ctx.db, "budget_card", name=acc.name)}
+                   "currency": ccy, "description": bt(ctx.db, "budget_card", name=acc.name)}
         token = _register(ctx, self.name, payload)
         span = keys[0] if len(keys) == 1 else f"{keys[0]} to {keys[-1]} ({len(keys)} months)"
         changed = [c for c in changes if c["before"] is not None and c["before"] != args.amount]

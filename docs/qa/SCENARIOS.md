@@ -741,7 +741,7 @@ The owner: «i want to have different currencies. isn't that ok?» It is. A pers
 | AP1 | A week in two currencies | Personal books in IRR; last week 3,000,000 IRR of groceries and 41.500 OMR (groceries 20.250, dining 17.500, transport 3.750); no rate between them | Two cards, the rials first: «… — ریال ایران» with 3,000,000, and «… — ریال عمان» with 41.500 and its three categories and bars; nothing added together. The bell and the phone notification say the first |
 | AP2 | A week in Omani rials only | The same books, only the OMR entries last week | One card in Omani rials: «۴۱٫۵۰۰ ریال عمان», its categories and its own usual week; never «۰ ریال» |
 | AP3 | A month in two currencies | AP1's entries in last month | The rials card keeps the budgets, the net worth and the goals; the Omani-rial card has its own income, spending, saved, savings rate, categories and four months of bars |
-| AP4 | The ideas stay with the first | AP1, with a category at twice its usual in Omani rials | No «set a monthly budget of 70» in rials for an Omani-rial category; the ideas are on the first card only |
+| AP4 | The ideas stay with the first | AP1, with a category at twice its usual in Omani rials | No «set a monthly budget of 70» in rials for an Omani-rial category (since phase 4 it is offered in Omani rials, AS4); the ideas are on the first card only |
 | AP5 | The report card | «کارنامه ماه قبلم چطوره؟»; the My finances report card | The first currency's month, the others listed in their own amounts; asked for OMR, the Omani-rial month |
 | AP6 | On the web | The chat after AP1, and again after a reload | Both cards, in order, each with its own figures |
 | AP7 | A company stays as it was | A company in IRR with a USD expense whose rate is on file | One card, in rials, with the dollars counted at their rate |
@@ -770,3 +770,17 @@ Net worth added everything up in the books' currency at its base value, and a go
 | AR4 | The review's goal idea | AR3, the goal behind | «… ۱۰۰٫۰۰۰ ریال عمان در ماه …»: the goal's own currency |
 | AR5 | The report card and the month | A month in two currencies | Each card's net-worth change is in its own currency |
 | AR6 | Gold at today's rate | Gold holdings on a rial account | Still valued at today's rate, in the rials' net worth |
+
+## AS. Budgets in each currency (2026-10-21, `docs/PLAN_CURRENCIES.md` phase 4)
+
+A budget was in the books' currency and counted spending at its base value, so Omani rials with no rate never touched it. The review's idea («set a monthly budget for dining») was held back for a category spent in Omani rials.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| AS1 | A budget in Omani rials | Personal books in IRR; a 50 OMR budget for dining this month; 41.500 OMR spent on dining, and 3,000,000 IRR on dining from the bank | The budget reads 41.500 of 50 OMR (83%); the rials don't count in it |
+| AS2 | Two budgets for one category | AS1, plus a 5,000,000 IRR budget for dining | Two budgets: 3,000,000 of 5,000,000 IRR and 41.500 of 50 OMR; setting one again changes only that one |
+| AS3 | Set from the chat | «برای رستوران ماهی ۵۰ ریال عمان بودجه بذار» | A card for 50 OMR a month; confirmed, the budget is in Omani rials |
+| AS4 | The review's idea | A week where dining in Omani rials ran hot, with no Omani-rial budget for it | «برای تفریح و رستوران بودجهٔ ماهانهٔ ۷۰٫۰۰۰ ریال عمان بگذار»: its own currency |
+| AS5 | The alert | AS1 at 90% | «Budget at 90%: dining», «45.000 OMR of 50.000 OMR»; the rials' budget alerts on its own |
+| AS6 | On My finances | Books with two currencies | The budget form offers the currency; each budget shows its own; the next months copy each in its own currency |
+| AS7 | A company | A company's budget with a USD expense at its rate | As before: base currency, every expense at its base value |

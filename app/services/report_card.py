@@ -169,7 +169,7 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
     rises = sorted(((c, a - p_cats.get(c, 0)) for c, a in cats.items()), key=lambda kv: -kv[1])
     biggest_rise = {"category": rises[0][0], "increase": rises[0][1]} if rises and rises[0][1] > 0 else None
 
-    budgets = budget_utilization(db, key)
+    budgets = budget_utilization(db, key, currency)            # the card's currency's own budgets
     over = [b["label"] for b in budgets if b["actual_amount"] > b["limit_amount"]]
 
     nw_end = compute_net_worth(db, as_of=upto, with_trend=False, currency=currency)       # the card's currency's own
@@ -200,7 +200,7 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
         "budgets": {"set": len(budgets), "kept": len(budgets) - len(over), "over": over},
         "net_worth": {"start": plain(nw_start.net_worth), "end": plain(nw_end.net_worth),
                       "change": plain(nw_end.net_worth) - plain(nw_start.net_worth), "currency": nw_end.currency},
-        "others": [_other(db, c, start, upto, keys[0]) for c in moved if c != currency],
+        "others": [_other(db, c, start, upto, keys[0], key) for c in moved if c != currency],
         "goals": [{"name": g["name"], "percent": g["percent"], "on_track": g["on_track"], "reached": g["reached"]}
                   for g in list_goals(db, today=upto)],
         "checks": checks, "passed": sum(1 for c in checks if c["ok"]),
@@ -208,17 +208,21 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
     }
 
 
-def _other(db: Session, currency: str, start: date, upto: date, previous_key: str) -> dict:
+def _other(db: Session, currency: str, start: date, upto: date, previous_key: str, month_key: str) -> dict:
     """Another currency's month, in its own amounts."""
     from app.services.calendar_periods import key_bounds
+    from app.services.budget_service import budget_utilization
     from app.services.net_worth_service import compute_net_worth
     income, spending, cats = _flows(db, start, upto, currency)
     p_income, p_spending, p_cats = _flows(db, *key_bounds(previous_key), currency)
+    budgets = budget_utilization(db, month_key, currency)
+    over = [b["label"] for b in budgets if b["actual_amount"] > b["limit_amount"]]
     nw_end = compute_net_worth(db, as_of=upto, with_trend=False, currency=currency).net_worth
     nw_start = compute_net_worth(db, as_of=start - timedelta(days=1), with_trend=False, currency=currency).net_worth
     return {"currency": currency, "income": income, "spending": spending, "saved": plain(income - spending),
             "net_worth": {"start": plain(nw_start), "end": plain(nw_end), "change": plain(nw_end - nw_start),
                           "currency": currency},
+            "budgets": {"set": len(budgets), "kept": len(budgets) - len(over), "over": over},
             "savings_rate": _rate(income, spending),
             "previous": {"income": p_income, "spending": p_spending, "saved": plain(p_income - p_spending)},
             "categories": [{"category": c, "amount": a, "previous": p_cats.get(c, 0)}

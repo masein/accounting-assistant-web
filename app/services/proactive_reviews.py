@@ -198,11 +198,11 @@ def _company_position(db: Session) -> dict:
 
 # --- what to suggest -------------------------------------------------------------------------------------------
 
-def _budget_rows(db: Session, today: date) -> list[dict]:
+def _budget_rows(db: Session, today: date, currency: str | None = None) -> list[dict]:
     from app.services.budget_service import budget_utilization
     from app.services.calendar_periods import month_key
     try:
-        return budget_utilization(db, month_key(today, _calendar(db)))
+        return budget_utilization(db, month_key(today, _calendar(db)), currency)
     except Exception:  # noqa: BLE001
         return []
 
@@ -224,7 +224,8 @@ def _budget_pace(db: Session, today: date) -> dict | None:
             continue
         crosses = start + timedelta(days=int(limit / (spent / elapsed)))
         if crosses <= end:
-            return {"category": _label(row), "spent": spent, "limit": limit, "on": crosses.isoformat()}
+            return {"category": _label(row), "spent": spent, "limit": limit, "on": crosses.isoformat(),
+                    "currency": row.get("currency")}
     return None
 
 
@@ -264,19 +265,21 @@ def suggestions(db: Session, kind: str, facts: dict, today: date) -> list[dict]:
                 out.append({"key": f"owed_long_{side}", "params": {"person": p["person"], "amount": amount,
                                                                    "currency": cur, "last": p["last_entry"]}})
                 break
-    budgeted = {_label(r) for r in _budget_rows(db, today)}
+    # a budget counts in its own currency (docs/PLAN_CURRENCIES.md phase 4): a category spent in Omani rials
+    # is offered a budget in Omani rials, unless it has one in them
+    ccy = facts.get("currency") or _currency(db)
+    budgeted = {_label(r) for r in _budget_rows(db, today, ccy)}
     spent = facts.get("spent") or 0
-    # a budget counts in the books' currency (until docs/PLAN_CURRENCIES.md phase 4): no budget of 70 rials
-    # for a category spent in Omani rials
-    in_books = (facts.get("currency") or _currency(db)) == _currency(db)
-    for c in (facts.get("top") or []) if in_books else []:
+    only = ccy if personal else None
+    for c in facts.get("top") or []:
         # float(): books with pence or baisa hold Decimals, and a Decimal times a float is a TypeError
         if c.get("usual") and float(c["amount"]) >= HOT * float(c["usual"]) and spent \
                 and float(c["amount"]) >= HOT_SHARE * float(spent) and c["name"] not in budgeted:
             # the button says how much, or the assistant reads the budgets, finds none, and stops (2026-10-20)
             out.append({"key": "hot_category", "params": {"category": c["name"],
                                                           "pct": round((c["amount"] / c["usual"] - 1) * 100),
-                                                          "budget": _monthly_budget(db, c, kind, today)}})
+                                                          "budget": _monthly_budget(db, c, kind, today, only),
+                                                          "currency": ccy}})
             break
     if personal and kind == "monthly":
         try:
@@ -302,12 +305,13 @@ def _nice(value) -> int:
     return int(math.ceil(x / step) * step)
 
 
-def _monthly_budget(db: Session, cat: dict, kind: str, today: date) -> int:
-    """A budget a category could have: its average month of the last three, or four usual weeks."""
+def _monthly_budget(db: Session, cat: dict, kind: str, today: date, only: str | None = None) -> int:
+    """A budget a category could have: its average month of the last three, or four usual weeks (with
+    ``only``, in that currency's own amounts)."""
     from app.services.calendar_periods import bounds, month_of, shift
     cal = _calendar(db)
     y, m = month_of(today, cal)
-    months = [_flows(db, *bounds(*shift(y, m, -i), cal))[2].get(cat["name"], 0) for i in range(1, 4)]
+    months = [_flows(db, *bounds(*shift(y, m, -i), cal), only)[2].get(cat["name"], 0) for i in range(1, 4)]
     months = [a for a in months if a]
     if months:
         return _nice(sum(months) / len(months))
@@ -379,10 +383,14 @@ def _month(db: Session, key: str, prev_key: str, ccy: str) -> dict[str, Any]:
     start, end = key_bounds(key)
     income, spent, cats = _flows(db, start, end, ccy)
     p_income, p_spent, _p = _flows(db, *key_bounds(prev_key), ccy)
+    from app.services.budget_service import budget_utilization
     worth = (compute_net_worth(db, as_of=end, with_trend=False, currency=ccy).net_worth
              - compute_net_worth(db, as_of=start - timedelta(days=1), with_trend=False, currency=ccy).net_worth)
+    budgets = budget_utilization(db, key, ccy)
+    over = [b["label"] for b in budgets if b["actual_amount"] > b["limit_amount"]]
     return {"currency": ccy, "income": plain(income), "spent": plain(spent), "saved": plain(income - spent),
             "net_worth_change": plain(worth),
+            "budgets": {"set": len(budgets), "kept": len(budgets) - len(over), "over": over},
             "rate": _rate(income, spent),
             "previous": {"income": plain(p_income), "spending": plain(p_spent), "saved": plain(p_income - p_spent)},
             "top": [{"name": n, "amount": plain(a), "usual": plain(_p[n]) if _p.get(n) else None}

@@ -51,19 +51,27 @@ def execute_payroll_proposal(
 
     if name == "propose_set_budget":
         from app.models.budget import BudgetLimit
+        from app.services.budget_service import budget_currency, stored_currency
+        from app.services.fx_base import base_currency
+        base = base_currency(db)
+        ccy = (p.get("currency") or base).upper()
         ids = []
         for key in p["months"]:
-            row = db.execute(select(BudgetLimit).where(BudgetLimit.month == key,
-                                                       BudgetLimit.category.ilike(p["category"]))).scalars().first()
+            # one per category and currency: dining in rials and in Omani rials are two budgets
+            row = next((r for r in db.execute(select(BudgetLimit).where(
+                BudgetLimit.month == key, BudgetLimit.category.ilike(p["category"]))).scalars()
+                if budget_currency(r, base) == ccy), None)
             if row is None:
-                row = BudgetLimit(month=key, category=p["category"], limit_amount=plain(p["amount"]))
+                row = BudgetLimit(month=key, category=p["category"], limit_amount=plain(p["amount"]),
+                                  currency=stored_currency(ccy, base))
                 db.add(row)
             else:
                 row.limit_amount = plain(p["amount"])
             db.flush()
             ids.append(str(row.id))
         audit_id = _audit(db, proposal, entity_type="budget", entity_id=ids[0],
-                          detail={"category": p["category"], "amount": p["amount"], "months": p["months"]}, **common)
+                          detail={"category": p["category"], "amount": p["amount"], "currency": ccy,
+                                  "months": p["months"]}, **common)
         return None, audit_id
 
     raise ValueError(f"no payroll/budget executor for {name}")

@@ -224,7 +224,7 @@
     .pd-ccy-btn:hover { border-color: var(--primary); }
     .pd-ccy-btn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
     /* their display beats the hidden attribute otherwise: a person with one currency saw an empty switch */
-    .pd-ccy-rows[hidden], .pd-ccy-pick[hidden], #pd-kpi-grid[hidden] { display: none; }
+    .pd-ccy-rows[hidden], .pd-ccy-pick[hidden], #pd-kpi-grid[hidden], #pd-budget-currency-cell[hidden] { display: none; }
     .nw-others { font-size: 0.82rem; color: var(--text-muted); margin-top: 0.3rem; }
     /* a phone: each currency one row of three, not three cards stacked for every currency */
     @media (max-width: 560px) {

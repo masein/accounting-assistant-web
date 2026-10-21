@@ -119,6 +119,23 @@
     function _uiIsPersian() {
       return (typeof currentLanguage !== 'undefined' ? currentLanguage : 'en') === 'fa';
     }
+    // What each account is, by the app's own code for it (docs/PLAN_OWN_CODES.md): a company that keeps
+    // codes of its own sends each account's class, and the pages read an account's kind from it, never from
+    // its digits. {code: class}, cached a minute.
+    let _accountClasses = null;
+    let _accountClassesAt = 0;
+    async function accountClasses() {
+      if (_accountClasses && Date.now() - _accountClassesAt < 60000) return _accountClasses;
+      try {
+        const r = await fetch(API + '/accounts?limit=500');
+        const list = r.ok ? await r.json() : [];
+        _accountClasses = Object.fromEntries((Array.isArray(list) ? list : [])
+          .map((a) => [String(a.code), String(a.class_code || a.code)]));
+        _accountClassesAt = Date.now();
+      } catch (_) { _accountClasses = {}; }
+      return _accountClasses;
+    }
+
     function localDigits(s) {
       const str = String(s);
       if (!_uiIsPersian()) return str;

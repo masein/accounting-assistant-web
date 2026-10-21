@@ -572,7 +572,7 @@
         const amount = parseMoney(asciiDigits(typed || ''));
         if (!amount || amount <= 0) return;
         const bank = await uiPrompt({ title: t('pettyDepositBtn'), message: t('pettyDepositBankPrompt'),
-                                      value: document.getElementById('rec-bank')?.value || '1110' });
+                                      value: document.getElementById('rec-bank')?.value || window.__DEFAULT_CASH_CODE || '1110' });
         if (!bank) return;
         const res = await fetch(API + '/petty-cash/accounts/' + b.dataset.id + '/deposit', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -585,7 +585,7 @@
         const typed = await uiPrompt({ title: t('pettyAdjustBtn'), message: tf('pettyAdjustPrompt', { currency: currencySymbol(baseCurrencyCode()) }) + ' — ' + b.dataset.name });
         const signed = parseMoney(asciiDigits(typed || ''));
         if (!signed) return;
-        const counter = await uiPrompt({ title: t('pettyAdjustBtn'), message: t('pettyDepositBankPrompt'), value: '1110' });
+        const counter = await uiPrompt({ title: t('pettyAdjustBtn'), message: t('pettyDepositBankPrompt'), value: window.__DEFAULT_CASH_CODE || '1110' });
         if (!counter) return;
         const res = await fetch(API + '/petty-cash/accounts/' + b.dataset.id + '/adjust', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -862,7 +862,7 @@
         // Settling moves money against a liability or a receivable, not an
         // expense — offer only those, plus a blank for tracking-only items.
         const opts = `<option value="">${escapeHtml(t('cmNoPosting'))}</option>` + _cmAccts
-          .filter(a => (a.code || '').startsWith('2') || (a.code || '').startsWith('1'))
+          .filter(a => /^[12]/.test(a.class_code || a.code || ''))           // a liability or a receivable, by class
           .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(localCode(a.code))} — ${escapeHtml(a.name)}</option>`)
           .join('');
         sels.forEach(s => { if (s) s.innerHTML = opts; });
@@ -1015,7 +1015,7 @@
       document.getElementById('cm-step-to').value = '';
       document.getElementById('cm-step-note').value = '';
       document.getElementById('cm-step-acct').innerHTML = `<option value="">—</option>` + _cmAccts
-        .filter(a => /^[12]/.test(a.code || ''))
+        .filter(a => /^[12]/.test(a.class_code || a.code || ''))
         .map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(localCode(a.code))} — ${escapeHtml(a.name)}</option>`).join('');
       show('cm-step-bank-row', ['deposit', 'redeposit', 'clear', 'settle'].includes(step));
       show('cm-step-sayad-row', step === 'sayad');

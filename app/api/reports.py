@@ -798,7 +798,8 @@ def search_transactions(
     if account_code_prefix:
         prefixes = [p.strip() for p in account_code_prefix.split(",") if p.strip()]
         if prefixes:
-            q = q.where(or_(*[Account.code.startswith(p) for p in prefixes]))
+            from app.services.chart_codes import class_expr         # a company's own codes, by their class
+            q = q.where(or_(*[class_expr().startswith(p) for p in prefixes]))
 
     if month:
         try:

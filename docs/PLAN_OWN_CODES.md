@@ -38,6 +38,8 @@ liability and the P&L empty.
 
 ## Phases (one PR each)
 
+Status, 2026-10-21: phase 1 merged as #389; phases 2–3 in #390; phase 4 in #391.
+
 1. **The engine** (invisible): `class_code`, `chart_codes`, every rule through it, the safety net.
 2. **Switching a company to its own codes**, a confirm-gated action (the companies console and the
    company's settings): a preview lists each account's new code (its `source_codes`, the code its

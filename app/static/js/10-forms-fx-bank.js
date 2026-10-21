@@ -1006,7 +1006,7 @@
     // choose it when nothing on the statement tells (statement_import.resolve_bank_account).
     let _bsBankChoices = null;
     const BS_ACCT_SOURCE_KEYS = { chosen: 'bsAcctChosen', account_number: 'bsAcctByNumber', name: 'bsAcctByName',
-      bank: 'bsAcctByBank', default: 'bsAcctDefault' };
+      bank: 'bsAcctByBank', account_name: 'bsAcctByName', default: 'bsAcctDefault' };
     async function bsBankChoices() {
       if (_bsBankChoices) return _bsBankChoices;
       try {
@@ -1034,11 +1034,12 @@
       if (!choices.length || !stmt.bank_account_code) { el.style.display = 'none'; return; }
       const opts = choices.map(c => `<option value="${escapeHtml(c.code)}"${c.code === stmt.bank_account_code ? ' selected' : ''}>`
         + `${escapeHtml(localCode(c.code))} — ${escapeHtml(c.bank || c.name)}</option>`).join('');
-      const unsure = stmt.bank_account_source === 'default' && choices.length > 1;
+      const unsure = (stmt.bank_account_source === 'default' && choices.length > 1) || stmt.bank_account_guessed;
       el.innerHTML = `<div style="display:flex;gap:0.45rem;align-items:center;flex-wrap:wrap;">
           <label for="bs-bank-account" style="font-weight:600;margin:0;">${escapeHtml(t('bsBankAccount'))}</label>
           <select id="bs-bank-account" style="width:auto;max-width:100%;margin:0;">${opts}</select>
-          <span style="color:${unsure ? '#b45309' : 'var(--text-muted)'};">${escapeHtml(t(BS_ACCT_SOURCE_KEYS[stmt.bank_account_source] || 'bsAcctDefault'))}</span>
+          <span style="color:${unsure ? '#b45309' : 'var(--text-muted)'};">${escapeHtml(stmt.bank_account_guessed ? tf('bsAcctGuessed', { bank: stmt.bank_name || '' })
+            : t(BS_ACCT_SOURCE_KEYS[stmt.bank_account_source] || 'bsAcctDefault'))}</span>
           ${stmt.bank_account_source === 'chosen' ? `<button type="button" class="btn btn-secondary btn-sm" id="bs-bank-account-auto">${escapeHtml(t('bsAcctAutomatic'))}</button>` : ''}
         </div>`;
       el.style.display = '';

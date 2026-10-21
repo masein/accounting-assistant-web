@@ -1463,6 +1463,61 @@ def get_proposal(
     )
 
 
+class StatementNextPayload(BaseModel):
+    session_id: str | None = None
+
+
+class StatementNextResponse(BaseModel):
+    session_id: str
+    statement_id: str
+    text: str
+    proposals: list[ChatProposal] = []
+    left: int = 0
+    # the statement's account is only a guess: choose it first (scenario AJ12)
+    choose: bool = False
+    choices: list[dict] = []
+
+
+@router.post("/statements/{statement_id}/next", response_model=StatementNextResponse)
+async def statement_next(statement_id: UUID, payload: StatementNextPayload, db: Session = Depends(get_db),
+                         user: SessionUser = Depends(get_current_user)) -> StatementNextResponse:
+    """«رفع قدم‌به‌قدم» on the web, as the phone's Next: the next row the books don't have, as a card, without
+    the model, and how many are left. The button used to ask the model, which raised the first card and stopped
+    there (the owner, 2026-10-21, scenario AJ13). Kept in the conversation like any answer."""
+    from app.models.bank_statement import BankStatement
+    from app.services.ai_accountant.orchestrator import _get_or_create_session
+    from app.services.ai_accountant.statement_next import next_difference
+    stmt = db.get(BankStatement, statement_id)
+    if stmt is None:
+        raise HTTPException(status_code=404, detail="Statement not found")
+    try:
+        session = _get_or_create_session(db, user_id=user.user_id, session_id=payload.session_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    lang = _user_language(db, user)
+    nxt = await next_difference(db, stmt=stmt, session=session, user_id=str(user.user_id), username=user.username,
+                                lang=lang)
+    proposals: list[ChatProposal] = []
+    if nxt.proposal is not None:
+        p = nxt.proposal
+        cards = _voucher_cards(db, [p], lang=lang)
+        proposals.append(ChatProposal(
+            confirmation_token=p["confirmation_token"], tool_name=p.get("tool_name", ""), summary=p.get("summary", ""),
+            preview=p.get("preview", {}), expires_at=p.get("expires_at"), needs_approval=bool(p.get("needs_approval")),
+            approval_threshold=p.get("approval_threshold"), amount_in_base=p.get("amount_in_base"),
+            new_entities=list(p.get("new_entities") or []), card=cards.get(str(p["confirmation_token"]))))
+    # after the card, so the conversation's history draws the card with these words (scenario AE1)
+    db.add(AIChatMessage(session_id=session.id, role="assistant",
+                         content={"role": "assistant", "text": nxt.text,
+                                  "statement_next": {"statement_id": nxt.statement_id, "left": nxt.left,
+                                                     "choose": nxt.choose}},
+                         created_at=datetime.now(timezone.utc)))
+    db.commit()
+    return StatementNextResponse(session_id=nxt.session_id, statement_id=nxt.statement_id, text=nxt.text,
+                                 proposals=proposals, left=nxt.left if nxt.proposal is not None else 0,
+                                 choose=nxt.choose, choices=nxt.choices)
+
+
 @router.get("/statements/{statement_id}/card")
 def statement_card(statement_id: UUID, db: Session = Depends(get_db),
                    user: SessionUser = Depends(get_current_user)) -> dict:

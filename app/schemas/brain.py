@@ -81,6 +81,8 @@ class BankStatementRead(BaseModel):
     bank_account_code: str | None = None
     bank_account_name: str | None = None
     bank_account_source: str | None = None
+    # the statement names its bank but none of the books' banks matched: only the chart's default (AJ12)
+    bank_account_guessed: bool = False
     # a scanned statement read in the background: how far, and what was read (scenarios AJ1–AJ4)
     pages_total: int | None = None
     pages_read: int | None = None
@@ -172,6 +174,10 @@ class StatementReviewResponse(BaseModel):
     total_rows: int = 0
     counts: dict[str, int] = Field(default_factory=dict)
     bank_account_code: str | None = None
+    # its name, and whether it is only the chart's default while other banks are on file: then the
+    # account is chosen before any row is recorded (scenario AJ12)
+    bank_account_name: str | None = None
+    bank_account_guessed: bool = False
     balance: StatementBalanceCheck | None = None
     findings: list[StatementFinding] = Field(default_factory=list)
     clean: bool = False

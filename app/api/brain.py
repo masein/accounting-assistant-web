@@ -172,10 +172,11 @@ def _reading_fields(db: Session, s: BankStatement) -> dict:
 
 
 def _bank_account_fields(db: Session, s: BankStatement) -> dict:
-    from app.services.statement_import import resolve_bank_account
+    from app.services.statement_import import bank_account_guessed, resolve_bank_account
     code, source = resolve_bank_account(db, s)
     name = db.execute(select(Account.name).where(Account.code == code)).scalar() if code else None
-    return {"bank_account_code": code, "bank_account_name": name, "bank_account_source": source}
+    return {"bank_account_code": code, "bank_account_name": name, "bank_account_source": source,
+            "bank_account_guessed": bank_account_guessed(db, s)}
 
 
 @router.get("/bank-accounts")

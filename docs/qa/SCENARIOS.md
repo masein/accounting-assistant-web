@@ -638,6 +638,9 @@ From the owner: «20261015_133322_receipt.pdf», Day Bank's own statement of ف�
 | AJ8 | Stopped half-way | The server restarts while it reads | Not left «reading» for ever: said to have stopped, and the same file can be uploaded again |
 | AJ9 | Short ones as before | A 1–2 page PDF or a photo | Read at once, as before, with its balance check |
 | AJ10 | A big scan in the chat | The owner, 2026-10-21: the same 22-page statement, 10.4 MB, dropped in the web chat (and shared to the phone's chat) | Taken, as the Bank Statements page takes it: up to 20 MB on the web, the phone and the Bank Statements page alike. Over 20 MB, refused before it is sent, in words with the limit («حداکثر ۲۰ مگابایت»). It was refused at 8 MB: «حجم فایل زیاد است — حداکثر ۸ مگابایت» |
+| AJ11 | Day is «بانک دی» | The owner, 2026-10-21: فرهنگ نو's Day Bank statement (the reader names it «Day») in books whose bank is «بانک دی» (made by the journal import, account 0105222028000) | Compared with «بانک دی»'s own account, never the chart's 1110: «Day» and «بانک دی» are one bank, as «Mellat» and «ملت» are. A bank with no party but an account named with its number («بانک دی حساب 0105222028000») is found by that number |
+| AJ12 | Which account, said | Any statement in the chat | The card says which account it was compared with («مقایسه با ۱۱۱۲۰۱ بانک دی»). When that is only the chart's default, it says so and offers to choose the account; step by step waits for the choice rather than posting to a guess |
+| AJ13 | Step by step on the web | «رفع قدم‌به‌قدم» on a statement with differences | One card at a time, without the model: the row's date and words, the bank's own account, the suggested other side, and «پس از این، ۵۸ ردیف دیگر مانده». Once a card is confirmed, the next one comes by itself; «بعدی» skips to it; when none is left: «همهٔ ردیف‌های این صورتحساب در دفاتر است…». The same as the phone's Next (N31) |
 
 ## AK. A lunch with a friend, from the phone (2026-10-20)
 

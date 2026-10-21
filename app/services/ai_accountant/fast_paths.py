@@ -191,6 +191,10 @@ _T = {
                   "fa": "دارایی خالص شما امروز: {net} {cur}؛ {assets} دارایی، {owed} بدهی.",
                   "es": "Tu patrimonio neto hoy: {net_p}: {assets_p} en activos, {owed_p} en deudas.",
                   "ar": "صافي ثروتك اليوم: {net_p}: {assets_p} أصول، {owed_p} ديون."},
+    "net_worth_currencies": {"en": "Your net worth today, each currency as it is: {list}.",
+                             "fa": "دارایی خالص شما امروز، هر ارز جداگانه: {list}.",
+                             "es": "Tu patrimonio neto hoy, cada moneda tal cual: {list}.",
+                             "ar": "صافي ثروتك اليوم، كل عملة كما هي: {list}."},
     "net_worth_gain": {"en": " Gold and currency at today's rates add {gain_p}.", "fa": " طلا و ارز به نرخ امروز {gain} بیشتر می‌ارزند.",
                        "es": " El oro y las divisas a precio de hoy suman {gain_p}.", "ar": " الذهب والعملات بسعر اليوم تضيف {gain_p}."},
     "bank_one": {"en": "{name} today: {amount_p}.", "fa": "موجودی {name} امروز: {amount} {cur}.",
@@ -422,6 +426,13 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
         from app.services.ai_accountant.personal_tools import GetNetWorth, GetNetWorthInput
         r = await run(GetNetWorth(), GetNetWorthInput())
         cur, code = _cur(r.get("currency"), lang), r.get("currency")
+        every = r.get("by_currency") or []
+        if len(every) > 1:
+            # each currency on its own, nothing exchanged (docs/PLAN_CURRENCIES.md phase 3)
+            sep = "، " if lang in ("fa", "ar") else " · "
+            text = _say("net_worth_currencies", lang,
+                        list=sep.join(_in_currency(x["net_worth"], x["currency"], lang) for x in every))
+            return FastAnswer(intent=intent, text=text, tool_calls=calls)
         text = _say("net_worth", lang, net=_money(r["net_worth"], lang), cur=cur, assets=_money(r["total_assets"], lang),
                     owed=_money(r["total_liabilities"], lang), net_p=_priced(r["net_worth"], code, lang),
                     assets_p=_priced(r["total_assets"], code, lang), owed_p=_priced(r["total_liabilities"], code, lang))

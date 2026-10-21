@@ -88,6 +88,8 @@ class NetWorthResponse(BaseModel):
     # Units held but with no exchange rate on file — surfaced so the UI can say
     # "set a rate" instead of quietly valuing the holding at nothing.
     missing_rates: list[str] = []
+    # each currency's own net worth, the books' first (docs/PLAN_CURRENCIES.md phase 3): never exchanged
+    by_currency: list[dict] = []
 
 
 def _account_names(db: Session, codes: list[str]) -> dict[str, str]:
@@ -154,8 +156,17 @@ def net_worth(
     db: Session = Depends(get_db),
     as_of: date | None = Query(None),
     trend: bool = Query(True),
+    currency: str | None = Query(None, pattern=r"^[A-Za-z]{3,8}$", description="one currency's own; default the first held"),
+    user=Depends(_current_user),
 ) -> NetWorthResponse:
-    nw = compute_net_worth(db, as_of=as_of, with_trend=trend)
+    """One currency's net worth in its own amounts (the books' own first), and every currency's in
+    ``by_currency``: a person's Omani rials with no rate counted as nothing in a rial total."""
+    from app.core.currencies import name
+    from app.services.net_worth_service import net_worth_by_currency
+    every = net_worth_by_currency(db, as_of=as_of)
+    shown = (currency or every[0].currency).strip().upper()
+    nw = compute_net_worth(db, as_of=as_of, with_trend=trend, currency=shown)
+    lang = _language_of(db, user.user_id)
 
     def _line(l) -> NetWorthLine:
         return NetWorthLine(
@@ -176,6 +187,8 @@ def net_worth(
         unrealized_gain=nw.unrealized_gain,
         trend=[{"period": p, "value": v} for p, v in nw.trend],
         missing_rates=sorted(set(nw.missing_rates)),
+        by_currency=[{"currency": x.currency, "name": name(x.currency, lang), "net_worth": x.net_worth,
+                      "total_assets": x.total_assets, "total_liabilities": x.total_liabilities} for x in every],
     )
 
 

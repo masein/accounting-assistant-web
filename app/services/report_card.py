@@ -172,8 +172,8 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
     budgets = budget_utilization(db, key)
     over = [b["label"] for b in budgets if b["actual_amount"] > b["limit_amount"]]
 
-    nw_end = compute_net_worth(db, as_of=upto, with_trend=False)
-    nw_start = compute_net_worth(db, as_of=start - timedelta(days=1), with_trend=False)
+    nw_end = compute_net_worth(db, as_of=upto, with_trend=False, currency=currency)       # the card's currency's own
+    nw_start = compute_net_worth(db, as_of=start - timedelta(days=1), with_trend=False, currency=currency)
 
     rate = _rate(income, spending)
     checks = [
@@ -198,7 +198,6 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
         "average_spending_3m": avg3,
         "categories": categories, "biggest_rise": biggest_rise,
         "budgets": {"set": len(budgets), "kept": len(budgets) - len(over), "over": over},
-        # in the books' currency (net worth per currency: phase 3)
         "net_worth": {"start": plain(nw_start.net_worth), "end": plain(nw_end.net_worth),
                       "change": plain(nw_end.net_worth) - plain(nw_start.net_worth), "currency": nw_end.currency},
         "others": [_other(db, c, start, upto, keys[0]) for c in moved if c != currency],
@@ -212,9 +211,14 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
 def _other(db: Session, currency: str, start: date, upto: date, previous_key: str) -> dict:
     """Another currency's month, in its own amounts."""
     from app.services.calendar_periods import key_bounds
+    from app.services.net_worth_service import compute_net_worth
     income, spending, cats = _flows(db, start, upto, currency)
     p_income, p_spending, p_cats = _flows(db, *key_bounds(previous_key), currency)
+    nw_end = compute_net_worth(db, as_of=upto, with_trend=False, currency=currency).net_worth
+    nw_start = compute_net_worth(db, as_of=start - timedelta(days=1), with_trend=False, currency=currency).net_worth
     return {"currency": currency, "income": income, "spending": spending, "saved": plain(income - spending),
+            "net_worth": {"start": plain(nw_start), "end": plain(nw_end), "change": plain(nw_end - nw_start),
+                          "currency": currency},
             "savings_rate": _rate(income, spending),
             "previous": {"income": p_income, "spending": p_spending, "saved": plain(p_income - p_spending)},
             "categories": [{"category": c, "amount": a, "previous": p_cats.get(c, 0)}

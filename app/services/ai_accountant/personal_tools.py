@@ -61,7 +61,8 @@ class GetSavingsGoals(BaseTool):
 
 
 class GetNetWorthInput(BaseModel):
-    pass
+    currency: str | None = Field(None, description=("One currency's net worth in its own amounts (OMR). Omit for "
+                                                   "the first held; every currency's is in ``by_currency``."))
 
 
 class GetNetWorth(BaseTool):
@@ -71,14 +72,16 @@ class GetNetWorth(BaseTool):
         "The user's net worth today: what they own minus what they owe, with gold and foreign currency restated at "
         "today's rates (and what that revaluation gained), each holding with its quantity, and the month-end trend "
         "over the last twelve months. Use for 'how much am I worth?', 'دارایی خالص من چقدره؟', 'how much is my gold "
-        "worth now?'. Holdings and rates are kept on the My finances page. Pure read."
+        "worth now?'. Holdings and rates are kept on the My finances page. Each currency is on its own, in its "
+        "own amounts: ``by_currency`` has every one — say each, never add them together. Pure read."
     )
     InputSchema = GetNetWorthInput
 
     async def run(self, ctx: ToolContext, args: GetNetWorthInput) -> dict[str, Any]:
         from datetime import date as _date, timedelta
-        from app.services.net_worth_service import compute_net_worth
-        nw = compute_net_worth(ctx.db)
+        from app.services.net_worth_service import compute_net_worth, net_worth_by_currency
+        every = net_worth_by_currency(ctx.db)
+        nw = compute_net_worth(ctx.db, currency=(args.currency or every[0].currency))
 
         def month_end(key: str) -> str:
             y, m = int(key[:4]), int(key[5:7])
@@ -94,7 +97,9 @@ class GetNetWorth(BaseTool):
                 "unrealized_gain": nw.unrealized_gain, "assets": [line(x) for x in nw.assets],
                 "liabilities": [line(x) for x in nw.liabilities],
                 "trend": [{"period": p, "date": month_end(p), "value": v} for p, v in nw.trend],
-                "missing_rates": sorted(set(nw.missing_rates))}
+                "missing_rates": sorted(set(nw.missing_rates)),
+                "by_currency": [{"currency": x.currency, "net_worth": x.net_worth, "total_assets": x.total_assets,
+                                 "total_liabilities": x.total_liabilities} for x in every]}
 
 
 # A person's chart (app/db/seed.py PERSONAL_SEED_ACCOUNTS): «بدهی به دیگران»

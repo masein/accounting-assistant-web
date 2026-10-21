@@ -398,6 +398,14 @@ def _net_worth(result: dict, lang: str = "en", **_) -> list[dict] | None:
         out.append({"type": "chart", "kind": "net_worth", "style": "line", "title": title, "currency": cur,
                     "points": [{"x": t["date"], "value": json_amount(t["value"])} for t in trend],
                     "fallback_text": f"{title}: {grouped(json_amount(trend[0]['value']))} → {grouped(json_amount(trend[-1]['value']))} {cur or ''}".strip()})
+    every = result.get("by_currency") or []
+    if len(every) > 1:
+        # each currency's own net worth, never added together (docs/PLAN_CURRENCIES.md phase 3)
+        from app.core.currencies import name as currency_name
+        rows = [{"label": currency_name(x["currency"], lang), "sub": x["currency"], "value": json_amount(x["net_worth"]),
+                 "currency": x["currency"]} for x in every]
+        out.append({"type": "table", "kind": "net_worth_currencies", "title": label, "rows": rows,
+                    "fallback_text": " · ".join(f"{grouped(r['value'])} {r['currency']}" for r in rows)})
     held = [a for a in result.get("assets") or [] if a.get("revalued")]
     if held:
         rows = [{"label": a.get("account_name") or a.get("account_code"), "sub": _quantity(a.get("quantity"), a.get("unit"), lang),

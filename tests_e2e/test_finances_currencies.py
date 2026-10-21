@@ -63,6 +63,41 @@ def test_a_row_for_each_currency_and_the_details_in_one(flow_page):
         switch_language(page, "en")
 
 
+def test_net_worth_and_a_goal_in_their_own_currencies(flow_page):
+    """AR1, AR3: the net worth of the currency chosen, the others under it; a goal on an Omani-rial wallet in
+    Omani rials, not 0%."""
+    page, watch = flow_page("e2e_finances")
+    page.route("**/personal/currencies", lambda route: route.fulfill(
+        status=200, content_type="application/json", body=json.dumps(DATA["currencies"], ensure_ascii=False)))
+    page.route("**/reports/owner-dashboard*", _by_currency("dashboard"))
+    page.route("**/personal/report-card*", _by_currency("card"))
+    page.route("**/personal/net-worth*", _by_currency("worth"))
+    page.route("**/personal/goals", lambda route: route.fulfill(
+        status=200, content_type="application/json", body=json.dumps(DATA["goals"], ensure_ascii=False))
+        if route.request.method == "GET" else route.continue_())
+    try:
+        switch_language(page, "fa")
+        page.evaluate("() => { currentRole = 'personal'; location.hash = 'personal-dashboard'; }")
+        page.wait_for_load_state("networkidle")
+        expect(page.locator(".nw-others")).to_contain_text("ارزهای دیگر")
+        expect(page.locator(".nw-others")).to_contain_text("ریال عمان")
+        goal = page.locator("#goals-list .goal")
+        expect(goal).to_have_count(1)
+        expect(goal.locator(".goal-meta")).to_contain_text("OMR")
+        os.makedirs(ARTIFACTS, exist_ok=True)
+        page.wait_for_timeout(900)                                   # the line grown to its figure
+        page.locator("#nw-headline").locator("xpath=..").screenshot(path=os.path.join(ARTIFACTS, "finances-net-worth-irr-fa.png"))
+        page.locator("#pd-goals").screenshot(path=os.path.join(ARTIFACTS, "finances-goal-omr-fa.png"))
+        page.locator("#pd-ccy-pick .pd-ccy-btn").nth(1).click()                 # the Omani rials' net worth
+        expect(page.locator("#nw-headline")).to_contain_text("۱۲۸٫۵۰۰")
+        expect(page.locator(".nw-others")).to_contain_text("ریال ایران")
+        page.wait_for_timeout(600)
+        page.locator("#nw-headline").locator("xpath=..").screenshot(path=os.path.join(ARTIFACTS, "finances-net-worth-omr-fa.png"))
+        assert watch.problems() == [], watch.problems()
+    finally:
+        switch_language(page, "en")
+
+
 def test_on_a_phone_sized_screen(flow_page):
     page, watch = flow_page("e2e_finances")
     page.set_viewport_size({"width": 400, "height": 900})

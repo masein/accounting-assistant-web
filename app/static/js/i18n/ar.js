@@ -99,6 +99,7 @@ window.I18N_PACKS.ar = Object.assign({
         nwTitle: 'صافي الثروة',
         nwAssets: 'الأصول',
         nwDebts: 'الديون',
+        nwOthers: 'عملات أخرى',
         nwUnrealized: 'ربح غير محقق',
         nwMissingRate: 'لا يوجد سعر لـ {units} — حدّده في العملات.',
         nwHoldingsTitle: 'الذهب والعملات',

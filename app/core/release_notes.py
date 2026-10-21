@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.21.3"
+CURRENT_RELEASE = "2026.10.21.4"
 
 
 @dataclass(frozen=True)
@@ -2192,6 +2192,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "امور مالی من برای هر ارزی که دارید یک ردیف نشان می‌دهد — موجودی، خرج و پس‌انداز این ماه — و دسته‌بندی‌ها، ماه‌ها و کارنامه را به ارزی که انتخاب کنید. ویجت گوشی هم هر ارز را جداگانه می‌گوید.",
                     "es": "Mis finanzas muestra una fila por cada moneda que tienes —efectivo, gastado y ahorrado este mes— y las categorías, los meses y el resumen en la que elijas. El widget del teléfono también muestra cada moneda.",
                     "ar": "تعرض أموري المالية صفًا لكل عملة لديك — النقد والمنفق والمدَّخر هذا الشهر — والفئات والأشهر وبطاقة التقرير بالعملة التي تختارها. وأداة الهاتف تعرض كل عملة أيضًا.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.21.4",
+        date="2026-10-21",
+        highlights=(
+            Highlight(
+                key="worth-and-goals-each-currency",
+                page="personal-dashboard",
+                roles=("personal",),
+                title={
+                    "en": "Net worth and goals in each currency",
+                    "fa": "دارایی خالص و هدف‌ها، هر ارز جداگانه",
+                    "es": "Patrimonio y metas en cada moneda",
+                    "ar": "صافي الثروة والأهداف بكل عملة",
+                },
+                body={
+                    "en": "Your net worth is shown for each currency you hold, in its own amounts, and a savings goal counts in the currency of the account it saves into — a goal on an Omani-rial wallet is measured in Omani rials.",
+                    "fa": "دارایی خالص برای هر ارزی که دارید با مبلغ خودش نشان داده می‌شود، و هر هدف پس‌انداز به ارز حسابی که در آن جمع می‌شود حساب می‌شود — هدفی روی کیف پول ریال عمان با ریال عمان سنجیده می‌شود.",
+                    "es": "Tu patrimonio neto se muestra por cada moneda que tienes, en sus propios importes, y una meta de ahorro cuenta en la moneda de la cuenta donde ahorras: una meta en una cartera de riales omaníes se mide en riales omaníes.",
+                    "ar": "يُعرض صافي ثروتك لكل عملة تملكها بمبالغها الخاصة، ويُحسب هدف الادخار بعملة الحساب الذي تدّخر فيه — فهدف على محفظة بالريال العُماني يُقاس بالريال العُماني.",
                 },
             ),
         ),

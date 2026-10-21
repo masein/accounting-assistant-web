@@ -1891,6 +1891,7 @@
       document.querySelectorAll('#pd-ccy-pick .pd-ccy-btn').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
       pdLoadDetail();
       loadReportCard();
+      loadNetWorth();
     });
 
     async function loadPersonalDashboard() {
@@ -2139,14 +2140,16 @@
         if (g.reached) badge = `<span class="goal-badge ok">${escapeHtml(t('goalReached'))}</span>`;
         else if (g.on_track === true) badge = `<span class="goal-badge ok">${escapeHtml(t('goalOnTrack'))}</span>`;
         else if (g.on_track === false) badge = `<span class="goal-badge warn">${escapeHtml(t('goalBehind'))}</span>`;
-        const meta = [tf('goalProgress', { v: formatAmount(g.current), target: formatAmount(g.target_amount) })];
-        if (!g.reached && g.needed_per_month != null) meta.push(tf('goalNeeded', { v: formatAmount(g.needed_per_month), date: g.target_date }));
-        if (!g.reached && g.pace_per_month > 0) meta.push(tf('goalPace', { v: formatAmount(g.pace_per_month) }));
+        // in the currency of the account it saves into (docs/PLAN_CURRENCIES.md phase 3)
+        const amt = (v) => formatAmount(v, g.currency) + (g.currency ? ' ' + g.currency : '');
+        const meta = [tf('goalProgress', { v: formatAmount(g.current, g.currency), target: amt(g.target_amount) })];
+        if (!g.reached && g.needed_per_month != null) meta.push(tf('goalNeeded', { v: amt(g.needed_per_month), date: g.target_date }));
+        if (!g.reached && g.pace_per_month > 0) meta.push(tf('goalPace', { v: amt(g.pace_per_month) }));
         return `<div class="goal${g.reached ? ' reached' : ''}" data-id="${escapeHtml(g.id)}">
           <div class="goal-top"><span class="goal-name">${rcName(g.name)}</span>
             <span>${badge} <button type="button" class="btn btn-secondary btn-sm goal-del" data-id="${escapeHtml(g.id)}" aria-label="${escapeHtml(t('goalDelete'))}">×</button></span></div>
           <div class="goal-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Number(g.percent)}"><span style="width:${Math.max(0, Math.min(100, Number(g.percent)))}%"></span></div>
-          <div class="goal-meta"><bdi dir="ltr">${escapeHtml(formatNum(g.percent))}%</bdi> · ${rcName(g.account_name || g.account_code)} · ${meta.map(m => `<bdi>${escapeHtml(m)}</bdi>`).join(' · ')}</div>
+          <div class="goal-meta"><bdi dir="ltr">${escapeHtml(formatNum(g.percent))}%</bdi>${rcSep()}${rcName(g.account_name || g.account_code)}${rcSep()}${meta.map(m => `<bdi>${escapeHtml(m)}</bdi>`).join(rcSep())}</div>
         </div>`;
       }).join('');
     }
@@ -2246,20 +2249,23 @@
       const headline = document.getElementById('nw-headline');
       if (!headline) return;
       try {
-        const d = await (await fetch(API + '/personal/net-worth')).json();
+        // the currency chosen above, in its own amounts; the others listed under it (docs/PLAN_CURRENCIES.md)
+        const d = await (await fetch(API + '/personal/net-worth' + (_pdCurrency ? '?currency=' + encodeURIComponent(_pdCurrency) : ''))).json();
         const gain = d.unrealized_gain || 0;
+        const others = (d.by_currency || []).filter(x => x.currency !== d.currency);
         const gainColor = gain > 0 ? 'var(--success)' : (gain < 0 ? 'var(--danger)' : 'var(--text-muted)');
         headline.innerHTML = `
           <div style="font-size:1.6rem; font-weight:700;">${escapeHtml(formatAmount(d.net_worth, d.currency))} ${escapeHtml(d.currency)}</div>
           <div style="font-size:0.82rem; color:var(--text-muted);">
-            ${escapeHtml(t('nwAssets'))}: ${escapeHtml(formatAmount(d.total_assets, d.currency))} ·
-            ${escapeHtml(t('nwDebts'))}: ${escapeHtml(formatAmount(d.total_liabilities, d.currency))}
+            ${escapeHtml(t('nwAssets'))}: ${escapeHtml(formatAmount(d.total_assets, d.currency))}${rcSep()}${escapeHtml(t('nwDebts'))}: ${escapeHtml(formatAmount(d.total_liabilities, d.currency))}
           </div>
           ${gain ? `<div style="font-size:0.82rem; color:${gainColor};">${escapeHtml(t('nwUnrealized'))}: ${escapeHtml(formatAmount(gain, d.currency))}</div>` : ''}
           ${(d.missing_rates || []).length ? `<div class="alert-chip medium" style="margin-top:0.35rem;">${escapeHtml(tf('nwMissingRate', { units: d.missing_rates.join(', ') }))}</div>` : ''}
+          ${others.length ? `<div class="nw-others">${escapeHtml(t('nwOthers'))}: ${others.map(x =>
+            `<bdi>${escapeHtml(formatAmount(x.net_worth, x.currency))} ${escapeHtml(x.name || x.currency)}</bdi>`).join(rcSep())}</div>` : ''}
         `;
 
-        renderMiniTable('nw-breakdown', ['item', 'value'],
+        renderMiniTable('nw-breakdown', ['account_name', 'value'],          // «Item» had no translation
           [...d.assets, ...d.liabilities].map(l => [
             escapeHtml(l.account_name) + (l.revalued ? ' ★' : ''),
             formatAmount(l.market_value, d.currency),
@@ -2267,6 +2273,7 @@
 
         const canvas = document.getElementById('nw-trend-chart');
         const trend = d.trend || [];
+        if (_nwTrendChart && !trend.length) { _nwTrendChart.destroy(); _nwTrendChart = null; }
         if (typeof Chart !== 'undefined' && canvas && trend.length) {
           if (_nwTrendChart) _nwTrendChart.destroy();
           _nwTrendChart = new Chart(canvas, {

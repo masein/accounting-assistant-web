@@ -26,11 +26,35 @@ class GoalError(ValueError):
     pass
 
 
-def _values(db: Session, on: date) -> dict[str, int]:
-    """Each asset account's value on a date — market value where holdings revalue it."""
+def _values(db: Session, on: date, currency: str | None = None) -> dict[str, int]:
+    """Each asset account's value on a date — market value where holdings revalue it; with ``currency``,
+    in that currency's own amounts."""
     from app.services.net_worth_service import compute_net_worth
-    nw = compute_net_worth(db, as_of=on, with_trend=False)
+    nw = compute_net_worth(db, as_of=on, with_trend=False, currency=currency)
     return {ln.account_code: plain(ln.market_value) for ln in nw.assets}
+
+
+def account_currencies(db: Session, codes: set[str], base: str) -> dict[str, str]:
+    """The currency each account keeps its money in: the one most of its entries are in, the books' when
+    it has none. A goal saving into an Omani-rial wallet counts in Omani rials (docs/PLAN_CURRENCIES.md
+    phase 3): at its rial value, with no rate, it read 0%."""
+    from sqlalchemy import func
+
+    from app.models.transaction import Transaction, TransactionLine
+    if not codes:
+        return {}
+    rows = db.execute(
+        select(Account.code, Transaction.currency, func.count(TransactionLine.id))
+        .join(TransactionLine, TransactionLine.account_id == Account.id)
+        .join(Transaction, Transaction.id == TransactionLine.transaction_id)
+        .where(Account.code.in_(codes), Transaction.deleted_at.is_(None))
+        .group_by(Account.code, Transaction.currency)).all()      # the raw column: Postgres (#371)
+    best: dict[str, tuple[int, str]] = {}
+    for code, ccy, n in rows:
+        c = (ccy or base).strip().upper()
+        if code not in best or (int(n), c == base) > (best[code][0], best[code][1] == base):
+            best[code] = (int(n), c)
+    return {code: best[code][1] if code in best else base for code in codes}
 
 
 def months_left(today: date, target: date, cal: str) -> int:
@@ -61,23 +85,29 @@ def progress(db: Session, goals: list[SavingsGoal], *, today: date | None = None
         return []
     cal = company_calendar(db)
     from app.services.fx_base import base_currency
-    ccy = base_currency(db)
-    now = _values(db, today)
+    base = base_currency(db)
+    currency_of = account_currencies(db, {g.account_code for g in goals}, base)
     before_day = pace_start(today, cal)
-    before = _values(db, before_day)
+    now: dict[str, dict] = {}
+    before: dict[str, dict] = {}
     names = {a.code: a.name for a in db.execute(
         select(Account).where(Account.code.in_({g.account_code for g in goals}))).scalars()}
     out = []
     for g in goals:
-        current = now.get(g.account_code, 0)
+        # in the currency of the account it saves into: its own amounts, never exchanged
+        ccy = currency_of.get(g.account_code, base)
+        if ccy not in now:
+            now[ccy], before[ccy] = _values(db, today, ccy), _values(db, before_day, ccy)
+        current = now[ccy].get(g.account_code, 0)
         target = plain(g.target_amount)
         remaining = max(0, target - current)
-        pace = (current - before.get(g.account_code, 0)) / PACE_MONTHS
+        pace = (current - before[ccy].get(g.account_code, 0)) / PACE_MONTHS
         left = months_left(today, g.target_date, cal) if g.target_date else None
         needed = None if left is None else (remaining if left == 0 else _per_month(remaining, left, ccy))
         on_track = None if g.target_date is None else (remaining == 0 or (left > 0 and pace >= needed))
         out.append({
             "id": str(g.id), "name": g.name, "account_code": g.account_code, "account_name": names.get(g.account_code),
+            "currency": ccy,
             "target_amount": target, "current": current, "remaining": remaining,
             "percent": round(min(100.0, current / target * 100), 1) if target else 0.0,
             "reached": current >= target, "target_date": g.target_date.isoformat() if g.target_date else None,

@@ -101,6 +101,7 @@
         nwTitle: 'Net worth',
         nwAssets: 'Assets',
         nwDebts: 'Debts',
+        nwOthers: 'Other currencies',
         nwUnrealized: 'Unrealized gain',
         nwMissingRate: 'No rate set for {units} — set one under Currency & FX to value it.',
         nwHoldingsTitle: 'Gold & currency holdings',

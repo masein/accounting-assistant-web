@@ -46,7 +46,8 @@ def _debit_turnover(db, code: str, currency: str, from_date=None, to_date=None) 
 
 @pytest.fixture()
 def mixed_books(db, make_transaction):
-    """One IRR sale and one USD sale, both recent (inside the dashboard window)."""
+    """One IRR sale and one USD sale, both recent (inside the dashboard window); taken out again after
+    the test — left in the shared company, six tests' dollars moved another file's 1110 balance by 720."""
     day = date.today() - timedelta(days=3)
     ref = f"mixed-{uuid.uuid4().hex[:8]}"
     irr = make_transaction([(CASH, 1_000_000, 0), (REVENUE, 0, 1_000_000)], tx_date=day, reference=ref + "-IRR")
@@ -54,9 +55,16 @@ def mixed_books(db, make_transaction):
     usd = make_transaction([(CASH, 120, 0), (REVENUE, 0, 120)], tx_date=day, reference=ref + "-USD")
     usd.currency = "USD"
     db.commit()
+    ids = [irr.id, usd.id]
     from app.api.reports import _dashboard_cache
     _dashboard_cache.clear()
-    return {"day": day, "ref": ref}
+    yield {"day": day, "ref": ref}
+    from sqlalchemy import delete
+    db.rollback()
+    db.execute(delete(TransactionLine).where(TransactionLine.transaction_id.in_(ids)))
+    db.execute(delete(Transaction).where(Transaction.id.in_(ids)))
+    db.commit()
+    _dashboard_cache.clear()
 
 
 def test_ledger_summary_defaults_to_reporting_currency_and_lists_others(db, client, mixed_books):

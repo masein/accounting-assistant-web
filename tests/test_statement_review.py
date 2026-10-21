@@ -199,7 +199,9 @@ def test_closing_balance_gap_uses_the_statement_banks_own_account(db, make_trans
 def test_gap_explained_by_unrecorded_rows_is_informational(db):
     code = "1110"
     d = date(2031, 7, 3)
-    book = book_balance_as_of(db, code, d)
+    # the statement is in rials and is compared with the rial entries: dollars another test left on 1110
+    # made the expected gap 970 instead of 250 when the tests ran in another order
+    book = book_balance_as_of(db, code, d, "IRR")
     # One unrecorded credit of 250 → closing = book + 250 explains itself.
     s = _stmt(db, [(d, "unrecorded deposit", 0, 250, book + 250, "unmatched")], bank_name="Explained Bank")
     review = build_statement_review(db, s)
@@ -217,7 +219,7 @@ def test_unexplained_gap_stays_informational_while_rows_are_unrecorded(db):
     big closing balance. That is not an alarm yet — post the rows first."""
     code = "1110"
     d = date(2031, 10, 1)
-    book = book_balance_as_of(db, code, d)
+    book = book_balance_as_of(db, code, d, "IRR")                 # the statement's currency, as the review reads it
     s = _stmt(db, [(d, "first ever row", 500, 0, book + 9_999_000, "unmatched")], bank_name="Fresh Books Bank")
     review = build_statement_review(db, s)
     gap = next(f for f in review.findings if f.kind == "balance_gap")

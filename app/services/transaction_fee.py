@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.services.chart_codes import class_of, own_code
 from app.models.entity import Entity
 from app.models.transaction import Transaction
 from app.models.transaction_fee import (
@@ -415,13 +416,13 @@ def build_fee_line_items(fee_amount: int, method_name: str, bank_name: str, *, l
     note = said(lang, "fee_note", method=method, bank=_normalize_whitespace(bank_name))
     return [
         {
-            "account_code": FEE_EXPENSE_ACCOUNT_CODE,
+            "account_code": own_code(FEE_EXPENSE_ACCOUNT_CODE),          # a company's own code (AN2)
             "debit": fee,
             "credit": 0,
             "line_description": note,
         },
         {
-            "account_code": BANK_ACCOUNT_CODE,
+            "account_code": own_code(BANK_ACCOUNT_CODE),
             "debit": 0,
             "credit": fee,
             "line_description": said(lang, "fee_deduction", bank=_normalize_whitespace(bank_name)),
@@ -819,7 +820,7 @@ def apply_fee_to_transaction_lines(
     bank_idx = -1
     bank_credit = 0
     for i, line in enumerate(lines):
-        if str(line.get("account_code") or "").strip() == BANK_ACCOUNT_CODE and int(line.get("credit") or 0) > bank_credit:
+        if class_of(str(line.get("account_code") or "").strip()) == BANK_ACCOUNT_CODE and int(line.get("credit") or 0) > bank_credit:
             bank_idx = i
             bank_credit = int(line.get("credit") or 0)
     if bank_idx < 0 or bank_credit <= 0:
@@ -827,7 +828,7 @@ def apply_fee_to_transaction_lines(
 
     debit_candidate_indices = [
         i for i, line in enumerate(lines)
-        if str(line.get("account_code") or "").strip() != BANK_ACCOUNT_CODE and int(line.get("debit") or 0) > 0
+        if class_of(str(line.get("account_code") or "").strip()) != BANK_ACCOUNT_CODE and int(line.get("debit") or 0) > 0
     ]
     if not debit_candidate_indices:
         return transaction, None
@@ -835,7 +836,7 @@ def apply_fee_to_transaction_lines(
     base_from_lines = sum(
         int(lines[i].get("debit") or 0)
         for i in debit_candidate_indices
-        if str(lines[i].get("account_code") or "").strip() != FEE_EXPENSE_ACCOUNT_CODE
+        if class_of(str(lines[i].get("account_code") or "").strip()) != FEE_EXPENSE_ACCOUNT_CODE
     )
     if base_from_lines <= 0:
         base_from_lines = bank_credit
@@ -854,15 +855,15 @@ def apply_fee_to_transaction_lines(
     fee_candidate_indices: list[int] = []
     for i, l in enumerate(lines):
         code = str(l.get("account_code") or "").strip()
-        if code == BANK_ACCOUNT_CODE:
+        if class_of(code) == BANK_ACCOUNT_CODE:
             continue
         desc = str(l.get("line_description") or "").strip().lower()
-        if code == FEE_EXPENSE_ACCOUNT_CODE or any(k in desc for k in fee_keywords):
+        if class_of(code) == FEE_EXPENSE_ACCOUNT_CODE or any(k in desc for k in fee_keywords):
             fee_candidate_indices.append(i)
     # If AI already inserted a fee line (possibly on wrong account), normalize to 6210
     # and avoid doubling fee.
     for idx in fee_candidate_indices:
-        lines[idx]["account_code"] = FEE_EXPENSE_ACCOUNT_CODE
+        lines[idx]["account_code"] = own_code(FEE_EXPENSE_ACCOUNT_CODE)
         lines[idx]["credit"] = 0
         lines[idx]["line_description"] = fee_note
     if fee_candidate_indices:
@@ -876,7 +877,7 @@ def apply_fee_to_transaction_lines(
     else:
         lines.append(
             {
-                "account_code": FEE_EXPENSE_ACCOUNT_CODE,
+                "account_code": own_code(FEE_EXPENSE_ACCOUNT_CODE),
                 "debit": fee,
                 "credit": 0,
                 "line_description": fee_note,
@@ -887,7 +888,7 @@ def apply_fee_to_transaction_lines(
     if mode == "gross":
         non_fee_debit_indices = [
             i for i in debit_candidate_indices
-            if str(lines[i].get("account_code") or "").strip() != FEE_EXPENSE_ACCOUNT_CODE
+            if class_of(str(lines[i].get("account_code") or "").strip()) != FEE_EXPENSE_ACCOUNT_CODE
         ]
         if non_fee_debit_indices:
             current_base = sum(int(lines[i].get("debit") or 0) for i in non_fee_debit_indices)

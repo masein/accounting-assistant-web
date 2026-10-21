@@ -15,6 +15,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.services.chart_codes import class_expr
 from app.models.audit_log import AuditLog, IntegrityCheck
 from app.models.transaction import Transaction, TransactionLine
 from app.models.account import Account
@@ -385,7 +386,7 @@ def check_liability_threshold(db: Session, threshold: int = 0) -> list[AuditFind
             func.coalesce(func.sum(TransactionLine.debit), 0).label("td"),
         )
         .join(Account, Account.id == TransactionLine.account_id)
-        .where(Account.code.like("2%"))
+        .where(class_expr().like("2%"))                # liabilities by class (AN2)
     ).one()
     total_liabilities = plain((balances[0] or 0) - (balances[1] or 0))
 

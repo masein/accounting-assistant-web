@@ -701,3 +701,18 @@ From the owner: «I want to buy something, and the system checks my finances and
 | AM9 | As a card | Any answer | The review card's look (AL17): an emoji per answer (✅ 🧘 🗓️ 🐷 ✋), the price counted up, bars for "now" and "after" with the cushion line, a ring showing how much of the price the free money covers, the reasons as chips, and the ideas with their buttons. On the phone and the web, in the reader's language |
 | AM10 | Too new to tell | Books with less than a month of history | The cash part only, saying the monthly picture needs a month of entries |
 | AM11 | Amounts with places | A person's books in Omani rials: 900.500 against 150.125 spare a month; a price of $100.50 at 0.385 | 12 installments of 75.042; the dollar price is 38.693 rials; never an error (deep test 2026-10-20: half the spare and the rate were a Decimal times a float) |
+
+## AN. A company's own account codes (2026-10-21, `docs/PLAN_OWN_CODES.md`)
+
+The owner, after importing فرهنگ نو's journals: «the coding is still wrong in دفتر کل». Asked which codes the books should carry, they chose the school's codes only. Each account keeps the app's code for what it is (`class_code`), and every rule reads that instead of the code's digits.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| AN1 | Nothing moves for anyone else | Any company with the app's chart | Every report, card and figure is as before; `class_code` is empty |
+| AN2 | Renumbered, the same figures | A year of every kind of entry; renumber every account to arbitrary codes, classes kept | The trial balance, balance sheet, P&L, cash flow, dashboard, CFO figures, insights and reviews give the same figures (only the codes differ) |
+| AN3 | The school's codes in the Ledger | فرهنگ نو, switched to its own codes | The Ledger reads 3000 «هزینه های عمومی» (دفتر کل) with 3001 «پذیرایی…», 3002 «ملزومات مدرسه», 3003…, 3006; 4000 «هزینه های پرسنلی» with 4001, 4002; 1602 «وزارت دارایی»; no 6132, 613201 or 219703 |
+| AN4 | The statements still right | AN3's books | Tuition (2000) is revenue, creditors (1600…) liabilities, the expenses (3000–5000) on the P&L, the banks (1100, 1101) and petty cash (1110) cash: the same balance sheet and P&L as before the switch |
+| AN5 | Clashes settled first | A journal giving 5000 to both «هزینه اجاره» and «سود و زیان», and 1310 to rent | The preview asks which keeps 5000 (the journal's own use first); nothing changes until it's settled |
+| AN6 | Everything follows | A statement, a recurring rule, a bank party, a savings goal on an account that is renumbered | Each keeps pointing at the same account under its new code |
+| AN7 | Typing their codes | «۵۰۰ هزار تومان ملزومات، کد ۳۰۰۲» in the chat; the voucher form's account box; the chart's search | 3002 is «ملزومات مدرسه» everywhere; a new account is made with the next code under its ledger (3007) |
+| AN8 | The next year's file | 1406's journal in the same codes, dropped after the switch | Each code is its account: nothing to match by hand |

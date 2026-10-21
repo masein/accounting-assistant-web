@@ -139,7 +139,8 @@ class OperationsReportService:
         # (1112 / 21xx / 1110), so the person ledger works on every chart.
         from app.services.account_resolver import resolve_account_code
         ar_code = resolve_account_code(self.db, "ar")
-        ap_prefix = resolve_account_code(self.db, "ap")[:2]
+        from app.services.chart_codes import class_of
+        ap_prefix = (class_of(resolve_account_code(self.db, "ap")) or "")[:2]       # by class (AN2)
         bank_code = resolve_account_code(self.db, "bank")
         # A bank entity's own linked GL account (Entity.code) wins over the
         # generic bank account — each bank has its own سرفصل.
@@ -175,7 +176,7 @@ class OperationsReportService:
                     )
                 )
             elif role_key in ("supplier", "payee"):
-                if not code.startswith(ap_prefix):
+                if not (class_of(code) or "").startswith(ap_prefix):
                     continue
                 delta = plain(line.base_credit or 0) - plain(line.base_debit or 0)
                 running += delta

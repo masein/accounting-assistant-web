@@ -19,6 +19,7 @@ import json
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.services.chart_codes import class_of
 from app.models.account import Account, AccountLevel
 from app.models.app_setting import AppSetting
 from app.core.money import json_dumps
@@ -156,7 +157,7 @@ def suggest(db: Session) -> dict[str, str]:
     out: dict[str, str] = {}
     for cat, head, alternatives, never in _RULES:
         hits = [(code, name) for _id, code, name in subs
-                if code.startswith(head)
+                if (class_of(code) or "").startswith(head)          # a company's own code by its class
                 and any(all(w in _squash(name) for w in words) for words in alternatives)
                 and not any(w in _squash(name) for w in never)]
         picked = _pick(hits, activity) if hits else None

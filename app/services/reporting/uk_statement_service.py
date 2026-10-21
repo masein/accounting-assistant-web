@@ -25,6 +25,7 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
+from app.services.chart_codes import class_of
 from app.models.account import Account
 from app.schemas.manager_report import ReportPeriod
 from app.schemas.uk_statement import (
@@ -144,7 +145,7 @@ def _bs_section_for_bucket(bucket: str) -> str:
 
 
 def _bs_bucket_for_code(code: str) -> tuple[str, str] | None:
-    c = (code or "").strip()
+    c = (class_of((code or "").strip()) or "").strip()      # a company's own code by its class (AN2)
     if not c:
         return None
     for prefix, bucket in _UK_BS_MAP:
@@ -331,7 +332,7 @@ _UK_AMORTISATION = "8600"
 
 
 def _pl_bucket_for_code(code: str) -> str | None:
-    c = (code or "").strip()
+    c = (class_of((code or "").strip()) or "").strip()
     if not c:
         return None
     for prefix, bucket in _UK_PL_MAP:
@@ -378,7 +379,7 @@ def _charged(db: Session, accounts: list[Account], from_d: date, to_d: date, cur
              prefix: str) -> int:
     """An expense charged in the period on accounts under ``prefix``."""
     turnovers = {a: (d, c) for a, d, c in account_turnovers_between(db, from_d, to_d, currency=currency)}
-    return sum(plain(d - c) for acc in accounts if (acc.code or "").startswith(prefix)
+    return sum(plain(d - c) for acc in accounts if (class_of(acc.code) or "").startswith(prefix)
                for d, c in [turnovers.get(acc.id, (0, 0))])
 
 
@@ -495,12 +496,12 @@ def _equity_movements(db: Session, from_d: date, to_d: date, currency: str | Non
         if (txn.reference or "") in (OPENING_REFERENCE, MIGRATION_OPENING):
             continue                           # opening balances are not the year's movements
         eq = [(ln, _bs_bucket_for_code(ln.account.code or "")) for ln in txn.lines
-              if (ln.account.code or "").startswith("3")]
+              if (class_of(ln.account.code) or "").startswith("3")]
         if not eq:
             continue
-        others = [(ln.account.code or "") for ln in txn.lines if not (ln.account.code or "").startswith("3")]
+        others = [(class_of(ln.account.code) or "") for ln in txn.lines if not (class_of(ln.account.code) or "").startswith("3")]
         comps = {b[1] for _, b in eq if b}
-        reserve_debited = any((ln.account.code or "").startswith("31") and line_net(ln, currency) > 0 for ln, _ in eq)
+        reserve_debited = any((class_of(ln.account.code) or "").startswith("31") and line_net(ln, currency) > 0 for ln, _ in eq)
         if comps & {"eq_share_capital", "eq_share_premium"}:
             kind = "shares_issued"
         elif not others:
@@ -759,6 +760,7 @@ def _cf_section_for_uk(category: str) -> str:
 
 
 def _uk_cf_directional(code: str, cash_delta: int) -> tuple[str, str]:
+    code = class_of(code) or ""                            # by its class (AN2)
     for prefix, category in _UK_CF_CATEGORY_MAP:
         if code.startswith(prefix):
             section = _cf_section_for_uk(category)
@@ -777,13 +779,13 @@ def _uk_cash_flow_buckets(
     txns = transactions_with_lines_between(db, from_d, to_d, currency=currency)
     buckets: dict[tuple[str, str], int] = {}
     for txn in txns:
-        cash_lines = [ln for ln in txn.lines if (ln.account.code or "").startswith("12")]
+        cash_lines = [ln for ln in txn.lines if (class_of(ln.account.code) or "").startswith("12")]
         if not cash_lines:
             continue
         cash_delta = plain(sum(line_net(ln, currency) for ln in cash_lines))
         if cash_delta == 0:
             continue
-        counters = [ln for ln in txn.lines if not (ln.account.code or "").startswith("12")]
+        counters = [ln for ln in txn.lines if not (class_of(ln.account.code) or "").startswith("12")]
         if not counters:
             key = ("operating", "op_other")
         else:
@@ -831,7 +833,7 @@ def _uk_cash_reconciliation(db: Session, accounts: list[Account], from_d: date, 
     turn = {a: (d, c) for a, d, c in account_turnovers_between(db, from_d, to_d, currency=currency)}
 
     def movement(pred) -> int:            # debit − credit over the period
-        return sum(plain(d - c) for acc in accounts if pred(acc.code or "")
+        return sum(plain(d - c) for acc in accounts if pred(class_of(acc.code) or "")
                    for d, c in [turn.get(acc.id, (0, 0))])
 
     pl = _uk_pl_buckets(db, accounts, from_d, to_d, currency)
@@ -841,11 +843,11 @@ def _uk_cash_reconciliation(db: Session, accounts: list[Account], from_d: date, 
     # beyond depreciation and amortisation
     fixed_asset_pl = 0
     for txn in transactions_with_lines_between(db, from_d, to_d, currency=currency):
-        codes = [(ln.account.code or "") for ln in txn.lines]
+        codes = [(class_of(ln.account.code) or "") for ln in txn.lines]
         if not any(c.startswith("0") for c in codes):
             continue
         for ln in txn.lines:
-            c = ln.account.code or ""
+            c = class_of(ln.account.code) or ""
             if c[:1] in "4567" or (c.startswith("8") and not c.startswith((_UK_DEPRECIATION, _UK_AMORTISATION))):
                 fixed_asset_pl += plain(line_net(ln, currency))          # a loss (debit) is added back
     return {

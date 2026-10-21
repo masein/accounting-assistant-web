@@ -37,9 +37,10 @@ def cash_account_predicate(locale: str | None) -> Callable[[str], bool]:
     * UK (Sage chart): 1200 current, 1210 deposit, 1220 petty cash.
     * Iranian / default chart: 1110 موجودی نقد و بانک.
     """
+    from app.services.chart_codes import class_of          # a company's own code reads by its class
     if (locale or "").strip().lower() == "uk":
-        return lambda c: c.startswith(("120", "121", "122"))
-    return lambda c: c == "1110"
+        return lambda c: (class_of(c) or "").startswith(("120", "121", "122"))
+    return lambda c: class_of(c) == "1110"
 
 
 def company_cash_predicate(db: Session) -> Callable[[str], bool]:
@@ -64,7 +65,8 @@ def company_cash_predicate(db: Session) -> Callable[[str], bool]:
         lines, banks = lines_and_banks(db)
 
         def locale_cash(code: str, _lines=lines) -> bool:
-            return code == "1110" or _bs_bucket_for_code(code, _lines) == ("current_assets", "ca_cash")
+            from app.services.chart_codes import class_of
+            return class_of(code) == "1110" or _bs_bucket_for_code(code, _lines) == ("current_assets", "ca_cash")
     return lambda code, _l=locale_cash, _b=banks: (code or "") in _b or _l(code or "")
 
 

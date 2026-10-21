@@ -700,7 +700,8 @@ def bank_account_choices(db: Session) -> list[dict]:
     if default and default not in out:
         out[default] = {"code": default, "bank": None}
     if default:
-        subs = db.execute(select(Account.code).where(Account.code.like(f"{default}%"), Account.code != default,
+        from app.services.chart_codes import class_expr, class_of
+        subs = db.execute(select(Account.code).where(class_expr().like(f"{class_of(default)}%"), Account.code != default,
                                                      Account.is_active.is_(True)).order_by(Account.code)).scalars()
         for code in subs:
             out.setdefault(code, {"code": code, "bank": None})

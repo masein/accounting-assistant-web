@@ -87,7 +87,8 @@ def reconcile_row(
     # Default to the Iranian cash code for back-compat; callers pass the
     # locale-aware predicate so the UK 12xx accounts match too.
     if is_cash is None:
-        is_cash = lambda c: (c or "").startswith("1110")  # noqa: E731
+        from app.services.chart_codes import class_of
+        is_cash = lambda c: (class_of(c) or "").startswith("1110")  # noqa: E731
 
     for txn in transactions:
         # Calculate the net cash effect of this transaction

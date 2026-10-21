@@ -74,7 +74,10 @@ def actual_for(category: str, by_account: dict[str, tuple[str, int]]) -> int:
     from app.utils.text import fold_fa
     c = _as_code(category)
     if c:
-        return sum(amount for code, (_n, amount) in by_account.items() if code.startswith(c))
+        from app.services.chart_codes import class_of
+        head = class_of(c) or c                       # its sub-accounts by class: a company's own 3000 → 3001… (AN2)
+        return sum(amount for code, (_n, amount) in by_account.items()
+                   if code.startswith(c) or (class_of(code) or "").startswith(head))
     key = fold_fa(" ".join((category or "").split())).casefold()
     return sum(amount for name, amount in by_account.values() if fold_fa(" ".join((name or "").split())).casefold() == key)
 

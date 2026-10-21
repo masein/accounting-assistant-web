@@ -184,7 +184,8 @@ def _check_bank_code(db: Session, code: str) -> None:
         roots.add(resolve_account_code(db, "cash"))
     except Exception:  # noqa: BLE001 — no cash account in this chart
         pass
-    if not any(code == r or code.startswith(r) for r in roots if r):
+    from app.services.chart_codes import class_of                  # under a root by class (AN2)
+    if not any(code == r or code.startswith(r) or (class_of(code) or "").startswith(class_of(r) or r) for r in roots if r):
         raise HTTPException(status_code=422, detail=f"Account {code} isn't a bank or cash account. Leave the code empty to open one for this bank.")
 
 

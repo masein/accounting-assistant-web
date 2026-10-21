@@ -56,7 +56,8 @@ class ControlSpec:
     liability_side: bool         # credit-normal control account
 
     def matches(self, code: str) -> bool:
-        return code in self.codes or (bool(self.prefixes) and code.startswith(self.prefixes))
+        from app.services.chart_codes import class_of
+        return code in self.codes or (bool(self.prefixes) and (class_of(code) or "").startswith(self.prefixes))
 
 
 def control_spec_for(db: Session, entity: Entity) -> ControlSpec:
@@ -86,7 +87,8 @@ def control_spec_for(db: Session, entity: Entity) -> ControlSpec:
                 codes.add(resolve_account_code(db, cat))
             except Exception:  # category unknown on this chart
                 pass
-        return ControlSpec(frozenset(codes), (ap[:2],), True)
+        from app.services.chart_codes import class_of
+        return ControlSpec(frozenset(codes), ((class_of(ap) or "")[:2],), True)       # the AP sub-ledger by class
     if etype == "shareholder":
         codes: set[str] = set()
         for cat in ("share_capital", "dividends_payable", "shareholder_current"):

@@ -76,17 +76,20 @@ def _month_key(d: date) -> str:
 # code means different things across locales (e.g. UK 1210 = bank deposit,
 # Iran 1210 = property/plant). These predicates are selected by reporting
 # locale inside get_owner_dashboard.
+# A company's own code reads by its class (docs/PLAN_OWN_CODES.md).
 def _receivable_predicate(locale: str):
+    from app.services.chart_codes import class_of
     if (locale or "").strip().lower() == "uk":
-        return lambda c: c.startswith("1100")  # Trade debtors
-    return lambda c: c == "1112"  # حساب‌ها و اسناد دریافتنی تجاری
+        return lambda c: (class_of(c) or "").startswith("1100")  # Trade debtors
+    return lambda c: class_of(c) == "1112"  # حساب‌ها و اسناد دریافتنی تجاری
 
 
 def _current_liability_predicate(locale: str):
+    from app.services.chart_codes import class_of
     if (locale or "").strip().lower() == "uk":
         # Creditors due within one year: 2100–2799 (2800+ is long-term).
-        return lambda c: len(c) >= 2 and c[0] == "2" and c[1] in "1234567"
-    return lambda c: c.startswith("21")  # Iranian current liabilities
+        return lambda c: len(k := class_of(c) or "") >= 2 and k[0] == "2" and k[1] in "1234567"
+    return lambda c: (class_of(c) or "").startswith("21")  # Iranian current liabilities
 
 
 @router.get("/ledger-summary", response_model=LedgerSummaryResponse)

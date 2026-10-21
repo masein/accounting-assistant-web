@@ -7,6 +7,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.services.chart_codes import class_of
 from app.models.account import Account
 from app.schemas.manager_report import (
     BalanceSheetResponse,
@@ -354,11 +355,11 @@ def build_income_statement(
         )
         if acc_type == REVENUE:
             revenues.append(node)
-        elif acc.code.startswith("51"):
+        elif class_of(acc.code).startswith("51"):
             cogs.append(node)
-        elif acc.code.startswith("61"):
+        elif class_of(acc.code).startswith("61"):
             operating_expenses.append(node)
-        elif acc.code.startswith("62") or acc_type == EXPENSE:
+        elif class_of(acc.code).startswith("62") or acc_type == EXPENSE:
             other_expenses.append(node)
 
     revenues.sort(key=lambda x: x.account_code)
@@ -428,6 +429,7 @@ def classify_cash_flow_activity(account_codes: list[str], account_types: list[st
     Unit-testable cash flow classifier.
     Returns: operating | investing | financing
     """
+    account_codes = [class_of(c) or "" for c in account_codes]      # a company's own codes by their class
     if any(code.startswith("12") for code in account_codes):
         return "investing"
     if any(code.startswith("31") for code in account_codes) or any(t in (EQUITY, LIABILITY) for t in account_types):

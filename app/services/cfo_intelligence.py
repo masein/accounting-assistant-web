@@ -15,6 +15,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.services.chart_codes import class_of
 from app.models.account import Account
 from app.models.transaction import Transaction, TransactionLine
 from app.models.entity import Entity, TransactionEntity
@@ -351,6 +352,7 @@ def ledger_balance(db: Session, codes: tuple[str, ...], currency: str | None, as
     from sqlalchemy import or_
 
     from app.models.account import Account
+    from app.services.chart_codes import class_expr, class_of
     from app.services.reporting.repository import amount_columns, sums_base
     if not codes:
         return 0
@@ -359,7 +361,7 @@ def ledger_balance(db: Session, codes: tuple[str, ...], currency: str | None, as
          .join(Transaction, Transaction.id == TransactionLine.transaction_id)
          .join(Account, Account.id == TransactionLine.account_id)
          .where(Transaction.deleted_at.is_(None), Transaction.date <= as_of,
-                or_(*[Account.code.like(f"{c}%") for c in codes])))
+                or_(*[class_expr().like(f"{class_of(c)}%") for c in codes])))     # sub-accounts by class (AN2)
     if not sums_base(currency):
         q = q.where(Transaction.currency == currency)
     return plain(db.execute(q).scalar() or 0)
@@ -441,7 +443,7 @@ def _load_monthly_data(db: Session, months_back: int = 12, currency: str | None 
             expense_by_cat[name] += d - c
             expense_code_by_cat[name] = code
 
-        if any(code.startswith(p) for p in cash_prefixes):
+        if any((class_of(code) or "").startswith(p) for p in cash_prefixes):      # by its class (AN2)
             delta = d - c
             total_cash += delta
             if delta > 0:

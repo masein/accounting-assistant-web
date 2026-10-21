@@ -42,6 +42,11 @@ class Account(Base, TenantMixin):
     # code (2026-10-19, scenario AH7). Comma-separated; empty for an account
     # made here.
     source_codes: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # What the account is, as the app's own code says it (1 assets, 2 liabilities, 4 revenue, 11 cash…),
+    # when its ``code`` is the company's own (a school's 2000 «درآمد شهریه» is class 4111). Empty for a
+    # chart made here: the class is the code. Every rule that reads meaning from a code reads this
+    # through ``app.services.chart_codes`` (2026-10-21, docs/PLAN_OWN_CODES.md).
+    class_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -51,3 +56,6 @@ class Account(Base, TenantMixin):
     parent: Mapped["Account | None"] = relationship("Account", remote_side="Account.id", back_populates="children")
     children: Mapped[list["Account"]] = relationship("Account", back_populates="parent")
 
+
+# the classes of a company's own codes follow its sessions (docs/PLAN_OWN_CODES.md)
+import app.services.chart_codes  # noqa: E402,F401

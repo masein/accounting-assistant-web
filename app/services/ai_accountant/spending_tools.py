@@ -247,7 +247,8 @@ class GetSpendingSummary(BaseTool):
             )
         )
         if args.category_code:
-            stmt = stmt.where(Account.code.like(f"{args.category_code.strip()}%"))
+            from app.services.chart_codes import class_expr, class_of      # by class (docs/PLAN_OWN_CODES.md)
+            stmt = stmt.where(class_expr().like(f"{class_of(args.category_code.strip())}%"))
 
         by_code: dict[str, dict[str, Any]] = {}
         txn_ids: set = set()

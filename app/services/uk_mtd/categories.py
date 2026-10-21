@@ -81,8 +81,10 @@ DEFAULTS = {"self_employment": _SE_DEFAULTS, "uk_property": _PROPERTY_DEFAULTS}
 
 
 def default_category(code: str, source: str) -> str | None:
+    from app.services.chart_codes import class_of          # a company's own code by its class (AN2)
     table = DEFAULTS.get(source) or {}
     best = None
+    code = class_of(code) or ""
     for prefix, cat in table.items():
         if (code or "").startswith(prefix) and (best is None or len(prefix) > len(best[0])):
             best = (prefix, cat)

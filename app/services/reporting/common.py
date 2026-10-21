@@ -28,7 +28,8 @@ def classify_account_code(code: str) -> str:
     5x/6x expense, 91 memo) and the Sage-style UK chart (0xxx fixed assets,
     1xxx current assets, 2xxx creditors, 3xxx capital, 4xxx turnover,
     5xxx COGS, 7-8xxx overheads/finance, 9xxx tax)."""
-    c = (code or "").strip()
+    from app.services.chart_codes import class_of
+    c = (class_of(code) or "").strip()                 # a company's own code reads by its class (AN2)
     if not c:
         return OTHER
     # Iranian memo / off-balance-sheet accounts — kept for back-compat.

@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.services.chart_codes import class_of
 from app.core.auth import SessionUser, get_current_user
 from app.core.messages import said
 from app.db.session import get_db
@@ -292,6 +293,7 @@ NON_MONETARY_CATEGORIES = ("fixed_assets", "accumulated_depreciation", "prepaid_
 
 
 def _non_monetary_codes() -> set[str]:
+    """The fixed codes of these categories; compare an account's class with them (AN2)."""
     from app.services.account_resolver import POSTING_CODES
     return {codes[c] for codes in POSTING_CODES.values() for c in NON_MONETARY_CATEGORIES if c in codes}
 
@@ -341,7 +343,7 @@ def revalue_foreign_currency_balances(
     else:
         skip = _non_monetary_codes()
         wanted = {a.id for a in accounts.values()
-                  if classify_account_code(a.code) in (ASSET, LIABILITY) and a.code not in skip}
+                  if classify_account_code(a.code) in (ASSET, LIABILITY) and class_of(a.code) not in skip}
     # (account, currency) -> [foreign balance, base value, lines without a rate]
     held: dict[tuple[UUID, str], list[int]] = defaultdict(lambda: [0, 0, 0])
     for account_id, curr, debit, credit, bdebit, bcredit in db.execute(q).all():

@@ -227,7 +227,22 @@ def _code_exists(db: Session, code: str) -> bool:
 def _ensure_account(db: Session, code: str, name: str, locale: str) -> str:
     """Create the posting account if it's missing (self-heals a chart seeded
     before this account existed), linking it to its group parent by code
-    prefix. Returns the code."""
+    prefix. Returns the code. In a company with codes of its own, the app's code is the new account's
+    class and its own code one not in use (its 1110 may be another account)."""
+    from app.services.chart_codes import code_for_class, own_codes_in_use
+    found = code_for_class(db, code)
+    if found:
+        return found
+    if own_codes_in_use():
+        from app.models.account import AccountLevel
+        own = code
+        while _code_exists(db, own):
+            own += "9"
+        parent = db.execute(select(Account).where(Account.class_code == code[:2])).scalars().first()
+        db.add(Account(code=own, class_code=code, name=name, level=AccountLevel.GENERAL,
+                       parent_id=parent.id if parent else None))
+        db.flush()
+        return own
     if _code_exists(db, code):
         return code
     from app.db.seed import _parent_code_ir, _parent_code_uk
@@ -280,9 +295,11 @@ def resolve_account_code(db: Session, category: str, *, locale: str | None = Non
         if c and c not in candidates:
             candidates.append(c)
 
+    from app.services.chart_codes import code_for_class
     for code in candidates:
-        if _code_exists(db, code):
-            return code
+        found = code_for_class(db, code)          # a company's own code for that class (docs/PLAN_OWN_CODES.md)
+        if found:
+            return found
 
     # Self-heal: create the locale's preferred account for this category.
     name = POSTING_NAMES.get(loc, POSTING_NAMES["default"]).get(cat)
@@ -306,8 +323,9 @@ def find_account_code(db: Session, category: str, *, locale: str | None = None, 
     mine = _company_account(db, cat) if own else None     # own=False: the chart's default
     if mine:
         return mine
+    from app.services.chart_codes import code_for_class
     candidates = [table[cat]] + [c for fb in _FALLBACK_ORDER if (c := POSTING_CODES[fb].get(cat)) and c != table[cat]]
-    return next((code for code in candidates if _code_exists(db, code)), None)
+    return next((found for code in candidates if (found := code_for_class(db, code))), None)
 
 
 def resolve_posting_accounts(db: Session, *, locale: str | None = None) -> dict[str, str]:

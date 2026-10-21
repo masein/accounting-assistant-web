@@ -314,7 +314,9 @@ class QueryLedger(BaseTool):
         )
 
         if args.account_code:
-            stmt = stmt.where(Account.code.like(f"{args.account_code}%"))
+            # its sub-accounts by class: a company's own 3000 is its class's 6132… (docs/PLAN_OWN_CODES.md)
+            from app.services.chart_codes import class_expr, class_of
+            stmt = stmt.where(class_expr().like(f"{class_of(args.account_code.strip())}%"))
         ccy = (args.currency or "").strip().upper() or None
         if ccy:
             stmt = stmt.where(Transaction.currency == ccy)
@@ -675,7 +677,8 @@ class SearchAccounts(BaseTool):
         preferred_codes: set[str] = set()
         for label, (synonyms, codes) in aliases.items():
             if any(s in q for s in synonyms):
-                preferred_codes.update(codes)
+                from app.services.chart_codes import own_code
+                preferred_codes.update(own_code(c) for c in codes)      # a company's own code for the app's
                 role = _ALIAS_ROLES.get(label) if alias_key != "personal" else None
                 if role:
                     from app.services.account_resolver import find_account_code

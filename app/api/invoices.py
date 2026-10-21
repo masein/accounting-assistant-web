@@ -375,7 +375,8 @@ def _resolve_bank_code(db: Session, code: str | None) -> str:
             roots.add(resolve_account_code(db, role))
         except AccountResolutionError:
             pass
-    if not any(r and (c == r or c.startswith(r)) for r in roots):
+    from app.services.chart_codes import class_of                  # under a root by class (AN2)
+    if not any(r and (c == r or c.startswith(r) or (class_of(c) or "").startswith(class_of(r) or r)) for r in roots):
         raise HTTPException(status_code=422, detail=f"Account {c} isn't a bank, cash or cheque account.")
     return c
 

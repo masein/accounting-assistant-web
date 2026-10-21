@@ -37,6 +37,7 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
+from app.services.chart_codes import class_of
 from app.models.account import Account
 from app.schemas.iran_statement import (
     IranBalanceSheetResponse,
@@ -107,8 +108,9 @@ def _bucket_for_code(code: str) -> str | None:
 
     Returns None if the account does not belong on the income statement.
     Order matters: 6115 must be checked before 61, and 621 before 62.
+    A company's own code reads by its class (docs/PLAN_OWN_CODES.md).
     """
-    c = (code or "").strip()
+    c = (class_of((code or "").strip()) or "").strip()
     if not c:
         return None
     if c.startswith("6115"):
@@ -519,6 +521,7 @@ def _bs_bucket_for_code(code: str, lines: dict[str, tuple[str, str]] | None = No
         return None
     if lines and c in lines:
         return lines[c]
+    c = (class_of(c) or "").strip()                    # the prefixes read a company's own code by its class
     bucket = _match_prefix_bucket(c, _BS_CURRENT_ASSET_MAP)
     if bucket:
         return ("current_assets", bucket)
@@ -1231,6 +1234,7 @@ def _cf_bucket(code: str) -> tuple[str, str]:
     callers that need an inflow/outflow split should use
     :func:`_cf_bucket_directional`.
     """
+    code = class_of(code) or ""                        # a company's own code reads by its class
     for prefix, category in _CF_CATEGORY_MAP:
         if code.startswith(prefix):
             return (_cf_section_for_category(category), category)

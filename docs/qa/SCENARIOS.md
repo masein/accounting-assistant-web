@@ -718,3 +718,16 @@ The owner, after importing فرهنگ نو's journals: «the coding is still wro
 | AN7 | Typing their codes | «۵۰۰ هزار تومان ملزومات، کد ۳۰۰۲» in the chat; the voucher form's account box; the chart's search | 3002 is «ملزومات مدرسه» everywhere; a new account is made with the next code under its ledger (3007) |
 | AN8 | The next year's file | 1406's journal in the same codes, dropped after the switch | Each code is its account: nothing to match by hand |
 | AN9 | The pages by class | A company in its own codes: the CEO and manager charts' drill-downs (revenue 41–43, assets 11–15), the budget's category list, the commitments' and goals' account lists, the default cash account | Each finds the company's own accounts by what they are: a click on revenue lists the tuition lines (2000), the budget offers its expenses (3000…), the default cash account is its bank, not an unrelated 1110 |
+
+## AO. Spending in the currency it was spent in (2026-10-21)
+
+From the owner's phone: personal books that count in Iranian rials, a week of spending in Omani rials with no rate between the two. «هفته گذشته خرج ما چیا بوده و توی چه دسته بندی هایی؟» was answered "zero rials, the expenses are in Omani rials with no rate", and «خب ریال عمانش رو بگو» with "this report only gives the books' currency". The spending summary added every currency up at its value in the books' currency, and a line with no rate has none.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| AO1 | A week in Omani rials | Personal books in IRR; last week 4 entries in OMR (food 12.500, groceries 20.250, transport 3.750, food 5.000), no OMR rate. «هفته گذشته خرج ما چیا بوده و توی چه دسته بندی هایی؟» | «۴۱٫۵۰۰ ریال عمان» with the categories in Omani rials (خوراک ۱۷٫۵۰۰، خواربار ۲۰٫۲۵۰، حمل‌ونقل ۳٫۷۵۰); never "zero", never "can't tell" |
+| AO2 | Asked for one currency | «خب ریال عمانش رو بگو» | The same week in Omani rials, from the tool asked for OMR |
+| AO3 | Two currencies in one week | AO1 plus 3,000,000 IRR of groceries paid from a rial bank account | Each currency on its own, nothing added together: «۴۱٫۵۰۰ ریال عمان و ۳٬۰۰۰٬۰۰۰ ریال», each with its categories |
+| AO4 | The quick answer | «این ماه چقدر خرج کردم؟» in AO3's books | Each currency listed, not «۰ ریال» |
+| AO5 | The card on the phone | AO3 | Each row in its own currency: the OMR categories read «ریال عمان» with their baisa, the IRR one «ریال» |
+| AO6 | A company with rates | A company in IRR with a USD expense whose rate is on file | The total in rials as before; the dollars are also listed in their own amounts |

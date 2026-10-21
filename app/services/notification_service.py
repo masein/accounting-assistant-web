@@ -585,6 +585,8 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
     months = list(dict.fromkeys([month_key(today, company_calendar(db)), f"{today.year:04d}-{today.month:02d}"]))
     try:
         from app.services.budget_service import budget_utilization
+        from app.services.fx_base import base_currency
+        base = base_currency(db)
 
         for month, row in ((mo, r) for mo in months for r in budget_utilization(db, mo)):
             pct = row["utilization_pct"]
@@ -592,16 +594,20 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
                 continue
             over = pct >= 100
             label = row.get("label") or row["category"]
-            _upsert(db, seen, dedupe_key=f"budget-{month}-{row['category']}",
+            # a budget in another currency is its own, and says which (docs/PLAN_CURRENCIES.md phase 4)
+            ccy = row.get("currency") or base
+            other = ccy != base
+            unit = f" {ccy}" if other else ""
+            _upsert(db, seen, dedupe_key=f"budget-{month}-{row['category']}" + (f"-{ccy}" if other else ""),
                     kind="budget", level="high" if over else "warning",
                     title=(f"Budget exceeded: {label}" if over
                            else f"Budget at {int(pct)}%: {label}"),
-                    message=(f"{grouped(row['actual_amount'])} of {grouped(row['limit_amount'])} "
+                    message=(f"{grouped(row['actual_amount'])}{unit} of {grouped(row['limit_amount'])}{unit} "
                              f"spent in {month} ({row['utilization_pct']:g}%)"),
                     link_page=_budget_link_page(db),
                     text_key="budget_over" if over else "budget_near",
-                    params={"category": label, "pct": int(pct), "actual": f"{grouped(row['actual_amount'])}",
-                            "limit": f"{grouped(row['limit_amount'])}", "month": month,
+                    params={"category": label, "pct": int(pct), "actual": f"{grouped(row['actual_amount'])}{unit}",
+                            "limit": f"{grouped(row['limit_amount'])}{unit}", "month": month,
                             "spent": f"{row['utilization_pct']:g}"})          # 120, not 120.0
     except Exception:
         # budget alerts must never break the whole feed refresh

@@ -98,7 +98,7 @@ def test_ap3_a_month_in_two_currencies(person, db):
     [omr] = f["others"]
     assert (omr["currency"], omr["income"], omr["spent"], omr["saved"], omr["rate"]) == ("OMR", 400, 41.5, 358.5, 89.6)
     assert [s["spent"] for s in omr["series"]] == [0, 30, 30, 41.5]                    # July to October
-    assert "budgets" not in omr and "suggestions" not in omr
+    assert omr["budgets"] == {"set": 0, "kept": 0, "over": []} and "suggestions" not in omr     # its own (phase 4)
     from app.services.proactive_reviews import render
     en = render(review, "en")
     rials, omani = en["cards"]
@@ -113,7 +113,8 @@ def test_ap4_no_budget_in_rials_for_a_category_spent_in_omani_rials(person, db):
     assert _make(db, cid) == ["weekly"]
     [review] = _reviews(db, cid)
     assert review.facts["currency"] == "OMR" and review.facts["top"][0]["amount"] == 40
-    assert [s["key"] for s in review.facts["suggestions"]] == []
+    # since budgets have a currency (phase 4, AS4) the idea comes in Omani rials, never in rials
+    assert [(s["key"], s["params"]["currency"]) for s in review.facts["suggestions"]] == [("hot_category", "OMR")]
 
 
 def test_ap5_the_report_card_one_currency_and_the_others(person, db):

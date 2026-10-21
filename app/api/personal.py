@@ -263,6 +263,14 @@ def delete_goal(goal_id: UUID, db: Session = Depends(get_db)) -> None:
     db.commit()
 
 
+@router.get("/currencies")
+def currencies(db: Session = Depends(get_db), user=Depends(_current_user)) -> dict:
+    """Each currency the books hold, on its own: its cash, and this month's income, spending and what was
+    saved, in its own amounts — the ones that moved this month first (docs/PLAN_CURRENCIES.md phase 2)."""
+    from app.services.personal_currencies import overview
+    return overview(db, lang=_language_of(db, user.user_id))
+
+
 @router.get("/report-card")
 def report_card(
     month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$", description="YYYY-MM in the company's calendar; default last month"),

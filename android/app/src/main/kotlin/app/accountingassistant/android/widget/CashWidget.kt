@@ -37,6 +37,8 @@ data class WidgetState(
     val books: String = "",
     val cash: Double? = null,
     val cashCurrency: String? = null,
+    /** Money in the other currencies, each as it is (docs/PLAN_CURRENCIES.md): [cash] is the first. */
+    val others: List<Held> = emptyList(),
     val budgetLeft: Double? = null,
     val budgetCurrency: String? = null,
     val asOf: String? = null,
@@ -44,8 +46,12 @@ data class WidgetState(
     val calendar: String? = null,
 )
 
-/** The widget's lines, worked out away from Android's views so they can be tested. */
-data class WidgetText(val title: String, val amount: String?, val line: String?, val note: String?)
+@Serializable
+data class Held(val currency: String, val total: Double)
+
+/** The widget's lines, worked out away from Android's views so they can be tested. [others]: the other
+ *  currencies, «۳٬۰۰۰٬۰۰۰ ریال · ۵۰۰٫۰۰ $»; [line]: the budget left. */
+data class WidgetText(val title: String, val amount: String?, val line: String?, val note: String?, val others: String? = null)
 
 fun widgetText(state: WidgetState, lang: String, words: (Int) -> String, formatted: (Int, String) -> String): WidgetText {
     val title = state.books.ifBlank { words(R.string.widget_title) }
@@ -60,6 +66,10 @@ fun widgetText(state: WidgetState, lang: String, words: (Int) -> String, formatt
                 formatted(R.string.widget_budget_left, Numbers.amount(java.math.BigDecimal.valueOf(it), lang, Numbers.places(state.budgetCurrency)))
             },
             note = state.asOf?.let { formatted(R.string.widget_as_of, Dates.short(it, lang, state.calendar)) },
+            // «،» in Persian: «·» beside Persian digits reads as a zero
+            others = state.others.takeIf { it.isNotEmpty() }?.joinToString(if (lang == "fa" || lang == "ar") "، " else " · ") {
+                priced(java.math.BigDecimal.valueOf(it.total), it.currency, lang)
+            },
         )
     }
 }
@@ -110,13 +120,18 @@ class CashWidget : AppWidgetProvider() {
             return RemoteViews(context.packageName, R.layout.widget_cash).apply {
                 setTextViewText(R.id.widget_title, t.title)
                 setViewVisibility(R.id.widget_title, if (figures) View.GONE else View.VISIBLE)
-                setTextViewText(R.id.widget_label, listOfNotNull(context.getString(R.string.widget_cash), t.note).joinToString(" · "))
+                setTextViewText(R.id.widget_label, listOfNotNull(context.getString(R.string.widget_cash), t.note)
+                    .joinToString(if (lang == "fa" || lang == "ar") "، " else " · "))
                 setViewVisibility(R.id.widget_label, if (figures) View.VISIBLE else View.GONE)
                 setTextViewText(R.id.widget_amount, t.amount ?: t.note ?: "")
-                setFloat(R.id.widget_amount, "setTextSize", if (figures) 22f else 15f)
-                setTextViewText(R.id.widget_line, t.line ?: "")
-                setViewVisibility(R.id.widget_line, if (t.line != null) View.VISIBLE else View.GONE)
-                setViewVisibility(R.id.widget_note, View.GONE)
+                // a line more under it when there are other currencies: the budget left kept clear of the edge
+                setFloat(R.id.widget_amount, "setTextSize", if (!figures) 15f else if (t.others != null) 19f else 22f)
+                // the other currencies under the first; the budget left then goes below them
+                val first = t.others ?: t.line
+                setTextViewText(R.id.widget_line, first ?: "")
+                setViewVisibility(R.id.widget_line, if (first != null) View.VISIBLE else View.GONE)
+                setTextViewText(R.id.widget_note, if (t.others != null) t.line ?: "" else "")
+                setViewVisibility(R.id.widget_note, if (t.others != null && t.line != null) View.VISIBLE else View.GONE)
                 val open = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 setOnClickPendingIntent(R.id.widget_root, PendingIntent.getActivity(context, 0, open,
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
@@ -140,6 +155,7 @@ class WidgetRefreshWorker(context: Context, params: WorkerParameters) : Coroutin
         else {
             val s = runCatching { app.api.summary() }.getOrNull() ?: return Result.retry()
             WidgetState(signedIn = true, books = session.company?.name.orEmpty(), cash = s.cash.total, cashCurrency = s.cash.currency,
+                        others = s.cash.byCurrency.drop(1).map { Held(it.currency, it.total) },
                         budgetLeft = s.budget?.left, budgetCurrency = s.budget?.currency, asOf = s.asOf,
                         calendar = session.company?.calendar)
         }

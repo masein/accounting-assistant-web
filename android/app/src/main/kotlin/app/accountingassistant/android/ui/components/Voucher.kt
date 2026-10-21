@@ -323,10 +323,18 @@ fun Seal(number: String, date: String, lang: String, modifier: Modifier = Modifi
     }
 }
 
-fun currencyName(code: String, lang: String): String = when (code.uppercase()) {
-    "IRR" -> if (lang == "fa") "ریال" else "IRR"
+fun currencyName(code: String, lang: String): String = when {
+    code.uppercase() == "IRR" -> if (lang == "fa") "ریال" else "IRR"
+    // in Persian a currency is named, as the server names it (app/core/currencies.py): «۷۷٫۵۰۰ ریال عمان», not «OMR»
+    lang == "fa" -> PERSIAN_CURRENCY_NAMES[code.uppercase()] ?: code
     else -> code
 }
+
+private val PERSIAN_CURRENCY_NAMES = mapOf(
+    "OMR" to "ریال عمان", "AED" to "درهم امارات", "SAR" to "ریال عربستان", "QAR" to "ریال قطر",
+    "KWD" to "دینار کویت", "BHD" to "دینار بحرین", "IQD" to "دینار عراق", "TRY" to "لیر ترکیه",
+    "CAD" to "دلار کانادا", "AUD" to "دلار استرالیا",
+)
 
 /** Currencies written with a symbol before the number. */
 fun currencySymbol(code: String): String? = when (code.uppercase()) {

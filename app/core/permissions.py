@@ -620,7 +620,8 @@ _reads(["/budgets", "/budgets/actual-vs-budget"], Perm.REPORTS_READ)
 
 # --- Personal finance: net worth + the holdings behind it ------------------
 # Reads expose asset balances -> the same bar as the dashboard.
-_reads(["/personal/net-worth", "/personal/holdings", "/personal/goals", "/personal/report-card"], Perm.REPORTS_READ)
+_reads(["/personal/net-worth", "/personal/holdings", "/personal/goals", "/personal/report-card",
+        "/personal/currencies"], Perm.REPORTS_READ)          # each currency on its own (docs/PLAN_CURRENCIES.md)
 
 # --- Installments + cheques -------------------------------------------------
 # Same bar as reading transactions: a Viewer who can already see every entry

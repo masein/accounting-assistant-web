@@ -1056,6 +1056,9 @@
       <h2 data-i18n="pdTitle">My finances</h2>
       <p data-i18n="pdSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Where your money went, month by month — categories, trends, and budgets.</p>
       <div id="pd-kpi-grid" class="kpi-grid"></div>
+      <!-- each currency on its own (docs/PLAN_CURRENCIES.md phase 2) -->
+      <div id="pd-ccy-rows" class="pd-ccy-rows" hidden></div>
+      <div id="pd-ccy-pick" class="pd-ccy-pick" role="group" data-i18n-aria-label="pdCcyShow" hidden></div>
       <div class="dashboard-grid">
         <div class="panel panel-wide" id="pd-report-card">
           <div class="rc-head">

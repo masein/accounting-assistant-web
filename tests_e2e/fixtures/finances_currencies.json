@@ -1,0 +1,480 @@
+{
+ "currencies": {
+  "books_currency": "IRR",
+  "month": "2026-10",
+  "currencies": [
+   {
+    "currency": "IRR",
+    "name": "ریال ایران",
+    "cash": 7000000,
+    "income": 0,
+    "spent": 3000000,
+    "saved": -3000000
+   },
+   {
+    "currency": "OMR",
+    "name": "ریال عمان",
+    "cash": 58.5,
+    "income": 0,
+    "spent": 41.5,
+    "saved": -41.5
+   }
+  ]
+ },
+ "dashboard_IRR": {
+  "kpis": [
+   {
+    "key": "cash_on_hand",
+    "label": "Cash on hand",
+    "value": 7000000,
+    "unit": "IRR",
+    "trend": null
+   },
+   {
+    "key": "monthly_net_profit",
+    "label": "Monthly net profit",
+    "value": -3000000,
+    "unit": "IRR",
+    "trend": null
+   },
+   {
+    "key": "burn_rate",
+    "label": "Monthly burn rate",
+    "value": 1000000,
+    "unit": "IRR",
+    "trend": null
+   },
+   {
+    "key": "runway_months",
+    "label": "Runway",
+    "value": 7.0,
+    "unit": "months",
+    "trend": null
+   },
+   {
+    "key": "ar_due_week",
+    "label": "AR due in ~7 days",
+    "value": 0,
+    "unit": "IRR",
+    "trend": null
+   },
+   {
+    "key": "ap_due_week",
+    "label": "AP due in ~7 days",
+    "value": 0,
+    "unit": "IRR",
+    "trend": null
+   },
+   {
+    "key": "tax_and_liability_payable",
+    "label": "Liabilities payable (21xx)",
+    "value": 0,
+    "unit": "IRR",
+    "trend": null
+   }
+  ],
+  "expense_by_category": [
+   {
+    "category": "خوراک و سوپرمارکت",
+    "amount": 3000000
+   }
+  ],
+  "monthly_expense_series": [
+   {
+    "period": "2026-10",
+    "value": 3000000,
+    "label": "Oct 2026"
+   }
+  ],
+  "other_currencies": [
+   "OMR"
+  ],
+  "currency": "IRR"
+ },
+ "card_IRR": {
+  "month": "2026-10",
+  "label": "اکتبر ۲۰۲۶",
+  "from_date": "2026-10-01",
+  "to_date": "2026-10-31",
+  "in_progress": true,
+  "note": "این ماه هنوز تمام نشده است — ارقام تا امروز است.",
+  "lang": "fa",
+  "currency": "IRR",
+  "currencies": [
+   "IRR",
+   "OMR"
+  ],
+  "income": 0,
+  "spending": 3000000,
+  "saved": -3000000,
+  "savings_rate": null,
+  "previous": {
+   "month": "2026-09",
+   "income": 0,
+   "spending": 0,
+   "saved": 0,
+   "savings_rate": null
+  },
+  "average_spending_3m": null,
+  "categories": [
+   {
+    "category": "خوراک و سوپرمارکت",
+    "amount": 3000000,
+    "previous": 0,
+    "change_pct": null
+   }
+  ],
+  "biggest_rise": {
+   "category": "خوراک و سوپرمارکت",
+   "increase": 3000000
+  },
+  "budgets": {
+   "set": 0,
+   "kept": 0,
+   "over": []
+  },
+  "net_worth": {
+   "start": 0,
+   "end": 7000000,
+   "change": 7000000,
+   "currency": "IRR"
+  },
+  "others": [
+   {
+    "currency": "OMR",
+    "income": 0,
+    "spending": 41.5,
+    "saved": -41.5,
+    "savings_rate": null,
+    "previous": {
+     "income": 0,
+     "spending": 0,
+     "saved": 0
+    },
+    "categories": [
+     {
+      "category": "خوراک و سوپرمارکت",
+      "amount": 20.25,
+      "previous": 0
+     },
+     {
+      "category": "تفریح و رستوران",
+      "amount": 17.5,
+      "previous": 0
+     },
+     {
+      "category": "حمل‌ونقل",
+      "amount": 3.75,
+      "previous": 0
+     }
+    ]
+   }
+  ],
+  "goals": [],
+  "checks": [
+   {
+    "key": "saved",
+    "ok": null,
+    "item": "پس‌انداز دست‌کم ۱۰٪ درآمد",
+    "detail": "در این ماه درآمدی ثبت نشده است."
+   },
+   {
+    "key": "spending",
+    "ok": null,
+    "item": "خرج بیشتر از معمول نبود",
+    "detail": "هنوز سابقه کافی برای مقایسه نیست."
+   },
+   {
+    "key": "budgets",
+    "ok": null,
+    "item": "ماندن در بودجه",
+    "detail": "برای این ماه بودجه‌ای تعیین نشده است."
+   }
+  ],
+  "passed": 0,
+  "scored": 0,
+  "months": [
+   {
+    "key": "2026-10",
+    "label": "اکتبر ۲۰۲۶"
+   },
+   {
+    "key": "2026-09",
+    "label": "سپتامبر ۲۰۲۶"
+   },
+   {
+    "key": "2026-08",
+    "label": "اوت ۲۰۲۶"
+   },
+   {
+    "key": "2026-07",
+    "label": "ژوئیه ۲۰۲۶"
+   },
+   {
+    "key": "2026-06",
+    "label": "ژوئن ۲۰۲۶"
+   },
+   {
+    "key": "2026-05",
+    "label": "مه ۲۰۲۶"
+   },
+   {
+    "key": "2026-04",
+    "label": "آوریل ۲۰۲۶"
+   },
+   {
+    "key": "2026-03",
+    "label": "مارس ۲۰۲۶"
+   },
+   {
+    "key": "2026-02",
+    "label": "فوریه ۲۰۲۶"
+   },
+   {
+    "key": "2026-01",
+    "label": "ژانویه ۲۰۲۶"
+   },
+   {
+    "key": "2025-12",
+    "label": "دسامبر ۲۰۲۵"
+   },
+   {
+    "key": "2025-11",
+    "label": "نوامبر ۲۰۲۵"
+   }
+  ]
+ },
+ "dashboard_OMR": {
+  "kpis": [
+   {
+    "key": "cash_on_hand",
+    "label": "Cash on hand",
+    "value": 0,
+    "unit": "OMR",
+    "trend": null
+   },
+   {
+    "key": "monthly_net_profit",
+    "label": "Monthly net profit",
+    "value": -41.5,
+    "unit": "OMR",
+    "trend": null
+   },
+   {
+    "key": "burn_rate",
+    "label": "Monthly burn rate",
+    "value": 13.833,
+    "unit": "OMR",
+    "trend": null
+   },
+   {
+    "key": "runway_months",
+    "label": "Runway",
+    "value": 0.0,
+    "unit": "months",
+    "trend": null
+   },
+   {
+    "key": "ar_due_week",
+    "label": "AR due in ~7 days",
+    "value": 0,
+    "unit": "OMR",
+    "trend": null
+   },
+   {
+    "key": "ap_due_week",
+    "label": "AP due in ~7 days",
+    "value": 0,
+    "unit": "OMR",
+    "trend": null
+   },
+   {
+    "key": "tax_and_liability_payable",
+    "label": "Liabilities payable (21xx)",
+    "value": 0,
+    "unit": "OMR",
+    "trend": null
+   }
+  ],
+  "expense_by_category": [
+   {
+    "category": "خوراک و سوپرمارکت",
+    "amount": 20.25
+   },
+   {
+    "category": "تفریح و رستوران",
+    "amount": 17.5
+   },
+   {
+    "category": "حمل‌ونقل",
+    "amount": 3.75
+   }
+  ],
+  "monthly_expense_series": [
+   {
+    "period": "2026-10",
+    "value": 41.5,
+    "label": "Oct 2026"
+   }
+  ],
+  "other_currencies": [
+   "IRR"
+  ],
+  "currency": "OMR"
+ },
+ "card_OMR": {
+  "month": "2026-10",
+  "label": "اکتبر ۲۰۲۶",
+  "from_date": "2026-10-01",
+  "to_date": "2026-10-31",
+  "in_progress": true,
+  "note": "این ماه هنوز تمام نشده است — ارقام تا امروز است.",
+  "lang": "fa",
+  "currency": "OMR",
+  "currencies": [
+   "IRR",
+   "OMR"
+  ],
+  "income": 0,
+  "spending": 41.5,
+  "saved": -41.5,
+  "savings_rate": null,
+  "previous": {
+   "month": "2026-09",
+   "income": 0,
+   "spending": 0,
+   "saved": 0,
+   "savings_rate": null
+  },
+  "average_spending_3m": null,
+  "categories": [
+   {
+    "category": "خوراک و سوپرمارکت",
+    "amount": 20.25,
+    "previous": 0,
+    "change_pct": null
+   },
+   {
+    "category": "تفریح و رستوران",
+    "amount": 17.5,
+    "previous": 0,
+    "change_pct": null
+   },
+   {
+    "category": "حمل‌ونقل",
+    "amount": 3.75,
+    "previous": 0,
+    "change_pct": null
+   }
+  ],
+  "biggest_rise": {
+   "category": "خوراک و سوپرمارکت",
+   "increase": 20.25
+  },
+  "budgets": {
+   "set": 0,
+   "kept": 0,
+   "over": []
+  },
+  "net_worth": {
+   "start": 0,
+   "end": 7000000,
+   "change": 7000000,
+   "currency": "IRR"
+  },
+  "others": [
+   {
+    "currency": "IRR",
+    "income": 0,
+    "spending": 3000000,
+    "saved": -3000000,
+    "savings_rate": null,
+    "previous": {
+     "income": 0,
+     "spending": 0,
+     "saved": 0
+    },
+    "categories": [
+     {
+      "category": "خوراک و سوپرمارکت",
+      "amount": 3000000,
+      "previous": 0
+     }
+    ]
+   }
+  ],
+  "goals": [],
+  "checks": [
+   {
+    "key": "saved",
+    "ok": null,
+    "item": "پس‌انداز دست‌کم ۱۰٪ درآمد",
+    "detail": "در این ماه درآمدی ثبت نشده است."
+   },
+   {
+    "key": "spending",
+    "ok": null,
+    "item": "خرج بیشتر از معمول نبود",
+    "detail": "هنوز سابقه کافی برای مقایسه نیست."
+   },
+   {
+    "key": "budgets",
+    "ok": null,
+    "item": "ماندن در بودجه",
+    "detail": "برای این ماه بودجه‌ای تعیین نشده است."
+   }
+  ],
+  "passed": 0,
+  "scored": 0,
+  "months": [
+   {
+    "key": "2026-10",
+    "label": "اکتبر ۲۰۲۶"
+   },
+   {
+    "key": "2026-09",
+    "label": "سپتامبر ۲۰۲۶"
+   },
+   {
+    "key": "2026-08",
+    "label": "اوت ۲۰۲۶"
+   },
+   {
+    "key": "2026-07",
+    "label": "ژوئیه ۲۰۲۶"
+   },
+   {
+    "key": "2026-06",
+    "label": "ژوئن ۲۰۲۶"
+   },
+   {
+    "key": "2026-05",
+    "label": "مه ۲۰۲۶"
+   },
+   {
+    "key": "2026-04",
+    "label": "آوریل ۲۰۲۶"
+   },
+   {
+    "key": "2026-03",
+    "label": "مارس ۲۰۲۶"
+   },
+   {
+    "key": "2026-02",
+    "label": "فوریه ۲۰۲۶"
+   },
+   {
+    "key": "2026-01",
+    "label": "ژانویه ۲۰۲۶"
+   },
+   {
+    "key": "2025-12",
+    "label": "دسامبر ۲۰۲۵"
+   },
+   {
+    "key": "2025-11",
+    "label": "نوامبر ۲۰۲۵"
+   }
+  ]
+ }
+}

@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import app.accountingassistant.android.util.Shortcuts
 import app.accountingassistant.android.widget.CashWidget
+import app.accountingassistant.android.widget.Held
 import app.accountingassistant.android.widget.WidgetState
 import app.accountingassistant.android.widget.widgetText
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -47,6 +48,20 @@ class WidgetTest {
         assertEquals("£23,915.50", widgetText(uk.copy(cash = 23_915.5), "en", words, formatted).amount)
     }
 
+    /** Each currency as it is (docs/PLAN_CURRENCIES.md phase 2): the first large, the rest under it, then the budget. */
+    private val wallets = books.copy(books = "دفتر من", cash = 77.5, cashCurrency = "OMR",
+                                     others = listOf(Held("IRR", 3_000_000.0), Held("USD", 500.0)))
+
+    @Test @Config(qualifiers = "+fa")
+    fun eachCurrencyAsItIs() {
+        val t = widgetText(wallets, "fa", words, formatted)
+        assertEquals("۷۷٫۵۰۰ ریال عمان", t.amount)
+        assertEquals("۳٬۰۰۰٬۰۰۰ ریال، \$۵۰۰٫۰۰", t.others)
+        assertEquals("3,000,000 IRR · \$500.00", widgetText(wallets, "en", words, formatted).others)
+        assertEquals("بودجهٔ مانده: ۹٬۶۰۰٬۰۰۰", t.line)
+        assertNull(widgetText(books, "fa", words, formatted).others)
+    }
+
     @Test fun lockedOrSignedOutItShowsNoFigures() {
         val locked = widgetText(books.copy(locked = true), "en", words, formatted)
         assertNull(locked.amount)
@@ -73,6 +88,9 @@ class WidgetTest {
 
     @Test @Config(qualifiers = "+fa-w360dp-h640dp-xxhdpi")
     fun widgetInPersian() = shot(books, "widget-fa")
+
+    @Test @Config(qualifiers = "+fa-w360dp-h640dp-xxhdpi")
+    fun widgetInSeveralCurrencies() = shot(wallets, "widget-fa-currencies")
 
     @Test @Config(qualifiers = "+en-w360dp-h640dp-night-xxhdpi")
     fun widgetLockedInEnglishDark() = shot(books.copy(locked = true, books = "Arman Trading Ltd"), "widget-en-locked-dark")

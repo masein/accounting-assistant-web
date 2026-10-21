@@ -57,7 +57,7 @@ def test_ap1_a_week_in_two_currencies_is_two_cards(person, db):
     fa = render(review, "fa")
     assert len(fa["cards"]) == 2 and fa["card"] is fa["cards"][0]
     rials, omani = fa["cards"]
-    assert rials["title"].endswith("· ریال ایران") and omani["title"].endswith("· ریال عمان")
+    assert rials["title"].endswith("— ریال ایران") and omani["title"].endswith("— ریال عمان")
     assert rials["headline"]["value"] == 3_000_000 and omani["headline"]["value"] == 41.5
     assert omani["headline"]["display"] == "۴۱٫۵۰۰ ریال عمان"
     assert [c["name"] for c in omani["categories"]] == [groceries, dining, transport]
@@ -77,7 +77,7 @@ def test_ap2_a_week_in_omani_rials_only_is_told_in_omani_rials(person, db):
     assert (f["currency"], f["spent"], f["usual"], "others" in f) == ("OMR", 41.5, 10, False)
     from app.services.proactive_reviews import render
     fa = render(review, "fa")
-    assert len(fa["cards"]) == 1 and "·" not in fa["card"]["title"]
+    assert len(fa["cards"]) == 1 and "—" not in fa["card"]["title"]
     assert fa["headline"].startswith("این هفته ۴۱٫۵۰۰ ریال عمان خرج کردید")
     assert "ریال ایران" not in fa["text"]                                           # never «۰ ریال ایران»
 

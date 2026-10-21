@@ -934,7 +934,8 @@ def _render_one(review: ProactiveReview, f: dict, lang: str, *, first: bool, ide
 
     if several:
         from app.core.currencies import name as currency_name
-        title = f"{title} · {currency_name(ccy, lang)}"
+        # a dash: «·» beside Persian digits reads as a zero («۲۰۲۶ · ریال» as «۲۰۲۶ ۰ ریال»)
+        title = f"{title} — {currency_name(ccy, lang)}"
     picked = list(f.get("suggestions") or []) if ideas else []
     ideas = [_suggestion(s, lang, ccy, cal) for s in picked]
     choices = [ask for _say_, ask in ideas]

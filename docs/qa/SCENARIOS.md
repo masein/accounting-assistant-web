@@ -738,7 +738,7 @@ The owner: «i want to have different currencies. isn't that ok?» It is. A pers
 
 | ID | Scenario | Steps | Expected |
 |----|----------|-------|----------|
-| AP1 | A week in two currencies | Personal books in IRR; last week 3,000,000 IRR of groceries and 41.500 OMR (groceries 20.250, dining 17.500, transport 3.750); no rate between them | Two cards, the rials first: «… · ریال» with 3,000,000, and «… · ریال عمان» with 41.500 and its three categories and bars; nothing added together. The bell and the phone notification say the first |
+| AP1 | A week in two currencies | Personal books in IRR; last week 3,000,000 IRR of groceries and 41.500 OMR (groceries 20.250, dining 17.500, transport 3.750); no rate between them | Two cards, the rials first: «… — ریال ایران» with 3,000,000, and «… — ریال عمان» with 41.500 and its three categories and bars; nothing added together. The bell and the phone notification say the first |
 | AP2 | A week in Omani rials only | The same books, only the OMR entries last week | One card in Omani rials: «۴۱٫۵۰۰ ریال عمان», its categories and its own usual week; never «۰ ریال» |
 | AP3 | A month in two currencies | AP1's entries in last month | The rials card keeps the budgets, the net worth and the goals; the Omani-rial card has its own income, spending, saved, savings rate, categories and four months of bars |
 | AP4 | The ideas stay with the first | AP1, with a category at twice its usual in Omani rials | No «set a monthly budget of 70» in rials for an Omani-rial category; the ideas are on the first card only |

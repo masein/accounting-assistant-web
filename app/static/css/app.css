@@ -1391,7 +1391,7 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; vert
 .ai-review-card:hover .ai-review-emoji { animation: review-wobble 700ms ease-in-out; }
 .ai-review-titles { min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
 .ai-review-badge {
-  align-self: flex-start; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; color: var(--mood);
+  align-self: flex-start; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; color: var(--mood);
   background: color-mix(in srgb, var(--mood) 12%, #fff); border-radius: 999px; padding: 0.1rem 0.55rem;
 }
 .ai-review-title { font-weight: 700; font-size: 0.98rem; color: var(--text); text-wrap: balance; }
@@ -1426,14 +1426,16 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; vert
   box-shadow: 0 4px 10px color-mix(in srgb, var(--mood) 30%, transparent);
 }
 .ai-review-card.is-new .ai-review-bar { animation: review-grow 760ms cubic-bezier(.2,.9,.25,1.15) both; }
-.ai-review-col-label { font-size: 0.66rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+/* 11 px or more, and a long one («21 Shahrivar», "This week") on two lines, never cut (deep test 2026-10-20) */
+.ai-review-col-label { font-size: 0.72rem; line-height: 1.15; color: var(--text-muted); overflow-wrap: anywhere; min-width: 0; }
 .ai-review-col-label.is-current { color: var(--mood); font-weight: 700; }
 .ai-review-usual {
   position: absolute; inset-inline: 0; height: 0; border-top: 1.5px dashed color-mix(in srgb, var(--text-muted) 55%, transparent);
   pointer-events: none; z-index: 1;
 }
+/* at the oldest bar's side: this week's, at the end, is the one read (it sat over it) */
 .ai-review-usual span {
-  position: absolute; inset-inline-end: 0; top: -1.15rem; font-size: 0.62rem; color: var(--text-muted);
+  position: absolute; inset-inline-start: 0; top: -1.2rem; font-size: 0.7rem; color: var(--text-muted);
   background: #ffffffcc; padding: 0 0.25rem; border-radius: 4px;
 }
 .ai-review-legend { display: flex; gap: 0.8rem; margin-top: 0.35rem; font-size: 0.7rem; color: var(--text-muted); }

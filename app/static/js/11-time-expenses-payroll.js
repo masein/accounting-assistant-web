@@ -1186,20 +1186,29 @@
 
     // A detail kept as JSON (a voucher's snapshot, a chat card's link) is read as its values,
     // «۱۴۰۵/۰۷/۲۱ · X-875 · هزینهٔ هفته», never as the JSON with its Persian escaped (deep test
-    // 2026-10-20, finding 6). Ids, lists and empty values stay out.
-    function auditDetail(text) {
+    // 2026-10-20, finding 6). Ids, lists and empty values stay out; a date is the company's; a
+    // reference, a number or a file is a code, kept left to right as written («IMPORT-…-2024-07-29»).
+    // null when the detail is the server's own words.
+    function auditDetailParts(text) {
       const s = String(text || '');
-      if (s.charAt(0) !== '{') return s;
+      if (s.charAt(0) !== '{') return null;
       let o;
-      try { o = JSON.parse(s); } catch (_) { return s; }
-      if (!o || typeof o !== 'object' || Array.isArray(o)) return s;
+      try { o = JSON.parse(s); } catch (_) { return null; }
+      if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
       const parts = [];
       Object.keys(o).forEach((k) => {
         const v = o[k];
         if (v === null || v === undefined || v === '' || typeof v === 'object' || /(^|_)ids?$/.test(k)) return;
-        parts.push(k === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? formatDisplayDate(String(v)) : String(v));
+        if (k === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(String(v))) parts.push({ text: formatDisplayDate(String(v)) });
+        else parts.push({ text: String(v).slice(0, 80), code: /^(reference|ref|number|file|filename|code|account_code)$/.test(k) });
       });
-      return parts.join(' · ');
+      return parts;
+    }
+    function auditDetailHtml(text) {
+      const parts = auditDetailParts(text);
+      if (!parts) return '<bdi dir="ltr">' + escapeHtml(String(text || '').substring(0, 120)) + '</bdi>';
+      return '<bdi dir="auto">' + parts.map((p) => (p.code ? '<bdi dir="ltr">' + escapeHtml(p.text) + '</bdi>' : escapeHtml(p.text)))
+        .join(' · ') + '</bdi>';
     }
 
     async function loadAuditLogs() {
@@ -1211,14 +1220,11 @@
         body.innerHTML = '';
         logs.forEach(l => {
           const tr = document.createElement('tr');
-          const detail = auditDetail(l.detail);
-          // values read out of JSON (a Persian description) take their own direction; the server's own notes stay as written
-          const dir = detail === String(l.detail || '') ? 'ltr' : 'auto';
           tr.innerHTML = `<td style="font-size:0.8rem;white-space:nowrap;"><bdi>${escapeHtml(auditWhen(l.timestamp))}</bdi></td>
             <td>${escapeHtml(auditLabel('auditAct_', l.action))}</td><td>${escapeHtml(auditLabel('auditEnt_', l.entity_type))}</td>
             <td style="font-size:0.8rem;">${escapeHtml((l.entity_id || '').substring(0, 8))}</td>
             <td>${escapeHtml(l.username || '—')}</td>
-            <td style="font-size:0.8rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;"><bdi dir="${dir}">${escapeHtml(detail.substring(0, 120))}</bdi></td>`;
+            <td style="font-size:0.8rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;">${auditDetailHtml(l.detail)}</td>`;
           body.appendChild(tr);
         });
       } catch (e) { /* ignore */ }

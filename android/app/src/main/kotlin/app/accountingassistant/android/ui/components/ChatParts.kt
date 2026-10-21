@@ -346,7 +346,8 @@ fun Composer(
             delay(80)
         }
     }
-    Surface(shape = CircleShape, color = c.glass, border = BorderStroke(1.dp, c.line.copy(alpha = 0.6f)),
+    // nearly opaque: through the glass the messages scrolled behind read through the hint (2026-10-21)
+    Surface(shape = CircleShape, color = c.glass.copy(alpha = 0.97f), border = BorderStroke(1.dp, c.line.copy(alpha = 0.6f)),
             shadowElevation = 6.dp, modifier = modifier.fillMaxWidth()) {
         Row(Modifier.padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
             if (listening && handsFree) {

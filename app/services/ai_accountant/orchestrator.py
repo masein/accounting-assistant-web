@@ -278,9 +278,12 @@ The books you manage here belong to ONE PERSON tracking their own daily money �
 * Typical shapes: spending = Dr expense category / Cr cash or bank · income (salary, freelance) = Dr bank / Cr income category · loan installment (قسط) = Dr installments payable / Cr bank · moving money to savings (gold, FX) = Dr the savings asset / Cr bank.
 * MONEY BETWEEN THE USER AND A PERSON. Someone paid for the user («Amir paid for these», «امیر حساب کرد»): Dr the spending category / Cr «بدهی به دیگران» (2130, Money I owe). The user paid for someone or lent them money: Dr «طلب از دیگران» (1150, Money owed to me) / Cr where the money came from. Paying a person back: Dr 2130 / Cr the bank or cash it came from; being paid back: Dr the bank or cash / Cr 1150. The person is on EVERY one of these cards and named in each description («Muscat Airbnb — paid by Amir»): ``find_entity`` once; found → ``entity_links`` with their id; not in the books → the same ``new_entities`` entry on each of their cards (type ``supplier`` when the user owes them, ``client`` when they owe the user) — whichever card is confirmed first makes the person and the others are linked to them. "How much do I owe Amir?", «کی به من بدهکاره؟», "who do I owe?" → ``get_people_balances``: person by person, each currency on its own; never read the whole 2130 or 1150 account as one person's.
 * A LIST in one message («$333.77 - Muscat Airbnb», one thing per line) is one card per line, each with its own amount and description, in the currency written. Stays, hotels, flights and trip tickets go under «سفر» (Travel).
+* AN ANSWER NEVER DROPS THE LIST. When you asked about a list (who paid it, where the cash is) and the user answers («یکیش رو امیر بهم نقدی داده، بقیه از حساب امین پرداخت شده»: one Amir gave in cash, the rest Amin paid), make a card for EVERY item of that list in that turn: Amir's cash into the place they name (Dr the place / Cr «بدهی به دیگران», Amir on it) AND one card per remaining line, each Dr its category (Airbnb, hotel and tickets under «سفر») / Cr «بدهی به دیگران» in its own currency, with the person who paid it (Amin) on each — never only the item the question was about. Asked what they owe someone whose items they told you in this conversation but no card of theirs was confirmed («چقدر به امین بدهکارم؟»), say what they told you (the items and each currency's total) and that it isn't recorded yet, and make the cards — never answer only "nothing recorded".
+* THINGS FOR THE HOME — a power adapter, light bulbs, cleaning things, stationery, a key cut, a small repair — go under «لوازم و تعمیرات خانه» (Home supplies & repairs). «خانواده و هدایا» (Family & gifts) is only a gift, or money given to family.
+* "What categories do you have?", «چه دسته‌بندی‌هایی داری؟», «دسته‌بندی‌هام چیان؟» → the categories themselves, by name (``search_accounts``), spending and income — not what was spent in them.
 * MONEY THE USER ALREADY HAS IN A PLACE («۸۶ ریال توی کیف پولم دارم», «۵۰۰ دلار توی گاوصندوق دارم», «۳ میلیون تو حساب ملت هست», "I have 200 in my bank account") is a STARTING BALANCE: call ``propose_money_place`` with the place as they named it (a wallet, purse, vault, safe or box is ``cash``; a bank account or card is ``bank``), the money's OWN currency and the amount. It makes the place an account of its own the first time and records what is there against Opening net worth. Never ask where the money came from or what to set it against. A place that already has its starting balance is refused: then ask where the extra money came from.
 * SEVERAL CURRENCIES. A person keeps money in several currencies, in several places — rials in a bank at home, Omani rials in a wallet, dollars in a vault — and wants each kept AS IT IS, never exchanged. Money in another currency than the books' is recorded in that currency (``propose_money_place``, or any entry with its ``currency``); never refuse it, never convert it, never ask for a rate. When it is the first money in another currency and the books' currency can still change (said at the end of these instructions), ASK ONCE first, in one short sentence, and offer the two answers with ``ask_with_choices``: count the books in that currency (then ``propose_books_currency``), or keep the books' currency and keep this money in its own (then ``propose_money_place``). Once the books have entries, don't ask: keep it in its own currency.
-* CURRENCY WORDS: «تومان / تومن» is ten Iranian rials. «ریال» alone is the books' currency when that is a rial (IRR, OMR, SAR, QAR); «ریال عمان» is OMR. «بیسه / baisa» is a thousandth of an OMANI rial: 86 rials and 100 baisa is 86.100 OMR. «درهم» is the UAE dirham (AED), «دلار» USD, «یورو» EUR, «پوند» GBP, «لیر» TRY, «دینار» needs its country. Write an amount with its currency's own places (77.500 OMR, never 77.5).
+* CURRENCY WORDS: «تومان / تومن» is ten Iranian rials. «ریال» alone is the books' currency when that is a rial (IRR, OMR, SAR, QAR); «ریال عمان» is OMR. «بیسه / baisa» is a thousandth of an OMANI rial: 86 rials and 100 baisa is 86.100 OMR. «درهم» is the UAE dirham (AED), «دلار» USD, «یورو» EUR, «پوند» GBP, «لیر» TRY, «دینار» needs its country. Write an amount with its currency's own places (77.500 OMR, never 77.5; «۲٫۰۰۰ ریال عمان», never «۲ ریال عمان»), copying the tool's ``…_fa`` twin when there is one.
 * "How much money do I have?" in several currencies: say each currency on its own («۷۷٫۵۰۰ ریال عمان، ۵۰۰ دلار و ۳٬۰۰۰٬۰۰۰ ریال»), from ``get_cash_position``'s ``by_currency``; add them up only if the user asks, and only with rates they have.
 * Name the app's places in the reply's language: the phone's account menu «ارز دفاتر» (Your books' currency); the web's «امور مالی من» (My finances). Write plain sentences: no Markdown («**»).
 * Spending questions with a time word ("این ماه چقدر خرج کردم؟", "how much did I spend last month?") → ``get_spending_summary`` with the period keyword (add ``category_code`` when they name a category); answer in one plain sentence with the ``total`` and the period as the tool labels it. Money spent in several currencies comes back in ``by_currency``: say each currency's own total and its categories («۴۱٫۵۰۰ ریال عمان: خوراک ۱۷٫۵۰۰، خواربار ۲۰٫۲۵۰ — و ۳٬۰۰۰٬۰۰۰ ریال: خواربار»), never add them together, never call it zero or say it can't be told. «ریال عمانش رو بگو» → the same call with ``currency`` OMR. Per-category questions without a time word → ``query_ledger`` on that category.
@@ -563,6 +566,63 @@ def _people_on_every_card(db, proposals: list, *, personal: bool, user_message: 
         if len(names) == 1:
             _link_party(db, t, next(e for e in named if normalize_match_name(e.name) in names))
     _no_company_parties(db, txns, people, user_message)
+
+
+def _named_place_on_cards(db, proposals: list, *, personal: bool, user_message: str | None) -> None:
+    """A person's money goes to the place they named (2026-10-21): the answer «کیف پول قشنگم» to «where is
+    Amir's cash?» gave a card whose cash line was 112001 «کیف پول سبز». When the message names exactly one of
+    the person's places — by its account's name or a name they taught the assistant for it — a card with one
+    cash or bank line at another place is moved to the named one: its stored line and the card shown."""
+    if not personal or not (user_message or "").strip():
+        return
+    txns = [p for p in proposals if p.get("tool_name") == "propose_create_transaction"]
+    if not txns:
+        return
+    from uuid import UUID
+
+    from app.models.account import Account
+    from app.models.ai_accountant import AIProposal
+    from app.models.learned_preference import LearnedPreference
+    from app.services.ai_accountant.cash_tools import cash_account_codes
+    from app.services.ai_accountant.money_places import _fold
+    from app.services.locale_service import get_reporting_locale
+    codes = set(cash_account_codes(db, locale=get_reporting_locale(db), mode="personal"))
+    if not codes:
+        return
+    names: dict[str, str] = {}                                    # a name the person uses → the place's code
+    for acc in db.execute(select(Account).where(Account.code.in_(codes))).scalars():
+        names.setdefault(_fold(acc.name), acc.code)
+    for pref in db.execute(select(LearnedPreference).where(LearnedPreference.account_code.in_(codes))).scalars():
+        names.setdefault(_fold(pref.label or pref.pattern), pref.account_code)
+    said = f" {_fold(user_message)} "
+    hits = {n: c for n, c in names.items() if n and f" {n} " in said}
+    # the fullest name said: «کیف پول قشنگم», not a place called «کیف» inside it
+    hits = {n: c for n, c in hits.items() if not any(o != n and f" {n} " in f" {o} " for o in hits)}
+    if len(set(hits.values())) != 1:
+        return                                                    # none named, or two (a transfer between them)
+    place = next(iter(hits.values()))
+    for t in txns:
+        lines = (t.get("preview") or {}).get("lines") or []
+        at = [i for i, ln in enumerate(lines) if ln.get("account_code") in codes]
+        if len(at) != 1 or lines[at[0]].get("account_code") == place:
+            continue
+        try:
+            row = db.execute(select(AIProposal).where(
+                AIProposal.confirmation_token == UUID(str(t.get("confirmation_token"))))).scalar_one_or_none()
+            if row is None or row.status != "pending":
+                continue
+            tool_input = dict(row.tool_input or {})
+            stored = [dict(ln) for ln in tool_input.get("lines") or []]
+            if len(stored) != len(lines) or stored[at[0]].get("account_code") != lines[at[0]].get("account_code"):
+                continue
+            stored[at[0]]["account_code"] = place
+            tool_input["lines"] = stored
+            row.tool_input = tool_input                           # reassign so the JSON change persists
+            db.commit()
+        except Exception:  # best-effort; never break the turn
+            db.rollback()
+            continue
+        t["preview"] = tool_input
 
 
 def _no_company_parties(db, txns: list, people, user_message: str | None) -> None:
@@ -962,7 +1022,14 @@ _MONEY_KEY = re.compile(r"amount|total|balance|debit|credit|revenue|income|expen
                         r"value|paid|due|owed|tax|price|cost|limit|actual|spent|left", re.IGNORECASE)
 
 
-def _for_the_model(value, key: str = "", *, jalali: bool = False, persian: bool = False):
+def _with_places(v, ccy: str) -> str:
+    """«۲٫۰۰۰», «۷٫۴۵۰»: an amount in Persian to its currency's places."""
+    from app.core.money import exponent, persian_figures, to_decimal
+    places = exponent(ccy)
+    return persian_figures(f"{to_decimal(v):,.{places}f}")
+
+
+def _for_the_model(value, key: str = "", *, jalali: bool = False, persian: bool = False, ccy: str | None = None):
     """A tool result as the model reads it. In a Jalali company every ISO day
     in a date field gets its Jalali words beside it («date_jalali»: «۶ مرداد
     ۱۴۰۵»): left to convert 2026-07-28 itself, the model wrote «۷ مرداد». For a
@@ -972,21 +1039,29 @@ def _for_the_model(value, key: str = "", *, jalali: bool = False, persian: bool 
     copy these."""
     if isinstance(value, dict):
         out = {}
+        # the currency these amounts are in, from this level or the one above: an Omani rial's baisa are
+        # always written («۲٫۰۰۰ ریال عمان», never «۲ ریال عمان», 2026-10-21)
+        own = value.get("currency")
+        ccy = own.strip().upper() if isinstance(own, str) and 3 <= len(own.strip()) <= 8 else ccy
+        from app.core.money import exponent
+        places = exponent(ccy) if ccy else 0
         for k, v in value.items():
             k = str(k)
-            out[k] = _for_the_model(v, k, jalali=jalali, persian=persian)
+            out[k] = _for_the_model(v, k, jalali=jalali, persian=persian, ccy=ccy)
             if jalali and isinstance(v, str) and _DATE_KEY.search(k) and _ISO_DAY.match(v):
                 from app.utils.jalali import format_jalali_long
                 try:
                     out[f"{k}_jalali"] = format_jalali_long(_date_cls.fromisoformat(v))
                 except ValueError:
                     pass
-            if (persian and _MONEY_KEY.search(k) and not isinstance(v, bool) and isinstance(v, (int, float, Decimal))
-                    and abs(v) >= 1000):
-                out[f"{k}_fa"] = grouped_fa(v)
+            if persian and _MONEY_KEY.search(k) and not isinstance(v, bool) and isinstance(v, (int, float, Decimal)):
+                if places:
+                    out[f"{k}_fa"] = _with_places(v, ccy)        # every amount, to its places
+                elif abs(v) >= 1000:
+                    out[f"{k}_fa"] = grouped_fa(v)
         return out
     if isinstance(value, list):
-        return [_for_the_model(v, key, jalali=jalali, persian=persian) for v in value]
+        return [_for_the_model(v, key, jalali=jalali, persian=persian, ccy=ccy) for v in value]
     return value
 
 
@@ -1451,6 +1526,7 @@ async def run_chat_turn(
                 _persist_message(db, session_id=chat_session.id, role="tool", content=trm.to_dict())
             _collapse_redundant_entity_proposals(db, proposals, 0, user_message)
             _people_on_every_card(db, proposals, personal=personal, user_message=user_message)
+            _named_place_on_cards(db, proposals, personal=personal, user_message=user_message)
             return ChatResult(
                 session_id=session_uuid_str,
                 text=(assistant_msg.text or "").strip() or _status(lang, "tool_budget"),
@@ -1466,6 +1542,7 @@ async def run_chat_turn(
             # different LLM turns), so a redundant standalone create is dropped.
             _collapse_redundant_entity_proposals(db, proposals, 0, user_message)
             _people_on_every_card(db, proposals, personal=personal, user_message=user_message)
+            _named_place_on_cards(db, proposals, personal=personal, user_message=user_message)
             return ChatResult(
                 session_id=session_uuid_str,
                 text=final_text,

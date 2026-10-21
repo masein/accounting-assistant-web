@@ -58,6 +58,52 @@ class ChatScreenScreenshotTest {
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/$name.png")
     }
 
+    /** The owner's phone, 2026-10-21: a week's spending in Omani rials read «7.450», «2.000» with no currency.
+     *  One currency other than rials is named once at the top; two currencies name theirs on each row. */
+    @Test
+    fun englishSpendingTablesSayTheirCurrency() {
+        fun row(label: String, code: String, v: String, ccy: String) = ChatItem.Table.Row(label, code, java.math.BigDecimal(v), ccy)
+        val omani = ChatItem.Table("s1", "spending", listOf(row("خوراک و سوپرمارکت", "6110", "7.450", "OMR"),
+                                                            row("خانواده و هدایا", "6195", "2.000", "OMR")))
+        val both = ChatItem.Table("s2", "spending", listOf(row("خوراک و سوپرمارکت", "6110", "3000000", "IRR"),
+                                                           row("خوراک و سوپرمارکت", "6110", "20.250", "OMR"),
+                                                           row("تفریح و رستوران", "6180", "17.500", "OMR")))
+        compose.setContent {
+            AccountantTheme(dark = true) {
+                ChatScreen(state = ChatUiState(items = listOf(omani, both)), lang = "en", booksName = "masein",
+                           personalBooks = true, onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {})
+            }
+        }
+        compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithText("OMR").assertExists()                       // named once, above the rows
+        compose.onNodeWithText("3,000,000 IRR").assertExists()
+        compose.onNodeWithText("20.250 OMR").assertExists()
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-en-spending-currencies.png")
+    }
+
+    /** The owner's phone, 2026-10-21: «دریافت ۳۰۰ ریال عمانی قرض از امیر، در کیف پول قشنگم» and its date read
+     *  «۲۹۱۴۰۵ مهر» — the date's numbers run together and the month moved after them. */
+    @Test
+    fun englishAppPersianCardKeepsItsDateInOrder() {
+        val loan = ChatItem.Proposal(
+            id = "p9", token = "t9", title = "دریافت ۳۰۰ ریال عمانی قرض از امیر، در کیف پول قشنگم",
+            amount = java.math.BigDecimal("300.000"), currency = "OMR", date = "۲۹ مهر ۱۴۰۵",
+            lines = listOf(VoucherLine("112001", "کیف پول قشنگم", debit = java.math.BigDecimal("300.000")),
+                           VoucherLine("2130", "بدهی به دیگران", java.math.BigDecimal.ZERO, java.math.BigDecimal("300.000"))),
+            needsApproval = false, people = listOf(ChatItem.Proposal.Person("امیر", false)))
+        compose.setContent {
+            AccountantTheme(dark = true) {
+                ChatScreen(
+                    state = ChatUiState(items = listOf(loan)),
+                    lang = "en", booksName = "masein", personalBooks = true,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(600)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-en-persian-loan-date.png")
+    }
+
     @Test @Config(qualifiers = "+fa")
     fun persianLight() = shot("chat-fa-light", fa = true, dark = false)
 

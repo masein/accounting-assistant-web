@@ -233,9 +233,11 @@ def build_statement_review(db: Session, stmt: BankStatement) -> StatementReviewR
         "amount_mismatch": sum(1 for f in findings if f.kind == "amount_mismatch"),
         "actionable": sum(1 for f in findings if f.kind not in ("duplicate",)),
     }
+    from app.services.statement_import import bank_account_guessed
     return StatementReviewResponse(
         statement_id=stmt.id, bank_name=stmt.bank_name, currency=stmt.currency,
         from_date=stmt.from_date, to_date=stmt.to_date, total_rows=len(rows),
-        counts=counts, bank_account_code=bank_code, balance=balance, findings=findings,
+        counts=counts, bank_account_code=bank_code, bank_account_name=name_of(bank_code) if bank_code else None,
+        bank_account_guessed=bank_account_guessed(db, stmt), balance=balance, findings=findings,
         clean=(counts["actionable"] == 0),
     )

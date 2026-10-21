@@ -488,6 +488,7 @@ for _m, _p in [
 # What the assistant learned from corrections (roadmap §5.4).
 _reads(["/ai-accountant/preferences"], Perm.BOOKS_READ)
 _reads(["/ai-accountant/statements/{statement_id}/card"], Perm.BANK_READ)   # a statement read in the background (AJ6)
+_add("POST", "/ai-accountant/statements/{statement_id}/next", Perm.BOOKS_WRITE)   # step by step on the web (AJ13)
 _add("POST", "/ai-accountant/transcribe", Perm.BOOKS_WRITE)      # voice notes (roadmap §5.7)
 # Messenger bots (roadmap §5.7): a chat linked to a login can use the assistant.
 _reads(["/ai-accountant/messenger"], Perm.BOOKS_READ)

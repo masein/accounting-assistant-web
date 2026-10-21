@@ -294,6 +294,9 @@ def _review_fields(db, statement_id) -> dict[str, Any]:
         "balance": rv.get("balance"),
         "clean": review.clean,
         "findings_preview": (rv.get("findings") or [])[:3],
+        # which account it was compared with, and whether that is only a guess (scenario AJ12)
+        "bank_account": {"code": review.bank_account_code, "name": review.bank_account_name,
+                         "guessed": review.bank_account_guessed},
     }
 
 
@@ -605,6 +608,8 @@ async def ensure_statement_row_proposal(
         return None
 
     review = build_statement_review(db, stmt)
+    if review.bank_account_guessed:
+        return None                   # its account is chosen first: never a row posted to a guess (AJ12)
     pending = _pending_row_ids(db, user_id, session_id)
     candidates = [f for f in review.findings
                   if f.kind == "unrecorded" and f.suggested_fix == "post_row" and f.row_id

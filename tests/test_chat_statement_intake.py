@@ -239,7 +239,7 @@ def test_review_turn_without_a_card_gets_one_built_for_the_first_unrecorded_row(
     from app.models.bank_statement import BankStatement, BankStatementRow
     from app.services.ai_accountant.orchestrator import ChatResult
 
-    s = BankStatement(bank_name="Net Bank", source_type="csv", source_filename="net.csv", currency="IRR",
+    s = BankStatement(bank_name="Net Bank", bank_account_code="1110", source_type="csv", source_filename="net.csv", currency="IRR",
                       from_date=date(2026, 5, 1), to_date=date(2026, 5, 31), status="parsed", total_rows=2)
     db.add(s); db.flush()
     r1 = BankStatementRow(statement_id=s.id, row_index=1, tx_date=date(2026, 5, 3), description="کارمزد بانکی",
@@ -304,7 +304,7 @@ def test_safety_net_builds_the_card_for_the_row_the_model_described(db):
     from app.models.bank_statement import BankStatement, BankStatementRow
     from app.services.ai_accountant.statement_intake import ensure_statement_row_proposal
 
-    s = BankStatement(bank_name="Match Bank", source_type="csv", source_filename="m.csv", currency="IRR",
+    s = BankStatement(bank_name="Match Bank", bank_account_code="1110", source_type="csv", source_filename="m.csv", currency="IRR",
                       from_date=date(2026, 4, 1), to_date=date(2026, 4, 30), status="parsed", total_rows=2)
     db.add(s); db.flush()
     r1 = BankStatementRow(statement_id=s.id, row_index=1, tx_date=date(2026, 4, 3), description="اول", debit=120_000, credit=0, confidence=1.0, recon_status="unmatched")
@@ -344,7 +344,7 @@ def test_safety_net_also_fires_when_the_model_tried_a_posted_row(auth_client, db
     from app.models.bank_statement import BankStatement, BankStatementRow
     from app.services.ai_accountant.orchestrator import ChatResult
 
-    s = BankStatement(bank_name="Retry Bank", source_type="csv", source_filename="r.csv", currency="IRR",
+    s = BankStatement(bank_name="Retry Bank", bank_account_code="1110", source_type="csv", source_filename="r.csv", currency="IRR",
                       from_date=date(2026, 3, 1), to_date=date(2026, 3, 31), status="parsed", total_rows=2)
     db.add(s); db.flush()
     posted = make_transaction([("6112", 120_000, 0), ("1110", 0, 120_000)], tx_date=date(2026, 3, 3), description="posted")
@@ -397,7 +397,7 @@ def test_safety_net_stays_quiet_when_the_reply_is_about_a_missing_entry(db, make
     from app.models.bank_statement import BankStatement, BankStatementRow
     from app.services.ai_accountant.statement_intake import ensure_statement_row_proposal
 
-    s = BankStatement(bank_name="Quiet Bank", source_type="csv", source_filename="q.csv", currency="IRR",
+    s = BankStatement(bank_name="Quiet Bank", bank_account_code="1110", source_type="csv", source_filename="q.csv", currency="IRR",
                       from_date=date(2026, 2, 1), to_date=date(2026, 2, 28), status="parsed", total_rows=1)
     db.add(s); db.flush()
     db.add(BankStatementRow(statement_id=s.id, row_index=1, tx_date=date(2026, 2, 3), description="unrecorded row",

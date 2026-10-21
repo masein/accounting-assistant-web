@@ -286,7 +286,9 @@
             : (typeof c.content === 'string' ? c.content : null);  // legacy shape
           if (!text) return;  // skip tool turns / empty tool-call turns
           if (m.role === 'assistant') appendBubble('assistant', text, { at: m.created_at, animate: false });
-          cards.forEach((card) => appendProposalCard(card, { stored: true }));
+          const step = m.role === 'assistant' && c.statement_next;   // step by step: the cards carry on (AJ13)
+          cards.forEach((card) => appendProposalCard(card, { stored: true, statementId: step ? step.statement_id : null }));
+          if (step && step.left) appendStatementNextButton(step.statement_id);
         });
         renderEmptyState();
         scrollToBottom(true);
@@ -1076,6 +1078,12 @@
               + escapeHtml(tf('chatStmtGap', { gap: formatAmount(Math.abs(b.gap), intake.currency), ccy: intake.currency || '' }))
               + (b.explained ? ' · ' + escapeHtml(t('chatStmtGapExplained')) : '') + '</div>';
           }
+          // which account it was compared with; only the chart's default is said as such (scenario AJ12)
+          const acct = intake.bank_account;
+          if (acct && acct.code) {
+            const said = tf(acct.guessed ? 'chatStmtComparedGuess' : 'chatStmtComparedWith', { code: localCode(acct.code), name: acct.name || '' });
+            html += '<div class="ai-stmt-account' + (acct.guessed ? ' is-guess' : '') + '">' + escapeHtml(said) + '</div>';
+          }
           if (intake.clean) html += '<div style="margin-top:0.3rem;color:var(--success,#059669);font-weight:600;">' + escapeHtml(t('chatStmtClean')) + '</div>';
           // a statement of pictures: what was read, and its balance's check (AJ2–AJ4)
           if (intake.read_report && typeof window.statementReadingSummary === 'function') {
@@ -1098,12 +1106,21 @@
         if (!intake.statement_id) return;
         const btnRow = document.createElement('div');
         btnRow.style.cssText = 'margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;';
-        if (intake.status === 'imported' && !intake.clean) {
+        const guessed = intake.bank_account && intake.bank_account.guessed;
+        if (intake.status === 'imported' && guessed) {
+          // its account first, then the card again as it stands against that account
+          appendStatementChooser(intake.statement_id, null, async () => {
+            const r = await fetch(API + '/ai-accountant/statements/' + encodeURIComponent(intake.statement_id) + '/card');
+            const d = await r.json().catch(() => ({}));
+            if (r.ok && d.intake) appendStatementCard(card, d.intake, fmt);
+          }, card);
+        } else if (intake.status === 'imported' && !intake.clean) {
+          // one row at a time, as the phone's Next, without the model (scenario AJ13)
           const fixBtn = document.createElement('button');
           fixBtn.type = 'button';
           fixBtn.className = 'btn btn-primary btn-sm';
           fixBtn.textContent = t('chatStmtReviewBtn');
-          fixBtn.addEventListener('click', () => sendMessage(tf('chatStmtReviewMsg', { id: intake.statement_id })));
+          fixBtn.addEventListener('click', () => { fixBtn.disabled = true; statementNext(intake.statement_id).finally(() => { fixBtn.disabled = false; }); });
           btnRow.appendChild(fixBtn);
         }
         const openBtn = document.createElement('button');
@@ -1193,6 +1210,85 @@
           messagesEl.appendChild(card);
         });
         messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      // «رفع قدم‌به‌قدم» as the phone's Next: the next row the books don't have, as a card, without the
+      // model, and how many are left. The button used to ask the model, which raised the first card and
+      // stopped there (the owner, 2026-10-21, scenario AJ13). A confirmed card brings the next by itself.
+      async function statementNext(statementId) {
+        clearEmptyState();
+        messagesEl.querySelectorAll('.ai-stmt-next').forEach((b) => b.remove());
+        let data;
+        try {
+          const r = await fetch(API + '/ai-accountant/statements/' + encodeURIComponent(statementId) + '/next', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: sessionId }),
+          });
+          data = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error((data && typeof data.detail === 'string' && data.detail) || t('aiChatFailed'));
+        } catch (e) {
+          showAlert(e.message, true);
+          return;
+        }
+        sessionId = data.session_id || sessionId;
+        appendBubble('assistant', data.text, { at: new Date().toISOString() });
+        (data.proposals || []).forEach((p) => appendProposalCard(p, { statementId }));
+        if (data.choose) appendStatementChooser(statementId, data.choices || [], () => statementNext(statementId));
+        else if (data.left) appendStatementNextButton(statementId);
+        loadSessions('');
+      }
+      function appendStatementNextButton(statementId) {
+        messagesEl.querySelectorAll('.ai-stmt-next').forEach((b) => b.remove());
+        const row = document.createElement('div');
+        row.className = 'ai-stmt-next';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-secondary btn-sm';
+        btn.textContent = t('chatStmtNextBtn');
+        btn.addEventListener('click', () => { btn.disabled = true; statementNext(statementId); });
+        row.appendChild(btn);
+        messagesEl.appendChild(row);
+        scrollToBottom();
+      }
+      // which of the books' bank accounts a statement is, when none of its banks matched (scenario AJ12)
+      async function appendStatementChooser(statementId, choices, onChosen, into) {
+        if (!choices) {
+          try {
+            const r = await fetch(API + '/brain/bank-accounts');
+            choices = r.ok ? ((await r.json()).accounts || []) : [];
+          } catch (_) { choices = []; }
+        }
+        if (!choices.length) return;
+        const row = document.createElement('div');
+        row.className = 'ai-stmt-choose';
+        const sel = document.createElement('select');
+        choices.forEach((c) => {
+          const o = document.createElement('option');
+          o.value = c.code;
+          o.textContent = localCode(c.code) + ' — ' + (c.bank || c.name || '');
+          sel.appendChild(o);
+        });
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-primary btn-sm';
+        btn.textContent = t('chatStmtUseAccount');
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          try {
+            const r = await fetch(API + '/brain/bank-statements/' + encodeURIComponent(statementId) + '/bank-account', {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: sel.value }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error((d && typeof d.detail === 'string' && d.detail) || t('bsAcctFailed'));
+            row.remove();
+            await onChosen();
+          } catch (e) {
+            btn.disabled = false;
+            showAlert(e.message, true);
+          }
+        });
+        row.append(sel, btn);
+        (into || messagesEl).appendChild(row);
+        if (!into) scrollToBottom();
       }
 
       function appendIntakeCard(intake) {
@@ -1294,6 +1390,7 @@
         card.className = 'ai-card message-in';
         card.setAttribute('dir', 'auto');
         card.dataset.token = proposal.confirmation_token;
+        if (opts.statementId) card.dataset.statementId = opts.statementId;     // step by step (AJ13)
         if (proposal.replaces) {
           // the accountant corrected an earlier card: that one can no longer be confirmed
           const old = messagesEl.querySelector('.ai-card[data-token="' + CSS.escape(proposal.replaces) + '"]');
@@ -1474,12 +1571,14 @@
           const receipt = document.createElement('div');
           receipt.style.cssText = 'margin-top:0.5rem; padding:0.4rem 0.6rem; background:#f0fdf4; border:1px solid #86efac; border-radius:6px; font-size:0.82rem;';
           receipt.innerHTML = '<strong>' + escapeHtml(t('aiUndoRecorded')) + '</strong> ' +
-            (data.transaction_id ? `Transaction <code>${escapeHtml(data.transaction_id.slice(0,8))}…</code>` : '') +
+            (data.transaction_id ? escapeHtml(t('aiReceiptVoucher')) + ` <code>${escapeHtml(data.transaction_id.slice(0,8))}…</code>` : '') +
             (data.idempotent ? ' <em>' + escapeHtml(t('aiUndoAlreadyCommitted')) + '</em>' : '');
           cardEl.appendChild(receipt);
           if (data.tool_name === 'propose_remember_preference' && typeof aiLoadPreferences === 'function') {
             aiLoadPreferences(true);
           }
+          // a statement's row, step by step: the next one comes by itself (scenario AJ13)
+          if (cardEl.dataset.statementId) statementNext(cardEl.dataset.statementId);
 
           // Undo / Reverse act on a posted entry; a created party or a saved
           // preference has none (their undo would only fail).

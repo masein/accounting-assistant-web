@@ -22,6 +22,7 @@ lives here and both callers share it:
 from __future__ import annotations
 
 import asyncio
+import functools
 import hashlib
 import json as _json
 import logging
@@ -626,10 +627,24 @@ def canonical_bank(name: str | None) -> str | None:
     """Which bank a name means — "ملت", "Mellat", "بانک ملت", "Mellat (SMS
     1405/07)" are all Mellat — using the SMS reader's spellings, whole words
     only ("شهر" is Shahr, "شهریور" is not)."""
-    from app.services.bank_sms import BANKS, normalize
+    from app.services.bank_sms import normalize
     text = normalize(name or "").lower()
     if not text:
         return None
+    labels, spellings = _label_banks()
+    if text.strip() in labels:
+        return labels[text.strip()]
+    found = _bank_by_spelling(text)
+    if found:
+        return found
+    for sp, canon in spellings:                       # the reader's own spellings: "Day Bank"
+        if re.search(rf"(?<!\w){re.escape(sp)}(?!\w)", text):
+            return canon
+    return None
+
+
+def _bank_by_spelling(text: str) -> str | None:
+    from app.services.bank_sms import BANKS, normalize
     best: tuple[str, int] | None = None
     for canon, spellings in BANKS.items():
         for sp in (canon, *spellings):
@@ -637,6 +652,22 @@ def canonical_bank(name: str | None) -> str | None:
             if sp and re.search(rf"(?<!\w){re.escape(sp)}(?!\w)", text) and (best is None or len(sp) > best[1]):
                 best = (canon, len(sp))
     return best[0] if best else None
+
+
+@functools.lru_cache(maxsize=1)
+def _label_banks() -> tuple[dict[str, str], tuple[tuple[str, str], ...]]:
+    """A statement's bank as the reader names it («Day», "Day Bank", from ``_BANK_NAMES``) → the bank the
+    SMS table knows («Dey», «بانک دی»): فرهنگ نو's Day Bank statement never found «بانک دی» and was
+    compared with the chart's 1110 (2026-10-21, scenario AJ11). (labels, (spelling, bank) longest first)."""
+    from app.services.bank_sms import normalize
+    labels: dict[str, str] = {}
+    for spelling, label in _BANK_NAMES:               # a label's bank: whichever of its spellings the table knows
+        canon = _bank_by_spelling(normalize(spelling).lower())
+        if canon:
+            labels.setdefault(normalize(label).lower(), canon)
+    spellings = [(normalize(sp).lower(), labels[normalize(label).lower()]) for sp, label in _BANK_NAMES
+                 if normalize(label).lower() in labels]
+    return labels, tuple(sorted(spellings, key=lambda x: -len(x[0])))
 
 
 def _bank_entities(db: Session) -> list:
@@ -716,7 +747,50 @@ def resolve_bank_account(db: Session, stmt: BankStatement) -> tuple[str | None, 
             hit = one([e for e in banks if word.search((e.name or "").lower())])
             if hit:
                 return hit, "bank"
+    hit = _account_named_for(db, stmt)
+    if hit:
+        return hit, "account_name"
     return _default_bank_code(db), "default"
+
+
+def _account_named_for(db: Session, stmt: BankStatement) -> str | None:
+    """A bank with no party whose account is named for it: its number in the name
+    («بانک دی حساب 0105222028000»), else its bank («بانک دی») among the accounts
+    named «بانک …» — one of them, or none (scenario AJ11)."""
+    from app.services.bank_sms import normalize
+    from app.models.account import AccountLevel
+    accounts = db.execute(select(Account.code, Account.name).where(
+        Account.level != AccountLevel.GROUP, Account.is_active.is_(True))).all()
+    digits = re.sub(r"\D", "", normalize(stmt.account_number or ""))
+    if len(digits) >= 6:
+        found = {code for code, name in accounts if digits in re.sub(r"\D", "", normalize(name or ""))}
+        if len(found) == 1:
+            return found.pop()
+    canon = canonical_bank(stmt.bank_name)
+    if canon:
+        found = {code for code, name in accounts
+                 if "بانک" in (name or "") and canonical_bank(name) == canon and not re.search(r"وام|تسهیلات|قرض", name or "")}
+        if len(found) == 1:
+            return found.pop()
+    return None
+
+
+def bank_account_guessed(db: Session, stmt: BankStatement) -> bool:
+    """The statement names its bank, or shows its number, but none of the books' banks matched, so it is
+    compared with the chart's own bank account while other banks are on file: only a guess, and no row
+    is posted to it before the account is chosen (scenario AJ12). A statement that names no bank, or
+    books with one bank, use the chart's account as before."""
+    from app.models.account import AccountLevel
+    code, how = resolve_bank_account(db, stmt)
+    if how != "default":
+        return False
+    if (stmt.bank_name or "").strip() in ("", "Unknown") and not (stmt.account_number or "").strip():
+        return False
+    if {e.code.strip() for e in _bank_entities(db)} - {code}:
+        return True
+    return any(c != code and "بانک" in (n or "") and not re.search(r"وام|تسهیلات|قرض", n or "")
+               for c, n in db.execute(select(Account.code, Account.name).where(
+                   Account.level != AccountLevel.GROUP, Account.is_active.is_(True))).all())
 
 
 def bank_account_for_statement(db: Session, stmt: BankStatement) -> str | None:

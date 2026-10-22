@@ -187,13 +187,12 @@ def split_sections(prompt: str) -> list[tuple[str, str]]:
 
 
 def instructions(prompt: str, groups: set[str]) -> str:
-    """The instructions this message needs: every section not tied to a group, in order, then the sections of
-    the groups chosen (``attachments`` and ``reply`` are groups here too)."""
-    core, topic = [], []
+    """The instructions this message needs: every section not tied to a group, and the sections of the groups
+    chosen (``attachments`` and ``reply`` are groups here too), in the order they were written — the model
+    reads its rules as they always were, less the ones about other things."""
+    out = []
     for heading, text in split_sections(prompt):
         tied = next((gs for start, gs in SECTION_GROUPS.items() if heading.startswith(start)), None)
-        if tied is None:
-            core.append(text)
-        elif set(tied) & groups:
-            topic.append(text)
-    return "".join(core + topic)
+        if tied is None or set(tied) & groups:
+            out.append(text)
+    return "".join(out)

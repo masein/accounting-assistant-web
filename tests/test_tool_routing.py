@@ -74,4 +74,15 @@ def test_ax4_every_topic_section_is_still_in_the_instructions():
     for start in r.SECTION_GROUPS:
         assert any(h.startswith(start) for h in headings), start      # a renamed heading would fall out
     every = r.instructions(SYSTEM_PROMPT, set(r.GROUPS) | {"reply", "attachments"})
-    assert sorted(every) == sorted(SYSTEM_PROMPT)                     # all of it, only reordered
+    assert every == SYSTEM_PROMPT                                     # all of it, as written
+
+
+def test_routing_can_be_switched_off(db, monkeypatch):
+    """AI_TOOL_ROUTING=false: every tool and all the instructions, as before."""
+    from app.core.config import settings
+    from app.services.ai_accountant.orchestrator import SYSTEM_PROMPT, build_personal_registry, run_chat_turn
+    monkeypatch.setattr(settings, "ai_tool_routing", False)
+    cap = _Capture(_assistant_text("ok"))
+    asyncio.run(run_chat_turn(db, user_id="u1", user_message="hmm", client=cap, mode="personal"))
+    assert set(cap.calls[0]["tools"]) == {t["name"] for t in build_personal_registry().to_anthropic()}
+    assert SYSTEM_PROMPT in cap.calls[0]["system"]

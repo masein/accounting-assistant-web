@@ -542,7 +542,8 @@
      "query_ledger",
      "get_account_balance",
      "get_financial_statement",
-     "list_entities"
+     "list_entities",
+     "get_party_balances"
     ],
     "reply_lang": "fa",
     "reply_contains_any": [

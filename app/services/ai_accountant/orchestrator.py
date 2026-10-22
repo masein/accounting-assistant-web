@@ -1420,7 +1420,9 @@ async def run_chat_turn(
     src_amounts = list(source_amounts or [])
     src_amounts.extend(_numbers_in_text(user_message))
     personal = mode == "personal"
-    routed = registry is None            # a caller's own registry (a test's) is offered whole
+    # a caller's own registry (a test's) is offered whole; AI_TOOL_ROUTING=false offers every tool
+    from app.core.config import settings as _settings
+    routed = registry is None and _settings.ai_tool_routing
     reg = registry or (build_personal_registry() if personal else build_default_registry())
     tool_defs = reg.to_anthropic()  # provider-neutral: {name, description, input_schema}
 

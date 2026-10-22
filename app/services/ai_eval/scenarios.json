@@ -1464,7 +1464,9 @@
     ],
     "card": {
      "tool": "propose_create_transaction",
-     "total": 660,
+     "debit_prefix": [
+      "61"
+     ],
      "fields": {
       "currency": "OMR"
      }

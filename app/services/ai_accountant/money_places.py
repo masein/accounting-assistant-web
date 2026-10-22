@@ -85,9 +85,13 @@ class ProposeMoneyPlace(BaseTool):
             raise ToolError(f"These books have no account {parent_code} to keep the place under.", code="no_parent")
         if existing is not None and _has_entries(ctx.db, existing.id):
             # a second starting balance would count the money twice: say what it holds, ask where the extra came from
+            # «دو تا مبدل برق خریدم ۲ ریال عمان از کیف پول سبز» came here as money in the wallet, and the
+            # user was asked where the extra 2 rials came from (eval, 2026-10-22, scenario AZ3)
             raise ToolError(
-                f"{existing.name} ({existing.code}) is already in the books with its starting balance. Ask where "
-                "the extra money came from (income, a transfer from another place…) and propose that instead.",
+                f"{existing.name} ({existing.code}) is already in the books with its starting balance. Money "
+                f"spent or paid FROM it («خریدم», «دادم», «پرداخت», 'paid', 'bought') is not this: propose it with "
+                f"propose_create_transaction, Dr the category / Cr {existing.code}. Only money that came INTO it "
+                "needs a source: then ask where it came from (income, a transfer from another place…).",
                 code="already_started")
         code = existing.code if existing is not None else suggest_code(ctx.db, parent)
         on = args.date or _date.today()

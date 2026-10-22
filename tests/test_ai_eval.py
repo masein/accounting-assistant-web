@@ -225,7 +225,7 @@ def cli_on_test_db(db, monkeypatch):
     from app.models.company import Company
     from tests.test_admin_audit import _purge_company
     with tenant_bypass():
-        ids = [str(c) for c in db.execute(select(Company.id).where(Company.name == "AI eval books")).scalars()]
+        ids = [str(c) for c in db.execute(select(Company.id).where(Company.name.in_(("AI eval books", "AI eval person")))).scalars()]
     for cid in ids:
         _purge_company(db, cid)
 

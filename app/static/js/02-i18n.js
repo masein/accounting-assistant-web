@@ -1949,6 +1949,7 @@
         auditEnt_pay_run: 'Pay run',
         auditEnt_payment: 'Payment',
         auditEnt_statement_posting: 'Statement posting',
+        auditEnt_currency_exchange: 'Currency exchange',
         auditEnt_payroll_rule_set: 'Payroll rules',
         auditEnt_payslips: 'Payslips',
         auditEnt_petty_cash_account: 'Petty cash account',

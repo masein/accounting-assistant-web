@@ -1900,6 +1900,7 @@ window.I18N_PACKS.ar = Object.assign({
         auditEnt_pay_run: 'دورة الرواتب',
         auditEnt_payment: 'دفعة',
         auditEnt_statement_posting: 'ترحيل كشف حساب',
+        auditEnt_currency_exchange: 'تحويل عملة',
         auditEnt_payroll_rule_set: 'قواعد الرواتب',
         auditEnt_payslips: 'قسائم الرواتب',
         auditEnt_petty_cash_account: 'حساب العهدة النقدية',

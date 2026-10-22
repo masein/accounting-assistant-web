@@ -280,6 +280,10 @@ def effective_budgets(db, company_id, limits: dict[str, Any]) -> tuple[int, int]
                 company_budget = int(row.ai_daily_token_budget)
             if row.ai_user_daily_token_budget is not None:
                 user_budget = int(row.ai_user_daily_token_budget)
+            elif (getattr(row, "kind", None) or "") == "personal":
+                # a person's books are one person: their budget is the books', not the platform's 2M per user —
+                # the owner hit 2.1M of 2M with 7.9M of the books' 10M left, and can't open Settings (2026-10-22)
+                user_budget = company_budget
     return company_budget, user_budget
 
 
@@ -520,15 +524,26 @@ def platform_summary(db) -> list[dict[str, Any]]:
         select(AIUsageEvent.company_id, func.coalesce(func.sum(tokens), 0),
                func.coalesce(func.sum(AIUsageEvent.cost_micros), 0))
         .where(AIUsageEvent.created_at > now - timedelta(days=30)).group_by(AIUsageEvent.company_id)).all()}
+    # the busiest user of each company in the same 24 hours: a per-user budget stops them before the company's
+    top: dict = {}
+    for cid, _uid, n in db.execute(
+            select(AIUsageEvent.company_id, AIUsageEvent.user_id, func.coalesce(func.sum(tokens), 0))
+            .where(AIUsageEvent.created_at > now - WINDOW, AIUsageEvent.user_id.is_not(None))
+            .group_by(AIUsageEvent.company_id, AIUsageEvent.user_id)).all():
+        top[cid] = max(top.get(cid, 0), int(n or 0))
     with tenant_bypass():
         companies = db.execute(select(Company).order_by(Company.name)).scalars().all()
     out = []
     for c in companies:
         budget = c.ai_daily_token_budget if c.ai_daily_token_budget is not None else limits["company_daily_tokens"]
+        _company, user_budget = effective_budgets(db, c.id, limits)
         out.append({
             "company_id": str(c.id), "name": c.name,
             "tokens_24h": int(used.get(c.id, 0)), "budget": int(budget),
             "budget_is_default": c.ai_daily_token_budget is None,
+            "personal": (c.kind or "") == "personal",
+            "user_budget": int(user_budget), "user_budget_is_default": c.ai_user_daily_token_budget is None,
+            "top_user_tokens_24h": int(top.get(c.id, 0)),
             "tokens_30d": month.get(c.id, (0, 0))[0],
             "cost_usd_30d": round(month.get(c.id, (0, 0))[1] / 1_000_000, 4),
         })

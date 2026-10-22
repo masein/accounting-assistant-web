@@ -127,6 +127,8 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db), _=Depe
 class CompanyAIBudget(BaseModel):
     # tokens over any 24 hours for the whole company; 0 = unlimited, None = platform default
     daily_tokens: int | None = Field(None, ge=0, le=100_000_000_000)
+    # each user's, when given; None = the platform default (a person's books: the company's)
+    user_daily_tokens: int | None = Field(None, ge=0, le=100_000_000_000)
 
 
 @router.get("/ai-usage")
@@ -153,8 +155,12 @@ def set_company_ai_budget(company_id: UUID, payload: CompanyAIBudget, db: Sessio
             raise HTTPException(status_code=404, detail="Company not found")
         before = company.ai_daily_token_budget
         company.ai_daily_token_budget = payload.daily_tokens
+        detail = {"company_daily_tokens": payload.daily_tokens, "was": before}
+        if "user_daily_tokens" in payload.model_fields_set:      # the console sets each user's too
+            detail.update(user_daily_tokens=payload.user_daily_tokens, user_was=company.ai_user_daily_token_budget)
+            company.ai_user_daily_token_budget = payload.user_daily_tokens
         log_audit_event(db, action="update", entity_type="ai_budget", entity_id=str(company.id),
-                        detail=_json.dumps({"company_daily_tokens": payload.daily_tokens, "was": before}))
+                        detail=_json.dumps(detail))
         db.commit()
     from app.services.ai_usage import platform_summary
     return next(r for r in platform_summary(db) if r["company_id"] == str(company_id))

@@ -811,3 +811,14 @@ A budget was in the books' currency and counted spending at its base value, so O
 | AU6 | The card names its currency | A week's spending in Omani rials; a table in rials and Omani rials | «OMR» (or «ریال عمان») once above the rows; each row names its currency when there are two |
 | AU7 | The card's date in order | A Persian card «دریافت ۳۰۰ ریال عمانی قرض از امیر، در کیف پول قشنگم» dated ۲۹ مهر ۱۴۰۵, in an English app | «…قشنگم، ۲۹ مهر ۱۴۰۵», not «۲۹۱۴۰۵ مهر» |
 | AU8 | Nothing behind the composer | Scroll the conversation; tap a choice | The messages pass under the composer, not through it; the newest message is above it, whole |
+
+## AV. A person's AI budget is their books' (2026-10-22)
+
+The owner's phone said «Today's AI allowance is used up» at 2.1M tokens, while the console showed «2.1M / 10M *». The platform's 2M per user stopped them; the books' 10M was far off; a person's account can't open Settings to change it, and the console only showed and set the company's.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| AV1 | One person, one budget | Personal books with no per-user budget set; 2.1M tokens used today; the books' budget 10M | The chat answers: the person's budget is the books' 10M, not the platform's 2M per user |
+| AV2 | A company's users still have theirs | A company with no per-user budget; one user at 2.1M | That user is refused at the platform's 2M; a colleague is not |
+| AV3 | The console says which limit | Companies → AI · 24 h | «2.1M / 10M *» (* set for this company, explained under the table); a company whose busiest user is near a tighter per-user budget shows a second line «per user 2.1M / 2M» |
+| AV4 | Set both in the console | AI budget on a company | It asks for the company's budget, then each user's; on a person's books only the first |

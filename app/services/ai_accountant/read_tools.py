@@ -136,6 +136,12 @@ class FindEntity(BaseTool):
         from app.utils.text import fold_fa
         q_lower = fold_fa(q.lower())
         q_words = _party_words(q_lower)
+        # «یکیش رو امیر بهم داده، بقیه رو امین»: a party named beside the one asked for is someone else, however
+        # alike the names (امین / امیر are one letter apart, 0.75) — the model stopped to ask whether Amin was
+        # Amir, and made no cards (scenario AY5)
+        said = _party_words(fold_fa((ctx.user_message or "").lower()))
+        asked_said = bool(q_words) and q_words <= said
+        apart: list[str] = []
         for row in all_rows:
             name = fold_fa(row.name.lower())
             ratio = difflib.SequenceMatcher(None, q_lower, name).ratio()
@@ -151,6 +157,9 @@ class FindEntity(BaseTool):
             n_words = _party_words(name)
             if q_words and n_words and q_words <= n_words:
                 ratio = max(ratio, 0.9 + 0.1 * len(q_words) / len(n_words))
+            elif asked_said and n_words and n_words <= said:
+                ratio = min(ratio, 0.2)
+                apart.append(row.name)
             scored.append((ratio, row))
 
         if args.type:
@@ -189,6 +198,9 @@ class FindEntity(BaseTool):
         if learned_entity is not None:
             out["learned_note"] = (f"The user chose {learned_entity.name} before for "
                                    f"\"{learned.preference.label}\".")
+        if apart and not any(m["confidence"] >= 0.8 for m in out["matches"]):
+            out["note"] = (f"The user's message names {', '.join(apart)} as well as {q}: they are different people, "
+                           f"so {q} is not in the books yet — someone new, not a question to ask.")
         return out
 
 

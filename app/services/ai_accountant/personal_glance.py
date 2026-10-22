@@ -60,8 +60,21 @@ def people(db: Session) -> list[Entity]:
                            .limit(MAX_PEOPLE)).scalars().all())
 
 
+def _english() -> dict[tuple[str, str], str]:
+    """(code, Persian name) → the seeded English name: "a taxi" read against «حمل‌ونقل» alone went under
+    dining out (AY3). A category the person renamed keeps only its own name."""
+    from app.db.seed import PERSONAL_SEED_ACCOUNTS
+    return {(code, fa): en for code, fa, en, *_rest in PERSONAL_SEED_ACCOUNTS}
+
+
+def _label(a: Account, en: dict[tuple[str, str], str]) -> str:
+    english = en.get((a.code, a.name))
+    return f"{a.code} «{a.name}»" + (f" ({english})" if english else "")
+
+
 def _names(accounts: list[Account]) -> str:
-    shown = "; ".join(f"{a.code} «{a.name}»" for a in accounts[:MAX_CATEGORIES])
+    en = _english()
+    shown = "; ".join(_label(a, en) for a in accounts[:MAX_CATEGORIES])
     return shown + ("; …" if len(accounts) > MAX_CATEGORIES else "") if shown else "none"
 
 

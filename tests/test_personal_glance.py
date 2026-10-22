@@ -41,7 +41,8 @@ def test_ay3_the_places_with_their_currencies_the_categories_and_the_people(db, 
     assert f"{PRETTY_WALLET} «کیف پول قشنگم» (cash, OMR)" in block
     assert f"{MELLAT} «حساب ملت» (bank, IRR)" in block
     assert "«موجودی نقد»" not in block                       # a heading with wallets under it and no entries
-    for line in ("6125 «لوازم و تعمیرات خانه»", "6130 «حمل‌ونقل»", "6185 «سفر»", "4110 «حقوق و دستمزد»"):
+    for line in ("6125 «لوازم و تعمیرات خانه» (Home supplies & repairs)", "6130 «حمل‌ونقل» (Transport)",
+                 "6185 «سفر» (Travel)", "4110 «حقوق و دستمزد» (Salary & wages)"):
         assert line in block
     assert f"«امیر» (entity_id {person.entities['امیر']})" in block
     assert "never stop to ask whether to add them" in block    # AY5: someone new goes on the card
@@ -65,3 +66,36 @@ def test_ay2_the_fast_answer_lists_the_same_categories(db, person):
                                             lang="fa", mode="personal"))
     assert out is not None and out.intent == "categories"
     assert "سفر" in out.text and "لوازم و تعمیرات خانه" in out.text and "حقوق و دستمزد" in out.text
+
+
+def test_ay5_someone_named_beside_a_person_in_the_books_is_someone_else(db, person):
+    """«امین» is one letter from «امیر» (0.75): named in the same message, they are two people (AY5)."""
+    from app.db.tenant import use_company
+    from app.services.ai_accountant.base import ToolContext
+    from app.services.ai_accountant.read_tools import FindEntity, FindEntityInput
+
+    def find(query, message):
+        ctx = ToolContext(db=db, user_id="u1", user_message=message, mode="personal")
+        return asyncio.run(FindEntity().run(ctx, FindEntityInput(query=query)))
+
+    with use_company(person.company_id):
+        both = find("امین", "یکیش رو امیر بهم نقدی داده بقیه از حساب امین پرداخت شده")
+        alone = find("امین", "امین پول هتل رو داد")
+        amir = find("امیر", "یکیش رو امیر بهم نقدی داده بقیه از حساب امین پرداخت شده")
+    assert not [m for m in both["matches"] if m["confidence"] >= 0.5]
+    assert "different people" in both["note"] and "امیر" in both["note"]
+    assert alone["matches"][0]["name"] == "امیر" and "note" not in alone   # alone, it may be a slip: ask as before
+    assert amir["matches"][0]["name"] == "امیر" and amir["matches"][0]["confidence"] >= 0.9
+
+
+def test_ay3_a_renamed_category_keeps_only_its_own_name(db, person):
+    from sqlalchemy import select
+
+    from app.db.tenant import use_company
+    from app.models.account import Account
+    from app.services.ai_accountant.personal_glance import glance_block
+    with use_company(person.company_id):
+        db.execute(select(Account).where(Account.code == "6130")).scalar_one().name = "تاکسی و اسنپ"
+        db.flush()
+        block = glance_block(db)
+    assert "6130 «تاکسی و اسنپ»;" in block and "(Transport)" not in block

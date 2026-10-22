@@ -874,3 +874,12 @@ From the owner's phone (IMG_1201–1208): «کیف پول والای» stood at 
 | AZ4 | Two questions in one | «چقدر پول داریم کلا و چقدر بدهی داریم» | Not the quick money answer alone: the model answers both, money in each currency and what is owed person by person |
 | AZ5 | The briefing in the language of the chat | Phone in English, chat in Persian; a $2,000 starting balance on a Friday | The briefing is in Persian. A person's books don't run the company audit checks: round amounts on a weekend, duplicate supplier payments, payments split under an approval limit, a large first supplier payment |
 | AZ6 | A card with no amount | «اسم کیف پول سبز رو عوض کن به کیف پول قشنگم» on the phone | The rename card shows «کیف پول سبز ← کیف پول قشنگم» with no figure. It used to show «Voucher 0» (next APK) |
+
+## BA. The owner's phone after the exchange (2026-10-22, IMG_1209–1211)
+
+The exchange put «کیف پول والای» right (312.265 OMR, $500, AED 1,785), and «چقدر پول داریم کلا و چقدر بدهی داریم» was answered in both halves. Two things were still wrong.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BA1 | No total across currencies | A person's money in Omani rials, dollars and dirhams; «چقدر پول داریم کلا» | Each currency on its own: 454.160 OMR, 4,500 USD, 1,785 AED. The tool no longer gives a rial total. The reply said «۴٬۵۰۰٬۰۰۰٬۰۰۰ ریال… ۲۷ مورد ارزی هنوز نرخ تبدیل ندارند»: the dollars were valued at some rial rate, the Omani rials and dirhams at none |
+| BA2 | Moving entries to another category | «این سه تا خرید رو اشتباه زیر «خانواده و هدایا» ثبت کردی، ببرشون زیر «لوازم و تعمیرات خانه»: …» (2 + 3 + 1 OMR) | One correcting card: Dr «لوازم و تعمیرات خانه» / Cr «خانواده و هدایا», 6.000 OMR, no wallet on it. It said it needed the entries' ids, and made a reminder card instead |

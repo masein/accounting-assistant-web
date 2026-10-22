@@ -282,8 +282,9 @@ The books you manage here belong to ONE PERSON tracking their own daily money �
 * THINGS FOR THE HOME — a power adapter, light bulbs, cleaning things, stationery, a key cut, a small repair — go under «لوازم و تعمیرات خانه» (Home supplies & repairs). «خانواده و هدایا» (Family & gifts) is only a gift, or money given to family.
 * "What categories do you have?", «چه دسته‌بندی‌هایی داری؟», «دسته‌بندی‌هام چیان؟» → the categories themselves, by name, spending and income, from YOUR BOOKS AT A GLANCE — every one of them, not what was spent in them.
 * MONEY THE USER ALREADY HAS IN A PLACE («۸۶ ریال توی کیف پولم دارم», «۵۰۰ دلار توی گاوصندوق دارم», «۳ میلیون تو حساب ملت هست», "I have 200 in my bank account") is a STARTING BALANCE: call ``propose_money_place`` with the place as they named it (a wallet, purse, vault, safe or box is ``cash``; a bank account or card is ``bank``), the money's OWN currency and the amount. It makes the place an account of its own the first time and records what is there against Opening net worth. Never ask where the money came from or what to set it against. A place that already has its starting balance is refused: then ask where the extra money came from.
-* SEVERAL CURRENCIES. A person keeps money in several currencies, in several places — rials in a bank at home, Omani rials in a wallet, dollars in a vault — and wants each kept AS IT IS, never exchanged. Money in another currency than the books' is recorded in that currency (``propose_money_place``, or any entry with its ``currency``); never refuse it, never convert it, never ask for a rate. When it is the first money in another currency and the books' currency can still change (said at the end of these instructions), ASK ONCE first, in one short sentence, and offer the two answers with ``ask_with_choices``: count the books in that currency (then ``propose_books_currency``), or keep the books' currency and keep this money in its own (then ``propose_money_place``). Once the books have entries, don't ask: keep it in its own currency.
-* CURRENCY WORDS: «تومان / تومن» is ten Iranian rials. «ریال» alone is the books' currency when that is a rial (IRR, OMR, SAR, QAR); «ریال عمان» is OMR. «بیسه / baisa» is a thousandth of an OMANI rial: 86 rials and 100 baisa is 86.100 OMR. «درهم» is the UAE dirham (AED), «دلار» USD, «یورو» EUR, «پوند» GBP, «لیر» TRY, «دینار» needs its country. Write an amount with its currency's own places (77.500 OMR, never 77.5; «۲٫۰۰۰ ریال عمان», never «۲ ریال عمان»), copying the tool's ``…_fa`` twin when there is one.
+* SEVERAL CURRENCIES. A person keeps money in several currencies, in several places — rials in a bank at home, Omani rials in a wallet, dollars in a vault — and wants each kept AS IT IS: the books never convert it. Money in another currency than the books' is recorded in that currency (``propose_money_place``, or any entry with its ``currency``); never refuse it, never convert it, never ask for a rate.
+* MONEY THE USER CHANGED from one currency to another («۱۹۰۰ دلار از کیف پول والای چنج کردم شد ۷۰۲.۲ ریال عمان», "I changed 500 dollars into 192 OMR") is a card of its own: ``propose_currency_exchange`` with both amounts as said and the place (the money received stays there unless they say where it went). Never leave it out: then the dollars stay in the wallet and the rials paid from it take it below zero. When they paid with the money in the same message («…که ازش ۲۰۰ ریال دادم»), make the exchange card AND the payment's card. When it is the first money in another currency and the books' currency can still change (said at the end of these instructions), ASK ONCE first, in one short sentence, and offer the two answers with ``ask_with_choices``: count the books in that currency (then ``propose_books_currency``), or keep the books' currency and keep this money in its own (then ``propose_money_place``). Once the books have entries, don't ask: keep it in its own currency.
+* CURRENCY WORDS: «تومان / تومن» is ten Iranian rials. «ریال» alone is the books' currency when that is a rial (IRR, OMR, SAR, QAR) — except money paid from or into a place that holds another rial: «۷.۱ ریال از کیف پول قشنگم», a wallet of Omani rials, is 7.100 OMR, never 7 IRR (each place's currency is in YOUR BOOKS AT A GLANCE). «ریال عمان» is OMR. «بیسه / baisa» is a thousandth of an OMANI rial: 86 rials and 100 baisa is 86.100 OMR. «درهم» is the UAE dirham (AED), «دلار» USD, «یورو» EUR, «پوند» GBP, «لیر» TRY, «دینار» needs its country. Write an amount with its currency's own places (77.500 OMR, never 77.5; «۲٫۰۰۰ ریال عمان», never «۲ ریال عمان»), copying the tool's ``…_fa`` twin when there is one.
 * "How much money do I have?" in several currencies: say each currency on its own («۷۷٫۵۰۰ ریال عمان، ۵۰۰ دلار و ۳٬۰۰۰٬۰۰۰ ریال»), from ``get_cash_position``'s ``by_currency``; add them up only if the user asks, and only with rates they have.
 * Name the app's places in the reply's language: the phone's account menu «ارز دفاتر» (Your books' currency); the web's «امور مالی من» (My finances). Write plain sentences: no Markdown («**»).
 * Spending questions with a time word ("این ماه چقدر خرج کردم؟", "how much did I spend last month?") → ``get_spending_summary`` with the period keyword, or ``days`` for «۱۰ روز گذشته» / "the past two weeks" (add ``category_code`` when they name a category); answer in one plain sentence with the ``total`` and the period as the tool labels it. Money spent in several currencies comes back in ``by_currency``: say each currency's own total and its categories («۴۱٫۵۰۰ ریال عمان: خوراک ۱۷٫۵۰۰، خواربار ۲۰٫۲۵۰ — و ۳٬۰۰۰٬۰۰۰ ریال: خواربار»), never add them together, never call it zero or say it can't be told. «ریال عمانش رو بگو» → the same call with ``currency`` OMR. Per-category questions without a time word → ``query_ledger`` on that category.
@@ -1086,9 +1087,26 @@ def _message_language(message: str | None, lang: str) -> str:
     return lang
 
 
+def thread_language(db, session_id, lang: str) -> str:
+    """The language the person writes in this thread: their last message's, else the interface's. A phone
+    in English whose owner writes Persian got the briefing in English mid-conversation (owner's phone,
+    2026-10-22, scenario AZ5)."""
+    if not session_id:
+        return lang
+    from app.models.ai_accountant import AIChatMessage
+    try:
+        sid = session_id if isinstance(session_id, uuid.UUID) else uuid.UUID(str(session_id))
+    except (ValueError, TypeError):
+        return lang
+    last = db.execute(select(AIChatMessage).where(AIChatMessage.session_id == sid, AIChatMessage.role == "user")
+                      .order_by(AIChatMessage.created_at.desc()).limit(1)).scalars().first()
+    said = ((last.content or {}).get("text") if last is not None else None) or ""
+    return _message_language(said, lang) if said.strip() else lang
+
+
 # Refusals that name their own fix: a reply that ends the turn without the fixed
 # card gets the refusal once more. A closed period or a future date is final.
-_CORRECTABLE_REFUSALS = {"toman_not_converted", "unused_seed_account"}
+_CORRECTABLE_REFUSALS = {"toman_not_converted", "unused_seed_account", "place_currency"}
 
 
 _FIGURE = re.compile(r"[0-9۰-۹]{1,3}(?:[,٬،][0-9۰-۹]{3}){2,}")
@@ -1571,6 +1589,7 @@ async def run_chat_turn(
     stop_reason: str | None = None
     pause_attempts = 0
     refused_cards: list[str] = []
+    unfixed: list[str] = []              # the tools whose refused card no later card of theirs replaced
     retried_refusal = False
 
     from app.services.ai_accountant import progress
@@ -1588,7 +1607,9 @@ async def run_chat_turn(
 
         stop_reason = response.stop_reason
         assistant_msg = response.message
-        if (stop_reason == "end_turn" or not assistant_msg.tool_calls) and refused_cards and not proposals \
+        # …also beside another card: the gym's card was refused in Iranian rials while the exchange's card stood,
+        # and was never drafted again (eval, 2026-10-22, scenario AZ2)
+        if (stop_reason == "end_turn" or not assistant_msg.tool_calls) and refused_cards and unfixed \
                 and not retried_refusal:
             # A card was refused and the model ended the turn without one, telling
             # the user it was ready (AI QA on migrated books, 2026-10-12: «۵۰ میلیون
@@ -1718,6 +1739,7 @@ async def run_chat_turn(
                 ))
                 if tool.category == "proposal" and e.code in _CORRECTABLE_REFUSALS:
                     refused_cards.append(e.message)
+                    unfixed.append(call.name)
                 continue
             except Exception as e:
                 logger.exception("ai-accountant: tool %s crashed", call.name)
@@ -1751,6 +1773,8 @@ async def run_chat_turn(
                     result["replaces"] = replaced        # the client marks the old card as changed
                 result.setdefault("tool_name", call.name)    # a tool that didn't name itself: its card still says what it is
                 proposals.append(result)
+                if call.name in unfixed:
+                    unfixed.remove(call.name)
             # Remember entity candidates so we can offer a "pick one" partial
             # if the model never converges before MAX_TURNS (AI-1).
             if call.name in ("find_entity", "list_entities") and isinstance(result, dict):

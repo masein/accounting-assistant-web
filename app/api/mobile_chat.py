@@ -907,7 +907,8 @@ def mobile_briefing(payload: BriefingPayload, db: Session = Depends(get_db),
     from app.services.ai_accountant.orchestrator import _get_or_create_session
     from app.services.documents.formatting import to_persian_digits
     from app.services.insight_service import briefing_text, compute_insights
-    lang = _user_language(db, user)
+    from app.services.ai_accountant.orchestrator import thread_language
+    lang = thread_language(db, payload.thread_id, _user_language(db, user))   # the language they write in (AZ5)
     calendar = _calendar(db)
     text = briefing_text(compute_insights(db), lang)
     waiting = _waiting_for(db, user)

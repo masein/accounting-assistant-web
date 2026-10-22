@@ -23,9 +23,9 @@ CORE: tuple[str, ...] = (
 # group → (what it is for, in one line for ``more_tools``; its tools)
 GROUPS: dict[str, tuple[str, tuple[str, ...]]] = {
     "money": ("cash and bank today, each place and currency, people owed and owing, net worth, money places, "
-              "renaming a place, the books' currency",
+              "renaming a place, the books' currency, money changed from one currency to another",
               ("get_cash_position", "get_people_balances", "get_net_worth", "propose_money_place",
-               "propose_rename_place", "propose_books_currency")),
+               "propose_rename_place", "propose_books_currency", "propose_currency_exchange")),
     "spending": ("spending and income for a period and by category, the monthly report card, insights, "
                  "financial statements, tax, the cash forecast",
                  ("get_spending_summary", "get_report_card", "get_insights", "get_financial_statement",
@@ -63,8 +63,9 @@ _I = re.IGNORECASE
 # a group too many costs a few hundred tokens, a group missing costs a ``more_tools`` call.
 KEYWORDS: dict[str, re.Pattern] = {
     "money": re.compile(
-        r"پول|کیف|گاوصندوق|صندوق|موجودی|بدهکار|بستانکار|طلب|دارایی|ارز|اسم|نام|جیب|پاکت|کشو|امانت|قرض|"
+        r"پول|کیف|گاوصندوق|صندوق|موجودی|بدهکار|بستانکار|طلب|دارایی|ارز|اسم|نام|جیب|پاکت|کشو|امانت|قرض|چنج|تبدیل|صرافی|"
         r"\b(cash|money|wallet|purse|vault|safe|balance|owe|owes|owed|lent|lend|borrow|loan|worth|currency|rename|"
+        r"exchang\w*|chang(e|ed) \d+|convert\w*|"
         r"envelope|drawer|how much do i have|dinero|cartera|debo|deben|saldo|moneda|محفظة|نقود|مال|رصيد|عملة|أدين|يدين)\b", _I),
     "spending": re.compile(
         r"خرج|هزینه|دسته|ماه|هفته|امسال|سال|امروز|دیروز|کارنامه|گزارش|سود|زیان|ترازنامه|ترازآزمایشی|مالیات|ارزش افزوده|"

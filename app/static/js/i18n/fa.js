@@ -1944,6 +1944,7 @@ window.I18N_PACKS.fa = Object.assign({
         auditEnt_pay_run: 'دوره حقوق',
         auditEnt_payment: 'پرداخت',
         auditEnt_statement_posting: 'ثبت صورتحساب',
+        auditEnt_currency_exchange: 'تبدیل ارز',
         auditEnt_payroll_rule_set: 'قواعد حقوق و دستمزد',
         auditEnt_payslips: 'فیش‌های حقوقی',
         auditEnt_petty_cash_account: 'حساب تنخواه',

@@ -561,6 +561,7 @@ class TestPersonalMode:
             # money where it's kept, in its own currency (scenarios AB1–AB6)
             "propose_money_place", "propose_books_currency", "ask_with_choices",
             "propose_rename_place",                 # a wallet renamed, its account itself (scenario AK5)
+            "propose_currency_exchange",            # money changed from one currency to another (AZ1)
             "get_budget_status", "propose_set_budget", "propose_review_prefs",   # a review's suggestions (AL9, AL14)
             "check_affordability", "propose_savings_goal",                     # can I afford it? (AM1–AM10)
             "get_report_card", "get_savings_goals", "get_net_worth", "get_people_balances",

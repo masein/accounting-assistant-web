@@ -85,9 +85,13 @@ class ProposeMoneyPlace(BaseTool):
             raise ToolError(f"These books have no account {parent_code} to keep the place under.", code="no_parent")
         if existing is not None and _has_entries(ctx.db, existing.id):
             # a second starting balance would count the money twice: say what it holds, ask where the extra came from
+            # «دو تا مبدل برق خریدم ۲ ریال عمان از کیف پول سبز» came here as money in the wallet, and the
+            # user was asked where the extra 2 rials came from (eval, 2026-10-22, scenario AZ3)
             raise ToolError(
-                f"{existing.name} ({existing.code}) is already in the books with its starting balance. Ask where "
-                "the extra money came from (income, a transfer from another place…) and propose that instead.",
+                f"{existing.name} ({existing.code}) is already in the books with its starting balance. Money "
+                f"spent or paid FROM it («خریدم», «دادم», «پرداخت», 'paid', 'bought') is not this: propose it with "
+                f"propose_create_transaction, Dr the category / Cr {existing.code}. Only money that came INTO it "
+                "needs a source: then ask where it came from (income, a transfer from another place…).",
                 code="already_started")
         code = existing.code if existing is not None else suggest_code(ctx.db, parent)
         on = args.date or _date.today()
@@ -161,6 +165,143 @@ class ProposeRenamePlace(BaseTool):
         token = _register(ctx, self.name, payload)
         return {"confirmation_token": str(token), "status": "pending", "preview": payload,
                 "summary": f"Rename {acc.code} {acc.name} → {new}; its entries and balance stay as they are."}
+
+
+EXCHANGE = "3120"
+EXCHANGE_NAME = {"fa": "تبدیل ارز", "en": "Currency exchange"}
+
+
+class ProposeCurrencyExchangeInput(BaseModel):
+    from_place: str = Field(..., min_length=1, max_length=120,
+                            description="Where the money that was changed came from: its name or code («کیف پول والای», 112005).")
+    from_currency: str = Field(..., min_length=3, max_length=3, description="The currency given: USD for «دلار».")
+    from_amount: Money = Field(..., gt=0, description="How much was given, in that currency: 1900.")
+    to_currency: str = Field(..., min_length=3, max_length=3, description="The currency received: OMR for «ریال عمان».")
+    to_amount: Money = Field(..., gt=0, description="How much came back, in that currency with its places: 702.200.")
+    to_place: str | None = Field(None, max_length=120,
+                                 description="Where the money received went, if not the same place.")
+    date: _date | None = Field(None, description="When; defaults to today.")
+
+
+class ProposeCurrencyExchange(BaseTool):
+    name = "propose_currency_exchange"
+    category = "proposal"
+    description = (
+        "Money changed from one currency to another — at an exchange office, a bank, a friend: «۱۹۰۰ دلار رو چنج "
+        "کردم شد ۷۰۲.۲ ریال عمان», 'I changed 500 dollars into 192 OMR'. The amount given leaves its place in its "
+        "currency and the amount received arrives in its own (the same place unless said), both as they were said; "
+        "nothing is converted at any other rate. Spending doesn't change. One card for the exchange, beside the "
+        "cards for whatever was then paid with the money. Returns a confirm card."
+    )
+    InputSchema = ProposeCurrencyExchangeInput
+
+    async def run(self, ctx: ToolContext, args: ProposeCurrencyExchangeInput) -> dict[str, Any]:
+        from app.core.money import check_places
+        from app.services.ai_accountant.fast_paths import _in_currency
+        give, get = args.from_currency.strip().upper(), args.to_currency.strip().upper()
+        if give == get:
+            raise ToolError("Both sides are in one currency: that is money moved between places, a "
+                            "propose_create_transaction card.", code="same_currency")
+        for amount, ccy in ((args.from_amount, give), (args.to_amount, get)):
+            try:
+                check_places(amount, ccy)
+            except ValueError as e:
+                raise ToolError(str(e), code="invalid_amount") from e
+        source = resolve_place(ctx.db, args.from_place)
+        target = resolve_place(ctx.db, args.to_place) if args.to_place else source
+        if source is None or target is None:
+            known = "; ".join(f"{a.code} {a.name}" for a in _places(ctx.db)) or "none yet"
+            missing = args.from_place if source is None else args.to_place
+            raise ToolError(f"No place called {missing!r}. The places are: {known}. Ask which one.", code="no_place")
+        persian = _persian((ctx.user_message or "") + source.name)
+        lang = "fa" if persian else "en"
+        gave, got = _in_currency(args.from_amount, give, lang), _in_currency(args.to_amount, get, lang)
+        where = source.name if target.id == source.id else f"{source.name} → {target.name}"
+        description = (f"تبدیل {gave} به {got} — {where}" if persian else f"Changed {gave} into {got} — {where}")
+        rate = plain(args.to_amount) / plain(args.from_amount)
+        on = args.date or _date.today()
+        payload = {"from_code": source.code, "from_name": source.name, "from_currency": give,
+                   "from_amount": plain(args.from_amount), "to_code": target.code, "to_name": target.name,
+                   "to_currency": get, "to_amount": plain(args.to_amount), "rate": f"{rate:.6g}",
+                   "date": on.isoformat(), "description": description,
+                   # the card: what was given, the title says what came back
+                   "currency": give, "amount": plain(args.from_amount)}
+        token = _register(ctx, self.name, payload)
+        summary = (f"{source.code} {source.name}: {grouped(args.from_amount)} {give} out, "
+                   f"{target.code} {target.name}: {grouped(args.to_amount)} {get} in (1 {give} = {rate:.6g} {get}, "
+                   f"as given); through {EXCHANGE} «{EXCHANGE_NAME['fa']}», one entry in each currency.")
+        return {"confirmation_token": str(token), "status": "pending", "summary": summary, "preview": payload}
+
+
+def pending_exchanges_into(db, session_id, code: str, currency: str) -> bool:
+    """An exchange card of this conversation, not yet confirmed, that brings ``currency`` into ``code``: a
+    payment from it in the same message («…که ازش ۲۰۰ ریال دادم») is fine (scenario AZ2)."""
+    from app.models.ai_accountant import AIProposal
+    if not session_id:
+        return False
+    for row in db.execute(select(AIProposal).where(AIProposal.session_id == str(session_id),
+                                                   AIProposal.tool_name == "propose_currency_exchange",
+                                                   AIProposal.status.in_(("pending", "executed")))).scalars():
+        p = row.tool_input or {}
+        if p.get("to_code") == code and (p.get("to_currency") or "").upper() == currency:
+            return True
+    return False
+
+
+def _exchange_account(db):
+    """«تبدیل ارز» beside «خالص دارایی اولیه»: made the first time money is changed in books kept before it."""
+    from app.models.account import Account
+    acc = db.execute(select(Account).where(Account.code == EXCHANGE)).scalars().first()
+    if acc is not None:
+        return acc
+    from app.models.account import AccountLevel
+    opening = db.execute(select(Account).where(Account.code == OPENING)).scalars().first()
+    name = EXCHANGE_NAME["fa"] if opening is None or _persian(opening.name) else EXCHANGE_NAME["en"]
+    acc = Account(code=EXCHANGE, name=name, level=opening.level if opening else AccountLevel.GENERAL,
+                  parent_id=opening.parent_id if opening else None, is_active=True)
+    db.add(acc)
+    db.flush()
+    return acc
+
+
+def _exchange(db, proposal, p: dict, common: dict) -> tuple[str, str]:
+    """Two entries, one in each currency, through «تبدیل ارز»: the money given leaves its place, the money
+    received arrives in its own; neither is worth the other in the books (docs/PLAN_CURRENCIES.md)."""
+    from app.schemas.transaction import TransactionCreate, TransactionLineCreate
+    from app.services.ai_accountant.time_execute import _audit
+    from app.services.ledger_posting import create_transaction_from_payload
+    _exchange_account(db)
+    on, desc = _date.fromisoformat(p["date"]), p["description"]
+    ref = f"FX-{str(proposal.confirmation_token)[:8]}"
+    give, get = plain(p["from_amount"]), plain(p["to_amount"])
+    out_ = create_transaction_from_payload(db, TransactionCreate(
+        date=on, description=desc, currency=p["from_currency"], reference=ref,
+        lines=[TransactionLineCreate(account_code=EXCHANGE, debit=give, credit=0, line_description=desc),
+               TransactionLineCreate(account_code=p["from_code"], debit=0, credit=give, line_description=desc)]))
+    in_ = create_transaction_from_payload(db, TransactionCreate(
+        date=on, description=desc, currency=p["to_currency"], reference=ref,
+        lines=[TransactionLineCreate(account_code=p["to_code"], debit=get, credit=0, line_description=desc),
+               TransactionLineCreate(account_code=EXCHANGE, debit=0, credit=get, line_description=desc)]))
+    ids = [str(out_.id), str(in_.id)]
+    audit_id = _audit(db, proposal, entity_type="currency_exchange", entity_id=ids[0],
+                      detail={"transaction_ids": ids, "transaction_id": ids[0], "from": p["from_currency"],
+                              "to": p["to_currency"], "rate": p.get("rate")}, **common)
+    return ids[0], audit_id
+
+
+def undo_exchange(db, audit, *, actor_user_id: str, actor_username: str | None, ip_address: str | None,
+                  delete: bool, tool_name: str):
+    """Both entries of an exchange taken back together (scenario AZ1)."""
+    import json
+
+    from app.services.ai_accountant.execute_service import undo_entries
+    from app.services.book_text import bt
+    ids = (json.loads(audit.detail or "{}") or {}).get("transaction_ids") or []
+    result = undo_entries(db, audit, ids, actor_user_id=actor_user_id, actor_username=actor_username,
+                          ip_address=ip_address, delete=delete, tool_name=tool_name,
+                          describe=lambda txn: bt(db, "reversal_of", ref=txn.reference or ""))
+    db.commit()
+    return result
 
 
 class ProposeBooksCurrencyInput(BaseModel):
@@ -248,6 +389,8 @@ def execute_money_proposal(db, proposal, *, actor_user_id: str, actor_username: 
         return None, audit_id
     if proposal.tool_name == "propose_rename_place":
         return None, _rename_place(db, proposal, p, common)
+    if proposal.tool_name == "propose_currency_exchange":
+        return _exchange(db, proposal, p, common)
     # propose_money_place: the place (made now if it's new), then its starting balance in its own currency
     parent, acc = find_place(db, p["place"], p["parent_code"])
     if acc is None:
@@ -295,5 +438,6 @@ def _rename_place(db, proposal, p: dict, common: dict) -> str:
 def register_money_tools(registry) -> None:
     registry.register(ProposeMoneyPlace())
     registry.register(ProposeRenamePlace())
+    registry.register(ProposeCurrencyExchange())
     registry.register(ProposeBooksCurrency())
     registry.register(AskWithChoices())

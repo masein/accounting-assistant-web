@@ -350,45 +350,22 @@ def undo_statement_posting(db: Session, audit, *, actor_user_id: str, actor_user
     """Every voucher of a statement posting taken back: soft-deleted inside the undo window and an open
     period, else reversed; their rows open again on the statement."""
     import json
-    from datetime import datetime, timezone
 
-    from app.models.audit_log import AuditLog
-    from app.models.transaction import Transaction
-    from app.services.ai_accountant.execute_service import UndoNotApplicable, UndoResult, _already_reversed
+    from app.services.ai_accountant.execute_service import undo_entries
     from app.services.book_text import bt
-    from app.services.period_service import get_closed_period
-    from app.services.reporting.ledger_service import LedgerService
     from app.services.statement_import import release_statement_rows
 
     ids = (json.loads(audit.detail or "{}") or {}).get("transaction_ids") or []
-    live = [t for t in (db.get(Transaction, uuid.UUID(i)) for i in ids)
-            if t is not None and t.deleted_at is None and not _already_reversed(db, str(t.id))]
-    if not live:
-        raise UndoNotApplicable("These vouchers have already been undone or reversed.")
-    locked = get_closed_period(db)
-    mode = "deleted" if delete else "reversed"
-    last_reversal = None
-    for txn in live:
-        release_statement_rows(db, txn.id)
-        if delete and not (locked is not None and txn.date <= locked):
-            txn.deleted_at = datetime.now(timezone.utc)
-        else:
-            mode = "reversed"
-            last_reversal = LedgerService(db).reverse_journal_entry(
-                transaction_id=txn.id, reverse_date=None, reference=f"REVERSAL of {txn.reference or txn.id}",
-                description=bt(db, "reversed_statement_day", reference=txn.reference or ""), mark_undo=False,
-            ).transaction_id
-        db.add(AuditLog(action="undo", entity_type="transaction", entity_id=str(txn.id), user_id=actor_user_id,
-                        username=actor_username, ip_address=ip_address, actor_source="ai-assistant",
-                        session_id=audit.session_id, tool_name=tool_name, confirmation_token=audit.confirmation_token,
-                        user_message=audit.user_message, detail=json.dumps({"statement_posting": str(audit.id)})))
+    result = undo_entries(db, audit, ids, actor_user_id=actor_user_id, actor_username=actor_username,
+                          ip_address=ip_address, delete=delete, tool_name=tool_name,
+                          before_each=lambda txn: release_statement_rows(db, txn.id),
+                          describe=lambda txn: bt(db, "reversed_statement_day", reference=txn.reference or ""),
+                          gone="These vouchers have already been undone or reversed.")
     stmt = db.get(BankStatement, uuid.UUID(str(audit.entity_id)))
     if stmt is not None:
         stmt.status = "reviewing"
     db.commit()
-    return UndoResult(original_transaction_id=str(live[0].id),
-                      reversal_transaction_id=str(last_reversal) if last_reversal else None,
-                      audit_log_id=str(audit.id), mode=mode)
+    return result
 
 
 def context_for_model(db: Session, statement_id: str) -> str:

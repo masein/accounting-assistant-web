@@ -1417,6 +1417,185 @@
      "text": "کارت خاموش کردن مرور هفتگی آماده است."
     }
    ]
+  },
+  {
+   "id": "p_exchange_fa",
+   "books": "personal",
+   "lang": "fa",
+   "message": "۱۹۰۰ دلار از کیف پول والای چنج کردم شد ۷۰۲.۲ ریال عمان",
+   "expect": {
+    "proposals": 1,
+    "card": {
+     "tool": "propose_currency_exchange",
+     "total": 1900,
+     "fields": {
+      "from_currency": "USD",
+      "to_currency": "OMR"
+     }
+    },
+    "reply_lang": "fa"
+   },
+   "replay": [
+    {
+     "tool": "propose_currency_exchange",
+     "input": {
+      "from_place": "کیف پول والای",
+      "from_currency": "USD",
+      "from_amount": "1900",
+      "to_currency": "OMR",
+      "to_amount": "702.2"
+     }
+    },
+    {
+     "text": "کارت تبدیل ۱٬۹۰۰ دلار به ۷۰۲٫۲۰۰ ریال عمان در کیف پول والای آماده است."
+    }
+   ]
+  },
+  {
+   "id": "p_gym_exchange_fa",
+   "books": "personal",
+   "lang": "fa",
+   "message": "هزینه باشگاه من و همسر ۶۶۰ ریال برای ۲۴ جلسه هست\n۳۰۰ ریال از کیف پول قشنگم دادم ۱۹۰۰ دلار از کیف پول والای چنج کردم که تبدیل شد به ۷۰۲.۲ ریال عمان که ازش ۲۰۰ ریال دادم\nاز کیف پول سبز ۱۶۰ ریال دادم",
+   "expect": {
+    "proposals_min": 2,
+    "tools_all": [
+     "propose_currency_exchange",
+     "propose_create_transaction"
+    ],
+    "card": {
+     "tool": "propose_create_transaction",
+     "debit_prefix": [
+      "61"
+     ],
+     "fields": {
+      "currency": "OMR"
+     }
+    },
+    "reply_lang": "fa"
+   },
+   "replay": [
+    {
+     "tool": "propose_currency_exchange",
+     "input": {
+      "from_place": "کیف پول والای",
+      "from_currency": "USD",
+      "from_amount": "1900",
+      "to_currency": "OMR",
+      "to_amount": "702.2"
+     }
+    },
+    {
+     "tool": "propose_create_transaction",
+     "input": {
+      "date": "{today}",
+      "description": "هزینه باشگاه من و همسر برای ۲۴ جلسه",
+      "currency": "OMR",
+      "lines": [
+       {
+        "account_code": "6190",
+        "debit": "660",
+        "credit": 0
+       },
+       {
+        "account_code": "112002",
+        "debit": 0,
+        "credit": "300"
+       },
+       {
+        "account_code": "112003",
+        "debit": 0,
+        "credit": "200"
+       },
+       {
+        "account_code": "112001",
+        "debit": 0,
+        "credit": "160"
+       }
+      ]
+     }
+    },
+    {
+     "text": "دو کارت آماده است: تبدیل ۱٬۹۰۰ دلار به ۷۰۲٫۲۰۰ ریال عمان، و هزینهٔ باشگاه ۶۶۰ ریال عمان از سه جا."
+    }
+   ]
+  },
+  {
+   "id": "p_rial_wallet_fa",
+   "books": "personal",
+   "lang": "fa",
+   "message": "۷.۱ ریال از کیف پول قشنگم قرص مسکن و مام خریدیم",
+   "expect": {
+    "proposals": 1,
+    "card": {
+     "tool": "propose_create_transaction",
+     "total": "7.1",
+     "credit_prefix": [
+      "112002"
+     ],
+     "fields": {
+      "currency": "OMR"
+     }
+    },
+    "reply_lang": "fa"
+   },
+   "replay": [
+    {
+     "tool": "propose_create_transaction",
+     "input": {
+      "date": "{today}",
+      "description": "قرص مسکن و مام",
+      "currency": "OMR",
+      "lines": [
+       {
+        "account_code": "6150",
+        "debit": "7.1",
+        "credit": 0
+       },
+       {
+        "account_code": "112002",
+        "debit": 0,
+        "credit": "7.1"
+       }
+      ]
+     }
+    },
+    {
+     "text": "کارت ۷٫۱۰۰ ریال عمان از کیف پول قشنگم زیر «سلامت و درمان» آماده است."
+    }
+   ]
+  },
+  {
+   "id": "p_money_and_debts_fa",
+   "books": "personal",
+   "lang": "fa",
+   "message": "چقدر پول داریم کلا و چقدر بدهی داریم",
+   "expect": {
+    "proposals": 0,
+    "tools_all": [
+     "get_cash_position"
+    ],
+    "tools_any": [
+     "get_people_balances",
+     "get_net_worth"
+    ],
+    "reply_contains_any": [
+     "امیر"
+    ],
+    "reply_lang": "fa"
+   },
+   "replay": [
+    {
+     "tool": "get_cash_position",
+     "input": {}
+    },
+    {
+     "tool": "get_people_balances",
+     "input": {}
+    },
+    {
+     "text": "پول: ۴۷٬۰۰۰٬۰۰۰ ریال، ۱۲۳٫۵۰۰ ریال عمان، ۲٬۴۰۰ دلار و ۱٬۷۸۵ درهم. بدهی: ۳۳۳٫۷۷ دلار به امیر."
+    }
+   ]
   }
  ]
 }

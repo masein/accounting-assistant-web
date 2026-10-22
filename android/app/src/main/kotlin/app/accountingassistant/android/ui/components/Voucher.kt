@@ -83,7 +83,8 @@ sealed interface VoucherState {
 @Composable
 fun Voucher(
     lang: String,
-    amount: java.math.BigDecimal,
+    /** Null for a card that moves no money — a wallet renamed: no «0» (scenario AZ6). */
+    amount: java.math.BigDecimal?,
     currency: String,
     summary: String,
     lines: List<VoucherLine>,
@@ -156,7 +157,7 @@ fun Voucher(
                         Text(booksName, color = c.ink, fontSize = 11.sp, fontWeight = FontWeight(600))
                     }
                 }
-                Row(verticalAlignment = Alignment.Bottom) {
+                if (amount != null) Row(verticalAlignment = Alignment.Bottom) {
                     val symbol = currencySymbol(currency)
                     Text((symbol ?: "") + Numbers.amount(amount, lang, Numbers.places(currency)), style = FigureStyle, color = c.ink)
                     if (symbol == null) {

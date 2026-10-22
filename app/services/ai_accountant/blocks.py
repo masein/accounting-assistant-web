@@ -160,8 +160,9 @@ def proposal_block(db: Session, p: Any, *, calendar: str, lang: str, names: dict
                           "debit": json_amount(ln.get("debit") or 0), "credit": json_amount(ln.get("credit") or 0)})
         amount = sum(x["debit"] for x in lines)
     elif isinstance(preview, dict):
+        from decimal import Decimal
         for key in ("amount", "total", "gross", "net"):
-            if isinstance(preview.get(key), (int, float)):
+            if isinstance(preview.get(key), (int, float, Decimal)) and not isinstance(preview.get(key), bool):
                 amount = json_amount(preview[key])
                 break
     currency = (preview.get("currency") if isinstance(preview, dict) else None) or None

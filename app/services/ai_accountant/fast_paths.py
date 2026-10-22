@@ -52,6 +52,12 @@ _FOR_SPENDING = re.compile(r"(برای|واسه|مال) (خرج|هزینه)(‌?
                            r"|\bcategor\w* (for|of) (spending|expenses?)|categor[ií]as de gasto|فئات (الإنفاق|المصاريف)",
                            re.IGNORECASE)
 
+# A second question joined to the first: «چقدر پول داریم کلا و چقدر بدهی داریم» got only the money, its debts
+# never answered (owner's phone, 2026-10-22, scenario AZ4) — both belong to the model.
+_TWO_QUESTIONS = re.compile(
+    r"\sو\s*(چقدر|چند|کی|چی|چه|کجا|کدوم|کدام)|\band (how|what|who|where|which)\b"
+    r"|\by (cu[aá]nto|qu[eé]|qui[eé]n|d[oó]nde)\b|\sو\s?(كم|ماذا|من|أين)", re.IGNORECASE)
+
 # Payables before receivables: «به کی بدهکاریم؟» (who do we owe) contains «کی بدهکار».
 _INTENTS: list[tuple[str, re.Pattern]] = [
     ("categories", re.compile(
@@ -108,7 +114,7 @@ _WHAT_IF = re.compile(r"\bwhat if\b|\bif\b|اگه|اگر|qu[eé] pasa si|\bsi\b|
 def match(message: str) -> str | None:
     """The intent of a short question the books can answer directly, or None."""
     text = (message or "").strip()
-    if not text or len(text) > MAX_LENGTH or _DIGITS.search(text) or _ACTIONS.search(text):
+    if not text or len(text) > MAX_LENGTH or _DIGITS.search(text) or _ACTIONS.search(text) or _TWO_QUESTIONS.search(text):
         return None
     if _FORECAST.search(text):
         return None if _WHAT_IF.search(text) else "forecast"

@@ -1900,6 +1900,7 @@ window.I18N_PACKS.es = Object.assign({
         auditEnt_pay_run: 'Nómina',
         auditEnt_payment: 'Pago',
         auditEnt_statement_posting: 'Registro de extracto',
+        auditEnt_currency_exchange: 'Cambio de divisa',
         auditEnt_payroll_rule_set: 'Reglas de nómina',
         auditEnt_payslips: 'Recibos de nómina',
         auditEnt_petty_cash_account: 'Cuenta de caja chica',

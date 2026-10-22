@@ -154,6 +154,37 @@ def _guard_toman(ctx: ToolContext, proposed_total) -> None:
             f"Propose {grouped(rials)}.", code="toman_not_converted")
 
 
+# A currency the user named in their message: «ریال عمان», "dollars", «درهم»… («ریال» alone and «تومان» are the
+# books' or a place's, and decided elsewhere)
+_STATED_CURRENCY = (
+    ("OMR", re.compile(r"ریال\s*(ی\s*)?عمان|\bOMR\b|omani ria?l|بیسه|baisa", re.IGNORECASE)),
+    ("USD", re.compile(r"دلار|\bUSD\b|\$|\bdollars?\b", re.IGNORECASE)),
+    ("AED", re.compile(r"درهم|\bAED\b|\bdirhams?\b", re.IGNORECASE)),
+    ("EUR", re.compile(r"یورو|\bEUR\b|€|\beuros?\b", re.IGNORECASE)),
+    ("GBP", re.compile(r"پوند|\bGBP\b|£|\bpounds?\b", re.IGNORECASE)),
+    ("SAR", re.compile(r"ریال\s*(ی\s*)?سعودی|\bSAR\b", re.IGNORECASE)),
+    ("TRY", re.compile(r"لیر|\bTRY\b|\blira\b", re.IGNORECASE)),
+)
+
+
+def _guard_stated_currency(ctx: ToolContext, args) -> None:
+    """In a person's books, a card in another currency than the one the user named (the only one) is refused.
+    «… ۲ ریال عمان … ۳ ریال عمان» moved between two categories came back with no currency — 6 IRR, not 6 OMR —
+    and no place on it for the place guard to see (eval, 2026-10-22, scenario BA2)."""
+    if getattr(ctx, "mode", "default") != "personal":
+        return
+    named = {code for code, pattern in _STATED_CURRENCY if pattern.search(getattr(ctx, "user_message", None) or "")}
+    if len(named) != 1:
+        return                                 # none, or several (an exchange, a rate): nothing to hold the card to
+    from app.services.fx_base import base_currency
+    (said,) = named
+    ccy = (args.currency or base_currency(ctx.db) or "IRR").strip().upper()
+    if ccy != said:
+        raise ToolError(f"The user named {said} and only {said}; this card is in {ccy}. Propose it again in {said} "
+                        f"(currency {said!r}), every amount as they wrote it — not a question for the user.",
+                        code="stated_currency")
+
+
 def _guard_place_currency(ctx: ToolContext, args) -> None:
     """In a person's books, money paid out of a place in a currency it has never held is refused with what it
     holds. «۷.۱ ریال از کیف پول قشنگم» from a wallet of Omani rials was carded as 7 IRR; 200 OMR "from the
@@ -543,6 +574,7 @@ class ProposeCreateTransaction(BaseTool):
             _guard_amount(ctx, total)
             _guard_toman(ctx, total)
             _guard_seed_accounts(ctx, args.lines)
+            _guard_stated_currency(ctx, args)
             _guard_place_currency(ctx, args)
 
         # Anchor the entry date to reality. The model is unreliable at "today"

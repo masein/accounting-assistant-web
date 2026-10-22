@@ -1107,7 +1107,7 @@ def thread_language(db, session_id, lang: str) -> str:
 
 # Refusals that name their own fix: a reply that ends the turn without the fixed
 # card gets the refusal once more. A closed period or a future date is final.
-_CORRECTABLE_REFUSALS = {"toman_not_converted", "unused_seed_account", "place_currency"}
+_CORRECTABLE_REFUSALS = {"toman_not_converted", "unused_seed_account", "place_currency", "stated_currency"}
 
 
 _FIGURE = re.compile(r"[0-9۰-۹]{1,3}(?:[,٬،][0-9۰-۹]{3}){2,}")

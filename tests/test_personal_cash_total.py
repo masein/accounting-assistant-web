@@ -44,3 +44,31 @@ def test_ba1_the_card_is_a_table_of_places(db, person):
 def test_ba1_a_companys_cash_keeps_its_total(db):
     out = _cash(db, "default")
     assert out["total"] is not None and all("balance" in a for a in out["accounts"])
+
+
+def _card(db, message, currency, lines):
+    from datetime import date
+
+    from app.services.ai_accountant.proposal_tools import ProposeCreateTransaction, ProposeCreateTransactionInput
+    return asyncio.run(ProposeCreateTransaction().run(
+        ToolContext(db=db, user_id="u", mode="personal", user_message=message),
+        ProposeCreateTransactionInput(date=date.today(), description="x", currency=currency,
+                                      lines=[{"account_code": c, "debit": d, "credit": cr} for c, d, cr in lines])))
+
+
+RECLASS = "این سه تا خرید رو ببرشون زیر «لوازم و تعمیرات خانه»: ۲ ریال عمان، ۳ ریال عمان، ۱ ریال عمان"
+
+
+def test_ba2_a_card_in_another_currency_than_the_one_named_is_refused(db, person):
+    from app.services.ai_accountant.base import ToolError
+    with use_company(person.company_id):
+        with pytest.raises(ToolError) as e:
+            _card(db, RECLASS, None, [("6125", 6, 0), ("6195", 0, 6)])          # no currency: the books' rials
+        assert e.value.code == "stated_currency" and "OMR" in str(e.value)
+        assert _card(db, RECLASS, "OMR", [("6125", 6, 0), ("6195", 0, 6)])["status"] == "pending"
+
+
+def test_ba2_two_currencies_named_hold_nothing(db, person):
+    with use_company(person.company_id):
+        both = "۱۰ دلار دادم معادل ۳.۸۵ ریال عمان"
+        assert _card(db, both, "USD", [("6180", 10, 0), ("112003", 0, 10)])["status"] == "pending"

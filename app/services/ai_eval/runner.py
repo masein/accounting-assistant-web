@@ -31,9 +31,20 @@ PRICES: dict[str, tuple[float, float]] = {
 }
 
 
-def cost(model: str, inp: int, out: int) -> float | None:
+# a cached prompt token's price, as a share of a fresh one's: OpenAI's models a quarter, luna a tenth
+# ($0.022 against $0.22 on Metis) — the prompt cache is most of what a chat turn costs (2026-10-22)
+CACHED_SHARE: dict[str, float] = {"gpt-5.6-luna": 0.10}
+DEFAULT_CACHED_SHARE = 0.25
+
+
+def cost(model: str, inp: int, out: int, cached: int = 0) -> float | None:
+    """USD for a run: ``cached`` of the ``inp`` prompt tokens at the cached price."""
     p = PRICES.get(model)
-    return None if not p else round((inp * p[0] + out * p[1]) / 1_000_000, 6)
+    if not p:
+        return None
+    share = CACHED_SHARE.get(model, DEFAULT_CACHED_SHARE)
+    fresh = max(0, inp - cached)
+    return round((fresh * p[0] + cached * p[0] * share + out * p[1]) / 1_000_000, 6)
 
 
 def load_scenarios(path: Path | None = None) -> list[dict]:
@@ -109,7 +120,7 @@ class MeteredClient:
     def __init__(self, inner, model: str | None = None) -> None:
         self.inner, self.model = inner, model
         self.shape = getattr(inner, "shape", "live")
-        self.calls = self.input_tokens = self.output_tokens = 0
+        self.calls = self.input_tokens = self.output_tokens = self.cached_tokens = 0
         self.errors: list[str] = []
         self.error_ids: set = set()
 
@@ -121,6 +132,7 @@ class MeteredClient:
         self.calls += 1
         self.input_tokens += int(getattr(resp.usage, "input_tokens", 0) or 0)
         self.output_tokens += int(getattr(resp.usage, "output_tokens", 0) or 0)
+        self.cached_tokens += int(getattr(resp.usage, "cache_read_input_tokens", 0) or 0)
         return resp
 
 
@@ -183,7 +195,8 @@ async def run_scenario(db: Session, ctx: EvalContext | dict, scenario: dict, cli
     if rec["tool_error_texts"] and not rec["ok"]:
         rec["problems"] = rec["problems"] + [f"tool said: {rec['tool_error_texts'][0][:160]}"]
     rec.update(secs=round(time.perf_counter() - t0, 2), calls=getattr(client, "calls", 0),
-               input_tokens=getattr(client, "input_tokens", 0), output_tokens=getattr(client, "output_tokens", 0))
+               input_tokens=getattr(client, "input_tokens", 0), output_tokens=getattr(client, "output_tokens", 0),
+               cached_tokens=getattr(client, "cached_tokens", 0))
     return rec
 
 
@@ -228,13 +241,15 @@ def summarise(runs: dict[str, list[dict]], scenarios: list[dict], opts: RunOptio
                     "critical": sid in critical, "runs": recs}
     tin = sum(r["input_tokens"] for recs in runs.values() for r in recs)
     tout = sum(r["output_tokens"] for recs in runs.values() for r in recs)
+    tcached = sum(r.get("cached_tokens", 0) for recs in runs.values() for r in recs)
     total = sum(v["total"] for v in per.values())
     passed = sum(v["passed"] for v in per.values())
     return {
         "model": opts.model, "repeat": opts.repeat, "replay": opts.replay,
         "finished_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "passed": passed, "total": total, "pass_rate": round(passed / total, 3) if total else 0.0,
-        "input_tokens": tin, "output_tokens": tout, "usd": cost(opts.model, tin, tout),
+        "input_tokens": tin, "output_tokens": tout, "cached_tokens": tcached,
+        "usd": cost(opts.model, tin, tout, tcached),
         "secs": round(sum(r["secs"] for recs in runs.values() for r in recs), 1),
         "scenarios": per,
     }

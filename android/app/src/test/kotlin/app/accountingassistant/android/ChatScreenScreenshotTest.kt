@@ -104,6 +104,30 @@ class ChatScreenScreenshotTest {
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-en-persian-loan-date.png")
     }
 
+    /** The owner's phone, 2026-10-22: the rename card read «Voucher 0»; and the exchange card that was
+     *  missing, given in dollars with what came back in its title (scenarios AZ1, AZ6). */
+    @Test
+    fun englishAppRenameHasNoAmountAndAnExchange() {
+        val rename = ChatItem.Proposal(
+            id = "p10", token = "t10", title = "کیف پول سبز ← کیف پول قشنگم", amount = null, currency = null,
+            date = null, lines = emptyList(), needsApproval = false)
+        val exchange = ChatItem.Proposal(
+            id = "p11", token = "t11", title = "تبدیل ۱٬۹۰۰٫۰۰ دلار آمریکا به ۷۰۲٫۲۰۰ ریال عمان — کیف پول والای",
+            amount = java.math.BigDecimal("1900"), currency = "USD", date = "۳۰ مهر ۱۴۰۵",
+            lines = emptyList(), needsApproval = false)
+        compose.setContent {
+            AccountantTheme(dark = true) {
+                ChatScreen(
+                    state = ChatUiState(items = listOf(rename, exchange)),
+                    lang = "en", booksName = "masein", personalBooks = true,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(600)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-en-rename-and-exchange.png")
+    }
+
     @Test @Config(qualifiers = "+fa")
     fun persianLight() = shot("chat-fa-light", fa = true, dark = false)
 

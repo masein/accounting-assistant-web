@@ -46,10 +46,17 @@ _ACTIONS = re.compile(
 _SPENT = re.compile(r"خرج|هزینه|پول|هفته|ماه|امسال|سال|امروز|دیروز|\bspen[dt]|\bspending\b|\bweek|\bmonth|\byear|\btoday"
                     r"|gast|semana|\bmes\b|año|أنفق|صرف|إنفاق|أسبوع|شهر|سنة|اليوم", re.IGNORECASE)
 
+# …but «برای خرج» in «چه دسته‌بندی‌هایی برای خرج داری؟» and "spending" in "what spending categories do I have?" only
+# say which categories: the question went to the model, which searched nine times and missed «سفر» (AY2)
+_FOR_SPENDING = re.compile(r"(برای|واسه|مال) (خرج|هزینه)(‌?ها)?|\b(spending|expense|income) categor\w*"
+                           r"|\bcategor\w* (for|of) (spending|expenses?)|categor[ií]as de gasto|فئات (الإنفاق|المصاريف)",
+                           re.IGNORECASE)
+
 # Payables before receivables: «به کی بدهکاریم؟» (who do we owe) contains «کی بدهکار».
 _INTENTS: list[tuple[str, re.Pattern]] = [
     ("categories", re.compile(
         r"\bwhat (spending |expense |income )?categories\b|\bwhich categories\b|\b(list|show) (my |the )?categories\b"
+        r"|\bmy (spending |expense |income )?categories\b"
         r"|چه دسته[‌ ]?بندی|دسته[‌ ]?بندی[‌ ]?(ها|های)?(م|مون|ت)? ?(چی|چیا|کدوم|کدام)|کدوم دسته[‌ ]?بندی|چه دسته[‌ ]?(ها|های)"
         r"|qu[eé] categor[ií]as|cu[aá]les son (mis|las) categor[ií]as|ما (هي )?الفئات|أي فئات",
         re.IGNORECASE)),
@@ -108,7 +115,7 @@ def match(message: str) -> str | None:
     if _FUTURE.search(text):
         return None
     for name, pattern in _INTENTS:
-        if name == "categories" and _SPENT.search(text):
+        if name == "categories" and _SPENT.search(_FOR_SPENDING.sub(" ", text)):
             continue                                  # what was spent in them is the model's (or spending's)
         if pattern.search(text):
             return name
@@ -330,17 +337,12 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
     if intent == "categories":
         if mode != "personal":
             return None                                   # a company's chart is the Chart of accounts page
-        from sqlalchemy import select
-
-        from app.models.account import Account
-        from app.services.reporting.common import EXPENSE, REVENUE, classify_account_code
-        accounts = db.execute(select(Account).order_by(Account.code)).scalars().all()
-        parents = {a.parent_id for a in accounts if a.parent_id}
-        def names(kind):
-            return [a.name for a in accounts if a.id not in parents and getattr(a, "is_active", True)
-                    and classify_account_code(a.code) == kind]
+        from app.services.ai_accountant.personal_glance import categories
+        from app.services.reporting.common import EXPENSE, REVENUE
+        cats = categories(db)                             # the same list the assistant's instructions carry
         sep = "، " if lang in ("fa", "ar") else ", "
-        text = _say("categories", lang, spend=sep.join(names(EXPENSE)), income=sep.join(names(REVENUE)))
+        text = _say("categories", lang, spend=sep.join(a.name for a in cats[EXPENSE]),
+                    income=sep.join(a.name for a in cats[REVENUE]))
         return FastAnswer(intent=intent, text=text, tool_calls=calls)
     if intent == "cash":
         from app.services.ai_accountant.cash_tools import GetCashPosition, GetCashPositionInput

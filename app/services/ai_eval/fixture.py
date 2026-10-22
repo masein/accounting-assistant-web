@@ -131,16 +131,23 @@ def seed_eval_company(db: Session, *, today: date | None = None, slug: str | Non
         db.flush()
         db.add(PurchaseOrderLine(order_id=po.id, description="A4 paper", ordered_qty=10, unit_price=1_500_000,
                                  line_total=15_000_000))
+        # every movement of the bank account in the statement's days, so the fee is its one difference: with
+        # only the rent and the fee, Aria's receipt and the wages read as missing from the bank and the review
+        # rightly opened with them (scenario AY6)
         stmt = BankStatement(bank_name="Test Bank", source_type="csv", source_filename="test-bank.csv",
-                             currency="IRR", from_date=d(20), to_date=d(2), status="parsed", total_rows=2)
+                             currency="IRR", from_date=d(20), to_date=d(2), status="parsed", total_rows=4)
         db.add(stmt)
         db.flush()
-        rent = BankStatementRow(statement_id=stmt.id, row_index=1, tx_date=d(15), description="اجاره دفتر",
+        receipt = BankStatementRow(statement_id=stmt.id, row_index=1, tx_date=d(20), description="واریز آریا ترید",
+                                   debit=0, credit=300_000_000, confidence=1.0, recon_status="unmatched")
+        rent = BankStatementRow(statement_id=stmt.id, row_index=2, tx_date=d(15), description="اجاره دفتر",
                                 debit=80_000_000, credit=0, confidence=1.0, recon_status="unmatched")
-        fee = BankStatementRow(statement_id=stmt.id, row_index=2, tx_date=d(3), description="کارمزد بانکی",
+        pay = BankStatementRow(statement_id=stmt.id, row_index=3, tx_date=d(10), description="حقوق کارکنان",
+                               debit=SARA_PAY, credit=0, confidence=1.0, recon_status="unmatched")
+        fee = BankStatementRow(statement_id=stmt.id, row_index=4, tx_date=d(3), description="کارمزد بانکی",
                                debit=BANK_FEE, credit=0, confidence=1.0, recon_status="unmatched",
                                suggested_account_code="6210", category="bank_fees")
-        db.add_all([rent, fee])
+        db.add_all([receipt, rent, pay, fee])
         db.commit()
         ctx.statement_id, ctx.rows, ctx.cheque_id = str(stmt.id), {"rent": str(rent.id), "fee": str(fee.id)}, str(cheque.id)
     return ctx

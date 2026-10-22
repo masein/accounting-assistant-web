@@ -37,6 +37,11 @@ from tests.test_ai_guardrails import D, _login, co  # noqa: F401  (fixture)
     ("کی پول کم میاریم؟", "forecast"),
     ("previsión de caja", "forecast"),
     ("توقعات السيولة", "forecast"),
+    # the categories themselves, even with a word for which ones (scenario AY2)
+    ("چه دسته‌بندی‌هایی برای خرج داری؟", "categories"),
+    ("what spending categories do I have?", "categories"),
+    ("what are my expense categories?", "categories"),
+    ("¿qué categorías de gasto tengo?", "categories"),
 ])
 def test_n10_these_questions_are_answered_from_the_books(message, intent):
     assert match(message) == intent
@@ -55,6 +60,8 @@ def test_n10_these_questions_are_answered_from_the_books(message, intent):
     "registra el alquiler y dime cuánto dinero tenemos",
     "¿cuánto dinero tendremos el mes que viene?",
     "سجّل الإيجار من الرصيد النقدي",
+    "هفته گذشته خرج ما چیا بوده و توی چه دسته‌بندی‌هایی؟",   # what was spent in them (AY2)
+    "این ماه برای چه دسته‌هایی خرج کردم؟",
     "",
 ])
 def test_n11_nothing_else_is_taken_from_the_model(message):

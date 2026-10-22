@@ -136,6 +136,12 @@ class FindEntity(BaseTool):
         from app.utils.text import fold_fa
         q_lower = fold_fa(q.lower())
         q_words = _party_words(q_lower)
+        # «یکیش رو امیر بهم داده، بقیه رو امین»: a party named beside the one asked for is someone else, however
+        # alike the names (امین / امیر are one letter apart, 0.75) — the model stopped to ask whether Amin was
+        # Amir, and made no cards (scenario AY5)
+        said = _party_words(fold_fa((ctx.user_message or "").lower()))
+        asked_said = bool(q_words) and q_words <= said
+        apart: list[str] = []
         for row in all_rows:
             name = fold_fa(row.name.lower())
             ratio = difflib.SequenceMatcher(None, q_lower, name).ratio()
@@ -151,6 +157,9 @@ class FindEntity(BaseTool):
             n_words = _party_words(name)
             if q_words and n_words and q_words <= n_words:
                 ratio = max(ratio, 0.9 + 0.1 * len(q_words) / len(n_words))
+            elif asked_said and n_words and n_words <= said:
+                ratio = min(ratio, 0.2)
+                apart.append(row.name)
             scored.append((ratio, row))
 
         if args.type:
@@ -189,6 +198,9 @@ class FindEntity(BaseTool):
         if learned_entity is not None:
             out["learned_note"] = (f"The user chose {learned_entity.name} before for "
                                    f"\"{learned.preference.label}\".")
+        if apart and not any(m["confidence"] >= 0.8 for m in out["matches"]):
+            out["note"] = (f"The user's message names {', '.join(apart)} as well as {q}: they are different people, "
+                           f"so {q} is not in the books yet — someone new, not a question to ask.")
         return out
 
 
@@ -544,6 +556,13 @@ _ACCOUNT_ALIASES: dict[str, dict[str, tuple[list[str], list[str]]]] = {
         "housing": (["rent", "housing", "اجاره", "مسکن", "شارژ"], ["6120"]),
         "transport": (["transport", "taxi", "fuel", "petrol", "metro", "snapp", "حمل", "تاکسی", "بنزین", "مترو", "اسنپ"], ["6130"]),
         "bills": (["bill", "bills", "utilities", "electricity", "water", "gas", "internet", "قبض", "قبوض", "برق", "آب", "گاز", "اینترنت"], ["6140"]),
+        # things for the home (6125, migration 085): «مبدل برق» went to the electricity bill on «برق» (AY4)
+        "home supplies": (["home supplies", "household", "home repair", "adapter", "charger", "light bulb", "bulb",
+                           "extension cord", "batteries", "battery", "cleaning", "detergent", "stationery",
+                           "لوازم خانه", "لوازم منزل", "لوازم خونه", "تعمیرات خانه", "تعمیر خانه", "مبدل برق", "مبدل",
+                           "آداپتور", "سیم برق", "کابل برق", "لوازم برقی", "وسایل برقی", "پریز برق",
+                           "شارژر", "لامپ", "پریز", "چندراهی", "سه راهی برق", "باتری", "شوینده", "نظافت",
+                           "لوازم تحریر", "نوشت افزار", "نوشت‌افزار", "کلیدسازی", "کلید سازی"], ["6125"]),
         "health": (["health", "doctor", "pharmacy", "medicine", "سلامت", "درمان", "دکتر", "دارو"], ["6150"]),
         "education": (["education", "school", "course", "book", "آموزش", "کلاس", "شهریه", "کتاب"], ["6160"]),
         "clothing": (["clothes", "clothing", "پوشاک", "لباس", "کفش"], ["6170"]),
@@ -675,15 +694,19 @@ class SearchAccounts(BaseTool):
         from app.utils.text import fold_fa
         q = fold_fa(q)
         preferred_codes: set[str] = set()
-        for label, (synonyms, codes) in aliases.items():
-            if any(s in q for s in synonyms):
-                from app.services.chart_codes import own_code
-                preferred_codes.update(own_code(c) for c in codes)      # a company's own code for the app's
-                role = _ALIAS_ROLES.get(label) if alias_key != "personal" else None
-                if role:
-                    from app.services.account_resolver import find_account_code
-                    if (own := find_account_code(ctx.db, role)):
-                        preferred_codes.add(own)
+        hits = [(label, max((s for s in synonyms if s in q), key=len), codes)
+                for label, (synonyms, codes) in aliases.items() if any(s in q for s in synonyms)]
+        # the longest phrase wins over one inside it: «مبدل برق» is a power adapter, not «برق» the electricity
+        # bill; "bank fee" is a fee, not the bank (scenario AY4)
+        hits = [h for h in hits if not any(h[1] != o[1] and h[1] in o[1] for o in hits)]
+        for label, _said, codes in hits:
+            from app.services.chart_codes import own_code
+            preferred_codes.update(own_code(c) for c in codes)      # a company's own code for the app's
+            role = _ALIAS_ROLES.get(label) if alias_key != "personal" else None
+            if role:
+                from app.services.account_resolver import find_account_code
+                if (own := find_account_code(ctx.db, role)):
+                    preferred_codes.add(own)
 
         from app.models.account import AccountLevel
 

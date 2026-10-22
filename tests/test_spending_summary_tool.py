@@ -183,3 +183,23 @@ class TestPromptWiring:
         payload = tool_msg.to_dict()
         text = str(payload)
         assert "label_fa" in text and "total" in text and "1405/07/01" in text
+
+
+def test_ay1_the_last_ten_days(db, make_transaction, monkeypatch):
+    """«در ۱۰ روز گذشته چقدر خرج کردم؟» was refused: no period said it (scenario AY1)."""
+    from datetime import timedelta
+
+    from app.services.ai_accountant import spending_tools
+    monkeypatch.setattr(spending_tools, "get_display_calendar", lambda _db: "jalali")
+    today = date.today()
+    before = _run(db, days=10)
+    make_transaction([("6112", 40_000, 0), ("1110", 0, 40_000)], tx_date=today - timedelta(days=9), description="in")
+    make_transaction([("6112", 7_000, 0), ("1110", 0, 7_000)], tx_date=today - timedelta(days=10), description="out")
+    db.flush()
+    after = _run(db, days=10)
+    assert after["total"] - before["total"] == 40_000                  # nine days ago is in, ten days ago is not
+    assert (after["period"]["from"], after["period"]["to"]) == ((today - timedelta(days=9)).isoformat(), today.isoformat())
+    assert after["period"]["label_fa"].startswith("۱۰ روز گذشته (")
+    assert after["period"]["label_en"].startswith("the last 10 days (")
+    with pytest.raises(Exception):
+        GetSpendingSummaryInput(days=0)

@@ -7,6 +7,7 @@ pass; the scorer, the run comparison and the nightly workflow are pinned too.
 from __future__ import annotations
 
 import asyncio
+import uuid
 
 import pytest
 
@@ -104,7 +105,32 @@ def test_the_fixture_figures_are_what_the_scenarios_say(db, books):
     assert SARA_PAY in pay_q["expect"]["reply_numbers_any"]
 
 
+def test_ay6_the_statement_differs_from_the_books_by_the_fee_alone(db, books):
+    """The statement shows every movement of the bank account in its days; with only the rent and the fee,
+    Aria's receipt and the wages read as missing from the bank, and the review opened with them (AY6)."""
+    from app.db.tenant import use_company
+    from app.models.bank_statement import BankStatement
+    from app.services.ai_eval.fixture import BANK_FEE
+    from app.services.statement_review import build_statement_review
+    with use_company(books.company_id):
+        review = build_statement_review(db, db.get(BankStatement, uuid.UUID(books.statement_id)))
+    findings = [(f.kind, f.amount) for f in review.findings if f.kind != "balance_gap"]
+    assert findings == [("unrecorded", BANK_FEE)], findings
+    pay_q = next(s for s in SCENARIOS if s["id"] == "payroll_question_en")
+    assert "last month" not in pay_q["message"]                  # true whatever day the eval runs
+
+
 # --- scoring ------------------------------------------------------------------------------------------
+
+def test_a_card_spec_is_met_by_any_card_of_a_list():
+    """Amir's cash card came first; the Airbnb card the spec asks for was never looked at (2026-10-22)."""
+    amir = {"tool": "propose_create_transaction", "input": {"date": "2026-09-28", "lines": [
+        {"account_code": "112001", "debit": 300, "credit": 0}, {"account_code": "2130", "debit": 0, "credit": 300}]}}
+    airbnb = {"tool": "propose_create_transaction", "input": {"date": "2026-09-28", "lines": [
+        {"account_code": "6185", "debit": "333.77", "credit": 0}, {"account_code": "2130", "debit": 0, "credit": "333.77"}]}}
+    spec = {"card": {"tool": "propose_create_transaction", "debit_prefix": ["6185"], "credit_prefix": ["2130"]}}
+    assert _score(spec, tools=["propose_create_transaction"], cards=[amir, airbnb]) == []
+    assert _score(spec, tools=["propose_create_transaction"], cards=[amir]) != []
 
 def _score(expect, *, tools=(), errors=0, cards=(), reply=""):
     from datetime import date

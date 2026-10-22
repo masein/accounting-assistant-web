@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.21.7"
+CURRENT_RELEASE = "2026.10.22.1"
 
 
 @dataclass(frozen=True)
@@ -2284,6 +2284,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "مبدل برق، لامپ، لوازم‌تحریر، ساخت کلید و تعمیرات کوچک حالا زیر «لوازم و تعمیرات خانه» می‌روند، نه خانواده و هدایا. بپرسید «چه دسته‌بندی‌هایی داری؟» تا همه را ببینید.",
                     "es": "Adaptadores, bombillas, papelería, una copia de llave, pequeñas reparaciones: ahora van a «Suministros y reparaciones del hogar», no a Familia y regalos. Pregunta «¿qué categorías tienes?» para verlas todas.",
                     "ar": "محولات الكهرباء والمصابيح والقرطاسية ونسخ المفاتيح والإصلاحات الصغيرة تذهب الآن إلى «مستلزمات المنزل وإصلاحاته» لا إلى العائلة والهدايا. اسأل «ما الفئات لديك؟» لتراها كلها.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.22.1",
+        date="2026-10-22",
+        highlights=(
+            Highlight(
+                key="last-few-days-and-places",
+                page="ai-accountant",
+                roles=("personal",),
+                title={
+                    "en": "The last few days, and your places by name",
+                    "fa": "چند روز گذشته، و جاهای پولتان با اسم خودشان",
+                    "es": "Los últimos días, y tus sitios por su nombre",
+                    "ar": "الأيام الأخيرة، وأماكن أموالك بأسمائها",
+                },
+                body={
+                    "en": "Ask «how much did I spend in the last 10 days?» and get each currency with its categories. The assistant knows your wallets, accounts, categories and people as they are in your books, so «my green wallet» or «a power adapter» lands in the right place without a question.",
+                    "fa": "بپرسید «در ۱۰ روز گذشته چقدر خرج کردم؟» تا هر ارز را با دسته‌هایش ببینید. دستیار کیف‌پول‌ها، حساب‌ها، دسته‌ها و اشخاص دفترتان را همان‌طور که هستند می‌شناسد؛ «کیف پول سبز» یا «مبدل برق» بی‌سؤال سر جای درستش می‌رود.",
+                    "es": "Pregunta «¿cuánto gasté en los últimos 10 días?» y verás cada moneda con sus categorías. El asistente conoce tus carteras, cuentas, categorías y personas tal como están en tus libros, así que «mi cartera verde» o «un adaptador» van a su sitio sin preguntas.",
+                    "ar": "اسأل «كم أنفقت في آخر ١٠ أيام؟» لترى كل عملة بفئاتها. يعرف المساعد محافظك وحساباتك وفئاتك والأشخاص كما هم في دفاترك، فتذهب «محفظتي الخضراء» أو «محوّل كهرباء» إلى مكانها الصحيح دون سؤال.",
                 },
             ),
         ),

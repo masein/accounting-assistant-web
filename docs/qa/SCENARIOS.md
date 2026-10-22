@@ -822,3 +822,17 @@ The owner's phone said «Today's AI allowance is used up» at 2.1M tokens, while
 | AV2 | A company's users still have theirs | A company with no per-user budget; one user at 2.1M | That user is refused at the platform's 2M; a colleague is not |
 | AV3 | The console says which limit | Companies → AI · 24 h | «2.1M / 10M *» (* set for this company, explained under the table); a company whose busiest user is near a tighter per-user budget shows a second line «per user 2.1M / 2M» |
 | AV4 | Set both in the console | AI budget on a company | It asks for the company's budget, then each user's; on a person's books only the first |
+
+## AW. A lean conversation (2026-10-22)
+
+Each chat message sent the model ~11k tokens of instructions, ~13k of tool definitions and the whole thread — every earlier tool result's JSON included — on each of its two or three calls. A long thread cost 50–80k tokens a message; the owner's 2.1M a day was about thirty messages.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| AW1 | The last exchanges as they were | A thread of many messages; a new message | The last two exchanges go to the model whole: tool calls, results, answers |
+| AW2 | Older ones as what was said | The same | Each older exchange is the user's words, the assistant's last answer and one line per card with what became of it («… — executed (card …)»); no tool results |
+| AW3 | The oldest left out | More than 30 older exchanges | They are left out, with a note that the books keep what was recorded |
+| AW4 | Half or less | A 20-message thread of spending questions and cards | What goes back to the model is under half of the whole thread |
+| AW5 | The same instructions every call | Messages on two days, in two languages | The instructions are identical up to «Today:» at their end; the date and the language come last, so a provider's prompt cache serves the rest |
+| AW6 | A cached prompt counts as it costs | 1M prompt tokens of which 800k came from the cache | The budget counts 400k |
+| AW7 | A card can still be changed | «change that card to 50» about a card from earlier in the thread | Its line still carries its card id |

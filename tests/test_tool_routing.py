@@ -28,7 +28,7 @@ def test_ax1_a_lunch_gets_the_core_and_the_money_tools(db):
     assert tools[:3] == ["find_entity", "search_accounts", "propose_create_transaction"]
     assert {"get_cash_position", "propose_money_place"} <= set(tools)
     assert not {"propose_set_budget", "review_bank_statement", "get_payroll", "propose_create_invoice"} & set(tools)
-    assert len(tools) <= 21                     # «امروز» brings spending too; 34 before
+    assert len(tools) <= 22                     # «امروز» brings spending too; 35 in all
     system = cap.calls[0]["system"]
     assert "# Behavioural rules" in system and "PERSONAL-FINANCE MODE" in system
     assert "# Payroll, budgets and month end" not in system and "# Bank statements" not in system

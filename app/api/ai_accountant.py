@@ -1164,8 +1164,9 @@ def briefing(
     from app.services.ai_accountant.orchestrator import _get_or_create_session
     from app.services.insight_service import briefing_text, compute_insights
 
+    from app.services.ai_accountant.orchestrator import thread_language
     insights = compute_insights(db)
-    text = briefing_text(insights, _user_language(db, user))
+    text = briefing_text(insights, thread_language(db, payload.session_id, _user_language(db, user)))
     if not text:
         return BriefingResponse(session_id=payload.session_id, text=None, count=0)
     try:

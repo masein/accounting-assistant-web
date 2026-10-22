@@ -42,6 +42,7 @@ from tests.test_ai_guardrails import D, _login, co  # noqa: F401  (fixture)
     ("what spending categories do I have?", "categories"),
     ("what are my expense categories?", "categories"),
     ("¿qué categorías de gasto tengo?", "categories"),
+    ("موجودی نقد و بانک", "cash"),                              # one question with «و» in it (AZ4)
 ])
 def test_n10_these_questions_are_answered_from_the_books(message, intent):
     assert match(message) == intent
@@ -61,6 +62,9 @@ def test_n10_these_questions_are_answered_from_the_books(message, intent):
     "¿cuánto dinero tendremos el mes que viene?",
     "سجّل الإيجار من الرصيد النقدي",
     "هفته گذشته خرج ما چیا بوده و توی چه دسته‌بندی‌هایی؟",   # what was spent in them (AY2)
+    "چقدر پول داریم کلا و چقدر بدهی داریم",                  # two questions: the debts went unanswered (AZ4)
+    "how much cash do we have and who do we owe?",
+    "¿cuánto dinero tenemos y quién nos debe?",
     "این ماه برای چه دسته‌هایی خرج کردم؟",
     "",
 ])

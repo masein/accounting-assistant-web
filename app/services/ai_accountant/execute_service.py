@@ -363,7 +363,8 @@ def _dispatch(db: Session, proposal: AIProposal, *, actor_user_id: str, actor_us
             actor_username=actor_username,
             ip_address=ip_address,
         )
-    elif proposal.tool_name in ("propose_money_place", "propose_books_currency", "propose_rename_place"):
+    elif proposal.tool_name in ("propose_money_place", "propose_books_currency", "propose_rename_place",
+                                "propose_currency_exchange"):
         from app.services.ai_accountant.money_places import execute_money_proposal
         txn_id, audit_id = execute_money_proposal(
             db, proposal,
@@ -693,8 +694,8 @@ def _resolve_undoable_audit(db: Session, audit_log_id: str, actor_user_id: str) 
         )
     if audit.entity_type == "payment" and audit.action == "create":
         return audit                           # a payment on an invoice (_perform_payment_undo)
-    if audit.entity_type == "statement_posting" and audit.action == "create":
-        return audit                           # a statement's vouchers, all of them (undo_statement_posting)
+    if audit.entity_type in ("statement_posting", "currency_exchange") and audit.action == "create":
+        return audit                           # every entry the card posted (undo_entries)
     if audit.entity_type != "transaction" or audit.action != "create":
         raise UndoNotApplicable(
             f"Reverse is only implemented for transaction creates (got "
@@ -864,6 +865,45 @@ def _perform_delete(
     )
 
 
+def undo_entries(db: Session, audit: AuditLog, ids: list[str], *, actor_user_id: str, actor_username: str | None,
+                 ip_address: str | None, delete: bool, tool_name: str, describe, before_each=None,
+                 gone: str = "These entries have already been undone or reversed.") -> UndoResult:
+    """Every entry one card posted, taken back together: soft-deleted inside the undo window and an open
+    period, else reversed. A statement's vouchers (undo_statement_posting) and an exchange's two entries,
+    one in each currency (money_places, scenario AZ1). The caller commits."""
+    import json
+
+    from app.models.transaction import Transaction
+    from app.services.period_service import get_closed_period
+    from app.services.reporting.ledger_service import LedgerService
+
+    live = [t for t in (db.get(Transaction, uuid.UUID(i)) for i in ids)
+            if t is not None and t.deleted_at is None and not _already_reversed(db, str(t.id))]
+    if not live:
+        raise UndoNotApplicable(gone)
+    locked = get_closed_period(db)
+    mode = "deleted" if delete else "reversed"
+    last_reversal = None
+    for txn in live:
+        if before_each is not None:
+            before_each(txn)
+        if delete and not (locked is not None and txn.date <= locked):
+            txn.deleted_at = datetime.now(timezone.utc)
+        else:
+            mode = "reversed"
+            last_reversal = LedgerService(db).reverse_journal_entry(
+                transaction_id=txn.id, reverse_date=None, reference=f"REVERSAL of {txn.reference or txn.id}",
+                description=describe(txn), mark_undo=False,
+            ).transaction_id
+        db.add(AuditLog(action="undo", entity_type="transaction", entity_id=str(txn.id), user_id=actor_user_id,
+                        username=actor_username, ip_address=ip_address, actor_source="ai-assistant",
+                        session_id=audit.session_id, tool_name=tool_name, confirmation_token=audit.confirmation_token,
+                        user_message=audit.user_message, detail=json.dumps({audit.entity_type: str(audit.id)})))
+    return UndoResult(original_transaction_id=str(live[0].id),
+                      reversal_transaction_id=str(last_reversal) if last_reversal else None,
+                      audit_log_id=str(audit.id), mode=mode)
+
+
 def undo_action(
     db: Session,
     *,
@@ -911,6 +951,10 @@ def undo_action(
         from app.services.ai_accountant.statement_posting import undo_statement_posting
         return undo_statement_posting(db, audit, actor_user_id=actor_user_id, actor_username=actor_username,
                                       ip_address=ip_address, delete=True, tool_name="undo_action")
+    if audit.entity_type == "currency_exchange":
+        from app.services.ai_accountant.money_places import undo_exchange
+        return undo_exchange(db, audit, actor_user_id=actor_user_id, actor_username=actor_username,
+                             ip_address=ip_address, delete=True, tool_name="undo_action")
     if _entry_in_closed_period(db, audit):
         return _perform_reversal(
             db, audit,
@@ -964,6 +1008,10 @@ def reverse_action(
         from app.services.ai_accountant.statement_posting import undo_statement_posting
         return undo_statement_posting(db, audit, actor_user_id=actor_user_id, actor_username=actor_username,
                                       ip_address=ip_address, delete=False, tool_name="reverse_action")
+    if audit.entity_type == "currency_exchange":
+        from app.services.ai_accountant.money_places import undo_exchange
+        return undo_exchange(db, audit, actor_user_id=actor_user_id, actor_username=actor_username,
+                             ip_address=ip_address, delete=False, tool_name="reverse_action")
     return _perform_reversal(
         db, audit,
         actor_user_id=actor_user_id,

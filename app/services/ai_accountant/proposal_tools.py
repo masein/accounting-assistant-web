@@ -154,6 +154,51 @@ def _guard_toman(ctx: ToolContext, proposed_total) -> None:
             f"Propose {grouped(rials)}.", code="toman_not_converted")
 
 
+def _guard_place_currency(ctx: ToolContext, args) -> None:
+    """In a person's books, money paid out of a place in a currency it has never held is refused with what it
+    holds. «۷.۱ ریال از کیف پول قشنگم» from a wallet of Omani rials was carded as 7 IRR; 200 OMR "from the
+    exchange" left a wallet of dollars and dirhams at −389.935 OMR, its exchange never recorded (owner's
+    phone, 2026-10-22, scenario AZ3). An exchange card of this conversation counts as the money being there.
+    Money coming in may be in any currency; a place with no entries yet takes any."""
+    if getattr(ctx, "mode", "default") != "personal":
+        return
+    from sqlalchemy import func
+
+    from app.models.account import Account
+    from app.models.transaction import Transaction, TransactionLine
+    from app.services.ai_accountant.cash_tools import cash_account_codes
+    from app.services.ai_accountant.money_places import pending_exchanges_into
+    from app.services.fx_base import base_currency
+    from app.services.locale_service import get_reporting_locale
+    ccy = (args.currency or base_currency(ctx.db) or "IRR").strip().upper()
+    places = set(cash_account_codes(ctx.db, locale=get_reporting_locale(ctx.db), mode="personal"))
+    for ln in args.lines:
+        if not ln.credit or ln.account_code not in places:
+            continue
+        held = dict(ctx.db.execute(
+            select(func.upper(Transaction.currency), func.count(TransactionLine.id))
+            .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
+            .join(Account, Account.id == TransactionLine.account_id)
+            .where(Account.code == ln.account_code, Transaction.deleted_at.is_(None))
+            .group_by(func.upper(Transaction.currency))).all())
+        held = {(c or base_currency(ctx.db) or "IRR"): n for c, n in held.items()}
+        if not held or ccy in held or pending_exchanges_into(ctx.db, getattr(ctx, "chat_session_id", None),
+                                                            ln.account_code, ccy):
+            continue
+        name = ctx.db.execute(select(Account.name).where(Account.code == ln.account_code)).scalar() or ln.account_code
+        has = ", ".join(sorted(held))
+        if len(held) == 1:
+            (only,) = held
+            hint = (f"«ریال» paid from it means {only}: propose this card in {only}, the amount exactly as the user "
+                    f"wrote it (۷.۱ is 7.100, never 7). ") if only in ("OMR", "SAR", "QAR", "IRR") else ""
+        else:
+            hint = ""
+        raise ToolError(
+            f"{ln.account_code} «{name}» holds {has} only — never {ccy}. {hint}If the user changed money into {ccy} "
+            f"first, record that with propose_currency_exchange (then this card); otherwise ask which place it "
+            f"came from.", code="place_currency")
+
+
 def _guard_seed_accounts(ctx: ToolContext, lines) -> None:
     """A card on a seed-chart default the books never used, where the company
     keeps that role on its own account, is refused with the account to use.
@@ -493,6 +538,7 @@ class ProposeCreateTransaction(BaseTool):
             _guard_amount(ctx, total)
             _guard_toman(ctx, total)
             _guard_seed_accounts(ctx, args.lines)
+            _guard_place_currency(ctx, args)
 
         # Anchor the entry date to reality. The model is unreliable at "today"
         # (it dated a "…today" expense 2023-10-18 and mid-session copied an

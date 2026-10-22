@@ -787,6 +787,10 @@ def all_detectors():
     return DETECTORS + anomaly_detection.DETECTORS + inventory_costing.DETECTORS
 
 
+# Checks an auditor runs on a company: a person's $2,000 starting balance on a Friday was "worth a second look"
+# (owner's phone, 2026-10-22, scenario AZ5). A person's books keep the spending drift and the reversals.
+COMPANY_AUDIT = frozenset({"duplicate_payment", "just_under_threshold", "new_vendor_large", "round_weekend"})
+
 _SEVERITY_ORDER = {"high": 0, "warning": 1, "info": 2}
 _cache: dict[str, tuple[float, date, list[Insight]]] = {}
 
@@ -829,6 +833,8 @@ def _compute_insights(db: Session, *, today: date, use_cache: bool) -> list[Insi
             return list(hit[2])
     out: list[Insight] = []
     for name, fn in all_detectors():
+        if _OWN.get() and name in COMPANY_AUDIT:
+            continue
         try:
             out.extend(fn(db, today))
         except Exception:  # noqa: BLE001 — one broken detector must not hide the rest

@@ -81,7 +81,8 @@ def card_total(tool: str, inp: dict[str, Any]):
         total = sum((_amount(ln.get("quantity", 1) or 1) * _amount(ln.get("unit_price")) for ln in inp.get("lines") or []),
                     Decimal(0))
     else:
-        total = next((_amount(inp[k]) for k in ("amount", "total_amount") if inp.get(k) is not None), Decimal(0))
+        total = next((_amount(inp[k]) for k in ("amount", "total_amount", "from_amount") if inp.get(k) is not None),
+                     Decimal(0))
     return int(total) if total == total.to_integral_value() else total.normalize()
 
 

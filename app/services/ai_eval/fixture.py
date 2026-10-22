@@ -157,6 +157,7 @@ def seed_eval_company(db: Session, *, today: date | None = None, slug: str | Non
 # Books in Iranian rials; Omani rials in two wallets and rials at Bank Mellat, each kept as it is; last week's
 # spending in both; Amir paid a Muscat Airbnb in dollars.
 GREEN_WALLET, PRETTY_WALLET, MELLAT = "112001", "112002", "111001"
+WALL_E = "112003"                         # dollars and dirhams, no Omani rials (the owner's «کیف پول والای», AZ)
 AMIR_AIRBNB = "333.77"
 
 
@@ -174,7 +175,7 @@ def seed_personal_books(db: Session, *, today: date | None = None, slug: str | N
         db.commit()
         acc = {a.code: a for a in db.execute(select(Account)).scalars()}
         for code, name, parent in ((GREEN_WALLET, "کیف پول سبز", "1120"), (PRETTY_WALLET, "کیف پول قشنگم", "1120"),
-                                   (MELLAT, "حساب ملت", "1110")):
+                                   (WALL_E, "کیف پول والای", "1120"), (MELLAT, "حساب ملت", "1110")):
             p = acc[parent]
             acc[code] = Account(id=uuid.uuid4(), code=code, name=name, parent_id=p.id, level=p.level)
             db.add(acc[code])
@@ -189,6 +190,8 @@ def seed_personal_books(db: Session, *, today: date | None = None, slug: str | N
         _journal(db, acc, d(30), "موجودی اولیه کیف پول قشنگم", [(PRETTY_WALLET, omr("60"), 0), ("3110", 0, omr("60"))],
                  currency="OMR")
         _journal(db, acc, d(30), "موجودی اولیه حساب ملت", [(MELLAT, 50_000_000, 0), ("3110", 0, 50_000_000)])
+        _journal(db, acc, d(30), "موجودی اولیه کیف پول والای", [(WALL_E, 2400, 0), ("3110", 0, 2400)], currency="USD")
+        _journal(db, acc, d(30), "موجودی اولیه کیف پول والای", [(WALL_E, 1785, 0), ("3110", 0, 1785)], currency="AED")
         _journal(db, acc, d(6), "رستوران", [("6180", omr("12.500"), 0), (GREEN_WALLET, 0, omr("12.500"))], currency="OMR")
         _journal(db, acc, d(5), "لولو", [("6110", omr("20.250"), 0), (PRETTY_WALLET, 0, omr("20.250"))], currency="OMR")
         _journal(db, acc, d(5), "تاکسی", [("6130", omr("3.750"), 0), (GREEN_WALLET, 0, omr("3.750"))], currency="OMR")

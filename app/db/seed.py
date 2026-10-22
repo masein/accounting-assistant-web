@@ -207,6 +207,7 @@ PERSONAL_SEED_ACCOUNTS = [
     ("2140", "بدهی کارت اعتباری", "Credit card debt", AccountLevel.GENERAL),
     # Net worth
     ("3110", "خالص دارایی اولیه", "Opening net worth", AccountLevel.GENERAL),
+    ("3120", "تبدیل ارز", "Currency exchange", AccountLevel.GENERAL),   # money changed (AZ1); made on first use before
     ("3300", "مازاد (کسری) انباشته", "Accumulated surplus (deficit)", AccountLevel.GENERAL),
     # Income
     ("4110", "حقوق و دستمزد", "Salary & wages", AccountLevel.GENERAL),

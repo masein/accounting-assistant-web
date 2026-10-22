@@ -267,7 +267,7 @@ fun ChatScreen(
                         is ChatItem.File -> FileCard(item, onOpen = { onFile(item, false) }, onShare = { onFile(item, true) })
                         is ChatItem.Proposal -> Held(item, lang, sides, reply) { held -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Voucher(
-                                lang = lang, amount = item.amount ?: java.math.BigDecimal.ZERO, currency = item.currency ?: "",
+                                lang = lang, amount = item.amount, currency = item.currency ?: "",
                                 summary = summaryOf(item.title, item.date),
                                 bodyModifier = held, plainSides = personalBooks,
                                 people = item.people.map { it.name to it.new },

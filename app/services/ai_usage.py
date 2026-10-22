@@ -287,9 +287,23 @@ def effective_budgets(db, company_id, limits: dict[str, Any]) -> tuple[int, int]
     return company_budget, user_budget
 
 
+# A token the provider serves from its prompt cache costs about a quarter of one sent afresh (OpenAI 25%,
+# Anthropic 10%): budgets count it so, or a cached prompt used the allowance as if it were sent anew (2026-10-22).
+CACHED_WEIGHT_QUARTERS = 1
+
+
+def counted_tokens():
+    """The tokens a budget counts, as a SQL expression: prompt and output, the cached part of the prompt at a
+    quarter (``cached_tokens`` is part of ``input_tokens`` for every provider here)."""
+    from app.models.ai_usage import AIUsageEvent
+    cached = func.coalesce(AIUsageEvent.cached_tokens, 0)
+    return (AIUsageEvent.input_tokens + AIUsageEvent.output_tokens
+            - (cached * (4 - CACHED_WEIGHT_QUARTERS)) / 4)
+
+
 def _used_since(db, since: datetime, *, company_id=None, user_id=None) -> tuple[int, datetime | None]:
     from app.models.ai_usage import AIUsageEvent
-    q = select(func.coalesce(func.sum(AIUsageEvent.input_tokens + AIUsageEvent.output_tokens), 0),
+    q = select(func.coalesce(func.sum(counted_tokens()), 0),
                func.min(AIUsageEvent.created_at)).where(AIUsageEvent.created_at > since)
     if company_id is not None:
         q = q.where(AIUsageEvent.company_id == company_id)
@@ -448,7 +462,7 @@ def company_summary(db, company_id, *, days: int = 30) -> dict[str, Any]:
     now = _now()
     day_ago, since = now - WINDOW, now - timedelta(days=days)
     base = [AIUsageEvent.company_id == cid]
-    tokens = AIUsageEvent.input_tokens + AIUsageEvent.output_tokens
+    tokens = counted_tokens()                       # the cached part at a quarter, as the budgets count it
 
     used_24h = int(db.execute(select(func.coalesce(func.sum(tokens), 0)).where(
         *base, AIUsageEvent.created_at > day_ago)).scalar() or 0)
@@ -516,7 +530,7 @@ def platform_summary(db) -> list[dict[str, Any]]:
     from app.models.company import Company
     limits = load_settings(db)
     now = _now()
-    tokens = AIUsageEvent.input_tokens + AIUsageEvent.output_tokens
+    tokens = counted_tokens()                       # the cached part at a quarter, as the budgets count it
     used = dict(db.execute(select(AIUsageEvent.company_id, func.coalesce(func.sum(tokens), 0))
                            .where(AIUsageEvent.created_at > now - WINDOW)
                            .group_by(AIUsageEvent.company_id)).all())

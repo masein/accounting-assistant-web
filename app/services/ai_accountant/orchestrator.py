@@ -74,7 +74,7 @@ PAUSE_TURN_RETRIES = 3
 
 SYSTEM_PROMPT = """You are the AI accountant for this company — a careful junior bookkeeper that helps the manager record transactions, look up balances, and answer accounting questions.
 
-The current date is {today}. Treat THIS as "today" for every relative date ("today", "yesterday", "last Tuesday") and for deciding whether a date is in the future — do NOT use your own training-era notion of the current date. Any date on or before {today} is a valid past/present date and is fine to record.
+The current date is given at the end of these instructions ("Today:"). Treat THAT as "today" for every relative date ("today", "yesterday", "last Tuesday") and for deciding whether a date is in the future — do NOT use your own training-era notion of the current date. Any date on or before today is a valid past/present date and is fine to record.
 
 You have a fixed catalogue of tools. You cannot write to the books directly; every write goes through a proposal that the user must explicitly confirm.
 
@@ -85,7 +85,7 @@ You have a fixed catalogue of tools. You cannot write to the books directly; eve
    Pass the transaction's own wording as ``description`` to ``search_accounts`` and ``find_entity``: a match marked ``learned`` is what the user chose before for that wording — take it. When the user corrects a category or party and wants it kept ("always put Snapp under travel", "from now on Kim is the design supplier", "همیشه اسنپ رو بزن تو ایاب و ذهاب"), call ``propose_remember_preference`` (a confirm card) as well as fixing the entry.
 3. **Never split bulk requests into a single proposal.** "Pay all overdue invoices" → list the invoices and produce one proposal per invoice. Never aggregate.
 4. **Never silently round, swap currencies, or 'fix' obvious typos in amounts.** If the user says "$1k" and the vendor's invoice is in EUR, flag the mismatch and ask.
-5. **Only future-dated entries are restricted.** A date on or before {today} always records normally — never refuse a past date. Reject only dates more than 1 day AFTER {today} (judged against {today}, not your own clock), and only unless the user explicitly says it's scheduled. The server enforces this too.
+5. **Only future-dated entries are restricted.** A date on or before today always records normally — never refuse a past date. Reject only dates more than 1 day AFTER today (judged against the "Today:" line, not your own clock), and only unless the user explicitly says it's scheduled. The server enforces this too.
 6. **Amounts are in the stated currency's own unit, as written — never multiply by 100.** Record the exact number the user/document gives, pence and cents included: "300 GBP" is 300 (debit 300, credit 300), NOT 30000; "£3.99" is 3.99, not 4 and not 399. Pounds, euros and dollars keep their 2 decimal places; rials have none. Do not convert to pence/cents/minor units. And never relabel the currency the user named (300 GBP stays GBP, never IRR).
 7. **Refuse to help conceal, disguise, or misreport money.** This includes structuring / "smurfing" (splitting deposits or transactions into smaller amounts, or spreading them across dates, to stay under a reporting threshold), money laundering, tax evasion, fabricating or backdating documents, misclassifying personal expenses as business, and tampering with the audit trail. Judge the *intent*, not keywords: phrases like "keep it under the reporting threshold", "so the bank doesn't report it", "break it into smaller amounts to avoid…", or "spread it over a few days so it isn't flagged" are structuring even if the word never appears. When asked, briefly decline and explain why in ONE sentence, and do NOT provide the amounts, dates, splits, or a plan that would accomplish it. A single, normal transaction is always fine — only refuse when the goal is to evade reporting/detection (e.g. recording one 9,000 deposit is fine; splitting 50,000 into sub-threshold deposits to dodge reporting is not).
 
@@ -247,7 +247,7 @@ Copy dates. The current date is given above in both calendars — when you menti
 # Style
 
 * Be concise. Don't apologise. Don't lecture about accounting basics.
-* LANGUAGE — non-negotiable: reply in the language of the user's LAST message. A Persian question gets a Persian answer, even if the interface language is {lang_name}. Only when the message has no clear language (numbers, a bare filename) fall back to {lang_name}. Write Persian entity names in Persian script — never transliterate them to Latin ("تولیدی آرد روشن", not "Ard roshan").
+* LANGUAGE — non-negotiable: reply in the language of the user's LAST message. A Persian question gets a Persian answer, even if the interface language (named at the end of these instructions) is another. Only when the message has no clear language (numbers, a bare filename) fall back to the interface language. Write Persian entity names in Persian script — never transliterate them to Latin ("تولیدی آرد روشن", not "Ard roshan").
 * Match the company's currency by default (returned by ``get_company_defaults``).
 * TOMAN: Iranian users quote prices in تومان but the books are kept in ریال (IRR). 1 تومان = 10 ریال — ALWAYS convert: «۲۱۵ میلیون تومان» → propose 2,150,000,000 IRR, and say the conversion in your reply («۲۱۵ میلیون تومان = ۲٬۱۵۰٬۰۰۰٬۰۰۰ ریال»). Amounts said in ریال are used as-is. If the user corrects the figure, use their number.
 
@@ -1224,7 +1224,73 @@ def _replay_history(db: Session, session_id: uuid.UUID) -> list[ChatMessage]:
         # Older assistant + tool entries from before this refactor are
         # dropped on replay — they're in Anthropic-block shape and would
         # confuse an OpenAI adapter. The user can /reset the session.
-    return _cards_as_they_stand(db, history)
+    return _compact_history(_cards_as_they_stand(db, history))
+
+
+# How much of a thread goes back to the model with each message (2026-10-22). The whole thread went, every
+# tool result's JSON included, on each of a message's two or three calls: a long thread cost 50–80k tokens a
+# message, and the owner reached 2.1M in a day. The last exchanges go as they were; older ones as what was said
+# and one line per card; the oldest not at all — the books keep what was recorded, and the tools read it.
+KEEP_WHOLE = 2           # exchanges (a user message and everything after it) replayed as they were
+KEEP_COMPACT = 30        # older exchanges replayed compact; those before them are left out
+_LEFT_OUT = ("[Earlier messages of this thread are left out. What was recorded is in the books — read it with "
+             "the tools, never from memory.]")
+
+
+def _card_line(msg: ChatMessage) -> str | None:
+    """A card's tool result in one line: what it is, what became of it, and its token (a card can be
+    replaced by its token)."""
+    import json as _json
+    if msg.role != "tool" or msg.is_error or not msg.text or '"confirmation_token"' not in msg.text:
+        return None
+    try:
+        body = _json.loads(msg.text)
+    except ValueError:
+        return None
+    if not isinstance(body, dict) or not body.get("confirmation_token"):
+        return None
+    summary = " ".join(str(body.get("summary") or body.get("tool") or "card").split())[:200]
+    return f"{summary} — {body.get('status') or 'pending'} (card {body['confirmation_token']})"
+
+
+def _compact_exchange(exchange: list[ChatMessage]) -> list[ChatMessage]:
+    """What was said and what came of it: the user's words, the assistant's last answer, and a line per card;
+    no tool calls or tool results."""
+    out: list[ChatMessage] = []
+    rest = exchange
+    if exchange and exchange[0].role == "user":
+        out.append(ChatMessage(role="user", text=exchange[0].text or ""))
+        rest = exchange[1:]
+    said = [m.text.strip() for m in rest if m.role == "assistant" and (m.text or "").strip()]
+    cards = [line for line in (_card_line(m) for m in rest) if line]
+    text = "\n".join(x for x in (said[-1] if said else "",
+                                  ("[Cards: " + "; ".join(cards) + "]") if cards else "") if x)
+    if text:
+        out.append(ChatMessage(role="assistant", text=text))
+    return out
+
+
+def _compact_history(history: list[ChatMessage]) -> list[ChatMessage]:
+    exchanges: list[list[ChatMessage]] = []
+    for msg in history:
+        if msg.role == "user" or not exchanges:
+            exchanges.append([msg])
+        else:
+            exchanges[-1].append(msg)
+    if len(exchanges) <= KEEP_WHOLE:
+        return history
+    older, recent = exchanges[:-KEEP_WHOLE], exchanges[-KEEP_WHOLE:]
+    left_out = len(older) > KEEP_COMPACT
+    older = older[-KEEP_COMPACT:]
+    out: list[ChatMessage] = []
+    for ex in older:
+        out.extend(_compact_exchange(ex))
+    if left_out and out:
+        first = out[0]
+        out[0] = ChatMessage(role=first.role, text=f"{_LEFT_OUT}\n\n{first.text or ''}")
+    for ex in recent:
+        out.extend(ex)
+    return out
 
 
 _CARD_STATES = {
@@ -1378,10 +1444,11 @@ async def run_chat_turn(
             today_str = f"{today.isoformat()} (Jalali {format_jalali(today)} = {format_jalali_long(today)})"
     except Exception:
         pass
-    prompt_template = SYSTEM_PROMPT + (PERSONAL_MODE_ADDENDUM if personal else "")
-    system_prompt = (
-        prompt_template.replace("{lang_name}", _LANG_NAMES[lang]).replace("{today}", today_str)
-    )
+    # The instructions and the company's standing lines first, the same on every call, so a provider's prompt
+    # cache serves them (an OpenAI-shape gateway caches a repeated prefix by itself; the Anthropic client marks
+    # it); today's date and this message's language last — the date sat at the top and changed the whole
+    # prompt every day, and each message resent ~24k tokens of instructions and tools (2026-10-22).
+    system_prompt = SYSTEM_PROMPT + (PERSONAL_MODE_ADDENDUM if personal else "")
     try:
         # the company's standing choices, learned from corrections (roadmap §5.4)
         from app.services.learned_preferences import prompt_block
@@ -1406,8 +1473,10 @@ async def run_chat_turn(
                               " It is fixed now: the books already have entries.")
     except Exception:  # noqa: BLE001 — never lose a chat turn over a hint
         logger.warning("the books' currency unavailable for the prompt", exc_info=True)
+    system_prompt += f"\n\nToday: {today_str}."
     # The language rule sits far up the prompt and lost to the Persian books:
     # "What was our biggest expense last month?" was answered in Persian (AI QA, 2026-10-12).
+    system_prompt += f"\nThe interface language is {_LANG_NAMES[lang]}."
     system_prompt += f"\n\nThis turn: the user's message is in {_LANG_NAMES[lang]} — answer it in {_LANG_NAMES[lang]}."
     if lang != "fa":
         system_prompt += " Write figures with Latin digits and the currency code (843,110,379 IRR), and translate account names carefully (حقوق پایه is base salary)."

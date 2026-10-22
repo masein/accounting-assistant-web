@@ -1589,6 +1589,7 @@ async def run_chat_turn(
     stop_reason: str | None = None
     pause_attempts = 0
     refused_cards: list[str] = []
+    unfixed: list[str] = []              # the tools whose refused card no later card of theirs replaced
     retried_refusal = False
 
     from app.services.ai_accountant import progress
@@ -1606,7 +1607,9 @@ async def run_chat_turn(
 
         stop_reason = response.stop_reason
         assistant_msg = response.message
-        if (stop_reason == "end_turn" or not assistant_msg.tool_calls) and refused_cards and not proposals \
+        # …also beside another card: the gym's card was refused in Iranian rials while the exchange's card stood,
+        # and was never drafted again (eval, 2026-10-22, scenario AZ2)
+        if (stop_reason == "end_turn" or not assistant_msg.tool_calls) and refused_cards and unfixed \
                 and not retried_refusal:
             # A card was refused and the model ended the turn without one, telling
             # the user it was ready (AI QA on migrated books, 2026-10-12: «۵۰ میلیون
@@ -1736,6 +1739,7 @@ async def run_chat_turn(
                 ))
                 if tool.category == "proposal" and e.code in _CORRECTABLE_REFUSALS:
                     refused_cards.append(e.message)
+                    unfixed.append(call.name)
                 continue
             except Exception as e:
                 logger.exception("ai-accountant: tool %s crashed", call.name)
@@ -1769,6 +1773,8 @@ async def run_chat_turn(
                     result["replaces"] = replaced        # the client marks the old card as changed
                 result.setdefault("tool_name", call.name)    # a tool that didn't name itself: its card still says what it is
                 proposals.append(result)
+                if call.name in unfixed:
+                    unfixed.remove(call.name)
             # Remember entity candidates so we can offer a "pick one" partial
             # if the model never converges before MAX_TURNS (AI-1).
             if call.name in ("find_entity", "list_entities") and isinstance(result, dict):

@@ -182,15 +182,20 @@ def _guard_place_currency(ctx: ToolContext, args) -> None:
             .where(Account.code == ln.account_code, Transaction.deleted_at.is_(None))
             .group_by(func.upper(Transaction.currency))).all())
         held = {(c or base_currency(ctx.db) or "IRR"): n for c, n in held.items()}
-        if not held or ccy in held or pending_exchanges_into(ctx.db, getattr(ctx, "chat_session_id", None),
-                                                            ln.account_code, ccy):
+        session = getattr(ctx, "chat_session_id", None)
+        if not held or ccy in held or pending_exchanges_into(ctx.db, session, ln.account_code, ccy):
             continue
+        # what an exchange card of this conversation brings into it counts as held: the gym's 200 «ریال» from
+        # the wallet the dollars were changed in are the Omani rials they became (scenario AZ2)
+        coming = {c for c in ("OMR", "SAR", "QAR", "IRR", "AED", "USD", "EUR", "GBP")
+                  if pending_exchanges_into(ctx.db, session, ln.account_code, c)}
         name = ctx.db.execute(select(Account.name).where(Account.code == ln.account_code)).scalar() or ln.account_code
         has = ", ".join(sorted(held))
-        if len(held) == 1:
-            (only,) = held
-            hint = (f"«ریال» paid from it means {only}: propose this card in {only}, the amount exactly as the user "
-                    f"wrote it (۷.۱ is 7.100, never 7). ") if only in ("OMR", "SAR", "QAR", "IRR") else ""
+        rials = [c for c in (set(held) | coming) if c in ("OMR", "SAR", "QAR", "IRR")]
+        if len(rials) == 1 and ccy in ("OMR", "SAR", "QAR", "IRR"):
+            (only,) = rials
+            hint = (f"«ریال» paid from it means {only} — not a question for the user: propose this card again now "
+                    f"in {only}, every amount exactly as the user wrote it (۷.۱ is 7.100, never 7). ")
         else:
             hint = ""
         raise ToolError(

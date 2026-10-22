@@ -162,3 +162,45 @@ def test_az1_the_exchange_is_offered_with_the_money_tools():
     groups = r.route("۱۹۰۰ دلار رو چنج کردم شد ۷۰۲.۲ ریال عمان", personal=True)
     assert "money" in groups and "propose_currency_exchange" in r.GROUPS["money"][1]
     assert "money" in r.route("I changed 500 dollars into 192 OMR", personal=True)
+
+
+def test_az2_rials_from_the_wallet_the_dollars_were_changed_in_are_omani_rials(db, person):
+    from app.services.ai_accountant.orchestrator import _get_or_create_session
+    with use_company(person.company_id):
+        session = _get_or_create_session(db, user_id=USER, session_id=None).id
+        _exchange(db, session=session)
+        with pytest.raises(ToolError) as e:
+            _pay(db, [("6190", 200, 0), (WALL_E, 0, 200)], "IRR", session=session)
+        assert "means OMR — not a question for the user" in str(e.value)
+
+
+def test_az2_a_refused_card_beside_another_is_drafted_again(db, person):
+    """The exchange's card stood, the gym's was refused in Iranian rials: the model is told once more."""
+    from app.services.ai_accountant.orchestrator import run_chat_turn
+    from tests.test_ai_accountant_orchestrator import _assistant_text, _assistant_tool_call
+    seen = []
+
+    class _Model:
+        shape = "fake"
+
+        def __init__(self, *replies):
+            self.replies = list(replies)
+
+        async def chat(self, *, system_prompt, tools, messages, model=None, max_tokens=8192):
+            seen.append([m.text for m in messages if m.role == "user"])
+            return self.replies.pop(0)
+
+    gym = {"date": date.today().isoformat(), "description": "باشگاه",
+           "lines": [{"account_code": "6190", "debit": 200, "credit": 0}, {"account_code": WALL_E, "debit": 0, "credit": 200}]}
+    model = _Model(
+        _assistant_tool_call("propose_currency_exchange", {"from_place": "کیف پول والای", "from_currency": "USD",
+                                                           "from_amount": "1900", "to_currency": "OMR", "to_amount": "702.2"}),
+        _assistant_tool_call("propose_create_transaction", {**gym, "currency": "IRR"}),
+        _assistant_text("کارت تبدیل آماده است؛ ۲۰۰ ریال را به ریال عمان ثبت کنم؟"),
+        _assistant_tool_call("propose_create_transaction", {**gym, "currency": "OMR"}),
+        _assistant_text("دو کارت آماده است."))
+    with use_company(person.company_id):
+        out = asyncio.run(run_chat_turn(db, user_id=USER, user_message="۱۹۰۰ دلار چنج کردم شد ۷۰۲.۲ ریال عمان که ازش ۲۰۰ ریال باشگاه دادم",
+                                        client=model, mode="personal", lang="fa"))
+    assert [p["tool_name"] for p in out.proposals] == ["propose_currency_exchange", "propose_create_transaction"]
+    assert any("The card you drafted was refused" in (t or "") for t in seen[-2])

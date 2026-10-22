@@ -186,6 +186,11 @@ class GetSpendingSummaryInput(BaseModel):
                      "it overrides period. A year before the books began comes back empty — say so, never "
                      "answer with another year."),
     )
+    days: int | None = Field(
+        None, ge=1, le=366,
+        description=("The last N days, today included: «۱۰ روز گذشته», 'the past 10 days' → 10; «دو هفته اخیر» → 14. "
+                     "It overrides period."),
+    )
     kind: Literal["spending", "income"] = Field(
         "spending", description="spending = expense categories; income = revenue categories."
     )
@@ -205,7 +210,7 @@ class GetSpendingSummary(BaseTool):
     category = "read"
     description = (
         "How much was spent (or earned) in a period named the way the user said it — "
-        "'this month', 'این ماه', 'last month', 'امسال', 'this year'. Resolves the period "
+        "'this month', 'این ماه', 'last month', 'امسال', 'this year', «۱۰ روز گذشته» (``days``). Resolves the period "
         "in the company's own calendar (Jalali for Iranian tenants) so you never compute "
         "dates yourself, and returns the total, a breakdown by category, the transaction "
         "count and the resolved period with labels in both calendars. ALWAYS use this for "
@@ -238,6 +243,12 @@ class GetSpendingSummary(BaseTool):
             except ValueError as e:
                 raise ToolError(f"Not a month: {args.month!r} (YYYY-MM).", code="bad_month") from e
             period = resolve_period("custom", today, cal, first, last)
+        elif args.days:
+            # «در ۱۰ روز گذشته چقدر خرج کردم؟» was refused: no period said it, and the model is told not to
+            # count dates itself (scenario AY1)
+            period = resolve_period("custom", today, cal, today - timedelta(days=args.days - 1), today)
+            period.label_fa = f"{to_persian_digits(args.days)} روز گذشته ({period.label_fa})"
+            period.label_en = f"the last {args.days} days ({period.label_en})"
         else:
             period = resolve_period(args.period, today, cal, args.from_date, args.to_date)
         wanted = EXPENSE if args.kind == "spending" else REVENUE

@@ -567,7 +567,7 @@
   {
    "id": "payroll_question_en",
    "lang": "en",
-   "message": "how much did we pay Sara Ahmadi last month?",
+   "message": "how much did we pay Sara Ahmadi in her last pay run?",
    "expect": {
     "proposals": 0,
     "tools_any": [
@@ -1093,9 +1093,7 @@
     {
      "tool": "get_spending_summary",
      "input": {
-      "period": "custom",
-      "from_date": "{today-10}",
-      "to_date": "{today}"
+      "days": 10
      }
     },
     {

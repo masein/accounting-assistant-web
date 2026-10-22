@@ -7,6 +7,7 @@ pass; the scorer, the run comparison and the nightly workflow are pinned too.
 from __future__ import annotations
 
 import asyncio
+import uuid
 
 import pytest
 
@@ -102,6 +103,21 @@ def test_the_fixture_figures_are_what_the_scenarios_say(db, books):
         assert (run.status, run.total_net, run.lines[0].employee_name) == ("paid", SARA_PAY, "Sara Ahmadi")
     pay_q = next(s for s in SCENARIOS if s["id"] == "payroll_question_en")
     assert SARA_PAY in pay_q["expect"]["reply_numbers_any"]
+
+
+def test_ay6_the_statement_differs_from_the_books_by_the_fee_alone(db, books):
+    """The statement shows every movement of the bank account in its days; with only the rent and the fee,
+    Aria's receipt and the wages read as missing from the bank, and the review opened with them (AY6)."""
+    from app.db.tenant import use_company
+    from app.models.bank_statement import BankStatement
+    from app.services.ai_eval.fixture import BANK_FEE
+    from app.services.statement_review import build_statement_review
+    with use_company(books.company_id):
+        review = build_statement_review(db, db.get(BankStatement, uuid.UUID(books.statement_id)))
+    findings = [(f.kind, f.amount) for f in review.findings if f.kind != "balance_gap"]
+    assert findings == [("unrecorded", BANK_FEE)], findings
+    pay_q = next(s for s in SCENARIOS if s["id"] == "payroll_question_en")
+    assert "last month" not in pay_q["message"]                  # true whatever day the eval runs
 
 
 # --- scoring ------------------------------------------------------------------------------------------

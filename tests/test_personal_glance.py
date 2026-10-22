@@ -99,3 +99,20 @@ def test_ay3_a_renamed_category_keeps_only_its_own_name(db, person):
         db.flush()
         block = glance_block(db)
     assert "6130 «تاکسی و اسنپ»;" in block and "(Transport)" not in block
+
+
+@pytest.mark.parametrize("query, code", [
+    ("مبدل برق", "6125"), ("دو تا مبدل برق", "6125"), ("power adapter", "6125"), ("home supplies", "6125"),
+    ("لامپ", "6125"), ("قبض برق", "6140"), ("برق", "6140"), ("bank fee", "6210"), ("taxi", "6130"), ("lunch", "6180"),
+])
+def test_ay4_the_search_finds_things_for_the_home(db, person, query, code):
+    """«مبدل برق» found the electricity bill on «برق»; the longest phrase wins now (AY4)."""
+    from app.db.tenant import use_company
+    from app.services.ai_accountant.base import ToolContext
+    from app.services.ai_accountant.read_tools import SearchAccounts, SearchAccountsInput
+    with use_company(person.company_id):
+        out = asyncio.run(SearchAccounts().run(ToolContext(db=db, user_id="u1", mode="personal"),
+                                               SearchAccountsInput(query=query)))
+    top = out["matches"][0]
+    assert top["code"] == code, out["matches"][:3]
+    assert all(m["confidence"] < top["confidence"] for m in out["matches"][1:]), out["matches"][:3]   # no tie at the top

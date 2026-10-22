@@ -86,11 +86,17 @@ def card_total(tool: str, inp: dict[str, Any]):
 
 
 def _check_card(spec: dict, cards: list[dict], today: date) -> list[str]:
+    """The spec is met by any of the cards: a list answer's Airbnb card came after Amir's cash and was never
+    looked at (2026-10-22). With none matching, the first card's problems."""
     tool = spec.get("tool")
     pick = [c for c in cards if not tool or c["tool"] == tool]
     if not pick:
         return [f"no {tool or 'card'} card"]
-    card = pick[0]
+    found = [_card_problems(spec, card, today) for card in pick]
+    return [] if any(not p for p in found) else found[0]
+
+
+def _card_problems(spec: dict, card: dict, today: date) -> list[str]:
     inp, problems = card["input"], []
     if "total" in spec and _amount(card_total(card["tool"], inp)) != _amount(spec["total"]):
         problems.append(f"card total {card_total(card['tool'], inp)} want {spec['total']}")

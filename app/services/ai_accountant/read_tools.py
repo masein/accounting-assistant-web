@@ -556,6 +556,13 @@ _ACCOUNT_ALIASES: dict[str, dict[str, tuple[list[str], list[str]]]] = {
         "housing": (["rent", "housing", "اجاره", "مسکن", "شارژ"], ["6120"]),
         "transport": (["transport", "taxi", "fuel", "petrol", "metro", "snapp", "حمل", "تاکسی", "بنزین", "مترو", "اسنپ"], ["6130"]),
         "bills": (["bill", "bills", "utilities", "electricity", "water", "gas", "internet", "قبض", "قبوض", "برق", "آب", "گاز", "اینترنت"], ["6140"]),
+        # things for the home (6125, migration 085): «مبدل برق» went to the electricity bill on «برق» (AY4)
+        "home supplies": (["home supplies", "household", "home repair", "adapter", "charger", "light bulb", "bulb",
+                           "extension cord", "batteries", "battery", "cleaning", "detergent", "stationery",
+                           "لوازم خانه", "لوازم منزل", "لوازم خونه", "تعمیرات خانه", "تعمیر خانه", "مبدل برق", "مبدل",
+                           "آداپتور", "سیم برق", "کابل برق", "لوازم برقی", "وسایل برقی", "پریز برق",
+                           "شارژر", "لامپ", "پریز", "چندراهی", "سه راهی برق", "باتری", "شوینده", "نظافت",
+                           "لوازم تحریر", "نوشت افزار", "نوشت‌افزار", "کلیدسازی", "کلید سازی"], ["6125"]),
         "health": (["health", "doctor", "pharmacy", "medicine", "سلامت", "درمان", "دکتر", "دارو"], ["6150"]),
         "education": (["education", "school", "course", "book", "آموزش", "کلاس", "شهریه", "کتاب"], ["6160"]),
         "clothing": (["clothes", "clothing", "پوشاک", "لباس", "کفش"], ["6170"]),
@@ -687,15 +694,19 @@ class SearchAccounts(BaseTool):
         from app.utils.text import fold_fa
         q = fold_fa(q)
         preferred_codes: set[str] = set()
-        for label, (synonyms, codes) in aliases.items():
-            if any(s in q for s in synonyms):
-                from app.services.chart_codes import own_code
-                preferred_codes.update(own_code(c) for c in codes)      # a company's own code for the app's
-                role = _ALIAS_ROLES.get(label) if alias_key != "personal" else None
-                if role:
-                    from app.services.account_resolver import find_account_code
-                    if (own := find_account_code(ctx.db, role)):
-                        preferred_codes.add(own)
+        hits = [(label, max((s for s in synonyms if s in q), key=len), codes)
+                for label, (synonyms, codes) in aliases.items() if any(s in q for s in synonyms)]
+        # the longest phrase wins over one inside it: «مبدل برق» is a power adapter, not «برق» the electricity
+        # bill; "bank fee" is a fee, not the bank (scenario AY4)
+        hits = [h for h in hits if not any(h[1] != o[1] and h[1] in o[1] for o in hits)]
+        for label, _said, codes in hits:
+            from app.services.chart_codes import own_code
+            preferred_codes.update(own_code(c) for c in codes)      # a company's own code for the app's
+            role = _ALIAS_ROLES.get(label) if alias_key != "personal" else None
+            if role:
+                from app.services.account_resolver import find_account_code
+                if (own := find_account_code(ctx.db, role)):
+                    preferred_codes.add(own)
 
         from app.models.account import AccountLevel
 

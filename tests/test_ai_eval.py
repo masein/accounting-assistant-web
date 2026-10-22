@@ -122,6 +122,16 @@ def test_ay6_the_statement_differs_from_the_books_by_the_fee_alone(db, books):
 
 # --- scoring ------------------------------------------------------------------------------------------
 
+def test_a_card_spec_is_met_by_any_card_of_a_list():
+    """Amir's cash card came first; the Airbnb card the spec asks for was never looked at (2026-10-22)."""
+    amir = {"tool": "propose_create_transaction", "input": {"date": "2026-09-28", "lines": [
+        {"account_code": "112001", "debit": 300, "credit": 0}, {"account_code": "2130", "debit": 0, "credit": 300}]}}
+    airbnb = {"tool": "propose_create_transaction", "input": {"date": "2026-09-28", "lines": [
+        {"account_code": "6185", "debit": "333.77", "credit": 0}, {"account_code": "2130", "debit": 0, "credit": "333.77"}]}}
+    spec = {"card": {"tool": "propose_create_transaction", "debit_prefix": ["6185"], "credit_prefix": ["2130"]}}
+    assert _score(spec, tools=["propose_create_transaction"], cards=[amir, airbnb]) == []
+    assert _score(spec, tools=["propose_create_transaction"], cards=[amir]) != []
+
 def _score(expect, *, tools=(), errors=0, cards=(), reply=""):
     from datetime import date
 

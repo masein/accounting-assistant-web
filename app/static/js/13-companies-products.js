@@ -47,6 +47,18 @@
     })();
 
     // ═══════ Companies console (super-admin only) ═══════
+    // AI · 24 h: the books' use of their budget (* set for this company), and on a second line each user's
+    // when it is the tighter one — a person hit 2M of 2M per user with the books' 10M far off (2026-10-22)
+    function coAiCell(a) {
+      const of = (used, budget) => aiTokens(used) + ' / ' + (budget ? aiTokens(budget) : '∞');
+      let html = escapeHtml(of(a.tokens_24h, a.budget) + (a.budget_is_default ? '' : ' *'));
+      if (a.user_budget && (!a.budget || a.user_budget < a.budget)) {
+        html += `<div class="goal-meta">${escapeHtml(tf('companiesAiPerUser', { v: of(a.top_user_tokens_24h || 0, a.user_budget) }))}`
+          + `${a.user_budget_is_default ? '' : ' *'}</div>`;
+      }
+      return html;
+    }
+
     async function loadCompanies() {
       const tbody = document.getElementById('companies-tbody');
       if (!tbody) return;
@@ -82,10 +94,10 @@
             <td>${escapeHtml(c.base_currency)}</td>
             <td>${escapeHtml(c.login_username || '-')}</td>
             <td>${escapeHtml(suspended ? t('companiesStatusSuspended') : t('companiesStatusActive'))}</td>
-            <td dir="ltr">${ai[c.id] ? escapeHtml(aiTokens(ai[c.id].tokens_24h) + ' / ' + (ai[c.id].budget ? aiTokens(ai[c.id].budget) : '∞') + (ai[c.id].budget_is_default ? '' : ' *')) : '—'}</td>
+            <td dir="ltr">${ai[c.id] ? coAiCell(ai[c.id]) : '—'}</td>
             <td>${rev[c.id] ? escapeHtml(tf('companiesAiReviewCell', { good: rev[c.id].good, bad: rev[c.id].bad, total: rev[c.id].samples })) : '—'}</td>
             <td><div class="cell-actions">
-              <button type="button" class="btn btn-secondary btn-sm co-ai" data-id="${escapeHtml(c.id)}" data-budget="${ai[c.id] && !ai[c.id].budget_is_default ? escapeHtml(String(ai[c.id].budget)) : ''}">${escapeHtml(t('companiesAiBudget'))}</button>
+              <button type="button" class="btn btn-secondary btn-sm co-ai" data-id="${escapeHtml(c.id)}" data-budget="${ai[c.id] && !ai[c.id].budget_is_default ? escapeHtml(String(ai[c.id].budget)) : ''}" data-user-budget="${ai[c.id] && !ai[c.id].user_budget_is_default ? escapeHtml(String(ai[c.id].user_budget)) : ''}" data-personal="${c.kind === 'personal' ? '1' : ''}">${escapeHtml(t('companiesAiBudget'))}</button>
               <button type="button" class="btn btn-secondary btn-sm co-toggle" data-id="${escapeHtml(c.id)}" data-status="${nextStatus}">${escapeHtml(toggleLabel)}</button>
               <button type="button" class="btn btn-secondary btn-sm co-reset" data-id="${escapeHtml(c.id)}">${escapeHtml(t('companiesResetPw'))}</button>
               <button type="button" class="btn btn-danger btn-sm co-wipe" data-id="${escapeHtml(c.id)}">${escapeHtml(t('companiesResetBooks'))}</button>
@@ -175,15 +187,28 @@
           return;
         }
         if (aiBtn) {
+          const tokens = (raw) => {                    // '' → null (the default), else a whole number ≥ 0
+            const trimmed = asciiDigits(String(raw)).trim();
+            const n = trimmed === '' ? null : Number(trimmed);
+            return n !== null && (!Number.isFinite(n) || n < 0) ? NaN : (n === null ? null : Math.round(n));
+          };
           const raw = await uiPrompt({ title: t('companiesAiBudget'), message: t('companiesAiBudgetPrompt'), value: aiBtn.dataset.budget || '' });
           if (raw === null) return;
-          const trimmed = asciiDigits(String(raw)).trim();
-          const daily = trimmed === '' ? null : Number(trimmed);
-          if (daily !== null && (!Number.isFinite(daily) || daily < 0)) { showAlert(t('aiUsageBadNumber'), true); return; }
+          const daily = tokens(raw);
+          if (Number.isNaN(daily)) { showAlert(t('aiUsageBadNumber'), true); return; }
+          const body = { daily_tokens: daily };
+          // a company's users each have a budget too; a person's books are one person, whose budget is the books'
+          if (!aiBtn.dataset.personal) {
+            const rawUser = await uiPrompt({ title: t('companiesAiUserBudget'), message: t('companiesAiUserBudgetPrompt'),
+                                             value: aiBtn.dataset.userBudget || '' });
+            if (rawUser === null) return;
+            body.user_daily_tokens = tokens(rawUser);
+            if (Number.isNaN(body.user_daily_tokens)) { showAlert(t('aiUsageBadNumber'), true); return; }
+          }
           try {
             const res = await fetch(API + '/admin/companies/' + aiBtn.dataset.id + '/ai-budget', {
               method: 'PUT', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ daily_tokens: daily === null ? null : Math.round(daily) }),
+              body: JSON.stringify(body),
             });
             if (!res.ok) { const d = await res.json().catch(() => ({})); showAlert(d.detail || t('companiesUpdateFailed'), true); return; }
             showAlert(t('companiesUpdated'));

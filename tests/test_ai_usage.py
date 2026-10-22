@@ -553,3 +553,64 @@ def test_no_warning_when_the_company_is_unlimited(db, company):
         refresh_notifications(db, today=date.today())
         db.commit()
     assert _ai_notes(db, company) == []
+
+
+# --- AV: a person's AI budget is their books' (2026-10-22) -------------------------------------------------
+
+def test_av1_a_persons_budget_is_their_books(db, company, as_user):
+    """The platform's 2M per user stopped the owner at 2.1M with the books' 10M far off."""
+    _set_limits(db, user_daily_tokens=2_000_000, company_daily_tokens=10_000_000)
+    company.kind = "personal"
+    db.commit()
+    uid = str(uuid.uuid4())
+    _event(db, company, user_id=uid, tokens=2_100_000)
+    as_user(uid, role="personal")
+    check_budget()                                                     # the books' 10M, not 2M
+    assert ai_usage.effective_budgets(db, company.id, ai_usage.load_settings(db)) == (10_000_000, 10_000_000)
+    company.ai_user_daily_token_budget = 1_000_000                     # one set on purpose still holds
+    db.commit()
+    with pytest.raises(AIBudgetExceeded) as ex:
+        check_budget()
+    assert ex.value.scope == "user"
+
+
+def test_av2_a_companys_users_still_have_theirs(db, company, as_user):
+    _set_limits(db, user_daily_tokens=2_000_000, company_daily_tokens=10_000_000)
+    heavy = str(uuid.uuid4())
+    _event(db, company, user_id=heavy, tokens=2_100_000)
+    as_user(heavy)
+    with pytest.raises(AIBudgetExceeded) as ex:
+        check_budget()
+    assert ex.value.scope == "user"
+    as_user()
+    check_budget()
+
+
+def test_av3_av4_the_console_shows_and_sets_each_users(db, company, client):
+    _set_limits(db, user_daily_tokens=2_000_000, company_daily_tokens=10_000_000)
+    _event(db, company, user_id="a", tokens=2_100_000)
+    _event(db, company, user_id="b", tokens=300_000)
+    api = _client_as(client, company, superadmin=True)
+    row = {c["company_id"]: c for c in api.get("/admin/companies/ai-usage").json()}[str(company.id)]
+    assert (row["tokens_24h"], row["budget"], row["user_budget"], row["top_user_tokens_24h"]) == (
+        2_400_000, 10_000_000, 2_000_000, 2_100_000)
+    assert row["user_budget_is_default"] is True and row["personal"] is False
+    r = api.put(f"/admin/companies/{company.id}/ai-budget", json={"daily_tokens": 20_000_000, "user_daily_tokens": 5_000_000})
+    assert r.status_code == 200, r.text
+    assert (r.json()["budget"], r.json()["user_budget"], r.json()["user_budget_is_default"]) == (20_000_000, 5_000_000, False)
+    r = api.put(f"/admin/companies/{company.id}/ai-budget", json={"daily_tokens": None})     # the user's left as it is
+    db.refresh(company)
+    assert (company.ai_daily_token_budget, company.ai_user_daily_token_budget) == (None, 5_000_000)
+    company.kind = "personal"
+    company.ai_user_daily_token_budget = None
+    db.commit()
+    row = {c["company_id"]: c for c in api.get("/admin/companies/ai-usage").json()}[str(company.id)]
+    assert row["personal"] is True and row["user_budget"] == row["budget"] == 10_000_000
+
+
+def test_av3_av4_the_console_page():
+    from pathlib import Path
+    js = Path("app/static/js/13-companies-products.js").read_text()
+    html = Path("app/static/index.html").read_text()
+    assert "function coAiCell(a)" in js and "if (!aiBtn.dataset.personal)" in js and "body.user_daily_tokens" in js
+    assert 'data-i18n="companiesAiLegend"' in html

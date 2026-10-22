@@ -185,6 +185,33 @@ def uk(db, client):
     _purge_company(db, str(co["company"].id))
 
 
+class _Day(date):
+    """A date whose today() is pinned (see _not_on_a_month_end)."""
+    pinned: date | None = None
+
+    @classmethod
+    def today(cls):
+        return cls.pinned
+
+
+@pytest.fixture(autouse=True)
+def _not_on_a_month_end(monkeypatch):
+    """These tests count the months that ended before this one. On a month's last day — 30 Mehr, 2026-10-22 —
+    the run rightly counts this month too (it is dated its last day), and every count was one off. So on a
+    month's last day, in either calendar, the tests run as of a day that isn't one."""
+    import sys
+    day = date.today()
+    ends = lambda d: any(fa.month_end(fa.month_start(d, c), c) == d for c in ("jalali", "gregorian"))  # noqa: E731
+    if not ends(day):
+        return
+    while ends(day):
+        day -= timedelta(days=1)
+    _Day.pinned = day
+    # the service and these tests; not the routes' module, whose type hints FastAPI reads `date` from
+    for module in (fa, sys.modules[__name__]):
+        monkeypatch.setattr(module, "date", _Day)
+
+
 def _months_ago(co, n):
     """First day of the month ``n`` months before the current one (company calendar)."""
     cal = co["cal"]

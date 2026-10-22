@@ -10,7 +10,7 @@ import asyncio
 
 import pytest
 
-from app.services.ai_eval.fixture import seed_eval_company
+from app.services.ai_eval.fixture import seed_eval_company, seed_personal_books
 from app.services.ai_eval.runner import ReplayClient, fill, load_scenarios, run_scenario
 
 SCENARIOS = load_scenarios()
@@ -24,10 +24,20 @@ def books(db):
     _purge_company(db, ctx.company_id)
 
 
+@pytest.fixture()
+def person(db):
+    ctx = seed_personal_books(db)
+    yield ctx
+    from tests.test_admin_audit import _purge_company
+    _purge_company(db, ctx.company_id)
+
+
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=[s["id"] for s in SCENARIOS])
-def test_every_recorded_trajectory_still_passes(db, books, scenario):
-    client = ReplayClient(fill(scenario["replay"], books))
-    rec = asyncio.run(run_scenario(db, books, scenario, client, replay=True))
+def test_every_recorded_trajectory_still_passes(db, request, scenario):
+    # a person's scenarios run in a person's books (2026-10-22: the owner's shape), the rest in the company's
+    ctx = request.getfixturevalue("person" if scenario.get("books") == "personal" else "books")
+    client = ReplayClient(fill(scenario["replay"], ctx))
+    rec = asyncio.run(run_scenario(db, ctx, scenario, client, replay=True))
     assert rec["ok"], (rec["problems"], rec["tools"], rec["reply"])
 
 
@@ -39,8 +49,8 @@ _CARD_KEYS = {"tool", "total", "debit_prefix", "credit_prefix", "fields", "field
 
 
 def test_the_eval_set_is_well_formed():
-    from app.services.ai_accountant.orchestrator import build_default_registry
-    tools = {t["name"] for t in build_default_registry().to_anthropic()}
+    from app.services.ai_accountant.orchestrator import build_default_registry, build_personal_registry
+    tools = {t["name"] for t in build_default_registry().to_anthropic() + build_personal_registry().to_anthropic()}
     ids = [s["id"] for s in SCENARIOS]
     assert len(ids) == len(set(ids)) and len(ids) >= 15
     langs = [s.get("lang", "en") for s in SCENARIOS]
@@ -215,7 +225,7 @@ def cli_on_test_db(db, monkeypatch):
     from app.models.company import Company
     from tests.test_admin_audit import _purge_company
     with tenant_bypass():
-        ids = [str(c) for c in db.execute(select(Company.id).where(Company.name == "AI eval books")).scalars()]
+        ids = [str(c) for c in db.execute(select(Company.id).where(Company.name.in_(("AI eval books", "AI eval person")))).scalars()]
     for cid in ids:
         _purge_company(db, cid)
 

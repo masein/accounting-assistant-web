@@ -109,7 +109,8 @@ class TestPromptWiring:
                 captured["tools"] = tools
                 return _assistant_text("ok")
 
-        asyncio.run(run_chat_turn(db, user_id="u1", user_message="hi", client=_Cap(), mode="personal"))
+        # «how much money do I have?» brings the money tools (routed since 2026-10-22, AX)
+        asyncio.run(run_chat_turn(db, user_id="u1", user_message="how much money do I have?", client=_Cap(), mode="personal"))
         sp = captured["system_prompt"]
         assert "get_cash_position" in sp
         assert "When no expense category matches" in sp

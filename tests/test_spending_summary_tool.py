@@ -152,7 +152,9 @@ class TestPromptWiring:
                 captured["tools"] = tools
                 return _assistant_text("سلام")
 
-        asyncio.run(run_chat_turn(db, user_id="u1", user_message="سلام", client=_Cap(), mode="personal"))
+        # a spending question: a greeting is offered the core tools only (scenario AX1)
+        asyncio.run(run_chat_turn(db, user_id="u1", user_message="این ماه چقدر خرج کردم؟", client=_Cap(),
+                                  mode="personal"))
         sp = captured["system_prompt"]
         assert format_jalali_long(date.today()) in sp
         assert "get_spending_summary" in sp

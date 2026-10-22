@@ -599,10 +599,12 @@ class TestPersonalMode:
                 return _assistant_text("hi")
 
         asyncio.run(run_chat_turn(
-            db, user_id="u1", user_message="hello", client=_CapturingClient(),
+            db, user_id="u1", user_message="declare a dividend for the shareholders", client=_CapturingClient(),
         ))
         assert "PERSONAL-FINANCE MODE" not in captured["system_prompt"]
+        # a company's tools for what the message is about (routed since 2026-10-22, AX); the rest by more_tools
         assert "propose_declare_dividend" in {t["name"] for t in captured["tools"]}
+        assert "more_tools" in {t["name"] for t in captured["tools"]}
 
 
 class TestCorrectedCardReplacesTheOld:

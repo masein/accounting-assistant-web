@@ -836,3 +836,15 @@ Each chat message sent the model ~11k tokens of instructions, ~13k of tool defin
 | AW5 | The same instructions every call | Messages on two days, in two languages | The instructions are identical up to «Today:» at their end; the date and the language come last, so a provider's prompt cache serves the rest |
 | AW6 | A cached prompt counts as it costs | 1M prompt tokens of which 800k came from the cache | The budget counts 400k |
 | AW7 | A card can still be changed | «change that card to 50» about a card from earlier in the thread | Its line still carries its card id |
+
+## AX. Only the tools and instructions a message needs (2026-10-22)
+
+Every call sent all the tools (34 in a person's books, 59 in a company's) and all the instructions, whatever the message. Now the core goes, plus the groups the message and the exchanges just before it are about; the model can add any other group with ``more_tools``.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| AX1 | A lunch from a wallet | «امروز ۷ ریال عمان ناهار خوردم از کیف پول قشنگم» in a person's books | The core tools and the money tools, not budgets, statements or payroll; the instructions without invoices, payroll, equity or statements |
+| AX2 | An answer carries on | After a turn that looked up people's balances, the answer «کیف پول قشنگم» | The people and money tools are still offered |
+| AX3 | A tool it wasn't offered | A message whose words name no group, then the model needs a budget | It calls ``more_tools`` with «planning», and has the budget tools on its next call, in the same message |
+| AX4 | The same start every time | Two different messages | The tools start with the same core in the same order; ``more_tools`` is last and always the same |
+| AX5 | Nothing lost | The eval set on the real model, before and after | The pass rate holds; the cost per message falls |

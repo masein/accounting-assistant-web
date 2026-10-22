@@ -1420,6 +1420,9 @@ async def run_chat_turn(
     src_amounts = list(source_amounts or [])
     src_amounts.extend(_numbers_in_text(user_message))
     personal = mode == "personal"
+    # a caller's own registry (a test's) is offered whole; AI_TOOL_ROUTING=false offers every tool
+    from app.core.config import settings as _settings
+    routed = registry is None and _settings.ai_tool_routing
     reg = registry or (build_personal_registry() if personal else build_default_registry())
     tool_defs = reg.to_anthropic()  # provider-neutral: {name, description, input_schema}
 
@@ -1492,6 +1495,24 @@ async def run_chat_turn(
     session_uuid_str = str(chat_session.id)
 
     history = _replay_history(db, chat_session.id)
+
+    # Only the tools and the parts of the instructions this message needs (2026-10-22): the core, and the
+    # groups its words and the exchanges just before it are about; ``more_tools`` adds any other.
+    from app.services.ai_accountant import tool_routing as _routing
+    all_defs = {d["name"]: d for d in tool_defs}
+    groups: set[str] = set()
+
+    def _offer(chosen: set[str]) -> list[dict[str, Any]]:
+        return ([all_defs[n] for n in _routing.tool_names(chosen, set(all_defs))] + [_routing.more_tools_spec()])
+
+    if routed:
+        recent = [tc.name for m in history if m.role == "assistant" for tc in m.tool_calls]
+        groups = _routing.route(user_message, recent_tools=recent, personal=personal,
+                                attachments=bool(ocr_context or attachment_ids))
+        tool_defs = _offer(groups)
+        if system_prompt.startswith(SYSTEM_PROMPT):
+            sections = groups | ({"reply"} if reply_to else set()) | ({"attachments"} if (ocr_context or attachment_ids) else set())
+            system_prompt = _routing.instructions(SYSTEM_PROMPT, sections) + system_prompt[len(SYSTEM_PROMPT):]
     # Fold OCR context into the user's turn so the model can reason over the
     # attached document's fields. Persist the augmented text so a session
     # replay still carries the document context.
@@ -1626,6 +1647,16 @@ async def run_chat_turn(
         tool_result_messages: list[ChatMessage] = []
         proposals_before_turn = len(proposals)
         for call in assistant_msg.tool_calls:
+            if call.name == "more_tools":
+                # the model asked for a group it wasn't offered: it has it from the next call on
+                asked = {g for g in (call.input or {}).get("groups") or [] if g in _routing.GROUPS}
+                groups |= asked
+                tool_defs = _offer(groups)
+                added = [n for g in asked for n in _routing.GROUPS[g][1] if n in all_defs]
+                tool_result_messages.append(ChatMessage(role="tool", tool_call_id=call.id, text=(
+                    f"Added: {', '.join(added) or 'nothing new'}. Use them now." if added else
+                    "No such group; the groups are listed in this tool's description.")))
+                continue
             log_entry = {"tool_use_id": call.id, "name": call.name, "input": call.input}
             tool_call_log.append(log_entry)
             tool = reg.get(call.name)

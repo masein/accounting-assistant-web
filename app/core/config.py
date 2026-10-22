@@ -164,6 +164,9 @@ class Settings(BaseSettings):
     # in a row is not a user clicking, and past the budget it was checking
     # pages whose data had been refused.
     api_rate_limit_per_minute: int = 120
+    # Offer the chat model only the tools and instructions a message needs (app/services/ai_accountant/
+    # tool_routing.py, scenarios AX). AI_TOOL_ROUTING=false sends them all, as before.
+    ai_tool_routing: bool = True
 
 
 settings = Settings()

@@ -70,7 +70,7 @@ def _load(path: str | None) -> dict | None:
 async def _run(args) -> int:
     from app.core.config import settings
     from app.db.session import SessionLocal
-    from app.services.ai_eval.fixture import seed_eval_company
+    from app.services.ai_eval.fixture import seed_eval_company, seed_personal_books
     from app.services.ai_eval.runner import (
         ReplayClient, RunOptions, compare, fill, load_scenarios, markdown, run_suite,
     )
@@ -85,9 +85,10 @@ async def _run(args) -> int:
     db = SessionLocal()
     exit_code = 0
     try:
-        ctx = seed_eval_company(db)
+        # a company's books and a person's: each scenario names its ``books``
+        ctx = {"company": seed_eval_company(db), "personal": seed_personal_books(db)}
         if args.command == "replay":
-            plans = [("replay", lambda sc: ReplayClient(fill(sc["replay"], ctx)))]
+            plans = [("replay", lambda sc: ReplayClient(fill(sc["replay"], ctx[sc.get("books", "company")])))]
         else:
             models = args.models.split(",") if args.models else [args.model]
             plans = []

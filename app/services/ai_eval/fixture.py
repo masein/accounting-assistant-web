@@ -39,6 +39,7 @@ class EvalContext:
     company_id: str
     user_id: str
     today: date
+    mode: str = "default"                    # "personal" for a person's books
     entities: dict[str, str] = field(default_factory=dict)      # name → id
     statement_id: str = ""
     rows: dict[str, str] = field(default_factory=dict)          # "fee" / "rent" → statement row id
@@ -57,8 +58,8 @@ class EvalContext:
 
 
 def _journal(db: Session, acc: dict, on: date, description: str, lines, *, reference: str | None = None,
-             party: Entity | None = None, role: str = "client") -> Transaction:
-    t = Transaction(id=uuid.uuid4(), date=on, description=description, reference=reference, currency="IRR")
+             party: Entity | None = None, role: str = "client", currency: str = "IRR") -> Transaction:
+    t = Transaction(id=uuid.uuid4(), date=on, description=description, reference=reference, currency=currency)
     db.add(t)
     db.flush()                                  # as every writer does before adding lines
     for code, debit, credit in lines:
@@ -142,4 +143,50 @@ def seed_eval_company(db: Session, *, today: date | None = None, slug: str | Non
         db.add_all([rent, fee])
         db.commit()
         ctx.statement_id, ctx.rows, ctx.cheque_id = str(stmt.id), {"rent": str(rent.id), "fee": str(fee.id)}, str(cheque.id)
+    return ctx
+
+
+# --- a person's books (2026-10-22): the owner's own shape -----------------------------------------------------
+# Books in Iranian rials; Omani rials in two wallets and rials at Bank Mellat, each kept as it is; last week's
+# spending in both; Amir paid a Muscat Airbnb in dollars.
+GREEN_WALLET, PRETTY_WALLET, MELLAT = "112001", "112002", "111001"
+AMIR_AIRBNB = "333.77"
+
+
+def seed_personal_books(db: Session, *, today: date | None = None, slug: str | None = None) -> EvalContext:
+    from decimal import Decimal
+    today = today or date.today()
+    company = Company(id=uuid.uuid4(), name="AI eval person", slug=slug or f"ai-eval-p-{uuid.uuid4().hex[:8]}",
+                      locale="default", base_currency="IRR", status="active", token_version=0, kind="personal")
+    db.add(company)
+    db.commit()
+    ctx = EvalContext(company_id=str(company.id), user_id=f"ai-eval-p-{uuid.uuid4().hex[:8]}", today=today,
+                      mode="personal")
+    with use_company(company.id):
+        seed_chart_if_empty(db, locale="default", chart="personal")
+        db.commit()
+        acc = {a.code: a for a in db.execute(select(Account)).scalars()}
+        for code, name, parent in ((GREEN_WALLET, "کیف پول سبز", "1120"), (PRETTY_WALLET, "کیف پول قشنگم", "1120"),
+                                   (MELLAT, "حساب ملت", "1110")):
+            p = acc[parent]
+            acc[code] = Account(id=uuid.uuid4(), code=code, name=name, parent_id=p.id, level=p.level)
+            db.add(acc[code])
+        amir = Entity(id=uuid.uuid4(), name="امیر", type="supplier", company_id=company.id)
+        db.add(amir)
+        db.flush()
+        ctx.entities = {"امیر": str(amir.id)}
+        d = lambda n: today - timedelta(days=n)  # noqa: E731
+        omr = lambda v: Decimal(v)  # noqa: E731
+        _journal(db, acc, d(30), "موجودی اولیه کیف پول سبز", [(GREEN_WALLET, omr("100"), 0), ("3110", 0, omr("100"))],
+                 currency="OMR")
+        _journal(db, acc, d(30), "موجودی اولیه کیف پول قشنگم", [(PRETTY_WALLET, omr("60"), 0), ("3110", 0, omr("60"))],
+                 currency="OMR")
+        _journal(db, acc, d(30), "موجودی اولیه حساب ملت", [(MELLAT, 50_000_000, 0), ("3110", 0, 50_000_000)])
+        _journal(db, acc, d(6), "رستوران", [("6180", omr("12.500"), 0), (GREEN_WALLET, 0, omr("12.500"))], currency="OMR")
+        _journal(db, acc, d(5), "لولو", [("6110", omr("20.250"), 0), (PRETTY_WALLET, 0, omr("20.250"))], currency="OMR")
+        _journal(db, acc, d(5), "تاکسی", [("6130", omr("3.750"), 0), (GREEN_WALLET, 0, omr("3.750"))], currency="OMR")
+        _journal(db, acc, d(4), "خرید ماهانه", [("6110", 3_000_000, 0), (MELLAT, 0, 3_000_000)])
+        _journal(db, acc, d(8), "Muscat Airbnb — paid by Amir", [("6185", omr(AMIR_AIRBNB), 0), ("2130", 0, omr(AMIR_AIRBNB))],
+                 currency="USD", party=amir, role="supplier")
+        db.commit()
     return ctx

@@ -126,24 +126,39 @@ class MeteredClient:
 
 # --- one scenario ------------------------------------------------------------------------------------
 
-async def run_scenario(db: Session, ctx: EvalContext, scenario: dict, client, *, replay: bool = False) -> dict:
-    """One turn of one scenario inside the eval company. Every card it makes
-    is cancelled before returning, so nothing can be confirmed later."""
+async def run_scenario(db: Session, ctx: EvalContext | dict, scenario: dict, client, *, replay: bool = False) -> dict:
+    """One scored turn of one scenario in its books (``books``: the company's, or a person's), after the
+    messages it says came before it in the same thread (``before``, each with its own ``replay``). Every
+    card the conversation makes is cancelled before returning, so nothing can be confirmed later."""
     from app.db.tenant import use_company
     from app.models.ai_accountant import AIProposal
     from app.services.ai_accountant.orchestrator import run_chat_turn
 
+    if isinstance(ctx, dict):
+        ctx = ctx[scenario.get("books", "company")]
     expect = dict(fill(scenario.get("expect") or {}, ctx))
     if replay:
         expect["max_tool_errors"] = 0
     t0 = time.perf_counter()
     rec: dict[str, Any] = {"scenario": scenario["id"]}
+    earlier: list[uuid.UUID] = []
     try:
         with use_company(ctx.company_id):
+            session_id = None
+            for turn in scenario.get("before") or []:
+                said = await run_chat_turn(db, user_id=ctx.user_id, username="ai-eval",
+                                           user_message=fill(turn["message"], ctx), session_id=session_id,
+                                           lang=scenario.get("lang", "en"), mode=ctx.mode,
+                                           client=ReplayClient(fill(turn["replay"], ctx)) if replay else client)
+                session_id = said.session_id
+                earlier += [uuid.UUID(p["confirmation_token"]) for p in said.proposals or []]
             res = await run_chat_turn(db, user_id=ctx.user_id, username="ai-eval",
-                                      user_message=fill(scenario["message"], ctx), session_id=None,
-                                      lang=scenario.get("lang", "en"), client=client)
+                                      user_message=fill(scenario["message"], ctx), session_id=session_id,
+                                      lang=scenario.get("lang", "en"), mode=ctx.mode, client=client)
             tokens = [uuid.UUID(p["confirmation_token"]) for p in res.proposals or []]
+            for row in (db.execute(select(AIProposal).where(AIProposal.confirmation_token.in_(earlier))).scalars()
+                        if earlier else []):
+                row.status = "cancelled"
             rows = {r.confirmation_token: r for r in db.execute(
                 select(AIProposal).where(AIProposal.confirmation_token.in_(tokens))).scalars()} if tokens else {}
             cards = []

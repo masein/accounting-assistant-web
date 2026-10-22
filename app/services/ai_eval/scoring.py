@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, timedelta
+from decimal import Decimal
 from typing import Any
 
 _FA_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
@@ -64,16 +65,24 @@ def resolve_date(spec: str, today: date) -> date:
     return date.fromisoformat(spec)
 
 
-def card_total(tool: str, inp: dict[str, Any]) -> int:
+def _amount(v) -> Decimal:
+    """An amount as a card writes it — 200000, "7.000", 41.5 — exactly (Omani rials have baisa)."""
+    try:
+        return Decimal(str(v if v not in (None, "") else 0))
+    except Exception:  # noqa: BLE001
+        return Decimal(0)
+
+
+def card_total(tool: str, inp: dict[str, Any]):
+    """A card's total, exact: an int when whole (200000), else a Decimal (7.5)."""
     if tool == "propose_create_transaction":
-        return sum(int(ln.get("debit") or 0) for ln in inp.get("lines") or [])
-    if tool == "propose_create_invoice":
-        return sum(int(round(float(ln.get("quantity", 1) or 1) * int(ln.get("unit_price") or 0)))
-                   for ln in inp.get("lines") or [])
-    for key in ("amount", "total_amount"):
-        if inp.get(key) is not None:
-            return int(inp[key])
-    return 0
+        total = sum((_amount(ln.get("debit")) for ln in inp.get("lines") or []), Decimal(0))
+    elif tool == "propose_create_invoice":
+        total = sum((_amount(ln.get("quantity", 1) or 1) * _amount(ln.get("unit_price")) for ln in inp.get("lines") or []),
+                    Decimal(0))
+    else:
+        total = next((_amount(inp[k]) for k in ("amount", "total_amount") if inp.get(k) is not None), Decimal(0))
+    return int(total) if total == total.to_integral_value() else total.normalize()
 
 
 def _check_card(spec: dict, cards: list[dict], today: date) -> list[str]:
@@ -83,13 +92,13 @@ def _check_card(spec: dict, cards: list[dict], today: date) -> list[str]:
         return [f"no {tool or 'card'} card"]
     card = pick[0]
     inp, problems = card["input"], []
-    if "total" in spec and card_total(card["tool"], inp) != int(spec["total"]):
+    if "total" in spec and _amount(card_total(card["tool"], inp)) != _amount(spec["total"]):
         problems.append(f"card total {card_total(card['tool'], inp)} want {spec['total']}")
     lines = inp.get("lines") or []
     for side in ("debit", "credit"):
         prefixes = spec.get(f"{side}_prefix")
         if prefixes and not any(str(ln.get("account_code", "")).startswith(tuple(prefixes))
-                                and int(ln.get(side) or 0) > 0 for ln in lines):
+                                and _amount(ln.get(side)) > 0 for ln in lines):
             problems.append(f"no {side} line on {prefixes}: {[(ln.get('account_code'), ln.get('debit'), ln.get('credit')) for ln in lines]}")
     for key, want in (spec.get("fields") or {}).items():
         if inp.get(key) != want:

@@ -167,6 +167,110 @@ class ProposeRenamePlace(BaseTool):
                 "summary": f"Rename {acc.code} {acc.name} → {new}; its entries and balance stay as they are."}
 
 
+class MoneyBack(BaseModel):
+    amount: Money = Field(..., gt=0, description="What came back, in the place's currency: 9.75.")
+    place: str = Field(..., min_length=1, max_length=120, description="Where it was put: «کیف پول سبز».")
+
+
+class ProposeEmptyPlaceInput(BaseModel):
+    place: str = Field(..., min_length=1, max_length=120,
+                       description="The place everything left: «پاکت توی کشو», its name or code.")
+    back: list[MoneyBack] = Field(default_factory=list, max_length=5,
+                                  description="Money that came back and where it went; none when nothing did.")
+    rest_account: str | None = Field(None, max_length=64,
+                                     description="The category the rest was spent on (its code from YOUR BOOKS AT A "
+                                                 "GLANCE, 6110 for groceries). Not needed when the money came back whole.")
+    currency: str | None = Field(None, min_length=3, max_length=3,
+                                 description="Only for a place that holds several currencies: which one left.")
+    description: str | None = Field(None, max_length=255, description="What it was, in the user's words.")
+    date: _date | None = Field(None, description="When; defaults to today.")
+
+
+class ProposeEmptyPlace(BaseTool):
+    name = "propose_empty_place"
+    category = "proposal"
+    description = (
+        "Everything in a place left it: «هرچی توی پاکت توی کشو بود دادم به همسرم، … ۱۵.۳ برگردوند که گذاشتم توی کیف "
+        "پول سبز». Reads the place's balance itself and makes ONE card: what came back to where it went, the rest "
+        "under rest_account, the place at zero. Use it instead of working out the rest yourself. Returns a "
+        "confirm card."
+    )
+    InputSchema = ProposeEmptyPlaceInput
+
+    async def run(self, ctx: ToolContext, args: ProposeEmptyPlaceInput) -> dict[str, Any]:
+        from app.models.account import Account
+        from app.services.ai_accountant.fast_paths import _in_currency
+        src = resolve_place(ctx.db, args.place)
+        if src is None:
+            known = "; ".join(f"{a.code} {a.name}" for a in _places(ctx.db)) or "none yet"
+            raise ToolError(f"No place called {args.place!r}. The places are: {known}. Ask which one.", code="no_place")
+        held = _held(ctx.db, src.code)
+        ccy = (args.currency or "").strip().upper() or (next(iter(held)) if len(held) == 1 else None)
+        if ccy is None:
+            raise ToolError(f"{src.name} holds {', '.join(sorted(held)) or 'nothing'}: say which currency left it.",
+                            code="which_currency")
+        balance = held.get(ccy, 0)
+        if balance <= 0:
+            raise ToolError(f"{src.name} holds no {ccy} to give: nothing to empty.", code="nothing_in_it")
+        back, given = [], 0
+        for b in args.back:
+            to = resolve_place(ctx.db, b.place)
+            if to is None or to.id == src.id:
+                known = "; ".join(f"{a.code} {a.name}" for a in _places(ctx.db) if a.id != src.id)
+                raise ToolError(f"No other place called {b.place!r}. The places are: {known}.", code="no_place")
+            back.append((to, plain(b.amount)))
+            given += plain(b.amount)
+        rest = plain(balance - given)
+        if rest < 0:
+            raise ToolError(f"{src.name} held {grouped(balance)} {ccy}: {grouped(given)} can't have come back. Ask "
+                            "what came back.", code="more_than_held")
+        spent = None
+        if rest > 0:
+            code = (args.rest_account or "").strip()
+            spent = ctx.db.execute(select(Account).where(Account.code == code)).scalars().first() if code else None
+            if spent is None and code:
+                spent = next((a for a in ctx.db.execute(select(Account)).scalars() if _fold(a.name) == _fold(code)), None)
+            if spent is None:
+                raise ToolError(f"{grouped(rest)} {ccy} of it was spent: on what? Give rest_account (a category's code), "
+                                "or ask the user once.", code="rest_account")
+        lines = ([{"account_code": spent.code, "debit": rest, "credit": 0}] if spent is not None else []) + \
+                [{"account_code": to.code, "debit": amt, "credit": 0} for to, amt in back] + \
+                [{"account_code": src.code, "debit": 0, "credit": plain(balance)}]
+        persian = _persian((ctx.user_message or "") + src.name)
+        lang = "fa" if persian else "en"
+        parts = ([f"{_in_currency(rest, ccy, lang)} {spent.name}"] if spent is not None else []) + \
+                [f"{_in_currency(amt, ccy, lang)} {'به' if persian else 'to'} {to.name}" for to, amt in back]
+        sep = "، " if persian else ", "
+        description = args.description or (f"{src.name} خالی شد: " if persian else f"{src.name} emptied: ") + sep.join(parts)
+        payload = {"place": src.name, "account_code": src.code, "currency": ccy, "balance": plain(balance),
+                   "rest": rest, "amount": plain(balance), "date": (args.date or _date.today()).isoformat(),
+                   "description": description[:255], "lines": lines}
+        token = _register(ctx, self.name, payload)
+        return {"confirmation_token": str(token), "status": "pending", "preview": payload,
+                "summary": f"{src.code} {src.name} held {grouped(balance)} {ccy}; all of it leaves: " + "; ".join(parts) + "."}
+
+
+def _held(db, code: str) -> dict:
+    """What a place holds, currency by currency, from its entries."""
+    from sqlalchemy import func
+
+    from app.models.account import Account
+    from app.models.transaction import Transaction, TransactionLine
+    from app.services.fx_base import base_currency
+    base = base_currency(db) or "IRR"
+    out: dict = {}
+    for ccy, d, c in db.execute(
+            select(Transaction.currency, func.coalesce(func.sum(TransactionLine.debit), 0),
+                   func.coalesce(func.sum(TransactionLine.credit), 0))
+            .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
+            .join(Account, Account.id == TransactionLine.account_id)
+            .where(Account.code == code, Transaction.deleted_at.is_(None))
+            .group_by(Transaction.currency)).all():
+        key = (ccy or base).strip().upper()
+        out[key] = plain(out.get(key, 0) + plain(d or 0) - plain(c or 0))
+    return {k: v for k, v in out.items() if v}
+
+
 EXCHANGE = "3120"
 EXCHANGE_NAME = {"fa": "تبدیل ارز", "en": "Currency exchange"}
 
@@ -391,6 +495,16 @@ def execute_money_proposal(db, proposal, *, actor_user_id: str, actor_username: 
         return None, _rename_place(db, proposal, p, common)
     if proposal.tool_name == "propose_currency_exchange":
         return _exchange(db, proposal, p, common)
+    if proposal.tool_name == "propose_empty_place":
+        txn = create_transaction_from_payload(db, TransactionCreate(
+            date=_date.fromisoformat(p["date"]), description=p["description"], currency=p["currency"],
+            lines=[TransactionLineCreate(account_code=ln["account_code"], debit=plain(ln["debit"]),
+                                         credit=plain(ln["credit"]), line_description=p["description"])
+                   for ln in p["lines"]]))
+        # a transaction's own audit row: the card's undo takes it back like any entry
+        return str(txn.id), _audit(db, proposal, entity_type="transaction", entity_id=str(txn.id),
+                                   detail={"emptied": p["account_code"], "currency": p["currency"],
+                                           "balance": p["balance"]}, **common)
     # propose_money_place: the place (made now if it's new), then its starting balance in its own currency
     parent, acc = find_place(db, p["place"], p["parent_code"])
     if acc is None:
@@ -439,5 +553,6 @@ def register_money_tools(registry) -> None:
     registry.register(ProposeMoneyPlace())
     registry.register(ProposeRenamePlace())
     registry.register(ProposeCurrencyExchange())
+    registry.register(ProposeEmptyPlace())
     registry.register(ProposeBooksCurrency())
     registry.register(AskWithChoices())

@@ -208,9 +208,14 @@ fun ReviewCard(item: ChatItem.Review, lang: String, onAsk: (String) -> Unit, mod
                         item.categories.forEachIndexed { i, cat ->
                             val q = FastOutSlowInEasing.transform(stagger(p, i, item.categories.size, delay = 0.15f))
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                // a Persian name in an English app sat flush against its figure: «۶۶۰.000اشتراک‌ها»
+                                // (owner's phone, 2026-10-25, scenario BB3) — it starts where the row starts, with room
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     Text(cat.name, color = c.ink, fontSize = 13.sp, fontWeight = FontWeight(600), modifier = Modifier.weight(1f),
-                                         style = TextStyle(textDirection = TextDirection.Content), maxLines = 1)
+                                         style = TextStyle(textDirection = TextDirection.Content,
+                                                           textAlign = if (LocalLayoutDirection.current == LayoutDirection.Ltr) TextAlign.Left else TextAlign.Right),
+                                         maxLines = 1)
                                     Text(Numbers.amount(cat.value, lang, places), color = c.ink, fontSize = 13.sp,
                                          style = FigureStyle.copy(fontSize = 13.sp, fontWeight = FontWeight(500)))
                                 }

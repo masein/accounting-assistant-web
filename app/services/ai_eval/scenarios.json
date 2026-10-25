@@ -1646,6 +1646,88 @@
      "text": "کارت اصلاحی ۶٫۰۰۰ ریال عمان از «خانواده و هدایا» به «لوازم و تعمیرات خانه» آماده است."
     }
    ]
+  },
+  {
+   "id": "p_redate_fa",
+   "books": "personal",
+   "lang": "fa",
+   "message": "اون Muscat Airbnb که امیر حساب کرد مال ۱۵ شهریور ۱۴۰۵ بود نه این هفته، تاریخش رو درست کن",
+   "expect": {
+    "proposals": 1,
+    "tools_all": [
+     "propose_change_date"
+    ],
+    "card": {
+     "tool": "propose_change_date"
+    },
+    "reply_lang": "fa"
+   },
+   "replay": [
+    {
+     "tool": "query_ledger",
+     "input": {
+      "description_contains": "Muscat Airbnb"
+     }
+    },
+    {
+     "tool": "propose_change_date",
+     "input": {
+      "entries": [
+       {
+        "transaction_id": "{txn:airbnb}",
+        "date": "1405-06-15"
+       }
+      ]
+     }
+    },
+    {
+     "text": "کارت تغییر تاریخ Muscat Airbnb به ۱۵ شهریور ۱۴۰۵ آماده است."
+    }
+   ]
+  },
+  {
+   "id": "p_envelope_rest_fa",
+   "books": "personal",
+   "lang": "fa",
+   "message": "هرچی توی کیف پول قشنگم بود دادم به همسرم، رفت خرید سوپرمارکت کرد و ۹.۷۵ ریال عمان برگردوند که گذاشتم توی کیف پول سبز",
+   "expect": {
+    "proposals_min": 1,
+    "tools_all": [
+     "propose_empty_place"
+    ],
+    "card": {
+     "tool": "propose_empty_place",
+     "total": "39.75",
+     "debit_prefix": [
+      "6110"
+     ],
+     "credit_prefix": [
+      "112002"
+     ],
+     "fields": {
+      "currency": "OMR"
+     }
+    },
+    "reply_lang": "fa"
+   },
+   "replay": [
+    {
+     "tool": "propose_empty_place",
+     "input": {
+      "place": "کیف پول قشنگم",
+      "back": [
+       {
+        "amount": "9.75",
+        "place": "کیف پول سبز"
+       }
+      ],
+      "rest_account": "6110"
+     }
+    },
+    {
+     "text": "کیف پول قشنگم خالی می‌شود: ۳۰٫۰۰۰ ریال عمان خوراک و سوپرمارکت و ۹٫۷۵۰ به کیف پول سبز."
+    }
+   ]
   }
  ]
 }

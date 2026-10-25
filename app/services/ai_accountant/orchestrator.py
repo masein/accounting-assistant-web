@@ -279,6 +279,8 @@ The books you manage here belong to ONE PERSON tracking their own daily money �
 * MONEY BETWEEN THE USER AND A PERSON. Someone paid for the user («Amir paid for these», «امیر حساب کرد»): Dr the spending category / Cr «بدهی به دیگران» (2130, Money I owe). The user paid for someone or lent them money: Dr «طلب از دیگران» (1150, Money owed to me) / Cr where the money came from. Paying a person back: Dr 2130 / Cr the bank or cash it came from; being paid back: Dr the bank or cash / Cr 1150. The person is on EVERY one of these cards and named in each description («Muscat Airbnb — paid by Amir»): ``find_entity`` once; found → ``entity_links`` with their id; not in the books → the same ``new_entities`` entry on each of their cards (type ``supplier`` when the user owes them, ``client`` when they owe the user) — whichever card is confirmed first makes the person and the others are linked to them. "How much do I owe Amir?", «کی به من بدهکاره؟», "who do I owe?" → ``get_people_balances``: person by person, each currency on its own; never read the whole 2130 or 1150 account as one person's.
 * A LIST in one message («$333.77 - Muscat Airbnb», one thing per line) is one card per line, each with its own amount and description, in the currency written. Stays, hotels, flights and trip tickets go under «سفر» (Travel).
 * AN ANSWER NEVER DROPS THE LIST. When you asked about a list (who paid it, where the cash is) and the user answers («یکیش رو امیر بهم نقدی داده، بقیه از حساب امین پرداخت شده»: one Amir gave in cash, the rest Amin paid), make a card for EVERY item of that list in that turn: Amir's cash into the place they name (Dr the place / Cr «بدهی به دیگران», Amir on it) AND one card per remaining line, each Dr its category (Airbnb, hotel and tickets under «سفر») / Cr «بدهی به دیگران» in its own currency, with the person who paid it (Amin) on each — never only the item the question was about. Asked what they owe someone whose items they told you in this conversation but no card of theirs was confirmed («چقدر به امین بدهکارم؟»), say what they told you (the items and each currency's total) and that it isn't recorded yet, and make the cards — never answer only "nothing recorded".
+* EVERYTHING IN A PLACE, or what is left in it («هرچی توی پاکت توی کشو بود دادم به همسرم»، «باقی‌مانده پاکت»، "all the money in the envelope"): ``propose_empty_place`` with the place, what came back and where it went (``back``), and the category the rest was spent on (``rest_account``, a code from YOUR BOOKS AT A GLANCE). It reads the balance and works out the rest itself — never subtract it yourself. Purchases they name with their amounts («۳۳ ریال لولو») are their own cards first; then the place's rest. When they don't say what the rest was spent on, ask once with ``ask_with_choices``.
+* A WRONG DATE on entries already in the books («اون نه تا سفر مال شهریور بود نه این هفته»، "the Airbnb was on 15 August"): find them (``query_ledger`` gives each entry's ``transaction_id``) and call ``propose_change_date`` with each one's real date — one card for all of them. Nothing else about them changes. An entry without a date the user knows: ask once for the day or the month.
 * MOVING ENTRIES TO ANOTHER CATEGORY («این سه تا خرید رو اشتباه زیر «خانواده و هدایا» ثبت کردی، ببرشون زیر «لوازم و تعمیرات خانه»», 'move these to Travel'): ONE correcting card with ``propose_create_transaction``: Dr the new category / Cr the old one, in the entries' own currency, for their total (2 + 3 + 1 = 6.000 OMR), described with what they were. No entry ids, no reversals, no wallet on it — the money already left the wallet; only its category changes. Never answer with a reminder for next time instead.
 * THINGS FOR THE HOME — a power adapter, light bulbs, cleaning things, stationery, a key cut, a small repair — go under «لوازم و تعمیرات خانه» (Home supplies & repairs). «خانواده و هدایا» (Family & gifts) is only a gift, or money given to family.
 * "What categories do you have?", «چه دسته‌بندی‌هایی داری؟», «دسته‌بندی‌هام چیان؟» → the categories themselves, by name, spending and income, from YOUR BOOKS AT A GLANCE — every one of them, not what was spent in them.
@@ -570,6 +572,25 @@ def _people_on_every_card(db, proposals: list, *, personal: bool, user_message: 
     _no_company_parties(db, txns, people, user_message)
 
 
+_AMOUNT = re.compile(r"\d+(?:[.٫]\d+)?")
+
+
+def _said_amount(value):
+    """An amount as a comparable Decimal: 15.3, «15.300» and 15.30 are one amount."""
+    from decimal import Decimal, InvalidOperation
+    try:
+        return Decimal(str(value)).normalize()
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+
+def _said_amounts(text: str | None) -> set:
+    """The amounts a message states, decimals kept («۱۵.۳» is 15.3, «۱٬۱۴۵» is 1145)."""
+    from app.utils.jalali import _to_ascii
+    plain = _to_ascii(text or "").replace("٬", "").replace(",", "")
+    return {a for a in (_said_amount(m.group(0).replace("٫", ".")) for m in _AMOUNT.finditer(plain)) if a}
+
+
 def _named_place_on_cards(db, proposals: list, *, personal: bool, user_message: str | None) -> None:
     """A person's money goes to the place they named (2026-10-21): the answer «کیف پول قشنگم» to «where is
     Amir's cash?» gave a card whose cash line was 112001 «کیف پول سبز». When the message names exactly one of
@@ -603,10 +624,16 @@ def _named_place_on_cards(db, proposals: list, *, personal: bool, user_message: 
     if len(set(hits.values())) != 1:
         return                                                    # none named, or two (a transfer between them)
     place = next(iter(hits.values()))
+    # a message that states amounts moves only the cards of those amounts: «هرچی توی پاکت توی کشو بود … ۱۵.۳
+    # ریال آورد» moved the dinner (13.7) and Lulu (33) of earlier messages onto the envelope, while the reply
+    # said «کیف پول قشنگم» (owner's phone, 2026-10-25, scenario BB1). A bare answer («کیف پول قشنگم») moves any.
+    stated = _said_amounts(user_message)
     for t in txns:
         lines = (t.get("preview") or {}).get("lines") or []
         at = [i for i, ln in enumerate(lines) if ln.get("account_code") in codes]
         if len(at) != 1 or lines[at[0]].get("account_code") == place:
+            continue
+        if stated and _said_amount(lines[at[0]].get("debit") or lines[at[0]].get("credit")) not in stated:
             continue
         try:
             row = db.execute(select(AIProposal).where(
@@ -847,6 +874,8 @@ def build_default_registry() -> ToolRegistry:
     register_inventory_tools(reg)
     from app.services.ai_accountant.memory_tools import register_memory_tools
     register_memory_tools(reg)
+    from app.services.ai_accountant.date_tools import register_date_tools
+    register_date_tools(reg)                       # an entry's real date, from the chat (BB4)
     from app.services.ai_accountant.review_tools import register_review_tools
     register_review_tools(reg)                     # «stop the weekly review» (AL14)
     from app.services.ai_accountant.afford_tools import register_afford_tools
@@ -878,6 +907,8 @@ def build_personal_registry() -> ToolRegistry:
     register_personal_tools(reg)                   # report card + savings goals (§4.12)
     from app.services.ai_accountant.money_places import register_money_tools
     register_money_tools(reg)                      # money where it's kept, in its own currency (scenarios AB1–AB6)
+    from app.services.ai_accountant.date_tools import register_date_tools
+    register_date_tools(reg)                       # entries told without their dates, dated right (BB4)
     from app.services.ai_accountant.period_tools import GetBudgetStatus, ProposeSetBudget
     reg.register(GetBudgetStatus())                # a review suggests a budget: «… بودجهٔ ماهانه بگذار» (AL9)
     reg.register(ProposeSetBudget())

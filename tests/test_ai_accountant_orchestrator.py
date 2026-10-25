@@ -535,6 +535,7 @@ class TestRegistry:
             "list_invoices", "get_invoice", "get_party_balances", "propose_record_invoice_payment", "propose_create_invoice",
             "list_commitments", "propose_settle_commitment", "propose_bounce_cheque", "propose_create_cheque",
             "propose_cheque_step", "get_fixed_assets", "get_inventory", "propose_remember_preference",
+            "propose_change_date",                                       # an entry's real date (BB4)
             "get_payroll", "propose_run_payroll", "propose_post_pay_run", "propose_pay_pay_run",
             "get_budget_status", "propose_set_budget", "get_close_checklist",
             "list_purchase_orders", "list_recurring_rules", "get_cap_table", "get_exchange_rates", "get_petty_cash",
@@ -562,6 +563,7 @@ class TestPersonalMode:
             "propose_money_place", "propose_books_currency", "ask_with_choices",
             "propose_rename_place",                 # a wallet renamed, its account itself (scenario AK5)
             "propose_currency_exchange",            # money changed from one currency to another (AZ1)
+            "propose_change_date",                  # an entry's real date (BB4)
             "get_budget_status", "propose_set_budget", "propose_review_prefs",   # a review's suggestions (AL9, AL14)
             "check_affordability", "propose_savings_goal",                     # can I afford it? (AM1–AM10)
             "get_report_card", "get_savings_goals", "get_net_worth", "get_people_balances",

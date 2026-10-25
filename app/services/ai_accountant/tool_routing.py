@@ -56,6 +56,7 @@ GROUPS: dict[str, tuple[str, tuple[str, ...]]] = {
     "close": ("month end: the close checklist, locking a period, the audit trail",
               ("get_close_checklist", "propose_lock_period", "get_audit_trail")),
     "memory": ("remembering a standing choice ('always', 'from now on')", ("propose_remember_preference",)),
+    "dates": ("giving entries already in the books the date they really had", ("propose_change_date",)),
 }
 
 _I = re.IGNORECASE
@@ -105,6 +106,7 @@ KEYWORDS: dict[str, re.Pattern] = {
     "close": re.compile(
         r"بستن|قفل|حسابرسی|تاریخچه|پایان ماه|\b(close|closing|lock\w*|audit\w*|checklist|cierre|إقفال|تدقيق)\b", _I),
     "memory": re.compile(r"همیشه|از این به بعد|از حالا|یادت باشه|\b(always|from now on|remember|siempre|دائما)\b", _I),
+    "dates": re.compile(r"تاریخ|\b(dates?|dated|re-?date|fecha|تاريخ)\b", _I),
 }
 
 

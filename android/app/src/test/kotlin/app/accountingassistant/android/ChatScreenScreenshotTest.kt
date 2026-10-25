@@ -228,6 +228,25 @@ class ChatScreenScreenshotTest {
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-weekly-review.png")
     }
 
+    /** The owner's phone, 2026-10-25: Persian categories in an English app sat flush against their figures,
+     *  «۶۶۰.000اشتراک‌ها» (scenario BB3). */
+    @Test
+    fun englishAppPersianWeeklyReview() {
+        val blocks = kotlinx.serialization.json.Json.parseToJsonElement(REVIEW_FA) as kotlinx.serialization.json.JsonArray
+        val items = blocks.map { app.accountingassistant.android.ui.chat.parseBlock(it as kotlinx.serialization.json.JsonObject) }
+        compose.setContent {
+            AccountantTheme(dark = true) {
+                ChatScreen(
+                    state = ChatUiState(items = items),
+                    lang = "en", booksName = "masein", personalBooks = true,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(2500)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-en-persian-weekly-review.png")
+    }
+
     /** «Can I afford it?»: a car for 300,000,000 — save first, with its goal to make (AM4, AM9). */
     @Test @Config(qualifiers = "+fa")
     fun persianCanIAffordIt() {

@@ -44,6 +44,7 @@ _NON_POSTING = frozenset({
     "propose_lock_period", "propose_create_recurring_rule",   # a setting; a schedule that posts later
     "propose_books_currency",                                  # a person's books' currency, before any entry
     "propose_rename_place",                                    # a wallet's name; its entries stay
+    "propose_change_date",                                     # entries' dates; each is checked against the lock itself
     "propose_review_prefs",                                    # which of the app's own messages a person gets
     "propose_savings_goal",                                    # a goal and its savings place; nothing posted
 })

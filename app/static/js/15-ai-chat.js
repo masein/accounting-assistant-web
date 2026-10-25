@@ -1643,10 +1643,11 @@
           // persistent reverse — or an undo inside a closed period — posts a
           // compensating entry instead and says so.
           const deleted = data.mode === 'deleted';
-          btn.textContent = deleted ? t('aiUndoDeleted') : t('aiUndoReversed');
+          const restored = data.mode === 'restored';           // dates put back: nothing posted or removed
+          btn.textContent = restored ? t('aiUndoRestored') : deleted ? t('aiUndoDeleted') : t('aiUndoReversed');
           const note = document.createElement('div');
           note.style.cssText = 'margin-top:0.3rem; color:var(--text-muted); font-size:0.78rem;';
-          note.textContent = deleted
+          note.textContent = restored ? t('aiUndoRestoredNote') : deleted
             ? t('aiUndoDeletedNote')
             : tf('aiUndoReversalNote', { id: (data.reversal_transaction_id || '').slice(0, 8) });
           cardEl.appendChild(note);

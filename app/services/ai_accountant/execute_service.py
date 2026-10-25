@@ -372,6 +372,14 @@ def _dispatch(db: Session, proposal: AIProposal, *, actor_user_id: str, actor_us
             actor_username=actor_username,
             ip_address=ip_address,
         )
+    elif proposal.tool_name == "propose_change_date":
+        from app.services.ai_accountant.date_tools import execute_change_date
+        txn_id, audit_id = execute_change_date(
+            db, proposal,
+            actor_user_id=actor_user_id,
+            actor_username=actor_username,
+            ip_address=ip_address,
+        )
     elif proposal.tool_name == "propose_savings_goal":
         from app.services.ai_accountant.afford_tools import execute_savings_goal
         txn_id, audit_id = execute_savings_goal(
@@ -694,7 +702,7 @@ def _resolve_undoable_audit(db: Session, audit_log_id: str, actor_user_id: str) 
         )
     if audit.entity_type == "payment" and audit.action == "create":
         return audit                           # a payment on an invoice (_perform_payment_undo)
-    if audit.entity_type in ("statement_posting", "currency_exchange") and audit.action == "create":
+    if audit.entity_type in ("statement_posting", "currency_exchange", "transaction_dates") and audit.action == "create":
         return audit                           # every entry the card posted (undo_entries)
     if audit.entity_type != "transaction" or audit.action != "create":
         raise UndoNotApplicable(
@@ -955,6 +963,10 @@ def undo_action(
         from app.services.ai_accountant.money_places import undo_exchange
         return undo_exchange(db, audit, actor_user_id=actor_user_id, actor_username=actor_username,
                              ip_address=ip_address, delete=True, tool_name="undo_action")
+    if audit.entity_type == "transaction_dates":
+        from app.services.ai_accountant.date_tools import undo_change_date
+        return undo_change_date(db, audit, actor_user_id=actor_user_id, actor_username=actor_username,
+                                ip_address=ip_address, tool_name="undo_action")
     if _entry_in_closed_period(db, audit):
         return _perform_reversal(
             db, audit,
@@ -1012,6 +1024,10 @@ def reverse_action(
         from app.services.ai_accountant.money_places import undo_exchange
         return undo_exchange(db, audit, actor_user_id=actor_user_id, actor_username=actor_username,
                              ip_address=ip_address, delete=False, tool_name="reverse_action")
+    if audit.entity_type == "transaction_dates":
+        from app.services.ai_accountant.date_tools import undo_change_date
+        return undo_change_date(db, audit, actor_user_id=actor_user_id, actor_username=actor_username,
+                                ip_address=ip_address, tool_name="reverse_action")
     return _perform_reversal(
         db, audit,
         actor_user_id=actor_user_id,

@@ -883,3 +883,12 @@ The exchange put «کیف پول والای» right (312.265 OMR, $500, AED 1,78
 |----|----------|-------|----------|
 | BA1 | No total across currencies | A person's money in Omani rials, dollars and dirhams; «چقدر پول داریم کلا» | Each currency on its own: 454.160 OMR, 4,500 USD, 1,785 AED. The tool no longer gives a rial total. The reply said «۴٬۵۰۰٬۰۰۰٬۰۰۰ ریال… ۲۷ مورد ارزی هنوز نرخ تبدیل ندارند»: the dollars were valued at some rial rate, the Omani rials and dirhams at none |
 | BA2 | Moving entries to another category | «این سه تا خرید رو اشتباه زیر «خانواده و هدایا» ثبت کردی، ببرشون زیر «لوازم و تعمیرات خانه»: …» (2 + 3 + 1 OMR) | One correcting card: Dr «لوازم و تعمیرات خانه» / Cr «خانواده و هدایا», 6.000 OMR, no wallet on it. It said it needed the entries' ids, and made a reminder card instead |
+
+## BB. Dates, places and the review card (owner's phone, 2026-10-25, IMG_1214–1219)
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BB1 | A place named for one thing only | Earlier, «۳۳ ریال از لولو مارکت خرید کردیم» (unanswered); then «هرچی توی پاکت توی کشو بود … ۱۵.۳ ریال آورد که میکنمش توی کیف پول سبزم» | The Lulu card keeps the place the assistant chose for it. A place named in a message moves only the cards of the amounts that message states. A bare answer («کیف پول قشنگم») still moves any card. The dinner and Lulu cards had been moved onto the envelope while the reply named the wallet |
+| BB2 | Everything in a place | «هرچی توی کیف پول قشنگم بود دادم به همسرم، … ۹.۷۵ ریال عمان برگردوند …» (the wallet holds 39.750) | The balance is read. Cards: 30.000 spent under its category and 9.750 back to «کیف پول سبز», so the wallet ends at zero. A message with nothing named asks once what the rest was |
+| BB3 | The review card's rows | A Persian category in an English app | The name starts where the row starts, with room before its amount. It read «۶۶۰.000اشتراک‌ها» (next APK) |
+| BB4 | A wrong date, fixed from the chat | «اون Muscat Airbnb که امیر حساب کرد مال ۱۵ شهریور ۱۴۰۵ بود نه این هفته، تاریخش رو درست کن» | ``propose_change_date``: one card naming the entry and its new date. Confirmed, only the date changes; the closed-period lock and the audit trail hold as for an edit on the web. Undo puts the old dates back. A future date or a closed period is refused. The owner's nine trips were dated the day they were told, and the weekly review counted $4,555.06 of travel "this week" |

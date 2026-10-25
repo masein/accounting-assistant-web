@@ -44,6 +44,7 @@ class EvalContext:
     statement_id: str = ""
     rows: dict[str, str] = field(default_factory=dict)          # "fee" / "rent" → statement row id
     cheque_id: str = ""
+    txns: dict[str, str] = field(default_factory=dict)          # "airbnb" → transaction id (a person's books)
 
     def placeholders(self) -> dict[str, str]:
         """What a scenario may write as ``{name}`` in its message or replay."""
@@ -54,6 +55,7 @@ class EvalContext:
             out[f"today+{n}"] = (self.today + timedelta(days=n)).isoformat()
         out.update({f"row:{k}": v for k, v in self.rows.items()})
         out.update({f"entity:{k}": v for k, v in self.entities.items()})
+        out.update({f"txn:{k}": v for k, v in self.txns.items()})
         return out
 
 
@@ -196,7 +198,9 @@ def seed_personal_books(db: Session, *, today: date | None = None, slug: str | N
         _journal(db, acc, d(5), "لولو", [("6110", omr("20.250"), 0), (PRETTY_WALLET, 0, omr("20.250"))], currency="OMR")
         _journal(db, acc, d(5), "تاکسی", [("6130", omr("3.750"), 0), (GREEN_WALLET, 0, omr("3.750"))], currency="OMR")
         _journal(db, acc, d(4), "خرید ماهانه", [("6110", 3_000_000, 0), (MELLAT, 0, 3_000_000)])
-        _journal(db, acc, d(8), "Muscat Airbnb — paid by Amir", [("6185", omr(AMIR_AIRBNB), 0), ("2130", 0, omr(AMIR_AIRBNB))],
-                 currency="USD", party=amir, role="supplier")
+        airbnb = _journal(db, acc, d(8), "Muscat Airbnb — paid by Amir",
+                          [("6185", omr(AMIR_AIRBNB), 0), ("2130", 0, omr(AMIR_AIRBNB))],
+                          currency="USD", party=amir, role="supplier")
+        ctx.txns = {"airbnb": str(airbnb.id)}
         db.commit()
     return ctx

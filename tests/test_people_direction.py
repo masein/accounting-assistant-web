@@ -62,3 +62,19 @@ def test_bc1_someone_new_cant_be_paying_back(db, person):
 def test_bc1_a_companys_cards_are_not_held_to_it(db):
     from app.services.ai_accountant.proposal_tools import _guard_people_direction
     _guard_people_direction(ToolContext(db=db, user_id=USER, mode="default"), None)   # returns before reading args
+
+
+def test_bc1_money_from_a_person_is_not_a_starting_balance(db, person):
+    from app.services.ai_accountant.money_places import ProposeMoneyPlace, ProposeMoneyPlaceInput
+
+    def place(message):
+        return asyncio.run(ProposeMoneyPlace().run(
+            ToolContext(db=db, user_id=USER, mode="personal", user_message=message),
+            ProposeMoneyPlaceInput(place="کیف پول سبز", kind="cash", currency="OMR", amount="600")))
+    with use_company(person.company_id):
+        with pytest.raises(ToolError) as e:
+            place("امیر به من ۶۰۰ ریال عمان دیگه داد، گذاشتم توی کیف پول سبز")
+        assert e.value.code == "money_from_person" and "2130" in str(e.value) and "امیر" in str(e.value)
+        with pytest.raises(ToolError) as e:
+            place("۶۰۰ ریال عمان توی کیف پول سبز دارم")                         # no one gave it: as before
+        assert e.value.code == "already_started"

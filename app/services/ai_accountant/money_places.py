@@ -16,6 +16,7 @@ exchanged. So:
 """
 from __future__ import annotations
 
+import re
 from datetime import date as _date
 from types import SimpleNamespace
 from typing import Any, Literal
@@ -66,7 +67,8 @@ class ProposeMoneyPlace(BaseTool):
         "Money the person already has in a place — a wallet, a vault, a bank account, a card — in the currency it "
         "is in, kept as it is (never converted). Makes the place an account of its own the first time (under cash "
         "on hand or the bank account) and records what is there as its starting balance. Use for «۷۷.۵ ریال عمان "
-        "توی کیف پول سبز داریم», 'I have 500 dollars in the safe', «۳ میلیون تو حساب ملت دارم». Returns a confirm card."
+        "توی کیف پول سبز داریم», 'I have 500 dollars in the safe', «۳ میلیون تو حساب ملت دارم». Never for money a "
+        "person gave, lent or paid («امیر به من داد»): that is a propose_create_transaction card with them. Returns a confirm card."
     )
     InputSchema = ProposeMoneyPlaceInput
 
@@ -79,6 +81,16 @@ class ProposeMoneyPlace(BaseTool):
             check_places(args.amount, ccy)
         except ValueError as e:
             raise ToolError(str(e), code="invalid_amount") from e
+        # «امیر به من ۶۰۰ ریال عمان دیگه داد، گذاشتم توی کیف پول سبز» came here as the wallet's starting balance
+        # (eval, 2026-10-25, scenario BC1): money a person gave or lent is between the user and that person
+        giver = _person_named(ctx)
+        if giver:
+            raise ToolError(
+                f"This money came from {giver}, so it isn't a starting balance: propose_create_transaction, Dr the "
+                f"place / Cr 2130 «بدهی به دیگران» with {giver} on it when {giver} lent or gave it to be paid back "
+                f"(the user then owes {giver} more), or Cr an income category for a gift or pay. Money the user gave "
+                f"{giver} is Dr 1150 «طلب از دیگران» / Cr the place. Not a question for the user.",
+                code="money_from_person")
         parent_code = CASH if args.kind == "cash" else BANK
         parent, existing = find_place(ctx.db, args.place, parent_code)
         if parent is None:
@@ -105,6 +117,24 @@ class ProposeMoneyPlace(BaseTool):
         summary = (f"{args.place.strip()}: {grouped(args.amount)} {ccy} ({currency_name(ccy)}), its starting balance, "
                    f"kept in {ccy}" + (f"; a new place {code} under {parent.name}." if existing is None else "."))
         return {"confirmation_token": str(token), "status": "pending", "summary": summary, "preview": payload}
+
+
+# money passing between the user and someone: «داد», «قرض», "lent me"
+_GAVE = re.compile(r"داد|قرض|پس\s*گرفت|\b(lent|lend|gave|give|sent|paid|loan|borrow\w*)\b", re.IGNORECASE)
+
+
+def _person_named(ctx) -> str | None:
+    """A person of the books named in a message about money passing between them and the user («امیر به من …
+    داد», "Amir lent me…"), or None."""
+    from app.models.entity import Entity
+    said = f" {_fold(ctx.user_message or '')} "
+    if not _GAVE.search(said):
+        return None
+    for ent in ctx.db.execute(select(Entity).where(Entity.type != "bank")).scalars():
+        name = _fold(ent.name)
+        if name and f" {name} " in said.replace("،", " ").replace(",", " "):
+            return ent.name
+    return None
 
 
 class ProposeRenamePlaceInput(BaseModel):

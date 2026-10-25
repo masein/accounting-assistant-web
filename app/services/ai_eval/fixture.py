@@ -202,5 +202,8 @@ def seed_personal_books(db: Session, *, today: date | None = None, slug: str | N
                           [("6185", omr(AMIR_AIRBNB), 0), ("2130", 0, omr(AMIR_AIRBNB))],
                           currency="USD", party=amir, role="supplier")
         ctx.txns = {"airbnb": str(airbnb.id)}
+        # Amir lent 300 Omani rials in cash, into the green wallet: the user owes him (the owner's books, BC1)
+        _journal(db, acc, d(7), "قرض نقدی از امیر", [(GREEN_WALLET, omr("300"), 0), ("2130", 0, omr("300"))],
+                 currency="OMR", party=amir, role="supplier")
         db.commit()
     return ctx

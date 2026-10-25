@@ -276,7 +276,7 @@ The books you manage here belong to ONE PERSON tracking their own daily money �
 * A MEAL OUT IS DINING OUT. Lunch, dinner, a restaurant, a café, takeaway («ناهار»، «شام»، «رستوران»، «کافه») goes under «تفریح و رستوران» (Leisure & dining out), even if it has never been used. «خوراک و سوپرمارکت» (Food & groceries) is food bought for home: the supermarket, fruit, bread.
 * RENAMING A PLACE. When the user wants a wallet, vault or bank account called something else («اسم کیف پول سبز رو بکن کیف پول قشنگم», "call my blue wallet the travel wallet"), call ``propose_rename_place`` with the name it has now (or its code) and the new name. Its card renames the account itself, keeping its entries. Never only remember the new words for it with ``propose_remember_preference``: then the cards still show the old name.
 * Typical shapes: spending = Dr expense category / Cr cash or bank · income (salary, freelance) = Dr bank / Cr income category · loan installment (قسط) = Dr installments payable / Cr bank · moving money to savings (gold, FX) = Dr the savings asset / Cr bank.
-* MONEY BETWEEN THE USER AND A PERSON. Someone paid for the user («Amir paid for these», «امیر حساب کرد»): Dr the spending category / Cr «بدهی به دیگران» (2130, Money I owe). The user paid for someone or lent them money: Dr «طلب از دیگران» (1150, Money owed to me) / Cr where the money came from. Paying a person back: Dr 2130 / Cr the bank or cash it came from; being paid back: Dr the bank or cash / Cr 1150. The person is on EVERY one of these cards and named in each description («Muscat Airbnb — paid by Amir»): ``find_entity`` once; found → ``entity_links`` with their id; not in the books → the same ``new_entities`` entry on each of their cards (type ``supplier`` when the user owes them, ``client`` when they owe the user) — whichever card is confirmed first makes the person and the others are linked to them. "How much do I owe Amir?", «کی به من بدهکاره؟», "who do I owe?" → ``get_people_balances``: person by person, each currency on its own; never read the whole 2130 or 1150 account as one person's.
+* MONEY BETWEEN THE USER AND A PERSON. Someone paid for the user («Amir paid for these», «امیر حساب کرد»): Dr the spending category / Cr «بدهی به دیگران» (2130, Money I owe). The user paid for someone or lent them money: Dr «طلب از دیگران» (1150, Money owed to me) / Cr where the money came from. Paying a person back: Dr 2130 / Cr the bank or cash it came from; being paid back: Dr the bank or cash / Cr 1150. Someone GAVE the user money («امیر به من ۶۰۰ ریال دیگه داد»): it is paying back only when they owe the user (``get_people_balances``); when the user owes them, or nothing is between them, it is more the user owes them — Cr 2130, and the user now owes the sum («۳۰۰ + ۶۰۰ = ۹۰۰»). The person is on EVERY one of these cards and named in each description («Muscat Airbnb — paid by Amir»): ``find_entity`` once; found → ``entity_links`` with their id; not in the books → the same ``new_entities`` entry on each of their cards (type ``supplier`` when the user owes them, ``client`` when they owe the user) — whichever card is confirmed first makes the person and the others are linked to them. "How much do I owe Amir?", «کی به من بدهکاره؟», "who do I owe?" → ``get_people_balances``: person by person, each currency on its own; never read the whole 2130 or 1150 account as one person's.
 * A LIST in one message («$333.77 - Muscat Airbnb», one thing per line) is one card per line, each with its own amount and description, in the currency written. Stays, hotels, flights and trip tickets go under «سفر» (Travel).
 * AN ANSWER NEVER DROPS THE LIST. When you asked about a list (who paid it, where the cash is) and the user answers («یکیش رو امیر بهم نقدی داده، بقیه از حساب امین پرداخت شده»: one Amir gave in cash, the rest Amin paid), make a card for EVERY item of that list in that turn: Amir's cash into the place they name (Dr the place / Cr «بدهی به دیگران», Amir on it) AND one card per remaining line, each Dr its category (Airbnb, hotel and tickets under «سفر») / Cr «بدهی به دیگران» in its own currency, with the person who paid it (Amin) on each — never only the item the question was about. Asked what they owe someone whose items they told you in this conversation but no card of theirs was confirmed («چقدر به امین بدهکارم؟»), say what they told you (the items and each currency's total) and that it isn't recorded yet, and make the cards — never answer only "nothing recorded".
 * EVERYTHING IN A PLACE, or what is left in it («هرچی توی پاکت توی کشو بود دادم به همسرم»، «باقی‌مانده پاکت»، "all the money in the envelope"): ``propose_empty_place`` with the place, what came back and where it went (``back``), and the category the rest was spent on (``rest_account``, a code from YOUR BOOKS AT A GLANCE). It reads the balance and works out the rest itself — never subtract it yourself. Purchases they name with their amounts («۳۳ ریال لولو») are their own cards first; then the place's rest. When they don't say what the rest was spent on, ask once with ``ask_with_choices``.
@@ -573,6 +573,21 @@ def _people_on_every_card(db, proposals: list, *, personal: bool, user_message: 
 
 
 _AMOUNT = re.compile(r"\d+(?:[.٫]\d+)?")
+
+# What happened to money, told: «داد»، «خریدم»، «پرداخت کردم», "paid", "bought"
+_HAPPENED = re.compile(r"داد|دادم|قرض|خرید|خریدم|پرداخت|ریختم|گذاشتم|برداشتم|گرفتم|"
+                       r"\b(paid|bought|gave|lent|spent|sent|received|got)\b", re.IGNORECASE)
+# …and a reply asking whether to record it
+_ASKS_TO_RECORD = re.compile(r"ثبت\s*(کنم|بشه|شود)|بفرمایید|آیا|می‌خواهید|میخواهید|\b(should i|shall i|do you want|record it\?)",
+                             re.IGNORECASE)
+
+
+def _told_not_asked(user_message: str | None, reply: str | None) -> bool:
+    """The user told what happened to an amount and the reply asked whether to record it, with no card."""
+    said = user_message or ""
+    answer = reply or ""
+    return bool(_said_amounts(said)) and bool(_HAPPENED.search(said)) and ("?" in answer or "؟" in answer) \
+        and bool(_ASKS_TO_RECORD.search(answer))
 
 
 def _said_amount(value):
@@ -1138,7 +1153,8 @@ def thread_language(db, session_id, lang: str) -> str:
 
 # Refusals that name their own fix: a reply that ends the turn without the fixed
 # card gets the refusal once more. A closed period or a future date is final.
-_CORRECTABLE_REFUSALS = {"toman_not_converted", "unused_seed_account", "place_currency", "stated_currency"}
+_CORRECTABLE_REFUSALS = {"toman_not_converted", "unused_seed_account", "place_currency", "stated_currency",
+                         "people_direction", "money_from_person"}
 
 
 _FIGURE = re.compile(r"[0-9۰-۹]{1,3}(?:[,٬،][0-9۰-۹]{3}){2,}")
@@ -1623,6 +1639,7 @@ async def run_chat_turn(
     refused_cards: list[str] = []
     unfixed: list[str] = []              # the tools whose refused card no later card of theirs replaced
     retried_refusal = False
+    retried_told = False
 
     from app.services.ai_accountant import progress
 
@@ -1652,6 +1669,18 @@ async def run_chat_turn(
             history.append(ChatMessage(role="user", text=(
                 "[The card you drafted was refused: " + " ".join(refused_cards[-3:]) + " Draft the corrected card "
                 "now, or tell the user plainly why you can't. Never say a card is ready when there is none.]")))
+            continue
+        if (stop_reason == "end_turn" or not assistant_msg.tool_calls) and personal and not proposals \
+                and not retried_told and _told_not_asked(user_message, assistant_msg.text):
+            # The person said what happened, with its amount, and the reply asked whether to record it:
+            # «امیر به من ۶۰۰ ریال عمان دیگه داد…» was answered «… ثبت کنم؟» three times in five (eval,
+            # 2026-10-25, scenario BC1). The card is the question; ask only for what is truly missing.
+            retried_told = True
+            history.append(assistant_msg)
+            history.append(ChatMessage(role="user", text=(
+                "[The user told you what happened, with its amount: don't ask whether to record it. Make the card "
+                "now — the card is the question they answer with its buttons. Ask only if the amount, the place or "
+                "the person is truly missing.]")))
             continue
         history.append(assistant_msg)
         _persist_message(

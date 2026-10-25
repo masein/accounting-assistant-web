@@ -30,7 +30,7 @@ def test_ba1_each_currency_on_its_own_and_no_total(db, person):
     assert out["total"] is None and "unconverted" not in out
     assert all("balance" not in a for a in out["accounts"])               # a place's name, not a rial figure
     held = {x["currency"]: Decimal(str(x["total"])) for x in out["by_currency"]}
-    assert held == {"IRR": Decimal("47000000"), "OMR": Decimal("123.5"), "USD": Decimal("2400"), "AED": Decimal("1785")}
+    assert held == {"IRR": Decimal("47000000"), "OMR": Decimal("423.5"), "USD": Decimal("2400"), "AED": Decimal("1785")}
     assert "never add them up" in out["note"]
 
 

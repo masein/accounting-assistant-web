@@ -185,6 +185,101 @@ def _guard_stated_currency(ctx: ToolContext, args) -> None:
                         code="stated_currency")
 
 
+def _guard_people_direction(ctx: ToolContext, args) -> None:
+    """In a person's books, a card can't take back money someone doesn't owe. «امیر به من ۶۰۰ ریال دیگه داد» —
+    the user owed Amir 300 OMR — came as Cr «طلب از دیگران» (Amir paying back a debt he never had) and the reply
+    said Amir would owe the user 300; it is 900 the user owes him (owner's phone, 2026-10-25, scenario BC1).
+    Cr 1150 needs the person to owe the user that currency; Dr 2130 needs the user to owe the person."""
+    if getattr(ctx, "mode", "default") != "personal":
+        return
+    from app.services.ai_accountant.personal_tools import MONEY_I_OWE, MONEY_OWED_TO_ME, people_balances
+    from app.services.fx_base import base_currency
+    took_back = [ln for ln in args.lines if (ln.account_code.startswith(MONEY_OWED_TO_ME) and ln.credit)
+                 or (ln.account_code.startswith(MONEY_I_OWE) and ln.debit)]
+    if not took_back:
+        return
+    names = []
+    from app.models.entity import Entity
+    for link in args.entity_links or []:
+        try:
+            ent = ctx.db.get(Entity, uuid.UUID(str(link.entity_id)))
+        except (ValueError, TypeError):
+            ent = None
+        if ent is not None and ent.type != "bank":
+            names.append(ent.name)
+    names += [e.name for e in (args.new_entities or []) if getattr(e, "type", None) != "bank"]
+    if not names:
+        # the card names nobody yet (the end of the turn puts the person on it): the one the message names.
+        # «امیر به من ۶۰۰ ریال دیگه داد» came with no one on it and slipped through (real model, 2026-10-25)
+        from app.services.ai_accountant.money_places import _person_named
+        if (named := _person_named(ctx)):
+            names = [named]
+    if len(names) != 1:
+        return                                   # nobody, or several: the person isn't clear enough to hold to
+    who = names[0]
+    ccy = (args.currency or base_currency(ctx.db) or "IRR").strip().upper()
+    found = people_balances(ctx.db, who).get("people") or []
+    owes_you = sum(p["owes_you"].get(ccy, 0) for p in found)
+    you_owe = sum(p["you_owe"].get(ccy, 0) for p in found)
+    for ln in took_back:
+        if ln.account_code.startswith(MONEY_OWED_TO_ME) and owes_you <= 0:
+            owed = f"you owe {who} {grouped(you_owe)} {ccy}" if you_owe > 0 else f"nothing is owed between you in {ccy}"
+            raise ToolError(
+                f"{who} owes you nothing in {ccy} ({owed}), so money {who} gave you can't be paying you back: it is "
+                f"more you owe {who}. Propose it again now: Dr the place it went to / Cr {MONEY_I_OWE} «بدهی به "
+                f"دیگران», {who} on it — not a question for the user. After it, you owe {who} "
+                f"{grouped(you_owe + ln.credit)} {ccy}.", code="people_direction")
+        if ln.account_code.startswith(MONEY_I_OWE) and you_owe <= 0:
+            owed = f"{who} owes you {grouped(owes_you)} {ccy}" if owes_you > 0 else f"nothing is owed between you in {ccy}"
+            raise ToolError(
+                f"You owe {who} nothing in {ccy} ({owed}), so money you gave {who} can't be paying {who} back: it is "
+                f"more {who} owes you. Propose it again now: Dr {MONEY_OWED_TO_ME} «طلب از دیگران» / Cr the place it "
+                f"came from, {who} on it — not a question for the user. After it, {who} owes you "
+                f"{grouped(owes_you + ln.debit)} {ccy}.", code="people_direction")
+
+
+def _between_you_and(ctx: ToolContext, args) -> dict | None:
+    """In a person's books, for a card on «بدهی به دیگران» / «طلب از دیگران»: the person, what is owed now and
+    once this card is posted, in the card's currency, worked out here."""
+    if getattr(ctx, "mode", "default") != "personal":
+        return None
+    from app.core.money import plain
+    from app.services.ai_accountant.personal_tools import MONEY_I_OWE, MONEY_OWED_TO_ME, people_balances
+    from app.services.fx_base import base_currency
+    owed = [ln for ln in args.lines if ln.account_code.startswith((MONEY_I_OWE, MONEY_OWED_TO_ME))]
+    if not owed:
+        return None
+    from app.models.entity import Entity
+    names = []
+    for link in args.entity_links or []:
+        try:
+            ent = ctx.db.get(Entity, uuid.UUID(str(link.entity_id)))
+        except (ValueError, TypeError):
+            ent = None
+        if ent is not None and ent.type != "bank":
+            names.append(ent.name)
+    names += [e.name for e in (args.new_entities or []) if getattr(e, "type", None) != "bank"]
+    if not names:
+        from app.services.ai_accountant.money_places import _person_named
+        names = [n] if (n := _person_named(ctx)) else []
+    if len(names) != 1:
+        return None
+    ccy = (args.currency or base_currency(ctx.db) or "IRR").strip().upper()
+    found = people_balances(ctx.db, names[0]).get("people") or []
+    you_owe = sum(p["you_owe"].get(ccy, 0) for p in found)
+    owes_you = sum(p["owes_you"].get(ccy, 0) for p in found)
+    for ln in owed:
+        if ln.account_code.startswith(MONEY_I_OWE):
+            you_owe += ln.credit - ln.debit
+        else:
+            owes_you += ln.debit - ln.credit
+    now = {"you_owe": plain(sum(p["you_owe"].get(ccy, 0) for p in found)),
+           "owes_you": plain(sum(p["owes_you"].get(ccy, 0) for p in found))}
+    return {"person": names[0], "currency": ccy, "now": now,
+            "once_posted": {"you_owe": plain(you_owe), "owes_you": plain(owes_you)},
+            "say": "Asked what is owed: say both, now and once this card is posted."}
+
+
 def _guard_place_currency(ctx: ToolContext, args) -> None:
     """In a person's books, money paid out of a place in a currency it has never held is refused with what it
     holds. «۷.۱ ریال از کیف پول قشنگم» from a wallet of Omani rials was carded as 7 IRR; 200 OMR "from the
@@ -575,6 +670,7 @@ class ProposeCreateTransaction(BaseTool):
             _guard_toman(ctx, total)
             _guard_seed_accounts(ctx, args.lines)
             _guard_stated_currency(ctx, args)
+            _guard_people_direction(ctx, args)
             _guard_place_currency(ctx, args)
 
         # Anchor the entry date to reality. The model is unreliable at "today"
@@ -807,6 +903,7 @@ class ProposeCreateTransaction(BaseTool):
             pass
 
         expires_at = (datetime.now(timezone.utc) + PROPOSAL_TTL).isoformat()
+        between = _between_you_and(ctx, args)
         return {
             "confirmation_token": str(token),
             "status": "pending",
@@ -816,6 +913,9 @@ class ProposeCreateTransaction(BaseTool):
             "summary": summary,
             "tool_name": self.name,
             "preview": payload,
+            # what is owed between the user and the person, now and once this card is posted: «حساب من با امیر
+            # الان چقدر هست؟» got the 300 of now, never the 900 (scenario BC1)
+            **({"between_you_and": between} if between else {}),
             "next_steps": (
                 "Show this proposal to the user as an action card. They must click "
                 "Confirm in the UI to commit it; clicking Cancel discards it. The "

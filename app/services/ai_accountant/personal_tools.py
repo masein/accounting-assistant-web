@@ -3,6 +3,8 @@ and the savings goals, as the "My finances" page shows them; and the money
 between the user and other people, person by person (scenarios AG3–AG6)."""
 from __future__ import annotations
 
+from app.core.money import plain
+
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -131,7 +133,75 @@ class GetPeopleBalances(BaseTool):
     InputSchema = GetPeopleBalancesInput
 
     async def run(self, ctx: ToolContext, args: GetPeopleBalancesInput) -> dict[str, Any]:
-        return people_balances(ctx.db, args.person)
+        out = people_balances(ctx.db, args.person)
+        waiting = _waiting_between_people(ctx)
+        if waiting:
+            # «حساب من با امیر الان چقدر هست؟» right after «امیر ۶۰۰ دیگه داد» was answered 300 — the card not yet
+            # posted; once posted it's 900 (owner's phone, 2026-10-25, scenario BC1). The sum is worked out here.
+            by_name = {p["person"]: p for p in out["people"]}
+            for name, sides in waiting.items():
+                p = by_name.get(name)
+                if p is None:
+                    p = {"person": name, "you_owe": {}, "owes_you": {}}
+                    out["people"].append(p)
+                    by_name[name] = p
+                p["cards_waiting"] = sides
+                p["once_posted"] = {side: {c: plain(p[side].get(c, 0) + v) for c, v in
+                                           {**{c: 0 for c in p[side]}, **sides.get(side, {})}.items()}
+                                    for side in ("you_owe", "owes_you")}
+            out["note"] = ("A card of this conversation is waiting for the user's confirm: cards_waiting is what it moves, "
+                           "once_posted what is owed after it. Say both: what is owed now, and once it is posted.")
+        return out
+
+
+def _waiting_between_people(ctx) -> dict[str, dict[str, dict[str, Any]]]:
+    """Cards of this conversation not yet confirmed that move money between the user and a person: person →
+    side → currency → amount. The person is the one on the card, else the one its message names."""
+    from sqlalchemy import select
+
+    from app.core.money import plain
+    from app.models.ai_accountant import AIProposal
+    from app.models.entity import Entity
+    from app.services.fx_base import base_currency
+    session = getattr(ctx, "chat_session_id", None)
+    if not session:
+        return {}
+    rows = ctx.db.execute(select(AIProposal).where(AIProposal.session_id == str(session), AIProposal.status == "pending",
+                                                   AIProposal.tool_name == "propose_create_transaction")).scalars().all()
+    out: dict = {}
+    for row in rows:
+        p = row.tool_input or {}
+        lines = [ln for ln in p.get("lines") or [] if owed_between_people(ln.get("account_code"))]
+        if not lines:
+            continue
+        name = None
+        for link in p.get("entity_links") or []:
+            try:
+                import uuid as _uuid
+                ent = ctx.db.get(Entity, _uuid.UUID(str(link.get("entity_id"))))
+            except (ValueError, TypeError):
+                ent = None
+            if ent is not None and ent.type != "bank":
+                name = ent.name
+                break
+        if name is None:
+            name = next((e.get("name") for e in p.get("new_entities") or [] if e.get("type") != "bank"), None)
+        if name is None:
+            from types import SimpleNamespace
+
+            from app.services.ai_accountant.money_places import _person_named
+            name = _person_named(SimpleNamespace(db=ctx.db, user_message=row.user_message))
+        if name is None:
+            continue
+        ccy = (p.get("currency") or base_currency(ctx.db) or "IRR").upper()
+        for ln in lines:
+            code = str(ln.get("account_code"))
+            side, amount = (("you_owe", plain(ln.get("credit") or 0) - plain(ln.get("debit") or 0))
+                            if code.startswith(MONEY_I_OWE) else
+                            ("owes_you", plain(ln.get("debit") or 0) - plain(ln.get("credit") or 0)))
+            book = out.setdefault(name, {}).setdefault(side, {})
+            book[ccy] = plain(book.get(ccy, 0) + amount)
+    return out
 
 
 def people_balances(db, person: str | None = None, *, with_last: bool = False) -> dict[str, Any]:

@@ -1728,6 +1728,70 @@
      "text": "کیف پول قشنگم خالی می‌شود: ۳۰٫۰۰۰ ریال عمان خوراک و سوپرمارکت و ۹٫۷۵۰ به کیف پول سبز."
     }
    ]
+  },
+  {
+   "id": "p_amir_more_fa",
+   "books": "personal",
+   "lang": "fa",
+   "message": "امیر به من ۶۰۰ ریال عمان دیگه داد، گذاشتم توی کیف پول سبز. حساب من با امیر الان چقدر هست؟",
+   "expect": {
+    "proposals": 1,
+    "card": {
+     "tool": "propose_create_transaction",
+     "debit_prefix": [
+      "112001"
+     ],
+     "credit_prefix": [
+      "2130"
+     ],
+     "total": 600,
+     "fields": {
+      "currency": "OMR"
+     }
+    },
+    "reply_contains_any": [
+     "۹۰۰",
+     "900"
+    ],
+    "reply_lang": "fa"
+   },
+   "replay": [
+    {
+     "tool": "find_entity",
+     "input": {
+      "query": "امیر"
+     }
+    },
+    {
+     "tool": "propose_create_transaction",
+     "input": {
+      "date": "{today}",
+      "description": "قرض دیگر از امیر",
+      "currency": "OMR",
+      "lines": [
+       {
+        "account_code": "112001",
+        "debit": "600",
+        "credit": 0
+       },
+       {
+        "account_code": "2130",
+        "debit": 0,
+        "credit": "600"
+       }
+      ],
+      "entity_links": [
+       {
+        "entity_id": "{entity:امیر}",
+        "role": "supplier"
+       }
+      ]
+     }
+    },
+    {
+     "text": "کارت ۶۰۰ ریال عمان از امیر در کیف پول سبز آماده است؛ با ثبتش ۹۰۰ ریال عمان به امیر بدهکار می‌شوی."
+    }
+   ]
   }
  ]
 }

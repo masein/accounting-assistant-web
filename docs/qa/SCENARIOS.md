@@ -892,3 +892,9 @@ The exchange put «کیف پول والای» right (312.265 OMR, $500, AED 1,78
 | BB2 | Everything in a place | «هرچی توی کیف پول قشنگم بود دادم به همسرم، … ۹.۷۵ ریال عمان برگردوند …» (the wallet holds 39.750) | The balance is read. Cards: 30.000 spent under its category and 9.750 back to «کیف پول سبز», so the wallet ends at zero. A message with nothing named asks once what the rest was |
 | BB3 | The review card's rows | A Persian category in an English app | The name starts where the row starts, with room before its amount. It read «۶۶۰.000اشتراک‌ها» (next APK) |
 | BB4 | A wrong date, fixed from the chat | «اون Muscat Airbnb که امیر حساب کرد مال ۱۵ شهریور ۱۴۰۵ بود نه این هفته، تاریخش رو درست کن» | ``propose_change_date``: one card naming the entry and its new date. Confirmed, only the date changes; the closed-period lock and the audit trail hold as for an edit on the web. Undo puts the old dates back. A future date or a closed period is refused. The owner's nine trips were dated the day they were told, and the weekly review counted $4,555.06 of travel "this week" |
+
+## BC. Money from someone you already owe (owner's phone, 2026-10-25, IMG_1220)
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BC1 | More from someone you owe | The user owes Amir 300 OMR; «امیر به من ۶۰۰ ریال عمان دیگه داد، گذاشتم توی کیف پول سبز. حساب من با امیر الان چقدر هست؟» | One card: Dr the wallet / Cr «بدهی به دیگران» 600.000 OMR, Amir on it; the reply says the user owes Amir 900. A card that credits «طلب از دیگران» for someone who owes the user nothing is refused, and so is one that debits «بدهی به دیگران» for someone the user owes nothing; each is drafted again the right way. It had come as Amir "paying back", with «امیر ۳۰۰ ریال به تو بدهکار خواهد بود» |

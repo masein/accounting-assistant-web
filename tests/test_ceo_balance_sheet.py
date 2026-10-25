@@ -94,6 +94,7 @@ def test_a_month_of_costs_only_shows_in_the_trends(co, db):
 
 def test_the_burn_rate_is_the_latest_three_months(co, db):
     from app.services.cfo_intelligence import build_cfo_report
+    _gregorian(db, co)            # 1 October is 9 Mehr: in Jalali months this one fell a month short (2026-10-25)
     bank, expense = _code(db, co, "bank"), _code(db, co, "expense")
     for months_ago, amount in ((2, 100), (1, 100), (0, 100), (3, 400)):           # the oldest entered last
         _on(db, co, _month_start(months_ago), (expense, amount, 0), (bank, 0, amount))

@@ -9,6 +9,7 @@ assistant. The file here is made up in the bank's layout; the real one stays out
 from __future__ import annotations
 
 import io
+import itertools
 import json
 import re
 import uuid
@@ -57,9 +58,14 @@ def _xlsx(tag: str = "", by: int = 0) -> bytes:
     return out.getvalue()
 
 
+_UPLOADS = itertools.count(1)
+
+
 def _upload(client, name=None, by=None):
     tag = uuid.uuid4().hex[:4]
-    by = int(tag, 16) % 900 + 1 if by is None else by        # its own amounts, so no row is another test's again
+    # its own amounts, so no row is another test's again: one of 900 random offsets met an earlier test's posted
+    # rows now and then, which read as "already in the books", and the card never came (af6, af10 in CI)
+    by = next(_UPLOADS) * 100_003 if by is None else by
     name = name or f"تنخواه پارسیان {tag}.xlsx"
     r = client.post("/transactions/attachments", files={"file": (name, io.BytesIO(_xlsx(tag, by)),
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})

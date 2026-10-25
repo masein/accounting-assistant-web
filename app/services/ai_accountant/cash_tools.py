@@ -117,6 +117,16 @@ class GetCashPosition(BaseTool):
             "by_currency": [{"currency": c, "total": t} for c, t in
                             sorted(by_currency.items(), key=lambda kv: (kv[0] != base, kv[0]))],
         }
+        several = len(by_currency) > 1 or (len(by_currency) == 1 and base not in by_currency)
+        if getattr(ctx, "mode", "default") == "personal" and several:
+            # a person's money in several currencies has no total across them: «۴٬۵۰۰٬۰۰۰٬۰۰۰ ریال… ۲۷ مورد ارزی
+            # هنوز نرخ تبدیل ندارند» added dollars at some rate and Omani rials at none (owner's phone, 2026-10-22,
+            # scenario BA1). The places keep their names; their money is in ``holdings``.
+            out["total"] = None
+            out["accounts"] = [{"account_code": a["account_code"], "account_name": a["account_name"]} for a in accounts]
+            out["note"] = ("Each currency on its own, in by_currency and holdings: never add them up or give a total in "
+                           "rials or any other currency.")
+            return out
         from app.services.fx_base import unconverted_note
         if (left_out := unconverted_note(ctx.db)):
             out["unconverted"] = left_out

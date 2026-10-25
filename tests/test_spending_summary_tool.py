@@ -182,7 +182,10 @@ class TestPromptWiring:
         tool_msg = client.sent[1][-1]
         payload = tool_msg.to_dict()
         text = str(payload)
-        assert "label_fa" in text and "total" in text and "1405/07/01" in text
+        # this Jalali month's first day, whichever month the suite runs in: «1405/07/01» failed in Aban (2026-10-25)
+        from app.utils.jalali import format_jalali
+        jt = spending_tools._j(date.today())
+        assert "label_fa" in text and "total" in text and format_jalali(spending_tools._j_first(jt.year, jt.month)) in text
 
 
 def test_ay1_the_last_ten_days(db, make_transaction, monkeypatch):

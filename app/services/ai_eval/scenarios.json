@@ -1596,6 +1596,56 @@
      "text": "پول: ۴۷٬۰۰۰٬۰۰۰ ریال، ۱۲۳٫۵۰۰ ریال عمان، ۲٬۴۰۰ دلار و ۱٬۷۸۵ درهم. بدهی: ۳۳۳٫۷۷ دلار به امیر."
     }
    ]
+  },
+  {
+   "id": "p_reclass_fa",
+   "books": "personal",
+   "lang": "fa",
+   "message": "این سه تا خرید رو اشتباه زیر «خانواده و هدایا» ثبت کردی، با یک سند اصلاحی ببرشون زیر «لوازم و تعمیرات خانه»:\n- خرید دو مبدل برق، ۲۴ مهر، ۲ ریال عمان\n- خرید لوازم‌تحریر، ۲۵ مهر، ۳ ریال عمان\n- پرداخت برای ساختن کلید، ۲۷ مهر، ۱ ریال عمان",
+   "expect": {
+    "proposals_min": 1,
+    "tools_all": [
+     "propose_create_transaction"
+    ],
+    "card": {
+     "tool": "propose_create_transaction",
+     "debit_prefix": [
+      "6125"
+     ],
+     "credit_prefix": [
+      "6195"
+     ],
+     "fields": {
+      "currency": "OMR"
+     }
+    },
+    "reply_lang": "fa"
+   },
+   "replay": [
+    {
+     "tool": "propose_create_transaction",
+     "input": {
+      "date": "{today}",
+      "description": "اصلاح دسته: مبدل برق، لوازم‌تحریر و ساختن کلید",
+      "currency": "OMR",
+      "lines": [
+       {
+        "account_code": "6125",
+        "debit": "6",
+        "credit": 0
+       },
+       {
+        "account_code": "6195",
+        "debit": 0,
+        "credit": "6"
+       }
+      ]
+     }
+    },
+    {
+     "text": "کارت اصلاحی ۶٫۰۰۰ ریال عمان از «خانواده و هدایا» به «لوازم و تعمیرات خانه» آماده است."
+    }
+   ]
   }
  ]
 }

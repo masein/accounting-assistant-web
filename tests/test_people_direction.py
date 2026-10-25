@@ -111,3 +111,41 @@ def test_bc1_the_balance_says_what_is_owed_once_the_card_is_posted(db, person):
     assert Decimal(str(amir["you_owe"]["OMR"])) == 300
     assert Decimal(str(amir["once_posted"]["you_owe"]["OMR"])) == 900 and "once" in out["note"]
     assert Decimal(str(amir["once_posted"]["you_owe"]["USD"])) == Decimal("333.77")       # the other currency as it is
+
+
+def test_bc1_told_with_an_amount_is_a_card_not_a_question(db, person):
+    """A reply that asks whether to record what the user told is sent back once for the card."""
+    from app.services.ai_accountant.orchestrator import _told_not_asked, run_chat_turn
+    from tests.test_ai_accountant_orchestrator import _assistant_text, _assistant_tool_call
+    msg = "امیر به من ۶۰۰ ریال عمان دیگه داد، گذاشتم توی کیف پول سبز"
+    assert _told_not_asked(msg, "می‌خواهید دریافت ۶۰۰ ریال عمان از امیر را ثبت کنم؟")
+    assert not _told_not_asked("چقدر به امیر بدهکارم؟", "۳۰۰ ریال عمان. چیز دیگری می‌خواهید؟")      # a question asked
+    assert not _told_not_asked(msg, "کارت آماده است.")
+
+    class _Model:
+        shape = "fake"
+
+        def __init__(self, *replies):
+            self.replies, self.seen = list(replies), []
+
+        async def chat(self, *, system_prompt, tools, messages, model=None, max_tokens=8192):
+            self.seen.append([m.text for m in messages if m.role == "user"])
+            return self.replies.pop(0)
+
+    card = {"date": date.today().isoformat(), "description": "قرض از امیر", "currency": "OMR",
+            "lines": [{"account_code": GREEN_WALLET, "debit": 600, "credit": 0}, {"account_code": "2130", "debit": 0, "credit": 600}],
+            "entity_links": [{"entity_id": person.entities["امیر"], "role": "supplier"}]}
+    model = _Model(_assistant_text("می‌خواهید دریافت ۶۰۰ ریال عمان از امیر را ثبت کنم؟"),
+                   _assistant_tool_call("propose_create_transaction", card), _assistant_text("کارت آماده است؛ ۹۰۰ ریال عمان."))
+    with use_company(person.company_id):
+        out = asyncio.run(run_chat_turn(db, user_id=USER, user_message=msg, client=model, mode="personal", lang="fa"))
+    assert len(out.proposals) == 1 and any("don't ask whether to record" in (t or "") for t in model.seen[1])
+
+
+def test_bc1_the_card_says_what_is_owed_once_posted(db, person):
+    from decimal import Decimal
+    with use_company(person.company_id):
+        card = _card(db, person, [(GREEN_WALLET, 600, 0), ("2130", 0, 600)])
+    b = card["between_you_and"]
+    assert b["person"] == "امیر" and b["currency"] == "OMR"
+    assert Decimal(str(b["now"]["you_owe"])) == 300 and Decimal(str(b["once_posted"]["you_owe"])) == 900

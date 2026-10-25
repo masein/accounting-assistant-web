@@ -574,6 +574,21 @@ def _people_on_every_card(db, proposals: list, *, personal: bool, user_message: 
 
 _AMOUNT = re.compile(r"\d+(?:[.٫]\d+)?")
 
+# What happened to money, told: «داد»، «خریدم»، «پرداخت کردم», "paid", "bought"
+_HAPPENED = re.compile(r"داد|دادم|قرض|خرید|خریدم|پرداخت|ریختم|گذاشتم|برداشتم|گرفتم|"
+                       r"\b(paid|bought|gave|lent|spent|sent|received|got)\b", re.IGNORECASE)
+# …and a reply asking whether to record it
+_ASKS_TO_RECORD = re.compile(r"ثبت\s*(کنم|بشه|شود)|بفرمایید|آیا|می‌خواهید|میخواهید|\b(should i|shall i|do you want|record it\?)",
+                             re.IGNORECASE)
+
+
+def _told_not_asked(user_message: str | None, reply: str | None) -> bool:
+    """The user told what happened to an amount and the reply asked whether to record it, with no card."""
+    said = user_message or ""
+    answer = reply or ""
+    return bool(_said_amounts(said)) and bool(_HAPPENED.search(said)) and ("?" in answer or "؟" in answer) \
+        and bool(_ASKS_TO_RECORD.search(answer))
+
 
 def _said_amount(value):
     """An amount as a comparable Decimal: 15.3, «15.300» and 15.30 are one amount."""
@@ -1624,6 +1639,7 @@ async def run_chat_turn(
     refused_cards: list[str] = []
     unfixed: list[str] = []              # the tools whose refused card no later card of theirs replaced
     retried_refusal = False
+    retried_told = False
 
     from app.services.ai_accountant import progress
 
@@ -1653,6 +1669,18 @@ async def run_chat_turn(
             history.append(ChatMessage(role="user", text=(
                 "[The card you drafted was refused: " + " ".join(refused_cards[-3:]) + " Draft the corrected card "
                 "now, or tell the user plainly why you can't. Never say a card is ready when there is none.]")))
+            continue
+        if (stop_reason == "end_turn" or not assistant_msg.tool_calls) and personal and not proposals \
+                and not retried_told and _told_not_asked(user_message, assistant_msg.text):
+            # The person said what happened, with its amount, and the reply asked whether to record it:
+            # «امیر به من ۶۰۰ ریال عمان دیگه داد…» was answered «… ثبت کنم؟» three times in five (eval,
+            # 2026-10-25, scenario BC1). The card is the question; ask only for what is truly missing.
+            retried_told = True
+            history.append(assistant_msg)
+            history.append(ChatMessage(role="user", text=(
+                "[The user told you what happened, with its amount: don't ask whether to record it. Make the card "
+                "now — the card is the question they answer with its buttons. Ask only if the amount, the place or "
+                "the person is truly missing.]")))
             continue
         history.append(assistant_msg)
         _persist_message(

@@ -78,3 +78,36 @@ def test_bc1_money_from_a_person_is_not_a_starting_balance(db, person):
         with pytest.raises(ToolError) as e:
             place("۶۰۰ ریال عمان توی کیف پول سبز دارم")                         # no one gave it: as before
         assert e.value.code == "already_started"
+
+
+def test_bc1_a_card_with_nobody_on_it_is_held_to_the_person_named(db, person):
+    """The real model left Amir off the card; the end of the turn would have put him on it, too late."""
+    from app.services.ai_accountant.proposal_tools import ProposeCreateTransaction, ProposeCreateTransactionInput
+    with use_company(person.company_id), pytest.raises(ToolError) as e:
+        asyncio.run(ProposeCreateTransaction().run(
+            ToolContext(db=db, user_id=USER, mode="personal", user_message="امیر به من ۶۰۰ ریال عمان دیگه داد"),
+            ProposeCreateTransactionInput(date=date.today(), description="x", currency="OMR",
+                                          lines=[{"account_code": GREEN_WALLET, "debit": 600, "credit": 0},
+                                                 {"account_code": "1150", "debit": 0, "credit": 600}])))
+    assert e.value.code == "people_direction" and "900" in str(e.value)
+
+
+def test_bc1_the_balance_says_what_is_owed_once_the_card_is_posted(db, person):
+    """«حساب من با امیر الان چقدر هست؟» right after the card: 300 now, 900 once posted."""
+    from decimal import Decimal
+
+    from app.services.ai_accountant.orchestrator import _get_or_create_session
+    from app.services.ai_accountant.personal_tools import GetPeopleBalances, GetPeopleBalancesInput
+    from app.services.ai_accountant.proposal_tools import ProposeCreateTransaction, ProposeCreateTransactionInput
+    msg = "امیر به من ۶۰۰ ریال عمان دیگه داد"
+    with use_company(person.company_id):
+        session = str(_get_or_create_session(db, user_id=USER, session_id=None).id)
+        tc = ToolContext(db=db, user_id=USER, mode="personal", user_message=msg, chat_session_id=session)
+        asyncio.run(ProposeCreateTransaction().run(tc, ProposeCreateTransactionInput(
+            date=date.today(), description="x", currency="OMR",
+            lines=[{"account_code": GREEN_WALLET, "debit": 600, "credit": 0}, {"account_code": "2130", "debit": 0, "credit": 600}])))
+        out = asyncio.run(GetPeopleBalances().run(tc, GetPeopleBalancesInput(person="امیر")))
+    amir = out["people"][0]
+    assert Decimal(str(amir["you_owe"]["OMR"])) == 300
+    assert Decimal(str(amir["once_posted"]["you_owe"]["OMR"])) == 900 and "once" in out["note"]
+    assert Decimal(str(amir["once_posted"]["you_owe"]["USD"])) == Decimal("333.77")       # the other currency as it is

@@ -208,6 +208,12 @@ def _guard_people_direction(ctx: ToolContext, args) -> None:
         if ent is not None and ent.type != "bank":
             names.append(ent.name)
     names += [e.name for e in (args.new_entities or []) if getattr(e, "type", None) != "bank"]
+    if not names:
+        # the card names nobody yet (the end of the turn puts the person on it): the one the message names.
+        # «امیر به من ۶۰۰ ریال دیگه داد» came with no one on it and slipped through (real model, 2026-10-25)
+        from app.services.ai_accountant.money_places import _person_named
+        if (named := _person_named(ctx)):
+            names = [named]
     if len(names) != 1:
         return                                   # nobody, or several: the person isn't clear enough to hold to
     who = names[0]

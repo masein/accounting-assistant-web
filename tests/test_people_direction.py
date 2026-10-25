@@ -1,0 +1,64 @@
+"""A card can't take back money someone doesn't owe (scenario BC1, owner's phone 2026-10-25).
+
+«امیر به من ۶۰۰ ریال دیگه داد» with 300 OMR already owed to Amir came as Cr «طلب از دیگران», and the reply said
+Amir would owe the user 300. It is 900 the user owes Amir."""
+from __future__ import annotations
+
+import asyncio
+from datetime import date
+
+import pytest
+
+from app.db.tenant import use_company
+from app.services.ai_accountant.base import ToolContext, ToolError
+from app.services.ai_eval.fixture import GREEN_WALLET, seed_personal_books
+
+USER = "u-people"
+
+
+@pytest.fixture()
+def person(db):
+    ctx = seed_personal_books(db)
+    yield ctx
+    from tests.test_admin_audit import _purge_company
+    _purge_company(db, ctx.company_id)
+
+
+def _card(db, person, lines, *, currency="OMR", new=None, said="امیر به من ۶۰۰ ریال عمان دیگه داد"):
+    from app.services.ai_accountant.proposal_tools import ProposeCreateTransaction, ProposeCreateTransactionInput
+    links = [] if new else [{"entity_id": person.entities["امیر"], "role": "supplier"}]
+    return asyncio.run(ProposeCreateTransaction().run(
+        ToolContext(db=db, user_id=USER, mode="personal", user_message=said),
+        ProposeCreateTransactionInput(date=date.today(), description="x", currency=currency, entity_links=links,
+                                      new_entities=[{"name": new, "type": "supplier"}] if new else [],
+                                      lines=[{"account_code": c, "debit": d, "credit": cr} for c, d, cr in lines])))
+
+
+def test_bc1_money_from_someone_you_owe_is_more_you_owe(db, person):
+    with use_company(person.company_id):
+        with pytest.raises(ToolError) as e:
+            _card(db, person, [(GREEN_WALLET, 600, 0), ("1150", 0, 600)])          # Amir "paying back"
+        assert e.value.code == "people_direction"
+        assert "you owe امیر 300" in str(e.value) and "2130" in str(e.value) and "900" in str(e.value)
+        assert _card(db, person, [(GREEN_WALLET, 600, 0), ("2130", 0, 600)])["status"] == "pending"
+
+
+def test_bc1_paying_back_someone_you_owe_nothing_is_refused(db, person):
+    with use_company(person.company_id):
+        with pytest.raises(ToolError) as e:
+            _card(db, person, [("2130", 50, 0), (GREEN_WALLET, 0, 50)], currency="AED",
+                  said="۵۰ درهم به امیر پس دادم")                                    # owes Amir no dirhams
+        assert e.value.code == "people_direction" and "1150" in str(e.value)
+        assert _card(db, person, [("2130", 100, 0), (GREEN_WALLET, 0, 100)])["status"] == "pending"  # paying 100 of 300
+
+
+def test_bc1_someone_new_cant_be_paying_back(db, person):
+    with use_company(person.company_id):
+        with pytest.raises(ToolError) as e:
+            _card(db, person, [(GREEN_WALLET, 20, 0), ("1150", 0, 20)], new="سارا")
+        assert e.value.code == "people_direction"
+
+
+def test_bc1_a_companys_cards_are_not_held_to_it(db):
+    from app.services.ai_accountant.proposal_tools import _guard_people_direction
+    _guard_people_direction(ToolContext(db=db, user_id=USER, mode="default"), None)   # returns before reading args

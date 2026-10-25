@@ -364,7 +364,7 @@ def _dispatch(db: Session, proposal: AIProposal, *, actor_user_id: str, actor_us
             ip_address=ip_address,
         )
     elif proposal.tool_name in ("propose_money_place", "propose_books_currency", "propose_rename_place",
-                                "propose_currency_exchange"):
+                                "propose_currency_exchange", "propose_empty_place"):
         from app.services.ai_accountant.money_places import execute_money_proposal
         txn_id, audit_id = execute_money_proposal(
             db, proposal,

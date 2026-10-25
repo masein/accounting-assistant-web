@@ -342,14 +342,21 @@ class QueryLedger(BaseTool):
                 )
             )
 
+        # every word, in any order; failing that, the entries with the most of them: «Muscat Airbnb امیر» found
+        # nothing in «Muscat Airbnb — paid by Amir» (eval, 2026-10-25, scenario BB4)
+        from app.utils.text import fold_fa
+        words = [w for w in fold_fa((args.description_contains or "").lower()).split() if len(w) > 1]
         if args.description_contains:
-            stmt = stmt.where(
-                func.lower(Transaction.description).like(
-                    f"%{args.description_contains.lower()}%"
-                )
-            )
+            from sqlalchemy import or_
+            stmt = stmt.where(or_(*[func.lower(Transaction.description).like(f"%{w}%") for w in words])
+                              if words else func.lower(Transaction.description).like(
+                                  f"%{args.description_contains.lower()}%"))
 
         rows = ctx.db.execute(stmt).all()
+        if len(words) > 1:
+            hits = {t.id: sum(w in fold_fa((t.description or "").lower()) for w in words) for (t, _l, _a) in rows}
+            best = max(hits.values(), default=0)
+            rows = [r for r in rows if hits[r[0].id] == best]
 
         from app.services.fx_base import base_currency, unconverted_note
         from app.services.reporting.repository import line_dr_cr

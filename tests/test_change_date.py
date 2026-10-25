@@ -124,3 +124,52 @@ def test_bb1_a_named_place_moves_only_the_cards_of_the_amounts_said(db, person):
             _assistant_tool_call("propose_create_transaction", lulu), _assistant_text("کارت.")),
             user_message="کیف پول سبز", mode="personal", lang="fa"))
         assert bare.proposals[0]["preview"]["lines"][1]["account_code"] == GREEN_WALLET   # a bare answer: as before
+
+
+def _empty(db, **kw):
+    from app.services.ai_accountant.money_places import ProposeEmptyPlace, ProposeEmptyPlaceInput
+    return asyncio.run(ProposeEmptyPlace().run(ToolContext(db=db, user_id=USER, mode="personal",
+                                                           user_message="هرچی توی کیف پول قشنگم بود دادم"),
+                                               ProposeEmptyPlaceInput(**kw)))
+
+
+def test_bb2_everything_in_a_place_is_its_balance(db, person):
+    """«قشنگم» holds 39.750 OMR: 9.75 back to «سبز», 30.000 under groceries, the wallet at zero."""
+    from decimal import Decimal
+
+    from app.services.ai_accountant.execute_service import execute_proposal, undo_action
+    from tests.test_currency_exchange import _held
+    with use_company(person.company_id):
+        card = _empty(db, place="کیف پول قشنگم", back=[{"amount": "9.75", "place": "کیف پول سبز"}], rest_account="6110")
+        p = card["preview"]
+        assert (Decimal(str(p["balance"])), Decimal(str(p["rest"])), p["currency"]) == (Decimal("39.75"), Decimal("30"), "OMR")
+        assert {ln["account_code"]: (Decimal(str(ln["debit"])), Decimal(str(ln["credit"]))) for ln in p["lines"]} == {
+            "6110": (Decimal("30"), 0), GREEN_WALLET: (Decimal("9.75"), 0), PRETTY_WALLET: (0, Decimal("39.75"))}
+        before_green = _held(db, GREEN_WALLET)["OMR"]
+        done = execute_proposal(db, confirmation_token=card["confirmation_token"], actor_user_id=USER)
+        assert "OMR" not in _held(db, PRETTY_WALLET)                             # empty
+        assert _held(db, GREEN_WALLET)["OMR"] == before_green + Decimal("9.75")
+        undo_action(db, audit_log_id=done.audit_log_id, actor_user_id=USER)
+        assert _held(db, PRETTY_WALLET)["OMR"] == Decimal("39.75")
+
+
+def test_bb2_more_back_than_held_or_no_category_is_asked(db, person):
+    with use_company(person.company_id):
+        with pytest.raises(ToolError) as e:
+            _empty(db, place="کیف پول قشنگم", back=[{"amount": "50", "place": "کیف پول سبز"}])
+        assert e.value.code == "more_than_held"
+        with pytest.raises(ToolError) as e:
+            _empty(db, place="کیف پول قشنگم", back=[{"amount": "9.75", "place": "کیف پول سبز"}])
+        assert e.value.code == "rest_account"
+        whole = _empty(db, place="کیف پول قشنگم", back=[{"amount": "39.75", "place": "کیف پول سبز"}])
+        assert len(whole["preview"]["lines"]) == 2                              # all of it came back: no category
+
+
+def test_bb4_the_ledger_finds_an_entry_by_some_of_its_words(db, person):
+    from app.services.ai_accountant.read_tools import QueryLedger, QueryLedgerInput
+    with use_company(person.company_id):
+        out = asyncio.run(QueryLedger().run(ToolContext(db=db, user_id=USER, mode="personal"),
+                                            QueryLedgerInput(description_contains="Muscat Airbnb امیر",
+                                                             from_date=date.today() - timedelta(days=60))))
+    ids = {r.get("transaction_id") for r in out.get("rows") or out.get("sample") or []}
+    assert person.txns["airbnb"] in ids

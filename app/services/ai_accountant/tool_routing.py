@@ -25,7 +25,7 @@ GROUPS: dict[str, tuple[str, tuple[str, ...]]] = {
     "money": ("cash and bank today, each place and currency, people owed and owing, net worth, money places, "
               "renaming a place, the books' currency, money changed from one currency to another",
               ("get_cash_position", "get_people_balances", "get_net_worth", "propose_money_place",
-               "propose_rename_place", "propose_books_currency", "propose_currency_exchange")),
+               "propose_rename_place", "propose_books_currency", "propose_currency_exchange", "propose_empty_place")),
     "spending": ("spending and income for a period and by category, the monthly report card, insights, "
                  "financial statements, tax, the cash forecast",
                  ("get_spending_summary", "get_report_card", "get_insights", "get_financial_statement",

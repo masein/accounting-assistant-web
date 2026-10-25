@@ -1691,21 +1691,19 @@
    "lang": "fa",
    "message": "هرچی توی کیف پول قشنگم بود دادم به همسرم، رفت خرید سوپرمارکت کرد و ۹.۷۵ ریال عمان برگردوند که گذاشتم توی کیف پول سبز",
    "expect": {
-    "proposals_min": 2,
-    "tools_any": [
-     "get_cash_position",
-     "get_account_balance",
-     "query_ledger"
+    "proposals_min": 1,
+    "tools_all": [
+     "propose_empty_place"
     ],
     "card": {
-     "tool": "propose_create_transaction",
+     "tool": "propose_empty_place",
+     "total": "39.75",
      "debit_prefix": [
       "6110"
      ],
      "credit_prefix": [
       "112002"
      ],
-     "total": 30,
      "fields": {
       "currency": "OMR"
      }
@@ -1714,51 +1712,20 @@
    },
    "replay": [
     {
-     "tool": "get_cash_position",
-     "input": {}
-    },
-    {
-     "tool": "propose_create_transaction",
+     "tool": "propose_empty_place",
      "input": {
-      "date": "{today}",
-      "description": "خرید سوپرمارکت همسرم با پول کیف پول قشنگم",
-      "currency": "OMR",
-      "lines": [
+      "place": "کیف پول قشنگم",
+      "back": [
        {
-        "account_code": "6110",
-        "debit": "30",
-        "credit": 0
-       },
-       {
-        "account_code": "112002",
-        "debit": 0,
-        "credit": "30"
+        "amount": "9.75",
+        "place": "کیف پول سبز"
        }
-      ]
+      ],
+      "rest_account": "6110"
      }
     },
     {
-     "tool": "propose_create_transaction",
-     "input": {
-      "date": "{today}",
-      "description": "باقی‌مانده کیف پول قشنگم به کیف پول سبز",
-      "currency": "OMR",
-      "lines": [
-       {
-        "account_code": "112001",
-        "debit": "9.75",
-        "credit": 0
-       },
-       {
-        "account_code": "112002",
-        "debit": 0,
-        "credit": "9.75"
-       }
-      ]
-     }
-    },
-    {
-     "text": "دو کارت: خرید سوپرمارکت ۳۰٫۰۰۰ ریال عمان و ۹٫۷۵۰ ریال عمان به کیف پول سبز؛ کیف پول قشنگم خالی می‌شود."
+     "text": "کیف پول قشنگم خالی می‌شود: ۳۰٫۰۰۰ ریال عمان خوراک و سوپرمارکت و ۹٫۷۵۰ به کیف پول سبز."
     }
    ]
   }

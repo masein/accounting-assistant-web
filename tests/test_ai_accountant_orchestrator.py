@@ -564,6 +564,7 @@ class TestPersonalMode:
             "propose_rename_place",                 # a wallet renamed, its account itself (scenario AK5)
             "propose_currency_exchange",            # money changed from one currency to another (AZ1)
             "propose_change_date",                  # an entry's real date (BB4)
+            "propose_empty_place",                  # everything in a place, the rest worked out (BB2)
             "get_budget_status", "propose_set_budget", "propose_review_prefs",   # a review's suggestions (AL9, AL14)
             "check_affordability", "propose_savings_goal",                     # can I afford it? (AM1–AM10)
             "get_report_card", "get_savings_goals", "get_net_worth", "get_people_balances",

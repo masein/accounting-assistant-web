@@ -22,12 +22,12 @@ LINES = {
              "es": lambda n: f"Quedan {n} por registrar después de esta." if n else "Es la última por registrar.",
              "ar": lambda n: f"يبقى {n} بعد هذا." if n else "هذا آخر ما يجب تسجيله."},
     "done": {"en": "Every row of this statement is in the books, or on a card above waiting for you.",
-             "fa": "همهٔ ردیف‌های این صورتحساب در دفاتر است، یا روی کارتی بالاتر منتظر شماست.",
+             "fa": "همهٔ ردیف‌های این صورت‌حساب در دفاتر است، یا روی کارتی بالاتر منتظر شماست.",
              "es": "Todas las filas de este extracto están en los libros, o en una tarjeta arriba esperándote.",
              "ar": "كل أسطر هذا الكشف في الدفاتر، أو على بطاقة أعلاه بانتظارك."},
     "choose": {"en": "Which of your bank accounts is this statement's? It was compared with {code} {name}, the chart's "
                      "own bank account, because none of your banks matched it. Choose its account before any row is recorded.",
-               "fa": "این صورتحساب مال کدام حساب بانکی شماست؟ هیچ‌کدام از بانک‌های دفاتر با آن جور نشد و با {code} {name}، "
+               "fa": "این صورت‌حساب مربوط به کدام حساب بانکی شماست؟ هیچ‌کدام از بانک‌های دفاتر با آن جور نشد و با {code} {name}، "
                      "حساب بانکی پیش‌فرض، مقایسه شد. پیش از ثبت هر ردیف، حسابش را انتخاب کنید.",
                "es": "¿De cuál de tus cuentas bancarias es este extracto? Se comparó con {code} {name}, la cuenta bancaria "
                      "por defecto, porque ninguno de tus bancos coincidió. Elige su cuenta antes de registrar ninguna fila.",

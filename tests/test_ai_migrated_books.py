@@ -68,7 +68,7 @@ def test_r6_who_owes_us_reads_the_books_not_only_invoices(ir, db):
     assert r.status_code == 201, r.text
     out = _chat(api, "کی به ما بدهکاره؟")
     # a Persian question is answered in Persian, whatever the reader's saved language
-    assert out["text"] == "طبق دفاتر، ۱ طرف حساب روی هم ۴٬۲۰۰٬۰۰۰ ریال به ما بدهکارند؛ بیشترین: آریا (۴٬۲۰۰٬۰۰۰ ریال).", out["text"]
+    assert out["text"] == "طبق دفاتر، طلب ما از ۱ طرف حساب روی هم ۴٬۲۰۰٬۰۰۰ ریال است؛ بیشترین: آریا (۴٬۲۰۰٬۰۰۰ ریال).", out["text"]
     assert {c["name"] for c in out["tool_calls"]} == {"list_invoices", "get_party_balances"}
     nobody = _chat(api, "به کی بدهکاریم؟")["text"]
     assert nobody == "به کسی بدهکار نیستیم: نه فاکتور خرید بازی هست و نه بستانکاری در دفاتر."
@@ -78,7 +78,7 @@ def test_r6_who_owes_us_reads_the_books_not_only_invoices(ir, db):
     with use_company(_):
         fa = asyncio.run(answer(db, "کی به ما بدهکاره؟", user_id="u", username="t", lang="fa"))
         fa_none = asyncio.run(answer(db, "به کی بدهکاریم؟", user_id="u", username="t", lang="fa"))
-    assert fa.text == "طبق دفاتر، ۱ طرف حساب روی هم ۴٬۲۰۰٬۰۰۰ ریال به ما بدهکارند؛ بیشترین: آریا (۴٬۲۰۰٬۰۰۰ ریال)."
+    assert fa.text == "طبق دفاتر، طلب ما از ۱ طرف حساب روی هم ۴٬۲۰۰٬۰۰۰ ریال است؛ بیشترین: آریا (۴٬۲۰۰٬۰۰۰ ریال)."
     assert fa_none.text == "به کسی بدهکار نیستیم: نه فاکتور خرید بازی هست و نه بستانکاری در دفاتر."
     from app.services.ai_accountant.base import ToolContext
     from app.services.ai_accountant.invoice_tools import GetPartyBalances, GetPartyBalancesInput

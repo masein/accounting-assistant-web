@@ -1036,16 +1036,16 @@ def codes_reused(vouchers: list[Voucher]) -> list[dict[str, Any]]:
 HELD_FOR = {
     "already_imported": {"en": "already in the books", "fa": "از قبل در دفاتر", "es": "ya en los libros",
                          "ar": "موجود مسبقًا في الدفاتر"},
-    "opening_repeat": {"en": "a repeated opening", "fa": "افتتاحیهٔ تکراری", "es": "apertura repetida",
+    "opening_repeat": {"en": "a repeated opening", "fa": "سند افتتاحیهٔ تکراری", "es": "apertura repetida",
                        "ar": "قيد افتتاحي مكرر"},
-    "year_end_closing": {"en": "a year-end closing", "fa": "اختتامیهٔ پایان سال", "es": "cierre de ejercicio",
+    "year_end_closing": {"en": "a year-end closing", "fa": "سند اختتامیه", "es": "cierre de ejercicio",
                          "ar": "قيد إقفال نهاية السنة"},
     "unbalanced": {"en": "not balanced", "fa": "تراز نیست", "es": "descuadrado", "ar": "غير متوازن"},
     "future": {"en": "dated in the future", "fa": "با تاریخ آینده", "es": "con fecha futura", "ar": "بتاريخ مستقبلي"},
     "closed_period": {"en": "in a closed period", "fa": "در دورهٔ بسته", "es": "en un periodo cerrado",
                       "ar": "في فترة مقفلة"},
     "out_of_year": {"en": "in another year", "fa": "در سال دیگر", "es": "en otro año", "ar": "في سنة أخرى"},
-    "unmapped_account": {"en": "an account to match", "fa": "حساب نگاشت‌نشده", "es": "una cuenta por asignar",
+    "unmapped_account": {"en": "an account to match", "fa": "حساب معادل‌سازی‌نشده", "es": "una cuenta por asignar",
                          "ar": "حساب غير مربوط"},
 }
 

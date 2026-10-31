@@ -73,13 +73,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=_BOOKS,
                 title={
                     "en": "Drop a bank statement into the chat",
-                    "fa": "صورتحساب بانکی را در گفتگو رها کنید",
+                    "fa": "صورت‌حساب بانکی را در گفتگو بفرستید",
                     "es": "Suelta un extracto bancario en el chat",
                     "ar": "أسقط كشف الحساب البنكي في المحادثة",
                 },
                 body={
                     "en": "Attach the bank's PDF, image, CSV or Excel. The assistant reads every row, checks it against your books and takes you through the differences one at a time — nothing is posted without your Confirm.",
-                    "fa": "PDF، عکس، CSV یا اکسل بانک را پیوست کنید. دستیار همهٔ ردیف‌ها را می‌خواند، با دفاتر مقایسه می‌کند و اختلاف‌ها را یکی‌یکی با شما جلو می‌برد — بدون تأیید شما چیزی ثبت نمی‌شود.",
+                    "fa": "فایل PDF، عکس، CSV یا اکسلِ بانک را پیوست کنید. دستیار همهٔ ردیف‌ها را می‌خواند، با دفاتر مقایسه می‌کند و اختلاف‌ها را یکی‌یکی با شما بررسی می‌کند — بدون تأیید شما چیزی ثبت نمی‌شود.",
                     "es": "Adjunta el PDF, imagen, CSV o Excel del banco. El asistente lee cada fila, la compara con tus libros y te guía por las diferencias una a una; nada se registra sin tu confirmación.",
                     "ar": "أرفق ملف البنك بصيغة PDF أو صورة أو CSV أو Excel. يقرأ المساعد كل صف ويقارنه بدفاترك ويأخذك عبر الفروق واحدًا تلو الآخر — لا يُسجَّل شيء دون تأكيدك.",
                 },
@@ -90,13 +90,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=_BOOKS,
                 title={
                     "en": "“Check against books” on every statement",
-                    "fa": "«بررسی با دفاتر» روی هر صورتحساب",
+                    "fa": "«بررسی با دفاتر» روی هر صورت‌حساب",
                     "es": "«Comparar con los libros» en cada extracto",
                     "ar": "«مقارنة مع الدفاتر» على كل كشف",
                 },
                 body={
                     "en": "One button lists what the bank shows and the books don't, entries the bank never saw, amount mismatches, duplicates and the closing-balance gap — each with a one-click fix.",
-                    "fa": "یک دکمه نشان می‌دهد چه چیزی در بانک هست و در دفاتر نیست، چه سندی را بانک ندیده، کجا مبلغ فرق دارد، تکراری‌ها و اختلاف مانده پایانی — هرکدام با یک کلیک قابل رفع.",
+                    "fa": "یک دکمه نشان می‌دهد چه چیزی در بانک هست و در دفاتر نیست، چه سندی را بانک ندیده، کجا مبلغ‌ها مغایرت دارند، تکراری‌ها و اختلاف مانده پایانی — هرکدام با یک کلیک رفع می‌شود.",
                     "es": "Un botón enumera lo que muestra el banco y no los libros, asientos que el banco no vio, importes distintos, duplicados y la diferencia de saldo final, cada uno con su arreglo en un clic.",
                     "ar": "زر واحد يعرض ما يظهره البنك ولا تظهره الدفاتر، والقيود التي لم يرها البنك، واختلافات المبالغ، والتكرارات، وفرق الرصيد الختامي — مع إصلاح بنقرة واحدة لكل منها.",
                 },
@@ -107,13 +107,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=_SME_BOOKS,
                 title={
                     "en": "Entity transactions read like a statement of account",
-                    "fa": "تراکنش‌های طرف حساب مثل صورتحساب",
+                    "fa": "تراکنش‌های طرف حساب مثل صورت‌حساب",
                     "es": "Las transacciones por entidad se leen como un estado de cuenta",
                     "ar": "معاملات الطرف تُقرأ ككشف حساب",
                 },
                 body={
                     "en": "“View transactions” now shows Debtor, Creditor and Remaining per row, and an “Add transaction” button records a new entry with the entity already linked.",
-                    "fa": "«مشاهده تراکنش‌ها» حالا ستون‌های بدهکار، بستانکار و مانده دارد و دکمهٔ «ثبت تراکنش» سند جدید را با همان طرف حساب پیوندشده ثبت می‌کند.",
+                    "fa": "«مشاهده تراکنش‌ها» حالا ستون‌های بدهکار، بستانکار و مانده دارد و دکمهٔ «ثبت تراکنش» سند جدیدی ثبت می‌کند که طرف حسابش از قبل انتخاب شده است.",
                     "es": "«Ver transacciones» muestra ahora Debe, Haber y Saldo por fila, y «Añadir transacción» registra un asiento con la entidad ya vinculada.",
                     "ar": "«عرض المعاملات» يعرض الآن مدين ودائن والرصيد لكل صف، وزر «إضافة معاملة» يسجل قيدًا جديدًا مع ربط الطرف مسبقًا.",
                 },
@@ -130,7 +130,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Confirm, then Undo within two minutes: the entry disappears from the books instead of leaving a reversal pair. “Reverse entry” after that still posts a compensating entry.",
-                    "fa": "تأیید و سپس واگرد تا دو دقیقه: سند از دفاتر حذف می‌شود، نه اینکه سند برگشتی کنارش بماند. «برگرداندن سند» بعد از آن همچنان سند معکوس ثبت می‌کند.",
+                    "fa": "تأیید و سپس واگرد تا دو دقیقه: سند از دفاتر حذف می‌شود، نه اینکه یک سند معکوس کنارش بماند. «برگرداندن سند» بعد از آن همچنان سند معکوس ثبت می‌کند.",
                     "es": "Confirma y deshaz en dos minutos: el asiento desaparece de los libros en vez de dejar un par de reversión. «Revertir asiento» después sigue registrando un asiento compensatorio.",
                     "ar": "أكِّد ثم تراجع خلال دقيقتين: يختفي القيد من الدفاتر بدلًا من ترك قيد عكسي. «عكس القيد» بعد ذلك ما زال يسجل قيدًا تعويضيًا.",
                 },
@@ -148,7 +148,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "A new “What changed” panel, the bell and a short briefing when you open the chat point out payroll moves, new employees, expense spikes, unusual payments, a statement that is due for upload — before you ask.",
-                    "fa": "پنل جدید «چه چیزی تغییر کرده»، زنگ اعلان‌ها و یک خلاصهٔ کوتاه در ابتدای گفتگو، تغییر حقوق و دستمزد، کارمند جدید، جهش هزینه، پرداخت غیرمعمول و موعد بارگذاری صورتحساب را پیش از اینکه بپرسید نشان می‌دهند.",
+                    "fa": "پنل جدید «تغییرات اخیر»، زنگ اعلان‌ها و یک خلاصهٔ کوتاه در ابتدای گفتگو، تغییر حقوق و دستمزد، کارمند جدید، جهش هزینه، پرداخت غیرمعمول و موعد بارگذاری صورت‌حساب را پیش از اینکه بپرسید نشان می‌دهند.",
                     "es": "Un nuevo panel «Qué ha cambiado», la campana y un breve resumen al abrir el chat señalan cambios de nómina, nuevos empleados, picos de gasto, pagos inusuales o un extracto pendiente, antes de que preguntes.",
                     "ar": "لوحة «ما الذي تغيّر» الجديدة والجرس وملخص قصير عند فتح المحادثة تشير إلى تغيّرات الرواتب والموظفين الجدد وقفزات المصروفات والدفعات غير المعتادة وكشف حساب مستحق الرفع — قبل أن تسأل.",
                 },
@@ -187,7 +187,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "The ledger, trial balance and dashboard show your reporting currency and list any other currency in the books as its own view. Amounts in different currencies are never added together.",
-                    "fa": "دفتر کل، تراز آزمایشی و داشبورد ارز گزارشگری شما را نشان می‌دهند و هر ارز دیگری در دفاتر را به‌صورت نمای جداگانه فهرست می‌کنند. مبالغ ارزهای مختلف هرگز با هم جمع نمی‌شوند.",
+                    "fa": "دفتر کل، تراز آزمایشی و داشبورد ارز گزارشگری شما را نشان می‌دهند و هر ارز دیگری را که در دفاتر هست جداگانه نشان می‌دهند. مبالغ ارزهای مختلف هرگز با هم جمع نمی‌شوند.",
                     "es": "El libro mayor, el balance de comprobación y el panel muestran tu moneda de informe y listan cualquier otra moneda de los libros como una vista propia. Los importes en distintas monedas nunca se suman.",
                     "ar": "يعرض دفتر الأستاذ وميزان المراجعة ولوحة المعلومات عملة التقارير الخاصة بك ويدرجون أي عملة أخرى في الدفاتر كعرض مستقل. لا تُجمع المبالغ بعملات مختلفة أبداً.",
                 },
@@ -204,7 +204,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Balances keep their sign (an overdrawn cash account shows as negative), the period's unclosed profit appears under equity, and the statement shows assets against liabilities + equity with a balanced / not balanced check.",
-                    "fa": "مانده‌ها علامت خود را نگه می‌دارند (حساب نقد منفی، منفی نشان داده می‌شود)، سود بسته‌نشدهٔ دوره زیر حقوق مالکانه می‌آید و صورت، دارایی‌ها را در برابر بدهی‌ها + حقوق مالکانه با نشانگر تراز / ناتراز نشان می‌دهد.",
+                    "fa": "مانده‌ها علامت خود را نگه می‌دارند (حساب نقدی که بیش از موجودی برداشت شده، منفی نشان داده می‌شود)، سود بسته‌نشدهٔ دوره زیر حقوق مالکانه می‌آید و ترازنامه دارایی‌ها را در برابر بدهی‌ها + حقوق مالکانه با نشانگر تراز / ناتراز نشان می‌دهد.",
                     "es": "Los saldos conservan su signo (una caja en descubierto aparece en negativo), el beneficio no cerrado del periodo aparece en el patrimonio y el estado muestra el activo frente al pasivo + patrimonio con un indicador de cuadra / no cuadra.",
                     "ar": "تحافظ الأرصدة على إشارتها (حساب النقد المكشوف يظهر بالسالب)، ويظهر ربح الفترة غير المُقفل ضمن حقوق الملكية، وتعرض القائمة الأصول مقابل الالتزامات + حقوق الملكية مع مؤشر متوازنة / غير متوازنة.",
                 },
@@ -232,13 +232,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=_SME_BOOKS,
                 title={
                     "en": "Fewer slips get through",
-                    "fa": "اشتباه‌های کمتری رد می‌شوند",
+                    "fa": "جلوی اشتباه‌های بیشتری گرفته می‌شود",
                     "es": "Se cuelan menos errores",
                     "ar": "أخطاء أقل تمرّ",
                 },
                 body={
                     "en": "A second party with the same name and type or a reused invoice number is refused, IBANs are checked, a day cannot hold more than 24 hours of time, petty cash cannot spend beyond its float, and uploading an Excel file you already imported shows a warning first. Edits now appear in the audit log too.",
-                    "fa": "طرف حساب تکراری با همان نام و نوع یا شمارهٔ فاکتور تکراری رد می‌شود، شبا بررسی می‌شود، یک روز نمی‌تواند بیش از ۲۴ ساعت کار داشته باشد، تنخواه نمی‌تواند بیش از موجودی‌اش خرج کند و بارگذاری فایل اکسلی که قبلاً وارد کرده‌اید ابتدا هشدار می‌دهد. ویرایش‌ها هم اکنون در گزارش رخدادها دیده می‌شوند.",
+                    "fa": "طرف حساب تکراری با همان نام و نوع یا شمارهٔ فاکتور تکراری رد می‌شود، شبا بررسی می‌شود، یک روز نمی‌تواند بیش از ۲۴ ساعت کار داشته باشد، تنخواه نمی‌تواند بیش از موجودی‌اش خرج کند و بارگذاری فایل اکسلی که قبلاً وارد کرده‌اید ابتدا هشدار می‌دهد. حالا ویرایش‌ها هم در سابقهٔ رویدادها دیده می‌شوند.",
                     "es": "Se rechaza un segundo tercero con el mismo nombre y tipo o un número de factura repetido, se verifican los IBAN, un día no puede tener más de 24 horas, la caja chica no puede gastar más de su fondo y subir un Excel ya importado avisa primero. Las ediciones también aparecen ahora en el registro de auditoría.",
                     "ar": "يُرفض طرف ثانٍ بنفس الاسم والنوع أو رقم فاتورة مكرر، ويُتحقق من أرقام الآيبان، ولا يمكن أن يتجاوز اليوم 24 ساعة عمل، ولا تنفق العهدة أكثر من رصيدها، ويُظهر رفع ملف إكسل سبق استيراده تحذيراً أولاً. تظهر التعديلات الآن في سجل التدقيق أيضاً.",
                 },
@@ -249,13 +249,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=_SME_BOOKS,
                 title={
                     "en": "Over-payments shown as credit",
-                    "fa": "پرداخت اضافه به‌صورت اعتبار نشان داده می‌شود",
+                    "fa": "پرداخت اضافه به‌صورت بستانکاری نشان داده می‌شود",
                     "es": "Los pagos en exceso se muestran como saldo a favor",
                     "ar": "المدفوعات الزائدة تُعرض كرصيد دائن",
                 },
                 body={
                     "en": "When an invoice is paid above its amount, the invoice list shows the settled part as paid and the excess as credit on account, instead of a paid figure larger than the invoice.",
-                    "fa": "وقتی فاکتوری بیش از مبلغش پرداخت می‌شود، فهرست فاکتورها بخش تسویه‌شده را به‌عنوان پرداخت‌شده و مازاد را به‌عنوان اعتبار نزد ما نشان می‌دهد، نه رقمی بزرگ‌تر از خود فاکتور.",
+                    "fa": "وقتی فاکتوری بیش از مبلغش پرداخت می‌شود، فهرست فاکتورها بخش تسویه‌شده را به‌عنوان پرداخت‌شده و مازاد را به‌عنوان بستانکاری مشتری نشان می‌دهد، نه رقمی بزرگ‌تر از خود فاکتور.",
                     "es": "Cuando una factura se paga por encima de su importe, la lista muestra la parte liquidada como pagada y el exceso como saldo a favor, en lugar de un pagado mayor que la factura.",
                     "ar": "عندما تُسدَّد فاتورة بأكثر من قيمتها، تعرض القائمة الجزء المسدَّد كمدفوع والزائد كرصيد دائن، بدلاً من رقم مدفوع أكبر من الفاتورة.",
                 },
@@ -278,7 +278,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Switch a pay profile to “Statutory rules”: housing, grocery, child and seniority allowances are added, insurance is 7 % / 23 % on the capped wage, and salary tax follows the monthly brackets. The employer's share is posted as a cost, and every run exports the insurance list and the salary-tax list as CSV. UK profiles get PAYE bands and National Insurance the same way.",
-                    "fa": "پروفایل حقوق را روی «قوانین رسمی» بگذارید: حق مسکن، بن، حق اولاد و پایه سنوات اضافه می‌شود، بیمه ۷٪ / ۲۳٪ روی دستمزد مشمول تا سقف محاسبه می‌شود و مالیات حقوق طبق پلکان‌های ماهانه است. سهم کارفرما به‌عنوان هزینه ثبت می‌شود و هر لیست حقوق، لیست بیمه و لیست مالیات حقوق را به‌صورت CSV خروجی می‌دهد.",
+                    "fa": "مشخصات حقوقی را روی «طبق قانون» بگذارید: حق مسکن، بن، حق اولاد و پایه سنوات اضافه می‌شود، بیمه ۷٪ / ۲۳٪ روی دستمزد مشمول تا سقف محاسبه می‌شود و مالیات حقوق طبق پلکان‌های ماهانه است. سهم کارفرما به‌عنوان هزینه ثبت می‌شود و هر لیست حقوق، لیست بیمه و لیست مالیات حقوق را به‌صورت CSV خروجی می‌دهد. مشخصات حقوقی بریتانیا هم به همین شکل پلکان‌های PAYE و بیمهٔ ملی (National Insurance) را می‌گیرند.",
                     "es": "Cambia un perfil de pago a «Reglas legales»: se añaden los complementos de vivienda, alimentación, hijos y antigüedad, el seguro es 7 % / 23 % sobre el salario con tope y el impuesto sigue los tramos mensuales. La cuota patronal se contabiliza como gasto y cada nómina exporta la lista de seguro y la de impuesto salarial en CSV. Los perfiles del Reino Unido obtienen PAYE y National Insurance del mismo modo.",
                     "ar": "حوّل ملف الراتب إلى «القواعد النظامية»: تُضاف بدلات السكن والمواد الغذائية والأبناء والأقدمية، ويُحسب التأمين 7٪ / 23٪ على الأجر حتى السقف، وتتبع ضريبة الراتب الشرائح الشهرية. تُسجَّل حصة صاحب العمل كمصروف، ويصدّر كل كشف رواتب قائمة التأمين وقائمة ضريبة الرواتب بصيغة CSV. ملفات المملكة المتحدة تحصل على شرائح PAYE والتأمين الوطني بالطريقة نفسها.",
                 },
@@ -364,7 +364,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Fill in the invoice form and press “Make recurring from the form” to bill a customer every week, month, quarter or year. Monthly schedules can follow Persian months. Each invoice is issued and posted automatically and, if you tick the box, e-mailed to the customer.",
-                    "fa": "فرم فاکتور را پر کنید و «ساخت فاکتور دوره‌ای از فرم» را بزنید تا مشتری هر هفته، ماه، فصل یا سال صورتحساب شود. برنامهٔ ماهانه می‌تواند بر اساس ماه‌های شمسی باشد. هر فاکتور خودکار صادر و ثبت می‌شود و اگر گزینه را بزنید، برای مشتری ایمیل می‌شود.",
+                    "fa": "فرم فاکتور را پر کنید و «ساخت فاکتور دوره‌ای از فرم» را بزنید تا هر هفته، ماه، فصل یا سال برای مشتری فاکتور صادر شود. برنامهٔ ماهانه می‌تواند بر اساس ماه‌های شمسی باشد. هر فاکتور خودکار صادر و ثبت می‌شود و اگر گزینه‌اش را تیک بزنید، برای مشتری ایمیل می‌شود.",
                     "es": "Rellena el formulario de factura y pulsa «Hacer recurrente desde el formulario» para facturar a un cliente cada semana, mes, trimestre o año. Los calendarios mensuales pueden seguir los meses persas. Cada factura se emite y contabiliza sola y, si marcas la casilla, se envía al cliente por correo.",
                     "ar": "املأ نموذج الفاتورة واضغط «اجعلها متكررة من النموذج» لفوترة العميل كل أسبوع أو شهر أو ربع أو سنة. يمكن أن تتبع الجداول الشهرية الأشهر الفارسية. تصدر كل فاتورة وتُسجَّل تلقائيًا، وتُرسل إلى العميل بالبريد إذا فعّلت الخيار.",
                 },
@@ -409,7 +409,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Open the account menu (top right) → Two-factor sign-in. Scan the code with an authenticator app and sign-in will ask for a six-digit code after your password, so a leaked password alone is not enough. Keep the ten recovery codes somewhere safe. Recommended for owners.",
-                    "fa": "منوی حساب (بالا) ← ورود دومرحله‌ای را باز کنید. کد را با یک برنامهٔ احراز هویت اسکن کنید؛ از این پس پس از رمز عبور یک کد شش‌رقمی خواسته می‌شود و لو رفتن رمز به‌تنهایی کافی نیست. ده کد بازیابی را جای امنی نگه دارید. برای مالکان توصیه می‌شود.",
+                    "fa": "منوی حساب (بالا) ← ورود دومرحله‌ای را باز کنید. کد را با یک برنامهٔ احراز هویت اسکن کنید؛ از این به بعد، بعد از رمز عبور یک کد شش‌رقمی هم خواسته می‌شود و لو رفتن رمز به‌تنهایی کافی نیست. ده کد بازیابی را جای امنی نگه دارید. برای مالکان توصیه می‌شود.",
                     "es": "Abre el menú de la cuenta (arriba) → Verificación en dos pasos. Escanea el código con una app de autenticación y, tras la contraseña, se pedirá un código de seis dígitos, así que una contraseña filtrada no basta. Guarda los diez códigos de recuperación en un lugar seguro. Recomendado para propietarios.",
                     "ar": "افتح قائمة الحساب (في الأعلى) ← التحقق بخطوتين. امسح الرمز بتطبيق مصادقة، وبعد كلمة المرور سيُطلب رمز من ستة أرقام، فلا تكفي كلمة مرور مسرّبة وحدها. احفظ رموز الاسترداد العشرة في مكان آمن. موصى به للمالكين.",
                 },
@@ -426,7 +426,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Settings → API keys: choose what a new key may do (read or push worklogs) and when it expires — 90 days, a year, two years or never. Existing keys keep working. You get a notification two weeks before a key expires.",
-                    "fa": "تنظیمات ← کلیدهای API: برای کلید جدید تعیین کنید چه کاری مجاز است (خواندن یا ارسال کارکرد) و کی منقضی شود — ۹۰ روز، یک سال، دو سال یا هرگز. کلیدهای فعلی کار می‌کنند. دو هفته پیش از انقضای کلید اعلان دریافت می‌کنید.",
+                    "fa": "تنظیمات ← کلیدهای API: برای کلید جدید تعیین کنید چه کاری مجاز است (خواندن یا ارسال کارکرد) و کی منقضی شود — ۹۰ روز، یک سال، دو سال یا هرگز. کلیدهای فعلی همچنان کار می‌کنند. دو هفته پیش از انقضای کلید اعلان دریافت می‌کنید.",
                     "es": "Ajustes → Claves API: elige qué puede hacer una clave nueva (leer o enviar registros de trabajo) y cuándo caduca: 90 días, un año, dos años o nunca. Las claves existentes siguen funcionando. Recibirás un aviso dos semanas antes de que caduque una clave.",
                     "ar": "الإعدادات ← مفاتيح API: اختر ما يُسمح للمفتاح الجديد به (قراءة سجلات العمل أو إرسالها) ومتى ينتهي — 90 يومًا أو سنة أو سنتان أو أبدًا. المفاتيح الحالية تستمر في العمل. يصلك إشعار قبل أسبوعين من انتهاء المفتاح.",
                 },
@@ -449,7 +449,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Settings → AI usage shows how many tokens the AI used in the last 24 hours and 30 days — per user, per use (chat, reading documents, suggestions) and per model — with an estimated cost. You can cap how much each user may use in 24 hours; you are notified at 80% of the company allowance.",
-                    "fa": "«تنظیمات ← مصرف هوش مصنوعی» نشان می‌دهد هوش مصنوعی در ۲۴ ساعت و ۳۰ روز گذشته چند توکن مصرف کرده — به تفکیک کاربر، کاربرد (گفت‌وگو، خواندن اسناد، پیشنهادها) و مدل — همراه با هزینهٔ تخمینی. می‌توانید سقف مصرف هر کاربر در ۲۴ ساعت را تعیین کنید؛ در ۸۰٪ سقف شرکت به شما اطلاع داده می‌شود.",
+                    "fa": "«تنظیمات ← مصرف هوش مصنوعی» نشان می‌دهد هوش مصنوعی در ۲۴ ساعت و ۳۰ روز گذشته چند توکن مصرف کرده — به تفکیک کاربر، کاربرد (گفتگو، خواندن اسناد، پیشنهادها) و مدل — همراه با هزینهٔ تخمینی. می‌توانید سقف مصرف هر کاربر در ۲۴ ساعت را تعیین کنید؛ وقتی مصرف به ۸۰٪ سقف شرکت برسد، به شما خبر داده می‌شود.",
                     "es": "Ajustes → Uso de IA muestra cuántos tokens usó la IA en las últimas 24 horas y 30 días —por usuario, por uso (chat, lectura de documentos, sugerencias) y por modelo— con un coste estimado. Puedes limitar lo que cada usuario usa en 24 horas; te avisamos al 80 % del límite de la empresa.",
                     "ar": "الإعدادات ← استخدام الذكاء الاصطناعي تعرض عدد الرموز التي استخدمها الذكاء الاصطناعي خلال آخر 24 ساعة و30 يومًا — حسب المستخدم والاستخدام (المحادثة، قراءة المستندات، الاقتراحات) والنموذج — مع تكلفة تقديرية. يمكنك تحديد ما يستخدمه كل مستخدم خلال 24 ساعة، ويصلك تنبيه عند 80٪ من حد الشركة.",
                 },
@@ -497,7 +497,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Invoices → Making Tax Digital (UK): the nine VAT return boxes for each VAT period from your invoices, with a CSV for your MTD software; and, for sole traders and landlords, the quarterly income tax update in HMRC's categories — cumulative from April, with the account mapping you can change, an Excel file and the update HMRC expects. Reminders arrive before each deadline.",
-                    "fa": "«فاکتورها ← MTD بریتانیا»: نُه خانهٔ اظهارنامهٔ VAT برای هر دوره از روی فاکتورها با خروجی CSV؛ و برای خوداشتغالان و موجران، به‌روزرسانی فصلی مالیات بر درآمد در دسته‌بندی‌های HMRC — تجمعی از آوریل، با نگاشت قابل تغییر حساب‌ها، فایل اکسل و ساختار مورد انتظار HMRC. پیش از هر مهلت یادآوری دریافت می‌کنید.",
+                    "fa": "«فاکتورها ← مالیات دیجیتال بریتانیا (MTD)»: نُه خانهٔ اظهارنامهٔ VAT برای هر دوره از روی فاکتورها با خروجی CSV؛ و برای خوداشتغالان و موجران، به‌روزرسانی فصلی مالیات بر درآمد در دسته‌بندی‌های HMRC — تجمعی از آوریل، با معادل‌سازی قابل تغییر حساب‌ها، فایل اکسل و ساختار مورد انتظار HMRC. پیش از هر مهلت یادآوری دریافت می‌کنید.",
                     "es": "Facturas → Making Tax Digital (Reino Unido): las nueve casillas de la declaración de IVA de cada periodo a partir de tus facturas, con un CSV para tu software MTD; y, para autónomos y arrendadores, la actualización trimestral del impuesto sobre la renta en las categorías de HMRC, acumulada desde abril, con la asignación de cuentas editable, un Excel y la actualización que espera HMRC. Recibirás avisos antes de cada plazo.",
                     "ar": "الفواتير ← الضرائب الرقمية (المملكة المتحدة): الخانات التسع لإقرار القيمة المضافة لكل فترة من فواتيرك مع ملف CSV لبرنامج MTD؛ وللعاملين لحسابهم والمؤجرين، التحديث الفصلي لضريبة الدخل بفئات HMRC — تراكميًا من أبريل، مع ربط حسابات قابل للتعديل وملف Excel والتحديث الذي تتوقعه HMRC. تصلك تذكيرات قبل كل مهلة.",
                 },
@@ -521,7 +521,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Bank statements → Paste bank SMS: paste the messages your bank sends (many at once) and each becomes a row of that bank's monthly SMS statement, to review and approve like any statement. Repeats are skipped and a balance that doesn't follow the previous message is flagged. A phone automation can forward them with an API key.",
-                    "fa": "«صورت‌حساب‌های بانکی ← چسباندن پیامک بانکی»: پیامک‌های بانک را (چند تا با هم) بچسبانید تا هر کدام یک سطر از صورت‌حساب پیامکی ماهانهٔ همان بانک شود و مثل هر صورت‌حساب دیگری بررسی و تأیید شود. پیامک تکراری نادیده گرفته می‌شود و مانده‌ای که با پیامک قبلی جور نباشد علامت می‌خورد. با یک کلید API گوشی هم می‌تواند آن‌ها را خودکار بفرستد.",
+                    "fa": "«صورت‌حساب‌های بانکی ← چسباندن پیامک بانکی»: پیامک‌های بانک را (چند تا با هم) بچسبانید تا هر کدام یک ردیف از صورت‌حساب پیامکی ماهانهٔ همان بانک شود و مثل هر صورت‌حساب دیگری بررسی و تأیید شود. پیامک تکراری نادیده گرفته می‌شود و مانده‌ای که با پیامک قبلی جور نباشد علامت می‌خورد. با یک کلید API گوشی هم می‌تواند آن‌ها را خودکار بفرستد.",
                     "es": "Extractos bancarios → Pegar SMS del banco: pega los mensajes que envía tu banco (varios a la vez) y cada uno se convierte en una fila del extracto mensual de SMS de ese banco, para revisar y aprobar como cualquier extracto. Los repetidos se omiten y se avisa si un saldo no cuadra con el mensaje anterior. Un atajo del teléfono puede reenviarlos con una clave API.",
                     "ar": "كشوف البنك ← لصق رسائل البنك: الصق الرسائل التي يرسلها بنكك (عدة رسائل معًا) لتصبح كل رسالة سطرًا في كشف الرسائل الشهري لذلك البنك، للمراجعة والاعتماد كأي كشف. تُتجاوز المكررة ويُنبَّه على الرصيد الذي لا يتبع الرسالة السابقة. يمكن لاختصار في الهاتف إعادة توجيهها بمفتاح API.",
                 },
@@ -544,7 +544,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Insights on the dashboard and in the chat now flag possible duplicate supplier payments, payments split just under your approval limit, a large first payment to a new supplier, round-amount entries on a weekend, one expense account suddenly taking over your spending, and a run of reversals for one customer or supplier.",
-                    "fa": "بینش‌های داشبورد و گفت‌وگو اکنون این موارد را نشان می‌دهند: پرداخت احتمالاً تکراری به تأمین‌کننده، پرداخت‌های تقسیم‌شده کمی زیر سقف تأیید، نخستین پرداخت بزرگ به تأمین‌کنندهٔ جدید، سندهای رُند در روز تعطیل، سهم ناگهانی یک حساب هزینه از کل هزینه‌ها، و برگشت‌های پرتعداد برای یک مشتری یا تأمین‌کننده.",
+                    "fa": "بینش‌های داشبورد و گفتگو اکنون این موارد را نشان می‌دهند: پرداخت احتمالاً تکراری به تأمین‌کننده، پرداخت‌های تقسیم‌شده کمی زیر سقف تأیید، نخستین پرداخت بزرگ به تأمین‌کنندهٔ جدید، سندهایی با مبلغ رُند در روز تعطیل، بالا رفتن ناگهانی سهم یک حساب هزینه از کل هزینه‌ها، و برگشت‌های مکرر برای یک مشتری یا تأمین‌کننده.",
                     "es": "Las ideas del panel y del chat señalan ahora posibles pagos duplicados a proveedores, pagos divididos justo por debajo del límite de aprobación, un primer pago elevado a un proveedor nuevo, asientos redondos en fin de semana, una cuenta de gasto que de pronto acapara el gasto y una racha de anulaciones para un cliente o proveedor.",
                     "ar": "تُظهر الرؤى في لوحة التحكم والمحادثة الآن: دفعات مكررة محتملة للموردين، ودفعات مقسّمة أقل بقليل من حد الموافقة، وأول دفعة كبيرة لمورّد جديد، وقيودًا بمبالغ مدوّرة في عطلة نهاية الأسبوع، وحساب مصروفات يستحوذ فجأة على الإنفاق، وسلسلة انعكاسات لعميل أو مورّد.",
                 },
@@ -567,7 +567,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "The dashboard's 13-week forecast now expects each customer's invoices when that customer usually pays, and adds bills, pending cheques and installments, payroll and recurring flows to your usual week. Open “Forecast details and what-if” to see each week's items, or try a scenario — a cheque that bounces, an invoice that isn't paid, a customer paying a month late, a one-off purchase. You can also ask the AI: “what if the Mellat cheque bounces?”",
-                    "fa": "پیش‌بینی ۱۳ هفته‌ای داشبورد اکنون فاکتورهای هر مشتری را همان زمانی انتظار دارد که آن مشتری معمولاً پرداخت می‌کند و قبض‌ها، چک‌ها و اقساط در جریان، حقوق و پرداخت‌های تکراری را به هفتهٔ معمول شما اضافه می‌کند. «جزئیات پیش‌بینی و اگر…» را باز کنید تا اقلام هر هفته را ببینید، یا یک سناریو امتحان کنید — برگشت خوردن یک چک، پرداخت نشدن یک فاکتور، یک ماه دیرتر پرداختن یک مشتری، یک خرید یک‌باره. از دستیار هم می‌توانید بپرسید: «اگه چک ملت برگشت بخوره چی؟»",
+                    "fa": "پیش‌بینی ۱۳ هفته‌ای داشبورد اکنون وصول فاکتورهای هر مشتری را همان زمانی در نظر می‌گیرد که آن مشتری معمولاً پرداخت می‌کند و فاکتورهای خرید، چک‌ها و اقساط در جریان، حقوق و پرداخت‌های دوره‌ای را به هفتهٔ معمول شما اضافه می‌کند. «جزئیات پیش‌بینی و سناریوها» را باز کنید تا اقلام هر هفته را ببینید، یا یک سناریو امتحان کنید — برگشت خوردن یک چک، پرداخت نشدن یک فاکتور، یک ماه دیرتر پرداختن یک مشتری، یک خرید یک‌باره. از دستیار هم می‌توانید بپرسید: «اگه چک ملت برگشت بخوره چی؟»",
                     "es": "El pronóstico de 13 semanas del panel espera ahora las facturas de cada cliente cuando ese cliente suele pagar, y suma facturas de proveedores, cheques y cuotas pendientes, nóminas y flujos recurrentes a tu semana habitual. Abre «Detalle del pronóstico y ¿y si…?» para ver las partidas de cada semana o prueba un escenario: un cheque devuelto, una factura que no se cobra, un cliente que paga un mes tarde, una compra puntual. También puedes preguntar a la IA: «¿y si rebota el cheque del banco Mellat?»",
                     "ar": "يتوقع توقع الـ 13 أسبوعًا في لوحة التحكم الآن فواتير كل عميل في الموعد الذي يدفع فيه ذلك العميل عادةً، ويضيف فواتير الموردين والشيكات والأقساط المعلّقة والرواتب والتدفقات المتكررة إلى أسبوعك المعتاد. افتح «تفاصيل التوقع وماذا لو» لرؤية بنود كل أسبوع، أو جرّب سيناريو — شيك يرتد، فاتورة لا تُدفع، عميل يدفع متأخرًا شهرًا، شراء لمرة واحدة. ويمكنك أيضًا سؤال المساعد: «ماذا لو ارتد شيك بنك ملت؟»",
                 },
@@ -630,13 +630,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=_SME_BOOKS,
                 title={
                     "en": "Manage your chart of accounts and opening balances",
-                    "fa": "مدیریت کدینگ حساب‌ها و تراز افتتاحیه",
+                    "fa": "مدیریت کدینگ حساب‌ها و مانده‌های افتتاحیه",
                     "es": "Gestiona tu plan de cuentas y los saldos de apertura",
                     "ar": "أدر دليل حساباتك وأرصدتك الافتتاحية",
                 },
                 body={
                     "en": "Setup → Chart of accounts: add accounts under the right parent (the code is suggested and the level follows — group, general, subsidiary, detail), rename them, deactivate the ones you no longer use (they keep their history but take no new entries), and enter your opening balances in one place.",
-                    "fa": "«تنظیمات ← کدینگ حساب‌ها»: حساب‌ها را زیر حساب مادر درست اضافه کنید (کد پیشنهاد می‌شود و سطح — گروه، کل، معین، تفصیلی — از مادر می‌آید)، نامشان را تغییر دهید، حساب‌های بلااستفاده را غیرفعال کنید (سوابقشان می‌ماند ولی سند جدید نمی‌گیرند) و تراز افتتاحیه را یک‌جا وارد کنید.",
+                    "fa": "«تنظیمات ← کدینگ حساب‌ها»: حساب‌ها را زیر حساب مادر درست اضافه کنید (کد پیشنهاد می‌شود و سطح — گروه، کل، معین، تفصیلی — از مادر می‌آید)، نامشان را تغییر دهید، حساب‌های بلااستفاده را غیرفعال کنید (سوابقشان می‌ماند ولی سند جدید نمی‌گیرند) و مانده‌های افتتاحیه را یک‌جا وارد کنید.",
                     "es": "Configuración → Plan de cuentas: añade cuentas bajo la cuenta madre correcta (se sugiere el código y el nivel la sigue), cámbiales el nombre, desactiva las que no uses (conservan su historial pero no admiten asientos nuevos) e introduce los saldos de apertura en un solo lugar.",
                     "ar": "الإعداد ← دليل الحسابات: أضف الحسابات تحت الحساب الأب الصحيح (يُقترح الرمز ويتبعه المستوى)، وغيّر أسماءها، وأوقف ما لا تستخدمه (يبقى سجله لكنه لا يقبل قيودًا جديدة)، وأدخل الأرصدة الافتتاحية في مكان واحد.",
                 },
@@ -653,13 +653,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=_BOOKS,
                 title={
                     "en": "Install it on your phone — and photograph receipts into the chat",
-                    "fa": "برنامه را روی گوشی نصب کنید — و از رسیدها مستقیم در گفت‌وگو عکس بگیرید",
+                    "fa": "برنامه را روی گوشی نصب کنید — و از رسیدها مستقیم در گفتگو عکس بگیرید",
                     "es": "Instálala en el móvil y fotografía recibos directamente en el chat",
                     "ar": "ثبّته على هاتفك — وصوّر الإيصالات مباشرة في المحادثة",
                 },
                 body={
                     "en": "Open the account menu and choose Install the app to put it on your home screen. On a phone the chat has a camera button: photograph a receipt and it is attached, shrunk to a sensible size. You can also share a photo or PDF from another app straight to Accounting.",
-                    "fa": "از منوی حساب «نصب برنامه» را بزنید تا روی صفحهٔ اصلی گوشی قرار بگیرد. روی گوشی، گفت‌وگو دکمهٔ دوربین دارد: از رسید عکس بگیرید تا با حجمی مناسب پیوست شود. همچنین می‌توانید عکس یا PDF را از برنامه‌ای دیگر مستقیم با این برنامه به اشتراک بگذارید.",
+                    "fa": "از منوی حساب «نصب برنامه» را بزنید تا روی صفحهٔ اصلی گوشی قرار بگیرد. روی گوشی، گفتگو دکمهٔ دوربین دارد: از رسید عکس بگیرید تا با حجمی مناسب پیوست شود. همچنین می‌توانید عکس یا PDF را از برنامه‌ای دیگر مستقیم با این برنامه به اشتراک بگذارید.",
                     "es": "Abre el menú de la cuenta y elige Instalar la app para tenerla en la pantalla de inicio. En el móvil el chat tiene un botón de cámara: fotografía un recibo y se adjunta, reducido a un tamaño razonable. También puedes compartir una foto o un PDF desde otra app directamente.",
                     "ar": "افتح قائمة الحساب واختر تثبيت التطبيق لوضعه على الشاشة الرئيسية. على الهاتف تحتوي المحادثة على زر كاميرا: صوّر الإيصال فيُرفق بحجم مناسب. ويمكنك أيضًا مشاركة صورة أو ملف PDF من تطبيق آخر مباشرة.",
                 },
@@ -680,7 +680,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Account menu → Phone notifications: turn on. New alerts from the bell — an invoice overdue, a cheque due, an approval waiting, your own reminders — then arrive on this device even when the app is closed. Several at once come as one summary.",
-                    "fa": "«منوی حساب ← اعلان روی گوشی: روشن کن». از آن پس اعلان‌های جدید زنگوله — فاکتور سررسیدگذشته، چک سررسیدشده، تأییدی که منتظر است، یادآورهای خودتان — حتی وقتی برنامه بسته است روی همین دستگاه می‌رسند. چند اعلان هم‌زمان در یک خلاصه می‌آیند.",
+                    "fa": "«منوی حساب ← فعال کردن اعلان‌های گوشی». از آن پس اعلان‌های جدید زنگوله — فاکتور سررسیدگذشته، چک سررسیدشده، تأییدی که منتظر است، یادآورهای خودتان — حتی وقتی برنامه بسته است روی همین دستگاه می‌رسند. چند اعلان هم‌زمان در یک خلاصه می‌آیند.",
                     "es": "Menú de la cuenta → Avisos en el móvil: activar. Los avisos nuevos de la campana — una factura vencida, un cheque que vence, una aprobación pendiente, tus recordatorios — llegarán a este dispositivo aunque la app esté cerrada. Si llegan varios a la vez, verás un resumen.",
                     "ar": "قائمة الحساب ← إشعارات الهاتف: تشغيل. ستصل تنبيهات الجرس الجديدة — فاتورة متأخرة، شيك مستحق، موافقة بانتظارك، تذكيراتك — إلى هذا الجهاز حتى والتطبيق مغلق. وإن وصلت عدة تنبيهات معًا فستصلك في ملخص واحد.",
                 },
@@ -703,7 +703,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Migration → Historical journals: export the journal from Hesabfa, Sepidar, Holoo, Xero or QuickBooks (or any spreadsheet) and upload it. The columns are recognised in English or Persian, Jalali dates too; you match any account the app doesn't know once, see which vouchers can't be posted and why, then post the rest. Importing the same file again never doubles them.",
-                    "fa": "«مهاجرت ← اسناد سال‌های قبل»: دفتر روزنامه را از حسابفا، سپیدار، هلو، زیرو یا کوئیک‌بوکس (یا هر صفحه‌گسترده‌ای) خروجی بگیرید و بارگذاری کنید. ستون‌ها به فارسی یا انگلیسی شناخته می‌شوند و تاریخ شمسی هم خوانده می‌شود؛ حساب‌هایی را که برنامه نمی‌شناسد یک بار معادل‌سازی می‌کنید، می‌بینید کدام اسناد و چرا ثبت نمی‌شوند، و بقیه را ثبت می‌کنید. ورود دوبارهٔ همان فایل هیچ سندی را تکراری ثبت نمی‌کند.",
+                    "fa": "«انتقال اطلاعات ← اسناد سال‌های قبل»: دفتر روزنامه را از حسابفا، سپیدار، هلو، زیرو یا کوئیک‌بوکس (یا هر صفحه‌گسترده‌ای) خروجی بگیرید و بارگذاری کنید. ستون‌ها به فارسی یا انگلیسی شناخته می‌شوند و تاریخ شمسی هم خوانده می‌شود؛ حساب‌هایی را که برنامه نمی‌شناسد یک بار معادل‌سازی می‌کنید، می‌بینید کدام اسناد و چرا ثبت نمی‌شوند، و بقیه را ثبت می‌کنید. ورود دوبارهٔ همان فایل هیچ سندی را تکراری ثبت نمی‌کند.",
                     "es": "Migración → Asientos históricos: exporta el diario de Hesabfa, Sepidar, Holoo, Xero o QuickBooks (o cualquier hoja) y súbelo. Las columnas se reconocen en inglés o persa, también las fechas jalali; asignas una vez las cuentas que la app no conoce, ves qué asientos no se pueden contabilizar y por qué, y contabilizas el resto. Importar el mismo archivo otra vez nunca los duplica.",
                     "ar": "الترحيل ← القيود التاريخية: صدّر دفتر اليومية من حسابفا أو سبيدار أو هلو أو Xero أو QuickBooks (أو أي جدول) وارفعه. تُعرف الأعمدة بالإنجليزية أو الفارسية والتواريخ الشمسية أيضًا؛ تطابق مرة واحدة الحسابات التي لا يعرفها التطبيق، وترى القيود التي لا يمكن ترحيلها ولماذا، ثم ترحّل الباقي. لا يكرر استيراد الملف نفسه أي قيد.",
                 },
@@ -726,7 +726,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Settings → Currency & FX: a rate you enter now belongs to your company alone and, for that pair, replaces the shared rate in your books — no other company can see or change it. Rates marked “shared” arrive automatically each day where the server is set up for it: the euro, dollar, pound and more from the European Central Bank, and the rial market and gold from a provider the administrator chooses. A pair with no rate is worked out through the dollar, euro, pound or rial.",
-                    "fa": "«تنظیمات ← ارز و نرخ تبدیل»: نرخی که از این پس وارد می‌کنید فقط مال شرکت شماست و برای همان جفت ارز در دفاتر شما جای نرخ مشترک را می‌گیرد — هیچ شرکت دیگری آن را نمی‌بیند یا تغییر نمی‌دهد. نرخ‌های «مشترک» هر روز خودکار می‌رسند، اگر سرور برایش تنظیم شده باشد: یورو، دلار، پوند و ارزهای دیگر از بانک مرکزی اروپا، و بازار آزاد ریال و طلا از سرویسی که مدیر سرور انتخاب می‌کند. جفت ارزی که نرخ ندارد از طریق دلار، یورو، پوند یا ریال حساب می‌شود.",
+                    "fa": "«تنظیمات ← ارز و نرخ تبدیل»: نرخی که از این پس وارد می‌کنید فقط مخصوص شرکت شماست و برای همان جفت ارز در دفاتر شما جای نرخ مشترک را می‌گیرد — هیچ شرکت دیگری آن را نمی‌بیند یا تغییر نمی‌دهد. نرخ‌های «مشترک» هر روز خودکار می‌رسند، اگر سرور برایش تنظیم شده باشد: یورو، دلار، پوند و ارزهای دیگر از بانک مرکزی اروپا، و بازار آزاد ریال و طلا از سرویسی که مدیر سرور انتخاب می‌کند. جفت ارزی که نرخ ندارد از طریق دلار، یورو، پوند یا ریال حساب می‌شود.",
                     "es": "Ajustes → Moneda y cambio: un tipo que introduzcas ahora es solo de tu empresa y, para ese par, sustituye al compartido en tus libros; ninguna otra empresa puede verlo ni cambiarlo. Los tipos «compartidos» llegan solos cada día si el servidor está configurado: el euro, el dólar, la libra y más del Banco Central Europeo, y el mercado del rial y el oro de un proveedor que elige el administrador. Un par sin tipo se calcula a través del dólar, el euro, la libra o el rial.",
                     "ar": "الإعدادات ← العملة والصرف: السعر الذي تُدخله الآن خاص بشركتك وحدها، ويحلّ لذلك الزوج محل السعر المشترك في دفاترك — ولا تستطيع أي شركة أخرى رؤيته أو تغييره. تصل الأسعار «المشتركة» تلقائيًا كل يوم إن كان الخادم مهيّأً لذلك: اليورو والدولار والجنيه وغيرها من البنك المركزي الأوروبي، وسوق الريال والذهب من مزوّد يختاره المسؤول. أما الزوج الذي لا سعر له فيُحسب عبر الدولار أو اليورو أو الجنيه أو الريال.",
                 },
@@ -772,7 +772,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "A dollar invoice booked at one rate and paid at another now clears the receivable (or payable) at the rate it was booked at, takes the money in at the day's rate, and posts the difference to Foreign exchange gains or losses — the payment message tells you how much. Part payments, credit notes and overpayments work the same way, and reversing a payment undoes its gain or loss too.",
-                    "fa": "فاکتور دلاری که با یک نرخ ثبت و با نرخ دیگری تسویه شود، از این پس حساب دریافتنی (یا پرداختنی) را با همان نرخ ثبت می‌بندد، وجه را با نرخ روز می‌گیرد و تفاوت را در سود یا زیان تسعیر ارز ثبت می‌کند — پیام دریافت مبلغ آن را می‌گوید. پرداخت‌های جزئی، اعلامیه‌های بستانکار و اضافه‌پرداخت هم همین‌طورند و برگشت یک پرداخت، سود یا زیان آن را هم برمی‌گرداند.",
+                    "fa": "فاکتور دلاری که با یک نرخ ثبت و با نرخ دیگری تسویه شود، از این پس حساب دریافتنی (یا پرداختنی) را با همان نرخی که ثبت شده بود می‌بندد، وجه را با نرخ روز می‌گیرد و تفاوت را در سود یا زیان تسعیر ارز ثبت می‌کند — پیام ثبت پرداخت، مبلغ آن را می‌گوید. پرداخت‌های جزئی، برگ‌های بستانکار و اضافه‌پرداخت هم همین‌طورند و برگشت یک پرداخت، سود یا زیان آن را هم برمی‌گرداند.",
                     "es": "Una factura en dólares registrada a un tipo y cobrada a otro salda ahora el cobro (o pago) al tipo con que se registró, recibe el dinero al tipo del día y lleva la diferencia a diferencias de cambio positivas o negativas; el mensaje del cobro indica el importe. Los pagos parciales, las notas de crédito y los sobrepagos funcionan igual, y revertir un pago deshace también su diferencia.",
                     "ar": "الفاتورة بالدولار المسجّلة بسعر والمسددة بسعر آخر تُقفل الآن الذمم المدينة (أو الدائنة) بالسعر الذي سُجّلت به، وتستلم المال بسعر اليوم، وتسجّل الفرق في أرباح أو خسائر الصرف — وتُخبرك رسالة الدفعة بالمبلغ. وتعمل الدفعات الجزئية وإشعارات الدائن والدفعات الزائدة بالطريقة نفسها، وعكس الدفعة يُلغي ربحها أو خسارتها أيضًا.",
                 },
@@ -796,7 +796,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "The dashboard, cash on hand, budgets, net worth, insights and the AI accountant's answers now add up every currency at the rate each entry was posted at, in your own currency — before, dollars were added to pounds or rials as plain numbers. A bank statement is still checked against entries in its own currency. If Settings → Currency & FX says some entries are marked IRR although your books are in another currency, one click relabels them.",
-                    "fa": "داشبورد، موجودی نقد، بودجه، دارایی خالص، بینش‌ها و پاسخ‌های حسابدار هوشمند حالا همهٔ ارزها را با نرخی که هر سند با آن ثبت شده، به ارز خودتان جمع می‌زنند — پیش از این دلار با ریال یا پوند مثل عدد ساده جمع می‌شد. صورت‌حساب بانک همچنان با اسناد همان ارز مقایسه می‌شود. اگر در «تنظیمات ← ارز و نرخ تبدیل» آمده که اسنادی به ریال ثبت شده‌اند در حالی که دفاتر شما به ارز دیگری است، با یک کلیک ارزشان اصلاح می‌شود.",
+                    "fa": "داشبورد، موجودی نقد، بودجه، دارایی خالص، بینش‌ها و پاسخ‌های دستیار حالا همهٔ ارزها را با نرخی که هر سند با آن ثبت شده، به ارز خودتان جمع می‌زنند — پیش از این دلار با ریال یا پوند مثل عدد ساده جمع می‌شد. صورت‌حساب بانک همچنان با اسناد همان ارز مقایسه می‌شود. اگر در «تنظیمات ← ارز و نرخ تبدیل» آمده که اسنادی به ریال ثبت شده‌اند در حالی که دفاتر شما به ارز دیگری است، با یک کلیک ارزشان اصلاح می‌شود.",
                     "es": "El panel, la caja, los presupuestos, el patrimonio, las alertas y las respuestas del contable IA suman ahora todas las monedas al tipo con que se registró cada asiento, en tu propia moneda; antes se sumaban dólares y libras como simples números. Un extracto bancario se sigue comparando con los asientos de su moneda. Si Ajustes → Moneda y cambio indica asientos marcados IRR aunque tus libros estén en otra moneda, un clic los corrige.",
                     "ar": "لوحة المعلومات والنقد والميزانيات وصافي الثروة والتنبيهات وإجابات المحاسب الذكي تجمع الآن كل العملات بالسعر الذي سُجّل به كل قيد، بعملتك أنت — كان الدولار يُجمع مع الجنيه أو الريال كأرقام عادية. ويبقى كشف البنك يُقارن بقيود عملته. وإن ظهر في الإعدادات ← العملة والصرف أن قيودًا معلّمة بالريال بينما دفاترك بعملة أخرى، فنقرة واحدة تصحّحها.",
                 },
@@ -842,7 +842,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "The AI chat has a microphone button: tap it, say \"paid 20 pounds for lunch from the card\" (or it in Persian), tap again. The text appears in the box for you to check, then send it as usual — nothing is saved until you confirm the card. The recording itself is never kept.",
-                    "fa": "گفتگوی هوشمند دکمهٔ میکروفون دارد: بزنید، بگویید «پنجاه هزار تومن نون از کارت خریدم» و دوباره بزنید. متن در کادر می‌آید تا بررسی کنید و مثل همیشه بفرستید — تا کارت را تأیید نکنید چیزی ثبت نمی‌شود. خود صدا هرگز نگه داشته نمی‌شود.",
+                    "fa": "گفتگوی هوشمند دکمهٔ میکروفون دارد: بزنید، بگویید «پنجاه هزار تومن نون از کارت خریدم» و دوباره بزنید. متن در کادر می‌آید تا بررسی کنید و مثل همیشه بفرستید — تا کارت پیشنهادی را تأیید نکنید چیزی ثبت نمی‌شود. خود صدا هرگز نگه داشته نمی‌شود.",
                     "es": "El chat con IA tiene un botón de micrófono: tócalo, di «pagué 20 libras de comida con la tarjeta» y vuelve a tocarlo. El texto aparece en el cuadro para que lo revises y lo envíes como siempre; nada se guarda hasta que confirmes la tarjeta. La grabación nunca se conserva.",
                     "ar": "في محادثة الذكاء الاصطناعي زر ميكروفون: اضغطه، وقل «دفعت 20 جنيهًا للغداء بالبطاقة»، ثم اضغطه ثانية. يظهر النص في المربع لتراجعه ثم ترسله كالمعتاد — لا يُحفظ شيء حتى تؤكد البطاقة. ولا يُحتفظ بالتسجيل نفسه أبدًا.",
                 },
@@ -914,7 +914,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Installments & cheques → Actions: deposit a cheque at the bank, mark it cleared or bounced, deposit a bounced one again, hand it back, or pass a customer's cheque on to a supplier. Each step is booked through notes receivable, cheques in collection and notes payable; a cheque recorded for an invoice pays it, and a bounce reopens it. Add the 16-digit Sayad id, and you are reminded to register (or confirm) a cheque in Sayad before it falls due. History shows each cheque's journey.",
-                    "fa": "«اقساط و چک‌ها ← عملیات»: چک را به بانک بسپارید، وصول یا برگشت آن را ثبت کنید، چک برگشتی را دوباره بخوابانید، عودت دهید یا چک مشتری را به تأمین‌کننده خرج کنید. هر مرحله از طریق اسناد دریافتنی، اسناد در جریان وصول و اسناد پرداختنی ثبت می‌شود؛ چکی که بابت فاکتور ثبت شود آن را تسویه می‌کند و برگشت آن فاکتور را دوباره باز می‌کند. شناسه ۱۶ رقمی صیاد را وارد کنید تا پیش از سررسید برای ثبت (یا تأیید) چک در صیاد یادآوری شود. «گردش چک» مسیر هر چک را نشان می‌دهد.",
+                    "fa": "«اقساط و چک‌ها ← عملیات»: چک را به بانک واگذار کنید، وصول یا برگشت آن را ثبت کنید، چک برگشتی را دوباره به بانک واگذار کنید، عودت دهید یا چک مشتری را به تأمین‌کننده خرج کنید. هر مرحله از طریق اسناد دریافتنی، اسناد در جریان وصول و اسناد پرداختنی ثبت می‌شود؛ چکی که بابت فاکتور ثبت شود آن را تسویه می‌کند و برگشت آن فاکتور را دوباره باز می‌کند. شناسهٔ ۱۶ رقمی صیادی را وارد کنید تا پیش از سررسید برای ثبت (یا تأیید) چک در صیاد یادآوری شود. «گردش چک» مسیر هر چک را نشان می‌دهد.",
                     "es": "Cuotas y cheques → Acciones: deposita un cheque en el banco, márcalo cobrado o rechazado, deposita de nuevo uno rechazado, devuélvelo o endosa el cheque de un cliente a un proveedor. Cada paso se registra en efectos a cobrar, cheques en gestión de cobro y efectos a pagar; un cheque registrado para una factura la paga, y si se rechaza la factura se reabre. Añade el ID Sayad de 16 dígitos y se te recordará registrar (o confirmar) el cheque en Sayad antes del vencimiento. El historial muestra el recorrido de cada cheque.",
                     "ar": "الأقساط والشيكات ← إجراءات: أودع الشيك في البنك، سجّل تحصيله أو ارتجاعه، أودع المرتجع مجددًا، أعده، أو ظهّر شيك العميل لمورد. تُقيَّد كل خطوة عبر أوراق القبض والشيكات قيد التحصيل وأوراق الدفع؛ والشيك المسجل لفاتورة يسددها، وارتجاعه يعيد فتحها. أضف معرّف صياد المكوّن من ١٦ رقمًا ليُذكّرك النظام بتسجيل الشيك (أو تأكيده) في صياد قبل استحقاقه. ويعرض السجل مسار كل شيك.",
                 },
@@ -961,7 +961,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "The FRS 102 statements now come entirely from your books: every account is on the balance sheet (accrued income and prepayments were missing), sales returns reduce turnover, depreciation and amortisation are stated, a revaluation shows as other comprehensive income, the changes in equity list shares issued, dividends and transfers for both years and close on the balance sheet, and the cash flow shows dividends paid, directors' loans and a reconciliation of operating profit to cash generated from operations.",
-                    "fa": "صورت‌های مالی FRS 102 اکنون کاملاً از دفاتر شما ساخته می‌شوند: همه حساب‌ها در ترازنامه هستند، برگشت از فروش از درآمد کم می‌شود، استهلاک نمایش داده می‌شود، تجدید ارزیابی در سود جامع دیگر می‌آید، تغییرات حقوق مالکانه صدور سهام، سود سهام و انتقال بین اندوخته‌ها را برای هر دو سال نشان می‌دهد و با ترازنامه می‌خواند، و صورت جریان نقد سود سهام پرداختی، وام مدیران و تطبیق سود عملیاتی با نقد حاصل از عملیات را دارد.",
+                    "fa": "صورت‌های مالی FRS 102 اکنون کاملاً از دفاتر شما ساخته می‌شوند: همه حساب‌ها در ترازنامه هستند، برگشت از فروش از درآمد کم می‌شود، استهلاک نمایش داده می‌شود، تجدید ارزیابی در سود جامع دیگر می‌آید، تغییرات حقوق مالکانه صدور سهام، سود سهام و انتقال بین اندوخته‌ها را برای هر دو سال نشان می‌دهد و با ترازنامه می‌خواند، و صورت جریان‌های نقدی سود سهام پرداختی، وام مدیران و تطبیق سود عملیاتی با نقد حاصل از عملیات را دارد.",
                     "es": "Los estados FRS 102 salen ahora por completo de tu contabilidad: todas las cuentas están en el balance, las devoluciones reducen la cifra de negocios, se indica la amortización, una revalorización aparece como otro resultado integral, los cambios en el patrimonio muestran emisiones, dividendos y traspasos de ambos años y cuadran con el balance, y el flujo de caja muestra dividendos pagados, préstamos de administradores y la conciliación del resultado de explotación con la caja generada.",
                     "ar": "تُبنى قوائم FRS 102 الآن بالكامل من دفاترك: كل الحسابات في الميزانية، ومردودات المبيعات تخفض الإيرادات، ويُفصح عن الاستهلاك والإطفاء، وتظهر إعادة التقييم في الدخل الشامل الآخر، وتعرض التغيرات في حقوق الملكية إصدار الأسهم والتوزيعات والتحويلات لكلا العامين وتطابق الميزانية، وتعرض التدفقات النقدية التوزيعات المدفوعة وقروض المديرين وتسوية الربح التشغيلي مع النقد الناتج من العمليات.",
                 },
@@ -1006,7 +1006,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "The language menu at the top now saves your choice to your profile, so it stays after you sign in again, and the page you are on — tables and charts included — redraws in the new language straight away. The app also loads faster: each language is fetched only when you use it.",
-                    "fa": "منوی زبان در بالای صفحه اکنون انتخاب شما را در نمایه‌تان ذخیره می‌کند، پس پس از ورود دوباره هم می‌ماند، و صفحه‌ای که در آن هستید — همراه با جدول‌ها و نمودارها — بی‌درنگ به زبان تازه نمایش داده می‌شود. برنامه هم سریع‌تر بارگذاری می‌شود: هر زبان فقط وقتی به کارش می‌برید دریافت می‌شود.",
+                    "fa": "منوی زبان در بالای صفحه اکنون انتخاب شما را در نمایه‌تان ذخیره می‌کند، پس بعد از ورود دوباره هم می‌ماند، و صفحه‌ای که در آن هستید — همراه با جدول‌ها و نمودارها — بی‌درنگ به زبان تازه نمایش داده می‌شود. برنامه هم سریع‌تر بارگذاری می‌شود: هر زبان فقط وقتی به کارش می‌برید دریافت می‌شود.",
                     "es": "El menú de idioma de la parte superior guarda ahora tu elección en tu perfil, así que se mantiene al volver a iniciar sesión, y la página abierta —tablas y gráficos incluidos— se vuelve a dibujar en el nuevo idioma al momento. La aplicación también carga más rápido: cada idioma se descarga solo cuando lo usas.",
                     "ar": "قائمة اللغة في الأعلى تحفظ الآن اختيارك في ملفك الشخصي، فيبقى بعد تسجيل الدخول مجددًا، ويُعاد رسم الصفحة المفتوحة — بما فيها الجداول والرسوم — باللغة الجديدة فورًا. كما يُحمَّل التطبيق أسرع: تُنزَّل كل لغة فقط عند استخدامها.",
                 },
@@ -1029,7 +1029,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "The dashboard now adds up your books in the database, so it opens noticeably faster on a large ledger. The receivables and payables aging now takes entries in date order: a receipt entered before the sale it pays — an imported bank statement, say — used to be missed and left that sale showing as overdue.",
-                    "fa": "داشبورد اکنون جمع‌های دفاتر را در پایگاه داده می‌گیرد و روی دفاتر بزرگ به‌طور محسوسی سریع‌تر باز می‌شود. سنی‌بندی دریافتنی‌ها و پرداختنی‌ها اکنون سندها را به ترتیب تاریخ می‌خواند: دریافتی که پیش از فروشِ مربوطش ثبت شده بود — مثلاً از صورت‌حساب بانکی واردشده — نادیده می‌ماند و آن فروش سررسیدگذشته نشان داده می‌شد.",
+                    "fa": "داشبورد اکنون جمع‌های دفاتر را در پایگاه داده می‌گیرد و روی دفاتر بزرگ به‌طور محسوسی سریع‌تر باز می‌شود. تحلیل سنی دریافتنی‌ها و پرداختنی‌ها اکنون سندها را به ترتیب تاریخ می‌خواند: دریافتی که پیش از فروشِ مربوطش ثبت شده بود — مثلاً از صورت‌حساب بانکی واردشده — قبلاً نادیده گرفته می‌شد و آن فروش سررسیدگذشته نشان داده می‌شد.",
                     "es": "El panel suma ahora la contabilidad en la base de datos, así que se abre bastante más rápido con muchos asientos. La antigüedad de cobros y pagos toma ahora los asientos por fecha: un cobro registrado antes de la venta que paga —por ejemplo, de un extracto bancario importado— se pasaba por alto y la venta seguía apareciendo como vencida.",
                     "ar": "تجمع اللوحة الآن أرصدة دفاترك في قاعدة البيانات، فتُفتح أسرع بشكل ملحوظ مع الدفاتر الكبيرة. وتقرأ أعمار الذمم المدينة والدائنة الآن القيود بترتيب التاريخ: القبض المسجّل قبل البيع الذي يسدّده — من كشف بنكي مستورد مثلًا — كان يُغفل ويبقى ذلك البيع ظاهرًا كمتأخر.",
                 },
@@ -1052,7 +1052,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "When you asked the assistant to review a bank statement, it could refuse to draft the entry for a row the books were missing, saying the amount didn't match — the statement's reference number was being read as an amount. Each draft is now checked against the statement row itself.",
-                    "fa": "وقتی از دستیار می‌خواستید صورت‌حساب بانکی را بازبینی کند، گاهی برای ردیفی که در دفاتر نبود سند پیشنهاد نمی‌داد و می‌گفت مبلغ نمی‌خواند — شناسه صورت‌حساب به‌جای مبلغ خوانده می‌شد. اکنون هر پیش‌نویس با خود ردیف صورت‌حساب سنجیده می‌شود.",
+                    "fa": "وقتی از دستیار می‌خواستید صورت‌حساب بانکی را بازبینی کند، گاهی برای ردیفی که در دفاتر نبود سند پیشنهاد نمی‌داد و می‌گفت مبلغ نمی‌خواند — شمارهٔ مرجع ردیف به‌جای مبلغ خوانده می‌شد. اکنون هر پیش‌نویس با خود ردیف صورت‌حساب سنجیده می‌شود.",
                     "es": "Al pedir al asistente que revisara un extracto bancario, a veces se negaba a preparar el asiento de una fila que faltaba en la contabilidad diciendo que el importe no cuadraba: leía la referencia del extracto como un importe. Ahora cada borrador se comprueba con la propia fila del extracto.",
                     "ar": "عند طلب مراجعة كشف بنكي، كان المساعد أحيانًا يرفض إعداد قيد لصف غير موجود في الدفاتر قائلًا إن المبلغ لا يطابق — إذ كان يقرأ رقم مرجع الكشف كمبلغ. الآن يُطابَق كل مسودة مع صف الكشف نفسه.",
                 },
@@ -1075,7 +1075,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Settings → AI review: about one turn in ten of your team's conversations with the assistant (web chat and the Telegram/Bale bots) is kept for you — the question, the answer, the tools it used and the cards it made. Mark each one good or needs work, with a note, or download it as a test case. They stay inside your company, only you see them, and they go with the conversation or after 90 days. You can switch it off there.",
-                    "fa": "«تنظیمات ← بازبینی دستیار»: حدود یک پیام از هر ده پیامِ گفتگوی همکارانتان با دستیار (گفتگوی وب و ربات‌های تلگرام/بله) برای شما نگه داشته می‌شود — پرسش، پاسخ، ابزارهایی که به کار برد و کارت‌هایی که ساخت. هرکدام را «خوب» یا «نیاز به اصلاح» با یادداشت علامت بزنید یا به‌عنوان نمونه آزمون دریافت کنید. درون شرکت شما می‌مانند، فقط شما می‌بینید، و با حذف گفتگو یا پس از ۹۰ روز پاک می‌شوند. همان‌جا می‌توانید خاموشش کنید.",
+                    "fa": "«تنظیمات ← بازبینی دستیار»: حدود یک پیام از هر ده پیامِ گفتگوی همکارانتان با دستیار (گفتگوی وب و ربات‌های تلگرام/بله) برای شما نگه داشته می‌شود — پرسش، پاسخ، ابزارهایی که به کار برد و کارت‌هایی که ساخت. هرکدام را «خوب» یا «نیاز به اصلاح» با یادداشت علامت بزنید یا به‌صورت نمونهٔ آزمون دانلود کنید. درون شرکت شما می‌مانند، فقط شما می‌بینید، و با حذف گفتگو یا پس از ۹۰ روز پاک می‌شوند. همان‌جا می‌توانید خاموشش کنید.",
                     "es": "Ajustes → Revisión de la IA: se guarda para ti aproximadamente uno de cada diez turnos de las conversaciones de tu equipo con el asistente (chat web y bots de Telegram/Bale): la pregunta, la respuesta, las herramientas que usó y las tarjetas que creó. Márcalos como bien o mejorables, con una nota, o descárgalos como caso de prueba. Se quedan en tu empresa, solo tú los ves y se borran con la conversación o a los 90 días. Puedes desactivarlo allí.",
                     "ar": "الإعدادات ← مراجعة المساعد: يُحفظ لك نحو دور من كل عشرة من محادثات فريقك مع المساعد (المحادثة على الويب وروبوتات تيليجرام/بله) — السؤال والإجابة والأدوات التي استخدمها والبطاقات التي أنشأها. ضع على كل منها «جيد» أو «يحتاج تحسينًا» مع ملاحظة، أو نزّلها كحالة اختبار. تبقى داخل شركتك، ولا يراها غيرك، وتُحذف مع المحادثة أو بعد 90 يومًا. يمكنك إيقافها من هناك.",
                 },
@@ -1115,7 +1115,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "On the dashboard's Budget vs actual, each line now has Edit and Delete, and Copy to next month… carries the month's budgets forward — as they are or changed by a percentage — without touching categories next month already has. It follows your company's calendar, Jalali months included.",
-                    "fa": "در «بودجه در برابر واقعی» داشبورد، هر ردیف اکنون «ویرایش» و «حذف» دارد و «کپی به ماه بعد…» بودجه‌های ماه را — همان‌طور یا با درصدی تغییر — به ماه بعد می‌برد، بی‌آنکه به دسته‌هایی که ماه بعد از قبل دارد دست بزند. با تقویم شرکت شما، از جمله ماه‌های شمسی، کار می‌کند.",
+                    "fa": "در «بودجه در برابر عملکرد» داشبورد، هر ردیف اکنون «ویرایش» و «حذف» دارد و «کپی به ماه بعد…» بودجه‌های ماه را — همان‌طور که هست یا با تغییر درصدی — به ماه بعد می‌برد، بی‌آنکه به دسته‌هایی که ماه بعد از قبل دارد دست بزند. با تقویم شرکت شما، از جمله ماه‌های شمسی، کار می‌کند.",
                     "es": "En Presupuesto frente a real del panel, cada línea tiene ahora Editar y Eliminar, y Copiar al mes siguiente… traslada los presupuestos del mes —tal cual o cambiados en un porcentaje— sin tocar las categorías que el mes siguiente ya tiene. Sigue el calendario de tu empresa, meses jalalíes incluidos.",
                     "ar": "في «الميزانية مقابل الفعلي» على اللوحة، لكل بند الآن «تعديل» و«حذف»، و«نسخ إلى الشهر التالي…» ينقل ميزانيات الشهر — كما هي أو بتغيير نسبة — دون المساس بالبنود الموجودة في الشهر التالي. يتبع تقويم شركتك، بما في ذلك الأشهر الشمسية.",
                 },
@@ -1132,7 +1132,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Time → Projects and budgets: give a project a budget in hours, fees, or both, and see how much is used — every hour logged, and the fees they come to at the rate billed (or today's rate for time not yet invoiced). The bell warns at 85 % and when a project goes over.",
-                    "fa": "«زمان ← پروژه‌ها و بودجه»: برای پروژه بودجه ساعت، حق‌الزحمه یا هر دو بگذارید و ببینید چقدرش مصرف شده — همه ساعت‌های ثبت‌شده و حق‌الزحمه آن‌ها به نرخ صورت‌حساب (یا نرخ امروز برای زمانی که هنوز صورت‌حساب نشده). زنگ اعلان در ۸۵٪ و هنگام عبور از بودجه خبر می‌دهد.",
+                    "fa": "«زمان ← پروژه‌ها و بودجه»: برای پروژه بودجه ساعت، حق‌الزحمه یا هر دو بگذارید و ببینید چقدرش مصرف شده — همه ساعت‌های ثبت‌شده و حق‌الزحمه آن‌ها به نرخ فاکتور (یا نرخ امروز برای زمانی که هنوز فاکتور نشده). زنگ اعلان در ۸۵٪ و هنگام عبور از بودجه خبر می‌دهد.",
                     "es": "Tiempo → Proyectos y presupuestos: da a un proyecto un presupuesto en horas, honorarios o ambos y mira cuánto se ha usado: cada hora registrada y los honorarios a la tarifa facturada (o a la de hoy si aún no se ha facturado). La campana avisa al 85 % y cuando un proyecto se pasa.",
                     "ar": "الوقت ← المشاريع والميزانيات: خصّص للمشروع ميزانية بالساعات أو الأتعاب أو كليهما، وشاهد المستخدم منها — كل ساعة مسجلة والأتعاب بسعر الفوترة (أو بسعر اليوم لما لم يُفوتر بعد). ينبّهك الجرس عند 85٪ وعند تجاوز المشروع ميزانيته.",
                 },
@@ -1149,13 +1149,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=("owner", "cfo", "accountant"),
                 title={
                     "en": "Bill a purchase order straight from its deliveries",
-                    "fa": "صدور صورت‌حساب خرید مستقیم از کالای رسیده",
+                    "fa": "ثبت فاکتور خرید مستقیم از کالای رسیده",
                     "es": "Factura un pedido de compra directamente desde lo recibido",
                     "ar": "فوترة أمر الشراء مباشرة مما وصل",
                 },
                 body={
                     "en": "On a purchase order, Bill what's arrived records the supplier's bill for the goods received and not billed yet — the payable included — and voiding that bill puts them back. Orders can now be issued, closed short when the rest won't come, cancelled if nothing arrived, and drafts deleted. And when you type an item on a new order, you see what you last paid for it, to whom, and the lowest price you've had.",
-                    "fa": "در سفارش خرید، «صدور صورت‌حساب برای رسیده‌ها» صورت‌حساب فروشنده را برای کالای رسیده‌ای که هنوز صورت‌حساب نشده — همراه با بدهی — ثبت می‌کند و ابطال آن صورت‌حساب، آن‌ها را برمی‌گرداند. سفارش‌ها اکنون صادر، در صورت نرسیدن باقی‌مانده بسته، اگر چیزی نرسیده لغو، و پیش‌نویس‌ها حذف می‌شوند. هنگام نوشتن کالا در سفارش تازه هم آخرین قیمت خرید، از چه کسی و کمترین قیمت آن را می‌بینید.",
+                    "fa": "در سفارش خرید، «ثبت فاکتور خرید برای اقلام رسیده» فاکتور خرید تأمین‌کننده را برای کالای رسیده‌ای که هنوز فاکتور نشده — همراه با بدهی — ثبت می‌کند و ابطال آن فاکتور، آن‌ها را برمی‌گرداند. اکنون می‌توانید سفارش را صادر کنید، اگر باقی‌اش نمی‌رسد آن را ببندید، اگر چیزی نرسیده لغوش کنید و پیش‌نویس‌ها را حذف کنید. هنگام نوشتن کالا در سفارش تازه هم آخرین قیمت خرید، از چه کسی و کمترین قیمت آن را می‌بینید.",
                     "es": "En un pedido de compra, Facturar lo recibido registra la factura del proveedor por lo que ha llegado y aún no se ha facturado —con la deuda incluida—, y anular esa factura lo devuelve. Los pedidos ahora se emiten, se cierran si el resto no llegará, se cancelan si no ha llegado nada y los borradores se eliminan. Y al escribir un artículo en un pedido nuevo ves lo último que pagaste, a quién y el precio más bajo que has tenido.",
                     "ar": "في أمر الشراء، يسجّل «فوترة ما وصل» فاتورة المورّد للبضاعة الواردة غير المفوترة — مع المستحق — وإلغاء تلك الفاتورة يعيدها. يمكن الآن إصدار الأوامر، وإغلاقها إن لم يصل الباقي، وإلغاؤها إن لم يصل شيء، وحذف المسودات. وعند كتابة صنف في أمر جديد ترى آخر سعر دفعته ولمن وأدنى سعر حصلت عليه.",
                 },
@@ -1179,7 +1179,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "In a client's or supplier's transactions there's now a Statement PDF and E-mail statement… — this year so far, to the address on their record or one you type, with the balance in the message. On a posted pay run, E-mail payslips sends each employee their own payslip; anyone without an e-mail on file is listed so you can add it. Every e-mail is logged.",
-                    "fa": "در تراکنش‌های هر مشتری یا تأمین‌کننده اکنون «صورت‌حساب PDF» و «ارسال صورت‌حساب…» هست — امسال تا امروز، به ایمیل پرونده یا نشانی‌ای که وارد می‌کنید، با مانده در متن نامه. در دوره حقوقِ ثبت‌شده، «ارسال فیش‌ها با ایمیل» فیش هر کارمند را فقط برای خودش می‌فرستد و کسانی که ایمیل ندارند فهرست می‌شوند تا اضافه کنید. همه ارسال‌ها ثبت می‌شوند.",
+                    "fa": "در تراکنش‌های هر مشتری یا تأمین‌کننده اکنون «صورت‌حساب PDF» و «ارسال صورت‌حساب…» هست — امسال تا امروز، به ایمیلِ ثبت‌شده در پرونده‌اش یا نشانی‌ای که وارد می‌کنید، با مانده در متن نامه. در لیست حقوقِ ثبت‌شده، «ارسال فیش‌ها با ایمیل» فیش هر کارمند را فقط برای خودش می‌فرستد و کسانی که ایمیل ندارند فهرست می‌شوند تا اضافه کنید. همه ارسال‌ها ثبت می‌شوند.",
                     "es": "En los movimientos de un cliente o proveedor hay ahora Extracto en PDF y Enviar extracto…: este año hasta hoy, a la dirección de su ficha o la que escribas, con el saldo en el mensaje. En una nómina registrada, Enviar nóminas por correo manda a cada empleado la suya; quien no tenga correo aparece en la lista para que lo añadas. Cada envío queda registrado.",
                     "ar": "في معاملات العميل أو المورّد يوجد الآن «كشف حساب PDF» و«إرسال الكشف…» — لهذا العام حتى الآن، إلى العنوان المسجّل أو عنوان تكتبه، مع الرصيد في الرسالة. وفي دورة رواتب مرحّلة، يرسل «إرسال قسائم الرواتب بالبريد» لكل موظف قسيمته فقط، ويُدرج من ليس لديه بريد لتضيفه. تُسجَّل كل رسالة.",
                 },
@@ -1196,13 +1196,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=("owner", "cfo", "accountant", "viewer"),
                 title={
                     "en": "All your statements as PDF or Excel",
-                    "fa": "همه صورت‌های مالی در PDF یا اکسل",
+                    "fa": "همهٔ صورت‌های مالی به‌صورت PDF یا اکسل",
                     "es": "Todos tus estados en PDF o Excel",
                     "ar": "كل القوائم المالية بصيغة PDF أو Excel",
                 },
                 body={
                     "en": "Manager reports has two new buttons: All statements (PDF) and All statements (Excel). They make the full set — balance sheet, income statement, comprehensive income, changes in equity and cash flows — for the dates and currency you picked, on your letterhead. Iranian companies get them in Persian with Jalali dates; the Excel keeps real numbers you can add up.",
-                    "fa": "در گزارش‌های مدیریتی دو دکمه تازه هست: «همه صورت‌ها (PDF)» و «همه صورت‌ها (اکسل)». مجموعه کامل — صورت وضعیت مالی، سود و زیان، سود و زیان جامع، تغییرات در حقوق مالکانه و جریان‌های نقدی — برای بازه و ارزی که انتخاب کرده‌اید، با سربرگ شرکت ساخته می‌شود؛ به فارسی و با تاریخ شمسی. در اکسل اعداد، عدد واقعی‌اند و قابل جمع زدن.",
+                    "fa": "در گزارش‌های مدیریتی دو دکمه تازه هست: «همه صورت‌های مالی (PDF)» و «همه صورت‌های مالی (اکسل)». مجموعه کامل — صورت وضعیت مالی، سود و زیان، سود و زیان جامع، تغییرات در حقوق مالکانه و جریان‌های نقدی — برای بازه و ارزی که انتخاب کرده‌اید، با سربرگ شرکت ساخته می‌شود؛ به فارسی و با تاریخ شمسی. در اکسل اعداد، عدد واقعی‌اند و قابل جمع زدن.",
                     "es": "Informes de gestión tiene dos botones nuevos: Todos los estados (PDF) y Todos los estados (Excel). Generan el juego completo —balance, cuenta de resultados, resultado integral, cambios en el patrimonio y flujos de efectivo— para las fechas y la moneda elegidas, con tu membrete. En Excel las cifras son números reales que puedes sumar.",
                     "ar": "في تقارير الإدارة زرّان جديدان: «كل القوائم (PDF)» و«كل القوائم (Excel)». يُنشئان المجموعة الكاملة — المركز المالي، والدخل، والدخل الشامل، والتغيرات في حقوق الملكية، والتدفقات النقدية — للفترة والعملة المختارتين، على ترويسة شركتك. وفي Excel تبقى الأرقام أرقامًا حقيقية يمكن جمعها.",
                 },
@@ -1219,13 +1219,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=("owner", "cfo", "accountant", "viewer"),
                 title={
                     "en": "The monthly close pack",
-                    "fa": "بسته بستن ماه",
+                    "fa": "بستهٔ پایان ماه",
                     "es": "El paquete de cierre mensual",
                     "ar": "حزمة إقفال الشهر",
                 },
                 body={
                     "en": "At the bottom of Manager reports, pick a month to see what's still open — unmatched bank lines, draft invoices, a pay run not posted, depreciation not run, entries waiting for a rate. Then download the pack: one ZIP with a PDF and an Excel file (the checklist, the statements, trial balance, receivables and payables aging, bank reconciliation, budget vs actual) and the month's journal as CSV. Invoices and other PDFs are now set in the proper font, too.",
-                    "fa": "پایین صفحه گزارش‌های مدیریتی، ماهی را انتخاب کنید تا ببینید چه کارهایی مانده است — ردیف‌های بانکی تطبیق‌نشده، فاکتورهای پیش‌نویس، حقوقِ ثبت‌نشده، استهلاکِ اجرانشده، اسنادِ منتظر نرخ ارز. سپس بسته را دریافت کنید: یک فایل ZIP با PDF و اکسل (فهرست بررسی، صورت‌های مالی، تراز آزمایشی، سنی مطالبات و بدهی‌ها، مغایرت بانکی، بودجه و عملکرد) و دفتر روزنامه ماه به صورت CSV. فاکتورها و دیگر PDFها هم اکنون با قلم درست چاپ می‌شوند.",
+                    "fa": "پایین صفحه گزارش‌های مدیریتی، ماهی را انتخاب کنید تا ببینید چه کارهایی مانده است — ردیف‌های بانکی تطبیق‌نشده، فاکتورهای پیش‌نویس، لیست حقوقِ ثبت‌نشده، استهلاکِ ثبت‌نشده، اسنادِ منتظر نرخ ارز. سپس بسته را دانلود کنید: یک فایل ZIP با PDF و اکسل (فهرست بررسی، صورت‌های مالی، تراز آزمایشی، تحلیل سنی مطالبات و بدهی‌ها، مغایرت‌گیری بانکی، بودجه و عملکرد) و دفتر روزنامه ماه به صورت CSV. حالا فاکتورها و دیگر PDFها هم با قلم درست ساخته می‌شوند.",
                     "es": "Al final de Informes de gestión, elige un mes para ver qué queda pendiente: líneas bancarias sin conciliar, facturas en borrador, una nómina sin registrar, amortización sin ejecutar, asientos sin tipo de cambio. Luego descarga el paquete: un ZIP con un PDF y un Excel (la lista, los estados, el balance de comprobación, la antigüedad de cobros y pagos, la conciliación bancaria, presupuesto frente a real) y el diario del mes en CSV. Las facturas y demás PDF ya usan la fuente correcta.",
                     "ar": "في أسفل تقارير الإدارة، اختر شهرًا لترى ما بقي مفتوحًا — سطور بنكية غير مطابقة، فواتير مسودة، رواتب غير مرحّلة، إهلاك لم يُشغَّل، قيود تنتظر سعر صرف. ثم نزّل الحزمة: ملف ZIP فيه PDF وExcel (القائمة، والقوائم المالية، وميزان المراجعة، وأعمار الذمم المدينة والدائنة، والتسوية البنكية، والموازنة مقابل الفعلي) ودفتر يومية الشهر بصيغة CSV. وصارت الفواتير وسائر ملفات PDF تُطبع بالخط الصحيح أيضًا.",
                 },
@@ -1248,7 +1248,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "The AI accountant can now answer \"what did we pay Sara this year?\" and \"are we over budget?\", run a draft payroll for a period, post it and pay it, set monthly budgets, and tell you what's still open before you close a month. Every change is a card you confirm, as before.",
-                    "fa": "حسابدار هوشمند اکنون به «امسال چقدر به سارا پرداختیم؟» و «از بودجه جلو زدیم؟» پاسخ می‌دهد، پیش‌نویس حقوق یک دوره را حساب می‌کند، آن را ثبت و پرداخت می‌کند، بودجه ماهانه می‌گذارد و می‌گوید پیش از بستن ماه چه کارهایی مانده است. هر تغییر مثل قبل یک کارت است که تأییدش می‌کنید.",
+                    "fa": "دستیار اکنون به «امسال چقدر به سارا پرداختیم؟» و «از بودجه بیشتر خرج کرده‌ایم؟» پاسخ می‌دهد، پیش‌نویس حقوق یک دوره را حساب می‌کند، آن را ثبت و پرداخت می‌کند، بودجه ماهانه می‌گذارد و می‌گوید پیش از بستن ماه چه کارهایی مانده است. هر تغییر مثل قبل یک کارت است که تأییدش می‌کنید.",
                     "es": "El contable IA ya responde a «¿cuánto le pagamos a Sara este año?» y «¿vamos por encima del presupuesto?», calcula un borrador de nómina para un periodo, lo registra y lo paga, fija presupuestos mensuales y te dice qué falta antes de cerrar un mes. Cada cambio es una tarjeta que confirmas, como siempre.",
                     "ar": "صار المحاسب الذكي يجيب عن «كم دفعنا لسارة هذا العام؟» و«هل تجاوزنا الموازنة؟»، ويحسب مسودة رواتب لفترة ثم يرحّلها ويدفعها، ويضع موازنات شهرية، ويخبرك بما بقي قبل إقفال الشهر. كل تغيير بطاقة تؤكّدها كما في السابق.",
                 },
@@ -1287,7 +1287,7 @@ RELEASES: tuple[Release, ...] = (
                 key="persian-file-names",
                 title={
                     "en": "Payslips and statements with Persian names download again",
-                    "fa": "فیش‌ها و صورت‌حساب‌های با نام فارسی دوباره دانلود می‌شوند",
+                    "fa": "فیش‌ها و صورت‌حساب‌هایی که نام فارسی دارند دوباره دانلود می‌شوند",
                     "es": "Las nóminas y extractos con nombres en persa vuelven a descargarse",
                     "ar": "القسائم والكشوف ذات الأسماء الفارسية تُنزَّل من جديد",
                 },
@@ -1310,7 +1310,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "My finances now opens with last month's report card: what came in, what went out, what you saved and your savings rate against the month before, where the money went, and three checks — saved a tenth, spent no more than usual, stayed inside your budgets. Add savings goals on an account (your bank, your gold) and see how far you are, what each month needs and whether you're on track. The assistant can answer \"how did I do last month?\" too.",
-                    "fa": "صفحه «پول من» اکنون با کارنامه ماه قبل شروع می‌شود: درآمد، هزینه، پس‌انداز و نرخ آن در برابر ماه قبل، اینکه پول کجا رفت، و سه بررسی — پس‌انداز یک‌دهم درآمد، خرج نه بیشتر از معمول، ماندن در بودجه‌ها. برای یک حساب (بانک، طلا) هدف پس‌انداز بگذارید و ببینید چقدر مانده، هر ماه چقدر لازم است و در مسیر هستید یا نه. از دستیار هم می‌توانید بپرسید «ماه پیش چطور بودم؟».",
+                    "fa": "صفحهٔ «امور مالی من» اکنون با کارنامه ماه قبل شروع می‌شود: درآمد، هزینه، پس‌انداز و نرخ آن در برابر ماه قبل، اینکه پول کجا رفت، و سه بررسی — پس‌انداز یک‌دهم درآمد، خرج نکردن بیش از معمول، ماندن در بودجه‌ها. برای یک حساب (بانک، طلا) هدف پس‌انداز بگذارید و ببینید چقدر مانده، هر ماه چقدر لازم است و در مسیر هستید یا نه. از دستیار هم می‌توانید بپرسید «ماه پیش وضعم چطور بود؟».",
                     "es": "Mis finanzas empieza ahora con el informe del mes pasado: lo que entró, lo que salió, lo que ahorraste y tu tasa de ahorro frente al mes anterior, en qué se fue el dinero y tres comprobaciones: ahorraste una décima parte, no gastaste más de lo habitual, respetaste tus presupuestos. Añade metas de ahorro sobre una cuenta (tu banco, tu oro) y mira cuánto te falta, cuánto necesita cada mes y si vas bien. El asistente también responde a «¿cómo me fue el mes pasado?».",
                     "ar": "تبدأ صفحة «أموالي» الآن بتقرير الشهر الماضي: ما دخل وما خرج وما ادّخرته ونسبته مقارنة بالشهر السابق، وأين ذهب المال، وثلاثة فحوص — ادّخرت عُشر الدخل، ولم تنفق أكثر من المعتاد، وبقيت ضمن موازناتك. أضف أهداف ادخار على حساب (بنكك، ذهبك) واعرف كم بقي وكم يحتاج كل شهر وهل أنت على المسار. ويجيب المساعد أيضًا عن «كيف كان شهري الماضي؟».",
                 },
@@ -1333,7 +1333,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "The AI accountant now answers about purchase orders, recurring payments, the cap table, exchange rates and petty cash, and reads the audit trail — \"who deleted invoice 1042?\". It can set up a recurring payment (\"rent of 80 million on the 1st of every month\"), and an owner can lock the books for a month from the chat. Each change is a card you confirm.",
-                    "fa": "حسابدار هوشمند اکنون درباره سفارش‌های خرید، پرداخت‌های دوره‌ای، جدول سهامداران، نرخ ارز و تنخواه پاسخ می‌دهد و سابقه تغییرات را می‌خواند — «چه کسی فاکتور ۱۰۴۲ را حذف کرد؟». می‌تواند پرداخت دوره‌ای بسازد («اجاره ۸۰ میلیون اول هر ماه») و مالک می‌تواند از همین گفتگو دفاتر یک ماه را قفل کند. هر تغییر کارتی است که تأییدش می‌کنید.",
+                    "fa": "دستیار اکنون درباره سفارش‌های خرید، پرداخت‌های دوره‌ای، جدول سهامداران، نرخ ارز و تنخواه پاسخ می‌دهد و سابقهٔ رویدادها را می‌خواند — «چه کسی فاکتور ۱۰۴۲ را حذف کرد؟». می‌تواند پرداخت دوره‌ای بسازد («اجاره ۸۰ میلیون اول هر ماه») و مالک می‌تواند از همین گفتگو دفاتر یک ماه را قفل کند. هر تغییر کارتی است که تأییدش می‌کنید.",
                     "es": "El contable IA ya responde sobre pedidos de compra, pagos periódicos, el reparto del capital, tipos de cambio y caja chica, y lee el registro de auditoría: «¿quién borró la factura 1042?». Puede crear un pago periódico («alquiler de 80 millones el día 1 de cada mes») y el propietario puede cerrar los libros de un mes desde el chat. Cada cambio es una tarjeta que confirmas.",
                     "ar": "صار المحاسب الذكي يجيب عن طلبات الشراء والمدفوعات الدورية وجدول المساهمين وأسعار الصرف والعهدة النقدية، ويقرأ سجل التدقيق — «من حذف الفاتورة ١٠٤٢؟». ويمكنه إنشاء دفعة دورية («إيجار ٨٠ مليونًا في أول كل شهر»)، ويستطيع المالك إقفال دفاتر شهر من المحادثة. كل تغيير بطاقة تؤكّدها.",
                 },
@@ -1350,13 +1350,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=("personal",),
                 title={
                     "en": "Share your books with your household",
-                    "fa": "دفتر خود را با خانواده شریک شوید",
+                    "fa": "دفترتان را با خانواده به اشتراک بگذارید",
                     "es": "Comparte tus cuentas con tu hogar",
                     "ar": "شارك دفاترك مع أسرتك",
                 },
                 body={
                     "en": "On My finances, Household → Invite someone: send the link (or let us e-mail it) and they sign up with their own username and password onto the same books — the same money, budgets and goals, and the history shows who recorded what. Up to six people; remove someone any time.",
-                    "fa": "در «پول من»، بخش خانواده ← دعوت از یک نفر: پیوند را بفرستید (یا بگذارید ایمیل کنیم) تا با نام کاربری و رمز خودش در همین دفتر ثبت‌نام کند — همین پول، بودجه‌ها و اهداف؛ و سابقه نشان می‌دهد چه کسی چه چیزی ثبت کرده است. تا شش نفر؛ هر وقت خواستید کسی را حذف کنید.",
+                    "fa": "در «امور مالی من»، «خانواده ← دعوت از یک نفر»: لینک را بفرستید (یا بگذارید ایمیل کنیم) تا با نام کاربری و رمز خودش در همین دفتر ثبت‌نام کند — همین پول، بودجه‌ها و اهداف؛ و سابقه نشان می‌دهد چه کسی چه چیزی ثبت کرده است. تا شش نفر؛ هر وقت خواستید کسی را حذف کنید.",
                     "es": "En Mis finanzas, Hogar → Invitar a alguien: envía el enlace (o deja que lo mandemos por correo) y se registra con su propio usuario y contraseña en las mismas cuentas: el mismo dinero, presupuestos y metas, y el historial muestra quién registró qué. Hasta seis personas; puedes quitar a alguien cuando quieras.",
                     "ar": "في «أموالي»، قسم الأسرة ← دعوة شخص: أرسل الرابط (أو دعنا نرسله بالبريد) فيسجّل باسم مستخدم وكلمة مرور خاصين به في الدفاتر نفسها — المال والموازنات والأهداف نفسها، ويُظهر السجل من سجّل ماذا. حتى ستة أشخاص؛ ويمكنك إزالة أي شخص في أي وقت.",
                 },
@@ -1373,13 +1373,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=("employee", "manager"),
                 title={
                     "en": "Your Time and Expenses pages work for you",
-                    "fa": "صفحه‌های زمان و هزینه‌ها برای شما کار می‌کنند",
+                    "fa": "صفحه‌های زمان و هزینه‌ها حالا مخصوص خود شما هستند",
                     "es": "Tus páginas de Tiempo y Gastos funcionan para ti",
                     "ar": "صفحتا الوقت والمصروفات تعملان لك",
                 },
                 body={
                     "en": "Logging time now offers you as the worker and the clients to bill it to, and a mileage claim is filed in your own name. Managers see the approvals queue without the forms they don't use.",
-                    "fa": "در ثبت زمان، شما به‌عنوان کارکن و مشتریانی که کار برایشان است نمایش داده می‌شوند و درخواست هزینه رفت‌وآمد به نام خودتان ثبت می‌شود. مدیران صف تأیید را بدون فرم‌هایی که استفاده نمی‌کنند می‌بینند.",
+                    "fa": "در ثبت زمان، شما به‌عنوان کارکن و مشتریانی که کار برایشان است نمایش داده می‌شوند و درخواست هزینه رفت‌وآمد به نام خودتان ثبت می‌شود. مدیران کارتابل تأیید را بدون فرم‌هایی که استفاده نمی‌کنند می‌بینند.",
                     "es": "Al registrar tiempo apareces tú como trabajador y los clientes a los que facturarlo, y una solicitud de kilometraje se presenta a tu nombre. Los responsables ven la cola de aprobaciones sin los formularios que no usan.",
                     "ar": "عند تسجيل الوقت تظهر أنت كعامل ويظهر العملاء الذين يُفوتر لهم، ويُقدَّم طلب المسافات باسمك. ويرى المديرون قائمة الموافقات دون النماذج التي لا يستخدمونها.",
                 },
@@ -1402,7 +1402,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "An employee's Time page now shows their own billable rate and unbilled hours only — not their colleagues' — and no client invoices. Whether time counts towards pay is yours to set: an employee's entry takes its type's default (unpaid stays unpaid). Mileage claims are filed only in the claimant's own name.",
-                    "fa": "در صفحه زمانِ کارمند اکنون فقط نرخ و ساعت‌های صورت‌حساب‌نشده خودش دیده می‌شود — نه همکارانش — و فاکتور مشتریان نمایش داده نمی‌شود. اینکه زمانی در حقوق حساب شود با شماست: ثبتِ کارمند پیش‌فرضِ نوعش را می‌گیرد (بدون حقوق، بدون حقوق می‌ماند). درخواست هزینه رفت‌وآمد فقط به نام خود متقاضی ثبت می‌شود.",
+                    "fa": "در صفحه زمانِ کارمند اکنون فقط نرخ و ساعت‌های فاکتورنشده خودش دیده می‌شود — نه همکارانش — و فاکتور مشتریان نمایش داده نمی‌شود. اینکه زمانی در حقوق حساب شود با شماست: ثبتِ کارمند پیش‌فرضِ نوعش را می‌گیرد (بدون حقوق، بدون حقوق می‌ماند). درخواست هزینه رفت‌وآمد فقط به نام خود متقاضی ثبت می‌شود.",
                     "es": "La página de Tiempo de un empleado muestra ahora solo su propia tarifa y sus horas sin facturar —no las de sus compañeros— y ninguna factura de clientes. Si el tiempo cuenta para la nómina lo decides tú: la entrada de un empleado toma el valor por defecto de su tipo (lo no remunerado sigue sin remunerar). Las solicitudes de kilometraje solo se presentan a nombre de quien las pide.",
                     "ar": "تعرض صفحة الوقت للموظف الآن سعره وساعاته غير المفوترة فقط — لا ساعات زملائه — ولا فواتير العملاء. واحتساب الوقت في الراتب قرارك: يأخذ قيد الموظف القيمة الافتراضية لنوعه (غير المدفوع يبقى غير مدفوع). وتُقدَّم طلبات المسافات باسم صاحبها فقط.",
                 },
@@ -1471,7 +1471,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Your key figures, smart alerts and what changed stay at the top. Under them, pick a tab — Cash, Receivables & payables, Spending & profit or Books — instead of scrolling through every section. The dashboard remembers the tab you were on.",
-                    "fa": "شاخص‌های کلیدی، هشدارهای هوشمند و «چه چیزی تغییر کرده» همیشه بالای صفحه می‌مانند. زیر آن‌ها به جای پیمایش همهٔ بخش‌ها یکی از زبانه‌ها را باز کنید — نقدینگی، مطالبات و بدهی‌ها، هزینه و سود یا دفاتر. داشبورد زبانه‌ای را که باز کرده بودید به خاطر می‌سپارد.",
+                    "fa": "شاخص‌های کلیدی، هشدارهای هوشمند و «تغییرات اخیر» همیشه بالای صفحه می‌مانند. زیر آن‌ها به جای پیمایش همهٔ بخش‌ها یکی از زبانه‌ها را باز کنید — نقدینگی، مطالبات و بدهی‌ها، هزینه و سود یا دفاتر. داشبورد زبانه‌ای را که باز کرده بودید به خاطر می‌سپارد.",
                     "es": "Tus cifras clave, las alertas inteligentes y lo que ha cambiado siguen arriba. Debajo, elige una pestaña —Caja, Cobros y pagos, Gastos y rentabilidad o Contabilidad— en lugar de recorrer todas las secciones. El panel recuerda la pestaña en la que estabas.",
                     "ar": "تبقى أرقامك الرئيسية والتنبيهات الذكية وما الذي تغيّر في الأعلى. وتحتها اختر تبويبًا — النقدية، المدينون والدائنون، المصروفات والربحية أو الدفاتر — بدلًا من التمرير عبر كل الأقسام. وتتذكّر لوحة التحكم التبويب الذي كنت فيه.",
                 },
@@ -1482,13 +1482,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=_SME_BOOKS,
                 title={
                     "en": "Credit notes on paid invoices, refunds and customer credit",
-                    "fa": "برگ بستانکار برای فاکتور پرداخت‌شده، بازپرداخت و اعتبار مشتری",
+                    "fa": "برگ بستانکار برای فاکتور پرداخت‌شده، استرداد و بستانکاری مشتری",
                     "es": "Notas de crédito en facturas pagadas, reembolsos y saldo a favor",
                     "ar": "إشعارات دائنة على الفواتير المدفوعة، واسترداد ورصيد للعميل",
                 },
                 body={
                     "en": "A credit note can now go against a paid invoice too. It takes its share of the VAT back, settles what is still owed first, and the rest becomes the customer's credit: refund it now or later, or use it on their next invoice. A fully credited invoice reads \"Credited\". Supplier bills work the same way.",
-                    "fa": "اکنون برای فاکتور پرداخت‌شده هم می‌توان برگ بستانکار صادر کرد. سهم مالیات بر ارزش افزوده‌اش برمی‌گردد، اول ماندهٔ فاکتور تسویه می‌شود و باقی آن اعتبار مشتری می‌شود: همین حالا یا بعداً بازپرداختش کنید، یا در فاکتور بعدی همان مشتری به کار ببرید. فاکتوری که کامل برگشت خورده «برگشت‌شده» نمایش داده می‌شود. صورتحساب‌های تأمین‌کننده هم همین‌طورند.",
+                    "fa": "اکنون برای فاکتور پرداخت‌شده هم می‌توان برگ بستانکار صادر کرد. سهم مالیات بر ارزش افزوده‌اش برمی‌گردد، اول ماندهٔ فاکتور تسویه می‌شود و باقی آن بستانکاری مشتری می‌شود: همین حالا یا بعداً آن را مسترد کنید، یا در فاکتور بعدی همان مشتری به کار ببرید. فاکتوری که برای تمام مبلغش برگ بستانکار صادر شده، «برگشت‌شده» نمایش داده می‌شود. فاکتورهای خرید هم همین‌طورند.",
                     "es": "Ahora también puedes emitir una nota de crédito sobre una factura pagada. Devuelve su parte del IVA, liquida primero lo que aún se debe y el resto queda como saldo a favor del cliente: reembólsalo ahora o más tarde, o úsalo en su próxima factura. Una factura abonada por completo aparece como «Abonada». Las facturas de proveedores funcionan igual.",
                     "ar": "يمكن الآن إصدار إشعار دائن على فاتورة مدفوعة أيضًا. يُعيد حصته من ضريبة القيمة المضافة، ويسوّي أولًا ما بقي مستحقًا، ويصبح الباقي رصيدًا للعميل: استرده الآن أو لاحقًا، أو استخدمه في فاتورته التالية. وتظهر الفاتورة المُرتجعة بالكامل بحالة «مُرتجعة». وتعمل فواتير الموردين بالطريقة نفسها.",
                 },
@@ -1506,7 +1506,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Invoices dated from 1 Farvardin 1403 use the 10% standard VAT rate; earlier invoices keep 9%. A rate you set yourself is left as it is.",
-                    "fa": "فاکتورهای از ۱ فروردین ۱۴۰۳ به بعد با نرخ استاندارد ۱۰٪ حساب می‌شوند و فاکتورهای پیش از آن ۹٪ می‌مانند. نرخی که خودتان تعیین کرده‌اید دست نمی‌خورد.",
+                    "fa": "فاکتورهایی که تاریخشان از ۱ فروردین ۱۴۰۳ به بعد است با نرخ استاندارد ۱۰٪ حساب می‌شوند و فاکتورهای پیش از آن ۹٪ می‌مانند. نرخی که خودتان تعیین کرده‌اید دست نمی‌خورد.",
                     "es": "Las facturas con fecha desde el 1 de farvardín de 1403 usan el tipo general del 10 %; las anteriores mantienen el 9 %. Un tipo que hayas definido tú se queda como está.",
                     "ar": "تستخدم الفواتير المؤرخة من 1 فروردين 1403 النسبة القياسية 10%، وتبقى الفواتير السابقة على 9%. أما النسبة التي حددتها بنفسك فتبقى كما هي.",
                 },
@@ -1541,7 +1541,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Each invoice row keeps its everyday actions in view, and the rest are under ⋯. The chart of accounts works the same way.",
-                    "fa": "هر ردیف فاکتور کارهای روزمره‌اش را در دسترس نگه می‌دارد و بقیه زیر ⋯ است. جدول حساب‌ها هم همین‌طور است.",
+                    "fa": "هر ردیف فاکتور کارهای روزمره‌اش را در دسترس نگه می‌دارد و بقیه زیر ⋯ است. کدینگ حساب‌ها هم همین‌طور است.",
                     "es": "Cada fila de factura mantiene a la vista sus acciones habituales y el resto está bajo ⋯. El plan de cuentas funciona igual.",
                     "ar": "يُبقي كل صف فاتورة إجراءاته اليومية ظاهرة، والباقي تحت ⋯. ويعمل دليل الحسابات بالطريقة نفسها.",
                 },
@@ -1564,7 +1564,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "On a year of books, the invoice list, the e-invoicing (Moadian) list, receivables aging and the notification bell took seconds. They now open in under a second, and CFO and CEO Mode in about half a second.",
-                    "fa": "روی دفاتر یک سال، فهرست فاکتورها، فهرست سامانه مودیان، گزارش سنی مطالبات و اعلان‌ها چند ثانیه طول می‌کشید. حالا زیر یک ثانیه باز می‌شوند و حالت مدیر مالی و مدیرعامل در حدود نیم ثانیه.",
+                    "fa": "در دفاتری با یک سال سابقه، فهرست فاکتورها، فهرست سامانه مودیان، تحلیل سنی مطالبات و اعلان‌ها چند ثانیه طول می‌کشید. حالا زیر یک ثانیه باز می‌شوند و حالت مدیر مالی و مدیرعامل در حدود نیم ثانیه.",
                     "es": "Con un año de libros, la lista de facturas, la de facturación electrónica (Moadian), la antigüedad de saldos y las notificaciones tardaban segundos. Ahora abren en menos de un segundo, y los modos CFO y CEO en medio segundo.",
                     "ar": "مع دفاتر سنة كاملة كانت قائمة الفواتير وقائمة الفوترة الإلكترونية (مؤديان) وأعمار الذمم والتنبيهات تستغرق ثوانيَ. والآن تفتح في أقل من ثانية، ووضعا المدير المالي والمدير التنفيذي في نحو نصف ثانية.",
                 },
@@ -1597,7 +1597,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Notifications write dates in your company's calendar (1405/07/04 in an Iranian company). An overdue invoice that was paid in part stays there and says how much is still open.",
-                    "fa": "اعلان‌ها تاریخ‌ها را به تقویم شرکت می‌نویسند (مثلاً 1405/07/04). فاکتور سررسیدگذشته‌ای که بخشی از آن پرداخت شده در اعلان‌ها می‌ماند و مانده‌اش را می‌گوید.",
+                    "fa": "اعلان‌ها تاریخ‌ها را با تقویم شرکت می‌نویسند (مثلاً ۱۴۰۵/۰۷/۰۴). فاکتور سررسیدگذشته‌ای که بخشی از آن پرداخت شده در اعلان‌ها می‌ماند و مانده‌اش را می‌گوید.",
                     "es": "Las notificaciones escriben las fechas en el calendario de tu empresa (1405/07/04 en una empresa iraní). Una factura vencida pagada en parte sigue en ellas e indica cuánto queda pendiente.",
                     "ar": "تكتب التنبيهات التواريخ بتقويم شركتك (1405/07/04 في شركة إيرانية). وتبقى الفاتورة المتأخرة المدفوعة جزئيًا فيها مع بيان ما بقي مستحقًا.",
                 },
@@ -1637,7 +1637,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Average monthly revenue and the burn rate now count every month, quiet ones as zero, and month-over-month compares the last two complete months — no more \"revenue down 100%\" at the start of each month.",
-                    "fa": "میانگین درآمد ماهانه و نرخ مصرف حالا همهٔ ماه‌ها را حساب می‌کنند و ماه‌های بی‌فعالیت را صفر می‌گیرند، و مقایسهٔ ماه‌به‌ماه دو ماه کامل اخیر را می‌سنجد — دیگر اول هر ماه «کاهش 100٪ درآمد» نمی‌بینید.",
+                    "fa": "میانگین درآمد ماهانه و نرخ مصرف حالا همهٔ ماه‌ها را حساب می‌کنند و ماه‌های بی‌فعالیت را صفر می‌گیرند، و مقایسهٔ ماه‌به‌ماه دو ماه کامل اخیر را می‌سنجد — دیگر اول هر ماه «کاهش ۱۰۰٪ درآمد» نمی‌بینید.",
                     "es": "El ingreso medio mensual y el ritmo de gasto cuentan ahora todos los meses, los tranquilos como cero, y la comparación mensual usa los dos últimos meses completos: se acabó el «ingresos −100%» al empezar cada mes.",
                     "ar": "يحتسب متوسط الإيراد الشهري ومعدل الإنفاق الآن كل الأشهر، والهادئة منها صفرًا، وتقارن المقارنة الشهرية آخر شهرين مكتملين — لا مزيد من «انخفاض الإيرادات 100٪» في بداية كل شهر.",
                 },
@@ -1677,7 +1677,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "A customer who has owed you for over a year, or a supplier you've owed as long, now shows in the dashboard's aging (60+ days), its overdue alerts and \"Liabilities payable\" — they only counted the last twelve months.",
-                    "fa": "مشتری‌ای که بیش از یک سال به شما بدهکار است، یا تأمین‌کننده‌ای که همین‌قدر طلبکار است، حالا در گزارش سنی داشبورد (بیش از ۶۰ روز)، هشدارهای سررسیدگذشته و «بدهی‌های پرداختنی» دیده می‌شود — این‌ها فقط دوازده ماه اخیر را می‌شمردند.",
+                    "fa": "مشتری‌ای که بیش از یک سال به شما بدهکار است، یا تأمین‌کننده‌ای که همین مدت از شما طلب دارد، حالا در تحلیل سنی داشبورد (بیش از ۶۰ روز)، هشدارهای سررسیدگذشته و «بدهی‌های پرداختنی» دیده می‌شود — این‌ها فقط دوازده ماه اخیر را می‌شمردند.",
                     "es": "Un cliente que te debe desde hace más de un año, o un proveedor al que debes desde entonces, aparece ahora en la antigüedad del panel (más de 60 días), sus alertas de vencidos y en «Pasivos por pagar»; solo contaban los últimos doce meses.",
                     "ar": "العميل المدين لك منذ أكثر من سنة، أو المورد الدائن منذ المدة نفسها، يظهر الآن في أعمار الذمم في لوحة التحكم (أكثر من 60 يومًا) وتنبيهات التأخر و«الالتزامات المستحقة» — كانت تحتسب آخر اثني عشر شهرًا فقط.",
                 },
@@ -1694,13 +1694,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=_SME_BOOKS,
                 title={
                     "en": "Pay profiles keep what you didn't change",
-                    "fa": "پروفایل حقوق چیزی را که تغییر ندادید نگه می‌دارد",
+                    "fa": "مشخصات حقوقی چیزی را که تغییر ندادید نگه می‌دارد",
                     "es": "Los perfiles de pago conservan lo que no cambias",
                     "ar": "ملفات الرواتب تحتفظ بما لم تغيّره",
                 },
                 body={
                     "en": "Picking an employee on the payroll page fills the form with their profile, so changing one thing and saving keeps the rest — the blank form used to be saved over it. A new profile starts on \"Statutory rules\" when they're in force, so insurance and income tax are worked out, not left at flat rates of 0%.",
-                    "fa": "با انتخاب کارمند در صفحهٔ حقوق و دستمزد، فرم با پروفایل او پر می‌شود؛ پس اگر یک مورد را عوض کنید و ذخیره کنید، بقیه سر جایش می‌ماند — پیش‌تر فرم خالی روی آن ذخیره می‌شد. پروفایل تازه هم وقتی قوانین سال جاری ثبت شده باشد با «قوانین رسمی» شروع می‌شود تا بیمه و مالیات حساب شود، نه با نرخ‌های ثابت صفر درصد.",
+                    "fa": "با انتخاب کارمند در صفحهٔ حقوق و دستمزد، فرم با مشخصات حقوقی او پر می‌شود؛ پس اگر یک مورد را عوض کنید و ذخیره کنید، بقیه سر جایش می‌ماند — پیش‌تر فرم خالی روی آن ذخیره می‌شد. مشخصات حقوقی تازه هم وقتی قوانین سال جاری ثبت شده باشد با «طبق قانون» شروع می‌شود تا بیمه و مالیات حساب شود، نه با نرخ‌های ثابت صفر درصد.",
                     "es": "Al elegir un empleado en la página de nómina, el formulario se llena con su perfil, así que cambiar una cosa y guardar conserva el resto; antes se guardaba el formulario vacío encima. Un perfil nuevo empieza en «Reglas legales» cuando están vigentes, de modo que se calculan el seguro y el impuesto, en lugar de tasas fijas del 0%.",
                     "ar": "عند اختيار موظف في صفحة الرواتب يمتلئ النموذج بملفه، فإذا غيّرت شيئًا واحدًا وحفظت يبقى الباقي كما هو — كان النموذج الفارغ يُحفظ فوقه. ويبدأ الملف الجديد على «القواعد النظامية» متى كانت سارية، فيُحتسب التأمين وضريبة الدخل بدل النسب الثابتة عند 0%.",
                 },
@@ -1740,7 +1740,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Inventory → \"Stock in the books\": from the date you pick, stock posts to the ledger. A bill's stock lines go to Stocks instead of purchases, a sale's lines take their cost of sales each month, and counts and write-offs post too, so the balance sheet carries your stock and the profit and loss what was sold. An invoice line named like a stock item is marked \"Stock\".",
-                    "fa": "«انبار ← موجودی کالا در دفاتر»: از تاریخی که انتخاب می‌کنید، موجودی در دفاتر ثبت می‌شود. ردیف‌های کالای فاکتور خرید به‌جای خرید به حساب موجودی کالا می‌رود، بهای تمام‌شدهٔ ردیف‌های فروش هر ماه ثبت می‌شود و شمارش و ضایعات هم سند می‌خورد؛ پس ترازنامه موجودی شما را نشان می‌دهد و صورت سود و زیان بهای کالای فروش‌رفته را. ردیفی از فاکتور که نامش نام کالایی از انبار است، برچسب «کالای انبار» می‌گیرد.",
+                    "fa": "«انبار ← موجودی کالا در دفاتر»: از تاریخی که انتخاب می‌کنید، موجودی در دفاتر ثبت می‌شود. ردیف‌های کالای فاکتور خرید به‌جای خرید به حساب موجودی کالا می‌رود، بهای تمام‌شدهٔ ردیف‌های فروش هر ماه ثبت می‌شود و انبارگردانی و ضایعات هم سند می‌خورد؛ پس ترازنامه موجودی شما را نشان می‌دهد و صورت سود و زیان بهای کالای فروش‌رفته را. ردیفی از فاکتور که نامش نام کالایی از انبار است، برچسب «کالای انبار» می‌گیرد.",
                     "es": "Inventario → «Existencias en la contabilidad»: desde la fecha que elijas, las existencias se contabilizan. Las líneas de existencias de una factura de compra van a Existencias en lugar de compras, las de una venta registran su coste cada mes, y los recuentos y bajas también se contabilizan, así que el balance muestra tus existencias y la cuenta de resultados lo vendido. Una línea con el nombre de un artículo se marca «Existencias».",
                     "ar": "المخزون ← «المخزون في الدفاتر»: من التاريخ الذي تختاره يُرحَّل المخزون إلى الدفاتر. تذهب بنود المخزون في فاتورة الشراء إلى حساب المخزون بدل المشتريات، وتُسجَّل تكلفة بنود البيع كل شهر، وتُرحَّل عمليات الجرد والشطب أيضًا؛ فتُظهر الميزانية مخزونك وقائمة الدخل تكلفة ما بِيع. وبند الفاتورة الذي يحمل اسم صنف في المخزون يُعلَّم «مخزون».",
                 },
@@ -1774,7 +1774,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "\"How much cash do we have?\", \"Who owes us?\", \"What did we spend last month?\" and other common questions are answered from the books at once, the same figure every time, without waiting for the assistant. On books brought over from another system, the assistant reads the imported accounts and parties as your own.",
-                    "fa": "«چقدر نقد داریم؟»، «چه کسانی به ما بدهکارند؟»، «ماه پیش چقدر خرج کردیم؟» و پرسش‌های رایج دیگر فوراً از روی دفاتر پاسخ داده می‌شود، هر بار با همان عدد و بی‌انتظار برای دستیار. در دفاتری که از سیستم دیگری آمده، دستیار حساب‌ها و طرف‌حساب‌های واردشده را مثل حساب‌های خود شما می‌خواند.",
+                    "fa": "«چقدر نقد داریم؟»، «چه کسانی به ما بدهکارند؟»، «ماه پیش چقدر خرج کردیم؟» و پرسش‌های رایج دیگر فوراً از روی دفاتر پاسخ داده می‌شود، هر بار با همان عدد و بی‌آنکه منتظر دستیار بمانید. در دفاتری که از سیستم دیگری آمده، دستیار حساب‌ها و طرف حساب‌های واردشده را مثل حساب‌های خود شما می‌خواند.",
                     "es": "«¿Cuánto efectivo tenemos?», «¿Quién nos debe?», «¿Cuánto gastamos el mes pasado?» y otras preguntas habituales se responden al instante desde los libros, con la misma cifra cada vez y sin esperar al asistente. En libros traídos de otro sistema, el asistente lee las cuentas y los terceros importados como propios.",
                     "ar": "«كم لدينا من النقد؟» و«مَن مدين لنا؟» و«كم أنفقنا الشهر الماضي؟» وغيرها من الأسئلة الشائعة تُجاب فورًا من الدفاتر، بالرقم نفسه كل مرة ومن دون انتظار المساعد. وفي الدفاتر المنقولة من نظام آخر يقرأ المساعد الحسابات والأطراف المستوردة كأنها حساباتك.",
                 },
@@ -1850,7 +1850,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Books kept by hand often keep customers, suppliers, staff and cash funds as accounts. Entities now lists them under \"Accounts in your chart that could be parties\": tick each one, say what it is (a customer, supplier, employee or shareholder; for cash kept at a bank or by a person, a bank or an employee) and make it a party. It keeps its account and past entries, new entries on the account join it, and its transactions, balance and statement read from the account. A cash fund below zero is marked to check.",
-                    "fa": "در دفاتری که دستی نگه داشته می‌شوند، مشتری‌ها، تأمین‌کننده‌ها، کارکنان و تنخواه‌ها اغلب حساب‌اند. حالا «اشخاص» آن‌ها را زیر «حساب‌هایی از کدینگ شما که می‌توانند طرف حساب باشند» می‌آورد: هر کدام را تیک بزنید، بگویید چیست (مشتری، تأمین‌کننده، کارمند یا سهامدار؛ و برای پولی که در بانک یا نزد کسی است، بانک یا کارمند) و طرف حساب بسازید. حساب و سندهای گذشته‌اش با او می‌ماند، سندهای تازهٔ آن حساب هم به او وصل می‌شود، و تراکنش‌ها، مانده و صورت‌حسابش از همان حساب خوانده می‌شود. تنخواهی که منفی است، «منفی — بررسی شود» می‌خورد.",
+                    "fa": "در دفاتری که دستی نگه داشته می‌شوند، مشتری‌ها، تأمین‌کننده‌ها، کارکنان و تنخواه‌ها اغلب حساب‌اند. حالا «اشخاص» آن‌ها را زیر «حساب‌هایی از کدینگ شما که می‌توانند طرف حساب باشند» می‌آورد: هر کدام را تیک بزنید، بگویید چیست (مشتری، تأمین‌کننده، کارمند یا سهامدار؛ و برای پولی که در بانک یا نزد کسی است، بانک یا کارمند) و طرف حساب بسازید. حساب و سندهای گذشته‌اش با او می‌ماند، سندهای تازهٔ آن حساب هم به او وصل می‌شود، و تراکنش‌ها، مانده و صورت‌حسابش از همان حساب خوانده می‌شود. تنخواهی که منفی است برچسب «منفی — بررسی شود» می‌گیرد.",
                     "es": "Los libros llevados a mano suelen tener a clientes, proveedores, personal y fondos de caja como cuentas. Entidades las muestra ahora en «Cuentas de tu plan que podrían ser terceros»: marca cada una, di qué es (cliente, proveedor, empleado o accionista; para el efectivo guardado en un banco o por una persona, banco o empleado) y conviértela en tercero. Conserva su cuenta y sus asientos anteriores, los asientos nuevos en la cuenta se le suman, y sus transacciones, su saldo y su extracto se leen de la cuenta. Un fondo de caja en negativo se marca para revisarlo.",
                     "ar": "كثيرًا ما تجعل الدفاتر المسجلة يدويًا العملاء والموردين والموظفين وصناديق النقد حسابات. تعرضها صفحة «الكيانات» الآن تحت «حسابات في دليلك يمكن أن تكون أطرافًا»: علّم كل واحد منها وحدد ما هو (عميل أو مورد أو موظف أو مساهم؛ وللنقد المحفوظ في بنك أو لدى شخص: بنك أو موظف) واجعله طرفًا. يحتفظ بحسابه وقيوده السابقة، وتنضم إليه القيود الجديدة على الحساب، وتُقرأ معاملاته ورصيده وكشف حسابه من الحساب. ويُعلَّم صندوق النقد الذي رصيده بالسالب للمراجعة.",
                 },
@@ -1861,13 +1861,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=("owner", "cfo"),
                 title={
                     "en": "No runway figure without spending to measure",
-                    "fa": "بقای مالی فقط وقتی خرجی برای سنجیدن هست",
+                    "fa": "بدون هزینه، دوام نقدینگی محاسبه نمی‌شود",
                     "es": "Sin runway cuando no hay gasto que medir",
                     "ar": "لا رقم للسيولة المتبقية حين لا يوجد إنفاق يُقاس",
                 },
                 body={
                     "en": "When nothing was spent in the last three months, CFO Mode's runway reads N/A and its summary says there's no burn to measure a runway against; it read 999 months. Chart labels now use the page's own font, and with the app in Persian the CFO's summary, insights and answers write their figures in Persian digits.",
-                    "fa": "وقتی در سه ماه اخیر هزینه‌ای ثبت نشده، بقای مالی در حالت مدیر مالی به‌جای «۹۹۹ ماه» می‌نویسد «ندارد»، و خلاصه می‌گوید نرخ سوختی نیست که دوام نقدینگی با آن سنجیده شود. برچسب‌های نمودارها حالا با قلم خود صفحه نوشته می‌شوند، و خلاصه، بینش‌ها و پاسخ‌های مدیر مالی عددها را با رقم فارسی و «ریال» می‌نویسند.",
+                    "fa": "وقتی در سه ماه اخیر هزینه‌ای ثبت نشده، دوام نقدینگی در حالت مدیر مالی به‌جای «۹۹۹ ماه» می‌نویسد «ندارد»، و خلاصه می‌گوید هزینه‌ای نیست که دوام نقدینگی با آن سنجیده شود. برچسب‌های نمودارها حالا با قلم خود صفحه نوشته می‌شوند، و خلاصه، بینش‌ها و پاسخ‌های مدیر مالی عددها را با رقم فارسی و «ریال» می‌نویسند.",
                     "es": "Si no se gastó nada en los últimos tres meses, el runway del Modo CFO muestra N/D y el resumen explica que no hay gasto con el que medirlo; antes decía 999 meses. Las etiquetas de los gráficos usan ahora la fuente de la página, y con la aplicación en persa el resumen, los avisos y las respuestas escriben sus cifras con dígitos persas.",
                     "ar": "إذا لم يُنفق شيء في الأشهر الثلاثة الأخيرة، تعرض «السيولة المتبقية» في «وضع المدير المالي» «غير متاح» ويوضح الملخص أنه لا يوجد معدل إنفاق تُقاس به؛ كانت تعرض 999 شهرًا. وتستخدم تسميات الرسوم البيانية الآن خط الصفحة نفسه، وعندما يكون التطبيق بالفارسية يكتب الملخص والتنبيهات والإجابات أرقامها بالأرقام الفارسية.",
                 },
@@ -1884,13 +1884,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=("owner", "cfo", "accountant", "personal"),
                 title={
                     "en": "Reply, copy and share in the chat",
-                    "fa": "پاسخ، کپی و ارسال در گفتگو",
+                    "fa": "پاسخ، کپی و اشتراک‌گذاری در گفتگو",
                     "es": "Responder, copiar y compartir en el chat",
                     "ar": "الرد والنسخ والمشاركة في المحادثة",
                 },
                 body={
                     "en": "Point at a message on the web, or hold it down in the app, for Reply, Copy and Share; or swipe it left to reply, on the phone and on a touch screen. Reply puts the message above the box, and the assistant reads your answer as being about it; reply to a card to change that very card. Share opens the phone's share sheet, or Telegram, WhatsApp and e-mail. In personal books, a card now shows its amount, what it is and its date, and lines that say To and From instead of Dr and Cr, in the app and on the web.",
-                    "fa": "در وب نشانگر را روی پیام ببرید، یا در اپ پیام را نگه دارید: پاسخ، کپی و ارسال؛ یا برای پاسخ، پیام را به چپ بکشید، در گوشی و روی صفحهٔ لمسی. با «پاسخ» پیام بالای کادر می‌نشیند و دستیار پیام شما را دربارهٔ همان می‌خواند؛ با پاسخ به یک کارت، همان کارت اصلاح می‌شود. «ارسال» صفحهٔ اشتراک‌گذاری گوشی را باز می‌کند، یا تلگرام، واتس‌اپ و ایمیل را. در دفاتر شخصی، کارت حالا مبلغ، شرح و تاریخ را نشان می‌دهد و ردیف‌هایش به‌جای «بد» و «بس» می‌گویند «به» و «از»، در اپ و در وب.",
+                    "fa": "در وب نشانگر را روی پیام ببرید، یا در برنامه پیام را نگه دارید: پاسخ، کپی و اشتراک‌گذاری؛ یا برای پاسخ، پیام را به چپ بکشید، در گوشی و روی صفحهٔ لمسی. با «پاسخ» پیام بالای کادر می‌نشیند و دستیار پیام شما را دربارهٔ همان می‌خواند؛ با پاسخ به یک کارت، همان کارت اصلاح می‌شود. «اشتراک‌گذاری» صفحهٔ اشتراک‌گذاری گوشی را باز می‌کند، یا تلگرام، واتس‌اپ و ایمیل را. در دفاتر شخصی، کارت حالا مبلغ، شرح و تاریخ را نشان می‌دهد و ردیف‌هایش به‌جای «بد» و «بس» می‌گویند «به» و «از»، در برنامه و در وب.",
                     "es": "Señala un mensaje en la web, o mantenlo pulsado en la app, para Responder, Copiar y Compartir; o deslízalo a la izquierda para responder, en el teléfono y en una pantalla táctil. Responder pone el mensaje sobre el cuadro, y el asistente lee tu respuesta como referida a él; responde a una tarjeta para cambiar esa misma tarjeta. Compartir abre el menú de compartir del teléfono, o Telegram, WhatsApp y correo. En los libros personales, una tarjeta muestra ahora su importe, qué es y su fecha, y líneas que dicen A y De en lugar de D y H, en la app y en la web.",
                     "ar": "أشر إلى رسالة على الويب، أو اضغط عليها مطولًا في التطبيق، لتظهر: رد ونسخ ومشاركة؛ أو اسحبها إلى اليسار للرد، في الهاتف وعلى شاشة اللمس. يضع «رد» الرسالة فوق المربع، ويقرأ المساعد إجابتك على أنها تخصها؛ رُدّ على بطاقة لتغيير تلك البطاقة نفسها. وتفتح «مشاركة» قائمة المشاركة في الهاتف، أو تيليجرام وواتساب والبريد. وفي الدفاتر الشخصية تعرض البطاقة الآن مبلغها ووصفها وتاريخها، وتقول أسطرها «إلى» و«من» بدلًا من «مدين» و«دائن»، في التطبيق وعلى الويب.",
                 },
@@ -1913,7 +1913,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Open a conversation again on the web and its cards are back under their answers, each as it stands: one still waiting can be confirmed, a posted one shows its reference and date, a cancelled or expired one says so. Every draft entry is now drawn as the card itself, the amount, what it is and its date, and each line with Dr and Cr (To and From in personal books), instead of the summary written for the assistant.",
-                    "fa": "گفتگویی را در وب دوباره باز کنید: کارت‌هایش زیر پاسخ‌هایشان برمی‌گردند، هر کدام همان‌طور که حالا هست: کارتی که هنوز منتظر است تأییدشدنی است، کارت ثبت‌شده شماره و تاریخش را دارد، و کارت لغوشده یا منقضی همین را می‌گوید. هر پیش‌نویس سند حالا خود کارت است: مبلغ، شرح و تاریخ، و هر ردیف با «بد» و «بس» («به» و «از» در دفاتر شخصی)، به‌جای خلاصه‌ای که برای دستیار نوشته شده بود.",
+                    "fa": "گفتگویی را در وب دوباره باز کنید: کارت‌هایش زیر پاسخ‌هایشان برمی‌گردند، هر کدام همان‌طور که حالا هست: کارتی را که هنوز منتظر است می‌توان تأیید کرد، کارت ثبت‌شده شماره و تاریخش را دارد، و کارت لغوشده یا منقضی همین را می‌گوید. هر پیش‌نویس سند حالا خود کارت است: مبلغ، شرح و تاریخ، و هر ردیف با «بد» و «بس» («به» و «از» در دفاتر شخصی)، به‌جای خلاصه‌ای که برای دستیار نوشته شده بود.",
                     "es": "Abre de nuevo una conversación en la web y sus tarjetas vuelven bajo sus respuestas, cada una como está: la que aún espera se puede confirmar, la registrada muestra su referencia y su fecha, la cancelada o caducada lo dice. Cada borrador de asiento se muestra ahora como la tarjeta misma: el importe, qué es y su fecha, y cada línea con D y H (A y De en los libros personales), en lugar del resumen escrito para el asistente.",
                     "ar": "افتح محادثة من جديد على الويب فتعود بطاقاتها تحت إجاباتها، كل منها كما هي الآن: ما زال ينتظر يمكن تأكيده، والمسجّلة تُظهر مرجعها وتاريخها، والملغاة أو المنتهية تقول ذلك. وكل مسودة قيد تُعرض الآن بطاقةً بنفسها: المبلغ ووصفها وتاريخها، وكل سطر بـ«مدين» و«دائن» («إلى» و«من» في الدفاتر الشخصية)، بدلًا من الملخص المكتوب للمساعد.",
                 },
@@ -1930,13 +1930,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=("owner", "cfo", "accountant", "personal"),
                 title={
                     "en": "A bank statement posted by your rules, a voucher a day",
-                    "fa": "صورتحساب بانک با قاعده‌های خودتان، هر روز یک سند",
+                    "fa": "صورت‌حساب بانکی با قاعده‌های خودتان، هر روز یک سند",
                     "es": "Un extracto bancario registrado con tus reglas, un asiento por día",
                     "ar": "كشف البنك يُرحَّل بقواعدك، قيد لكل يوم",
                 },
                 body={
                     "en": "Drop your bank's own export into the chat (its amounts signed + and −, its balance column) and say where the rows go: money in to tuition income, money out to school expenses, the bank's fees to bank charges. You get one card for the whole statement, a voucher for each day, oldest first, with each row's own words on its lines; confirmed, every row is marked recorded, and Undo takes them all back. An account you name that isn't in your chart is offered as choices, never guessed.",
-                    "fa": "خروجی خود بانک را (با مبلغ‌های + و − و ستون موجودی) در گفتگو بیندازید و بگویید ردیف‌ها کجا بروند: واریزها به درآمد شهریه، برداشت‌ها به مخارج مدرسه، کارمزدهای بانک به کارمزد بانکی. یک کارت برای کل صورتحساب می‌آید، هر روز یک سند، از قدیم به جدید، و هر ردیف با شرح خودش؛ با تأیید، همهٔ ردیف‌ها ثبت‌شده علامت می‌خورند و «برگرداندن» همه را پس می‌گیرد. حسابی که نام ببرید و در کدینگ نباشد، به‌صورت گزینه پیشنهاد می‌شود، نه حدس.",
+                    "fa": "خروجی خود بانک را (با مبلغ‌های + و − و ستون موجودی) در گفتگو بفرستید و بگویید ردیف‌ها کجا بروند: واریزها به درآمد شهریه، برداشت‌ها به مخارج مدرسه، کارمزدهای بانک به کارمزد بانکی. یک کارت برای کل صورت‌حساب می‌آید، هر روز یک سند، از قدیم به جدید، و هر ردیف با شرح خودش؛ با تأیید، همهٔ ردیف‌ها ثبت‌شده علامت می‌خورند و «واگرد» همه را پس می‌گیرد. حسابی که نام ببرید و در کدینگ نباشد، به‌صورت گزینه پیشنهاد می‌شود، نه حدس.",
                     "es": "Suelta en el chat la exportación de tu banco (importes con + y −, columna de saldo) y di adónde van las filas: los ingresos a matrículas, los pagos a gastos del colegio, las comisiones a gastos bancarios. Recibes una tarjeta para todo el extracto, un asiento por día, del más antiguo al más reciente, con la descripción de cada fila; al confirmarla, cada fila queda registrada y Deshacer lo revierte todo. Una cuenta que nombres y no esté en tu plan se ofrece como opciones, nunca se adivina.",
                     "ar": "أسقط في المحادثة تصدير بنكك نفسه (مبالغ بإشارتي + و− وعمود الرصيد) وقل أين تذهب الصفوف: الإيداعات إلى إيراد الرسوم، والسحوبات إلى مصاريف المدرسة، وعمولات البنك إلى المصاريف البنكية. تأتيك بطاقة واحدة للكشف كله، قيد لكل يوم من الأقدم إلى الأحدث، ولكل صف وصفه؛ وعند التأكيد يُعلَّم كل صف مسجلًا، و«تراجع» يعيدها كلها. والحساب الذي تذكره وليس في دليلك يُعرض عليك خيارات ولا يُخمَّن.",
                 },
@@ -1959,7 +1959,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Tell the assistant a friend paid for things — «Amir paid for these» and a list, one per line — and each line becomes a card with that person on it, in the currency you wrote. Paying them back, or lending and being paid back, names them too. Ask «how much do I owe Amir?» or «who owes me?» and you get each person on their own, in each currency. Your books also have a Travel category now, for stays, hotels and flights.",
-                    "fa": "به دستیار بگویید دوستی هزینه‌ای را برایتان داده — «امیر این‌ها را حساب کرد» و یک فهرست، هر قلم در یک خط — و هر خط یک کارت می‌شود به نام همان شخص، با ارزی که نوشته‌اید. پس دادن پول به او، یا قرض دادن و پس گرفتن، هم به نام همان شخص ثبت می‌شود. بپرسید «چقدر به امیر بدهکارم؟» یا «کی به من بدهکاره؟» تا هر شخص جدا و هر ارز جدا گفته شود. دفترتان حالا دستهٔ «سفر» هم دارد، برای اقامت، هتل و پرواز.",
+                    "fa": "به دستیار بگویید دوستی پول چیزهایی را برایتان داده — «امیر این‌ها را حساب کرد» و یک فهرست، هر مورد در یک خط — و هر خط یک کارت می‌شود به نام همان شخص، با ارزی که نوشته‌اید. پس دادن پول به او، یا قرض دادن و پس گرفتن، هم به نام همان شخص ثبت می‌شود. بپرسید «چقدر به امیر بدهکارم؟» یا «کی به من بدهکاره؟» تا هر شخص جدا و هر ارز جدا گفته شود. دفترتان حالا دستهٔ «سفر» هم دارد، برای اقامت، هتل و پرواز.",
                     "es": "Dile al asistente que un amigo pagó por ti — «Amir pagó esto» y una lista, una cosa por línea — y cada línea se convierte en una tarjeta con esa persona, en la moneda que escribiste. Devolverle el dinero, o prestar y que te devuelvan, también la nombra. Pregunta «¿cuánto le debo a Amir?» o «¿quién me debe?» y verás a cada persona por separado, en cada moneda. Tus cuentas tienen ahora además una categoría Viajes, para alojamientos, hoteles y vuelos.",
                     "ar": "أخبر المساعد أن صديقًا دفع عنك — «دفع أمير هذه» وقائمة، بند في كل سطر — فيصير كل سطر بطاقة باسم ذلك الشخص، بالعملة التي كتبتها. وردّ المال إليه، أو الإقراض والاسترداد، يُسجَّل باسمه أيضًا. اسأل «كم أدين لأمير؟» أو «من يدين لي؟» فتعرف كل شخص على حدة وبكل عملة. وفي دفاترك الآن فئة «السفر» للإقامة والفنادق والرحلات الجوية.",
                 },
@@ -1982,7 +1982,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Drop your journals in the chat — every file, each with a card that says how many vouchers it holds and from when to when — and import a file's ready vouchers from its card; each goes in whole, and the chat says what went in. Accounts to match open the journal import on the same file. The codes your accounts had in your own books are kept: type 1300 or 1302 and the account they became is found, and cards show both codes. An earlier import that read a file wrongly is listed on the Migration page, to remove on your word.",
-                    "fa": "دفاترتان را در گفتگو بیندازید — همهٔ فایل‌ها، هر کدام با کارتی که می‌گوید چند سند دارد و از کی تا کی — و سندهای آمادهٔ هر فایل را از کارتش وارد کنید؛ هر سند کامل وارد می‌شود و گفتگو می‌گوید چه وارد شد. حساب‌هایی که باید تطبیق شوند، صفحهٔ ورود سندها را روی همان فایل باز می‌کنند. کدهای حساب‌ها در دفاتر خودتان نگه داشته می‌شود: ۱۳۰۰ یا ۱۳۰۲ را بنویسید تا حسابی که شده‌اند پیدا شود، و کارت‌ها هر دو کد را نشان می‌دهند. ورود قبلی که فایلی را نادرست خوانده بود، در صفحهٔ «مهاجرت» فهرست می‌شود تا با تأیید شما حذف شود.",
+                    "fa": "دفاترتان را در گفتگو بفرستید — همهٔ فایل‌ها، هر کدام با کارتی که می‌گوید چند سند دارد و از کی تا کی — و سندهای آمادهٔ هر فایل را از کارتش وارد کنید؛ هر سند کامل وارد می‌شود و گفتگو می‌گوید چه وارد شد. حساب‌هایی که باید معادل‌سازی شوند، صفحهٔ ورود سندها را روی همان فایل باز می‌کنند. کدهای حساب‌ها در دفاتر خودتان نگه داشته می‌شود: ۱۳۰۰ یا ۱۳۰۲ را بنویسید تا حسابی که به آن تبدیل شده‌اند پیدا شود، و کارت‌ها هر دو کد را نشان می‌دهند. ورود قبلی که فایلی را نادرست خوانده بود، در صفحهٔ «انتقال اطلاعات» فهرست می‌شود تا با تأیید شما حذف شود.",
                     "es": "Suelta tus diarios en el chat — todos los archivos, cada uno con una tarjeta que dice cuántos asientos tiene y de cuándo a cuándo — e importa desde su tarjeta los asientos listos; cada uno entra entero y el chat dice qué entró. Las cuentas por asignar abren la importación de diarios con el mismo archivo. Se guardan los códigos que tus cuentas tenían en tus propios libros: escribe 1300 o 1302 y aparece la cuenta en que se convirtieron, y las tarjetas muestran ambos códigos. Una importación anterior que leyó mal un archivo aparece en Migración, para quitarla cuando lo confirmes.",
                     "ar": "أسقط دفاترك في المحادثة — كل الملفات، ولكل ملف بطاقة تقول كم قيدًا فيه ومن متى إلى متى — واستورد القيود الجاهزة من بطاقته؛ يدخل كل قيد كاملًا وتقول المحادثة ما الذي دخل. والحسابات التي يلزم ربطها تفتح استيراد القيود على الملف نفسه. وتُحفظ رموز حساباتك في دفاترك: اكتب 1300 أو 1302 فيظهر الحساب الذي صارت إليه، وتعرض البطاقات الرمزين. واستيراد سابق قرأ ملفًا خطأً يظهر في صفحة «الترحيل» لحذفه بتأكيدك.",
                 },
@@ -1999,13 +1999,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=("owner", "cfo", "accountant", "personal"),
                 title={
                     "en": "A scanned bank statement, every page of it",
-                    "fa": "صورتحساب اسکن‌شدهٔ بانک، همهٔ صفحه‌هایش",
+                    "fa": "صورت‌حساب اسکن‌شدهٔ بانک، همهٔ صفحه‌هایش",
                     "es": "Un extracto bancario escaneado, todas sus páginas",
                     "ar": "كشف بنكي ممسوح ضوئيًا، بكل صفحاته",
                 },
                 body={
                     "en": "A statement that is only pictures — Day Bank's 22 pages, say — is now read to its last page, a few pages at a time, while you carry on; its card shows how far it has got. The running balance is checked from each row to the next: an amount misread by a digit is set right from the balances on either side and named, and a row that still doesn't follow is named by its page and row. Dropped in the chat with your instructions, «Continue with your instructions» applies them once it's read.",
-                    "fa": "صورتحسابی که فقط تصویر است — مثلاً ۲۲ صفحهٔ بانک دی — حالا تا صفحهٔ آخر خوانده می‌شود، چند صفحه با هم، و شما کارتان را ادامه می‌دهید؛ کارتش نشان می‌دهد تا کجا خوانده شده. مانده از هر ردیف به ردیف بعد بررسی می‌شود: مبلغی که یک رقمش نادرست خوانده شده از روی مانده‌های دو طرفش درست و نام برده می‌شود، و ردیفی که باز جور نباشد با صفحه و ردیفش گفته می‌شود. اگر با دستورتان در گفتگو بیندازید، وقتی خوانده شد «ادامه با دستور شما» آن را اعمال می‌کند.",
+                    "fa": "صورت‌حسابی که فقط تصویر است — مثلاً ۲۲ صفحهٔ بانک دی — حالا تا صفحهٔ آخر خوانده می‌شود، چند صفحه با هم، و شما کارتان را ادامه می‌دهید؛ کارتش نشان می‌دهد تا کجا خوانده شده. مانده از هر ردیف به ردیف بعد بررسی می‌شود: مبلغی که یک رقمش نادرست خوانده شده از روی مانده‌های دو طرفش اصلاح و اعلام می‌شود، و ردیفی که باز جور نباشد با صفحه و ردیفش گفته می‌شود. اگر با دستورتان در گفتگو بفرستید، وقتی خوانده شد «ادامه با دستور شما» آن را اعمال می‌کند.",
                     "es": "Un extracto que solo son imágenes — por ejemplo, las 22 páginas del Day Bank — ahora se lee hasta la última página, unas pocas a la vez, mientras sigues trabajando; su tarjeta muestra el avance. El saldo se comprueba de cada fila a la siguiente: un importe mal leído en un dígito se corrige con los saldos de ambos lados y se indica, y una fila que aun así no cuadra se señala por su página y fila. Si lo sueltas en el chat con tus instrucciones, «Continuar con tus instrucciones» las aplica cuando termina de leerse.",
                     "ar": "الكشف الذي هو صور فقط — صفحات بنك دي الاثنتان والعشرون مثلًا — يُقرأ الآن حتى صفحته الأخيرة، بضع صفحات معًا، وأنت تتابع عملك؛ وتُظهر بطاقته إلى أين وصلت القراءة. ويُفحص الرصيد من كل صف إلى الذي يليه: المبلغ الذي قُرئ أحد أرقامه خطأً يُصحَّح من الرصيدين على جانبيه ويُذكر، والصف الذي يبقى غير متّسق يُسمّى بصفحته وصفّه. وإذا أسقطته في المحادثة مع تعليماتك، يطبّقها زر «المتابعة بتعليماتك» بعد انتهاء القراءة.",
                 },
@@ -2051,7 +2051,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "At the start of each week and month the assistant reviews your books on its own, as a card with charts: what you spent against your usual week, where it went, income, who owes whom; for a company, money in and out, cash and runway, overdue invoices and bills due. Up to two ideas come with it, each with a button: put money aside for a goal, set a budget for a category running hot, a budget about to be passed, someone owed for a month. It's in your chat and a notification; switch any of it off under Reviews and reminders, or just say so.",
-                    "fa": "اول هر هفته و هر ماه، دستیار خودش دفترتان را مرور می‌کند، در کارتی با نمودار: خرج هفته در برابر هفته‌های معمول، کجا خرج شد، درآمد، کی به کی بدهکار است؛ و برای شرکت، ورود و خروج پول، نقدینگی و دوامش، فاکتورهای سررسیدگذشته و صورت‌حساب‌های پیش رو. حداکثر دو پیشنهاد هم با آن می‌آید، هر کدام با یک دکمه: کنار گذاشتن پول برای یک هدف، بودجه برای دسته‌ای که خرجش بالا رفته، بودجه‌ای که نزدیک است رد شود، کسی که یک ماه است بدهکار است. در گفتگو و به‌صورت اعلان می‌آید؛ هر کدام را در «مرورها و یادآوری‌ها» خاموش کنید، یا فقط بگویید.",
+                    "fa": "اول هر هفته و هر ماه، دستیار خودش دفترتان را مرور می‌کند، در کارتی با نمودار: خرج هفته در برابر هفته‌های معمول، کجا خرج شد، درآمد، کی به کی بدهکار است؛ و برای شرکت، ورود و خروج پول، نقدینگی و دوامش، فاکتورهای سررسیدگذشته و فاکتورهای خرید نزدیک سررسید. حداکثر دو پیشنهاد هم با آن می‌آید، هر کدام با یک دکمه: کنار گذاشتن پول برای یک هدف، بودجه برای دسته‌ای که خرجش بالا رفته، بودجه‌ای که نزدیک است تمام شود، کسی که یک ماه است بدهکار است. در گفتگو و به‌صورت اعلان می‌آید؛ هر کدام را در «مرورها و یادآوری‌ها» خاموش کنید، یا فقط بگویید.",
                     "es": "Al empezar cada semana y cada mes, el asistente revisa tus cuentas por su cuenta, en una tarjeta con gráficos: lo gastado frente a una semana normal, en qué se fue, los ingresos, quién debe a quién; en una empresa, el dinero que entró y salió, la caja y cuánto dura, las facturas vencidas y las que vencen. Trae hasta dos ideas, cada una con un botón: apartar dinero para una meta, un presupuesto para una categoría disparada, un presupuesto a punto de superarse, alguien que debe desde hace un mes. Llega al chat y como notificación; desactiva lo que quieras en Resúmenes y avisos, o simplemente dilo.",
                     "ar": "في بداية كل أسبوع وكل شهر يراجع المساعد دفاترك من تلقاء نفسه في بطاقة برسوم بيانية: ما أنفقته مقارنةً بأسبوعك المعتاد، وأين ذهب، والدخل، ومن يدين لمن؛ وللشركة: المال الداخل والخارج، والنقد ومدة تغطيته، والفواتير المتأخرة والمستحقة. ويأتي معه اقتراحان على الأكثر، لكل منهما زر: ادّخار مال لهدف، أو ميزانية لفئة ارتفع إنفاقها، أو ميزانية على وشك التجاوز، أو شخص مدين منذ شهر. يصلك في المحادثة وكإشعار؛ أوقف أيًّا منها من «المراجعات والتذكيرات» أو قل ذلك فحسب.",
                 },
@@ -2068,7 +2068,7 @@ RELEASES: tuple[Release, ...] = (
                 roles=("owner", "cfo", "accountant", "personal"),
                 title={
                     "en": "Can I afford it?",
-                    "fa": "می‌تونم بخرمش؟",
+                    "fa": "می‌توانم بخرم؟",
                     "es": "¿Me lo puedo permitir?",
                     "ar": "هل أستطيع شراءه؟",
                 },
@@ -2097,7 +2097,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Weekly and monthly reviews, and Can I afford it?, now work in books whose amounts have pence or baisa: before, the review didn't show and the phone's morning message could fail. Renaming a bank on the Entities page renames its account too, and the morning briefing isn't repeated when you open the chat on another device.",
-                    "fa": "مرور هفتگی و ماهانه و «می‌تونم بخرمش؟» حالا در دفترهایی هم که مبلغ‌هایشان اعشار دارد (پنس، بیسه) کار می‌کند؛ پیش از این مرور نشان داده نمی‌شد و پیام صبح گوشی ممکن بود نرسد. تغییر نام بانک در صفحهٔ اشخاص حسابش را هم تغییر می‌دهد، و خلاصهٔ صبح با باز کردن گفتگو در دستگاه دیگر تکرار نمی‌شود.",
+                    "fa": "مرور هفتگی و ماهانه و «می‌توانم بخرم؟» حالا در دفترهایی هم که مبلغ‌هایشان اعشار دارد (پنس، بیسه) کار می‌کند؛ پیش از این مرور نشان داده نمی‌شد و پیام صبح گوشی ممکن بود نرسد. تغییر نام بانک در صفحهٔ اشخاص حسابش را هم تغییر می‌دهد، و خلاصهٔ صبح با باز کردن گفتگو در دستگاه دیگر تکرار نمی‌شود.",
                     "es": "Los resúmenes semanales y mensuales, y ¿Me lo puedo permitir?, ya funcionan en libros con importes con decimales (peniques, baisas): antes el resumen no aparecía y el mensaje de la mañana del móvil podía fallar. Renombrar un banco en Entidades renombra también su cuenta, y el resumen de la mañana no se repite al abrir el chat en otro dispositivo.",
                     "ar": "المراجعات الأسبوعية والشهرية و«هل أستطيع شراءه؟» تعمل الآن في الدفاتر التي لمبالغها كسور (بنس، بيسة): من قبل لم تظهر المراجعة وقد تتعطل رسالة الصباح في الهاتف. وإعادة تسمية بنك في صفحة الكيانات تعيد تسمية حسابه أيضًا، ولا يتكرر موجز الصباح عند فتح المحادثة على جهاز آخر.",
                 },
@@ -2114,13 +2114,13 @@ RELEASES: tuple[Release, ...] = (
                 roles=("owner", "cfo", "accountant", "personal"),
                 title={
                     "en": "A bank's scanned statement fits in the chat",
-                    "fa": "صورتحساب اسکن‌شدهٔ بانک در گفتگو جا می‌شود",
+                    "fa": "صورت‌حساب اسکن‌شدهٔ بانک در گفتگو جا می‌شود",
                     "es": "El extracto escaneado del banco cabe en el chat",
                     "ar": "كشف البنك الممسوح ضوئيًا يتّسع في المحادثة",
                 },
                 body={
                     "en": "Files up to 20 MB can go in the chat, on the web and the phone, as on the Bank Statements page: a long scanned statement of 10 MB or more is taken and read page by page.",
-                    "fa": "در گفتگو، در وب و گوشی، فایل تا ۲۰ مگابایت فرستاده می‌شود، مثل صفحهٔ صورتحساب‌های بانکی: صورتحساب اسکن‌شدهٔ بلند ۱۰ مگابایتی و بیشتر هم پذیرفته و صفحه به صفحه خوانده می‌شود.",
+                    "fa": "در گفتگو، چه در وب و چه در گوشی، می‌توانید فایل تا ۲۰ مگابایت بفرستید، مثل صفحهٔ صورت‌حساب‌های بانکی: صورت‌حساب اسکن‌شدهٔ بلند ۱۰ مگابایتی و بیشتر هم پذیرفته و صفحه به صفحه خوانده می‌شود.",
                     "es": "En el chat, en la web y en el móvil, caben archivos de hasta 20 MB, como en la página de extractos bancarios: un extracto escaneado largo de 10 MB o más se acepta y se lee página a página.",
                     "ar": "في المحادثة، على الويب والهاتف، تُقبل الملفات حتى 20 ميغابايت كما في صفحة كشوف الحسابات البنكية: يُقبل كشف ممسوح طويل بحجم 10 ميغابايت أو أكثر ويُقرأ صفحة صفحة.",
                 },
@@ -2143,7 +2143,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Books imported from your own journals can now carry your own codes (3000, 3001…) instead of the app's: on the Chart of accounts, check the codes and switch. Every report stays as it is, accounts that are one under two names become one, and later files in the same codes go straight in.",
-                    "fa": "دفاتری که از دفتر روزنامهٔ خودتان وارد شده‌اند حالا می‌توانند کدهای خودتان (۳۰۰۰، ۳۰۰۱…) را به جای کدهای برنامه داشته باشند: در صفحهٔ کدینگ حساب‌ها کدها را ببینید و تغییر دهید. همهٔ گزارش‌ها همان می‌مانند، حسابی که با دو نام آمده یکی می‌شود، و فایل‌های بعدی با همین کدها مستقیم وارد می‌شوند.",
+                    "fa": "دفاتری که از دفتر روزنامهٔ خودتان وارد شده‌اند حالا می‌توانند کدهای خودتان (۳۰۰۰، ۳۰۰۱…) را به جای کدهای برنامه داشته باشند: در صفحهٔ کدینگ حساب‌ها کدها را ببینید و تغییر دهید. همهٔ گزارش‌ها همان می‌مانند، حسابی که با دو نام آمده ادغام می‌شود، و فایل‌های بعدی با همین کدها مستقیم وارد می‌شوند.",
                     "es": "Los libros importados de tus propios diarios ya pueden llevar tus propios códigos (3000, 3001…) en lugar de los de la aplicación: en el Plan de cuentas, revisa los códigos y cambia. Ningún informe cambia, las cuentas que son una con dos nombres se unen y los archivos siguientes con los mismos códigos entran directamente.",
                     "ar": "الدفاتر المستوردة من دفاتر يوميتك يمكنها الآن أن تحمل رموزك الخاصة (3000، 3001…) بدل رموز التطبيق: في دليل الحسابات راجع الرموز وانتقل إليها. تبقى كل التقارير كما هي، ويتوحد الحساب الذي جاء باسمين، وتدخل الملفات التالية بالرموز نفسها مباشرة.",
                 },
@@ -2166,7 +2166,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Money you keep in Omani rials, dollars or rials is told in its own amounts: ask what you spent and you get each currency's total and categories, and your weekly and monthly reviews have a card for each currency. Nothing is exchanged or added together.",
-                    "fa": "پولی که به ریال عمان، دلار یا ریال دارید با مبلغ خودش گفته می‌شود: بپرسید چقدر خرج کرده‌اید تا جمع و دسته‌بندی هر ارز را جداگانه ببینید، و مرور هفتگی و ماهانه برای هر ارز یک کارت دارد. هیچ ارزی تبدیل یا با دیگری جمع نمی‌شود.",
+                    "fa": "پولی که به ریال عمان، دلار یا ریال دارید به ارز خودش گفته می‌شود: بپرسید چقدر خرج کرده‌اید تا جمع و دسته‌بندی هر ارز را جداگانه ببینید، و مرور هفتگی و ماهانه برای هر ارز یک کارت دارد. هیچ ارزی تبدیل یا با دیگری جمع نمی‌شود.",
                     "es": "El dinero que guardas en riales omaníes, dólares o riales se cuenta en sus propios importes: pregunta cuánto gastaste y verás el total y las categorías de cada moneda, y tus resúmenes semanales y mensuales tienen una tarjeta por moneda. Nada se cambia ni se suma.",
                     "ar": "المال الذي تحتفظ به بالريال العُماني أو الدولار أو الريال يُذكر بمبالغه الخاصة: اسأل كم أنفقت لترى مجموع كل عملة وفئاتها، وفي مراجعاتك الأسبوعية والشهرية بطاقة لكل عملة. لا يُحوَّل شيء ولا يُجمع مع غيره.",
                 },
@@ -2189,7 +2189,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "My finances shows a row for each currency you keep — cash, spent and saved this month — and the categories, the months and the report card in the one you choose. The phone's widget lists each currency too.",
-                    "fa": "امور مالی من برای هر ارزی که دارید یک ردیف نشان می‌دهد — موجودی، خرج و پس‌انداز این ماه — و دسته‌بندی‌ها، ماه‌ها و کارنامه را به ارزی که انتخاب کنید. ویجت گوشی هم هر ارز را جداگانه می‌گوید.",
+                    "fa": "امور مالی من برای هر ارزی که دارید یک ردیف نشان می‌دهد — موجودی، خرج و پس‌انداز این ماه — و دسته‌بندی‌ها، ماه‌ها و کارنامه را به ارزی که انتخاب کنید. ویجت گوشی هم هر ارز را جداگانه نشان می‌دهد.",
                     "es": "Mis finanzas muestra una fila por cada moneda que tienes —efectivo, gastado y ahorrado este mes— y las categorías, los meses y el resumen en la que elijas. El widget del teléfono también muestra cada moneda.",
                     "ar": "تعرض أموري المالية صفًا لكل عملة لديك — النقد والمنفق والمدَّخر هذا الشهر — والفئات والأشهر وبطاقة التقرير بالعملة التي تختارها. وأداة الهاتف تعرض كل عملة أيضًا.",
                 },
@@ -2258,7 +2258,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Ask about a price in Omani rials and it is weighed against your Omani rials — no exchange rate needed. What changed, unusual spending and repeating payments are told for each currency too.",
-                    "fa": "قیمتی به ریال عمان بپرسید تا با ریال عمانی‌هایتان سنجیده شود — بی‌نیاز از نرخ ارز. «چه تغییر کرد»، خرج‌های غیرمعمول و پرداخت‌های تکراری هم برای هر ارز جداگانه گفته می‌شوند.",
+                    "fa": "قیمتی به ریال عمان بپرسید تا با ریال عمانی‌هایتان سنجیده شود — بی‌نیاز از نرخ ارز. «تغییرات اخیر»، خرج‌های غیرمعمول و پرداخت‌های دوره‌ای هم برای هر ارز جداگانه گفته می‌شوند.",
                     "es": "Pregunta por un precio en riales omaníes y se compara con tus riales omaníes, sin tipo de cambio. Lo que cambió, los gastos inusuales y los pagos repetidos también se dicen para cada moneda.",
                     "ar": "اسأل عن سعر بالريال العُماني فيُقاس على ما لديك من الريال العُماني — دون حاجة إلى سعر صرف. وما تغيّر والإنفاق غير المعتاد والمدفوعات المتكررة تُذكر لكل عملة أيضًا.",
                 },
@@ -2281,7 +2281,7 @@ RELEASES: tuple[Release, ...] = (
                 },
                 body={
                     "en": "Power adapters, light bulbs, stationery, a key cut, small repairs: they now go under «Home supplies & repairs» instead of Family & gifts. Ask «what categories do you have?» to see them all.",
-                    "fa": "مبدل برق، لامپ، لوازم‌تحریر، ساخت کلید و تعمیرات کوچک حالا زیر «لوازم و تعمیرات خانه» می‌روند، نه خانواده و هدایا. بپرسید «چه دسته‌بندی‌هایی داری؟» تا همه را ببینید.",
+                    "fa": "مبدل برق، لامپ، لوازم‌التحریر، کلیدسازی و تعمیرات کوچک حالا زیر «لوازم و تعمیرات خانه» می‌روند، نه خانواده و هدایا. بپرسید «چه دسته‌بندی‌هایی داری؟» تا همه را ببینید.",
                     "es": "Adaptadores, bombillas, papelería, una copia de llave, pequeñas reparaciones: ahora van a «Suministros y reparaciones del hogar», no a Familia y regalos. Pregunta «¿qué categorías tienes?» para verlas todas.",
                     "ar": "محولات الكهرباء والمصابيح والقرطاسية ونسخ المفاتيح والإصلاحات الصغيرة تذهب الآن إلى «مستلزمات المنزل وإصلاحاته» لا إلى العائلة والهدايا. اسأل «ما الفئات لديك؟» لتراها كلها.",
                 },
@@ -2298,7 +2298,7 @@ RELEASES: tuple[Release, ...] = (
                 roles=("personal",),
                 title={
                     "en": "The last few days, and your places by name",
-                    "fa": "چند روز گذشته، و جاهای پولتان با اسم خودشان",
+                    "fa": "چند روز گذشته، و کیف‌پول‌ها و حساب‌هایتان با اسم خودشان",
                     "es": "Los últimos días, y tus sitios por su nombre",
                     "ar": "الأيام الأخيرة، وأماكن أموالك بأسمائها",
                 },

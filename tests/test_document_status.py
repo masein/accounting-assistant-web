@@ -23,7 +23,7 @@ def uk(client, db):
     ("partially_paid", "Partially paid", "بخشی پرداخت‌شده"),
     ("sent", "Sent", "ارسال‌شده"),
     ("partially_received", "Partially received", "دریافت جزئی"),
-    ("converted", "Invoiced", "فاکتور شده"),
+    ("converted", "Invoiced", "فاکتورشده"),
     ("on_hold", "On hold", "On hold"),                      # one not listed still reads as words
 ])
 def test_a_status_in_words(status, en, fa):

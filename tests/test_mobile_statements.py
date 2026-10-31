@@ -49,7 +49,7 @@ def test_n31_next_gives_each_unrecorded_row_as_a_voucher_then_says_done(client, 
     card2, last = second["blocks"]
     assert card2["amount"]["value"] == 4_500_000 and "kind" not in last                 # the last: no "next" offered
     done = client.post(f"{API}/statements/{sid}/next", headers=fa, json={"thread_id": thread}).json()["blocks"]
-    assert [b["type"] for b in done] == ["text"] and "همهٔ ردیف‌های این صورتحساب" in done[0]["text"]
+    assert [b["type"] for b in done] == ["text"] and "همهٔ ردیف‌های این صورت‌حساب" in done[0]["text"]
     # confirming posts the row, from the statement
     posted = client.post(f"{API}/proposals/{card['token']}/confirm", headers=phone).json()
     assert posted["state"] == "posted"
@@ -78,7 +78,7 @@ def test_n31_the_bank_is_named_in_the_readers_language():
     assert bank_label("Mellat", "ar") == "ملت"                      # one script: the 2026-10-11 pass
     assert bank_label("Unknown", "fa") is None and bank_label("Some Bank", "fa") == "Some Bank"
     said = _reply("fa", {"bank_name": "Mellat", "total_rows": 12, "counts": {"unrecorded": 2}, "clean": False})
-    assert said.startswith("صورتحساب ملت را خواندم") and "Mellat" not in said
+    assert said.startswith("صورت‌حساب ملت را خواندم") and "Mellat" not in said
 
 
 def test_n41_money_against_an_open_invoice_is_a_payment_on_it(client, db, co, phone, monkeypatch):

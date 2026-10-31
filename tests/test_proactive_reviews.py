@@ -117,7 +117,7 @@ def test_al1_a_persons_week_against_their_usual_week(person, db):
     assert [b["value"] for b in bars] == [3_000_000] * 4 + [5_000_000] and bars[-1]["current"]
     assert bars[-1]["label"] == "این هفته" and card["chart"]["usual"] == 3_000_000
     cats = card["categories"]
-    assert cats[0]["sub"] == "۲۰۰٪ بیشتر از معمول" and cats[1]["sub"] == "معمول"
+    assert cats[0]["sub"] == "۲۰۰٪ بیشتر از معمول" and cats[1]["sub"] == "در حد معمول"
     assert cats[0]["width"] == 1.0 and cats[0]["usual_at"] == round(1_000_000 / 3_000_000, 4)
     assert card["ideas"][0]["icon"] == "🔥" and card["ideas"][0]["ask"] == fa["choices"][0]
     assert [b["type"] for b in fa["blocks"]] == ["review"] and fa["blocks"][0]["fallback_text"].startswith("مرور هفته")

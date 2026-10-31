@@ -284,7 +284,7 @@ _JOURNAL_SAID = {
                "ar": "استُورد {n} قيدًا من {file}، من {start} إلى {end}."},
     "nothing": {"en": "Nothing was imported from {file}.", "fa": "از {file} سندی وارد نشد.",
                 "es": "No se importó nada de {file}.", "ar": "لم يُستورد شيء من {file}."},
-    "held": {"en": " Held back: {list}.", "fa": " کنار ماند: {list}.", "es": " Retenidos: {list}.",
+    "held": {"en": " Held back: {list}.", "fa": " کنار گذاشته شد: {list}.", "es": " Retenidos: {list}.",
              "ar": " حُجز: {list}."},
 }
 def _journal_said(db: Session, lang: str, out: dict, parsed: dict, file_name: str) -> str:

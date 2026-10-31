@@ -25,7 +25,7 @@ def test_an_invoices_moadian_problems_in_persian(co):
     _setup(api)
     bare = _invoice(api, _customer(api, national_id=None, economic_code=None, postal_code=None))
     warnings = api.get(f"/moadian/invoices/{bare['id']}/preview", headers=FA).json()["warnings"]
-    assert "مشتری شناسه ملی یا کد اقتصادی ندارد؛ این فاکتور از نوع دوم ارسال می‌شود." in warnings, warnings
+    assert "مشتری کد ملی، شناسه ملی یا کد اقتصادی ندارد؛ این فاکتور از نوع دوم ارسال می‌شود." in warnings, warnings
     out = api.post("/moadian/export", json={"invoice_ids": [inv["id"], "00000000-0000-0000-0000-000000000000"]},
                    headers=FA).json()
     assert "فاکتور پیدا نشد." in [p for s in out["skipped"] for p in s["problems"]]

@@ -92,7 +92,7 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
     "payroll_change": {
         "title": {
             "en": "Payroll {direction_en} {pct}% in {month}",
-            "fa": "حقوق و دستمزد در {month} {pct}٪ {direction_fa}",
+            "fa": "حقوق و دستمزد {month}: {pct}٪ {direction_fa}",
             "es": "La nómina {direction_es} un {pct}% en {month}",
             "ar": "الرواتب {direction_ar} بنسبة {pct}% في {month}",
         },
@@ -126,7 +126,7 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
         },
         "message": {
             "en": "{current} so far in {month} against an average of {average} a month.",
-            "fa": "تا اینجای {month} {current}، در برابر میانگین ماهانهٔ {average}.",
+            "fa": "از اول {month} تا امروز {current}، در برابر میانگین ماهانهٔ {average}.",
             "es": "{current} hasta ahora en {month} frente a una media mensual de {average}.",
             "ar": "{current} حتى الآن في {month} مقابل متوسط شهري {average}.",
         },
@@ -134,7 +134,7 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
     "revenue_drop": {
         "title": {
             "en": "Revenue fell {pct}% in {month}",
-            "fa": "درآمد در {month} {pct}٪ کم شد",
+            "fa": "کاهش {pct}٪ درآمد در {month}",
             "es": "Los ingresos cayeron un {pct}% en {month}",
             "ar": "انخفضت الإيرادات {pct}% في {month}",
         },
@@ -162,13 +162,13 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
     "vendor_outlier": {
         "title": {
             "en": "Unusually large payment to {name}",
-            "fa": "پرداخت غیرمعمول به {name}",
+            "fa": "پرداخت بزرگ‌تر از معمول به {name}",
             "es": "Pago inusualmente alto a {name}",
             "ar": "دفعة كبيرة غير معتادة إلى {name}",
         },
         "message": {
             "en": "{amount} on {date} — payments to {name} are usually about {typical}.",
-            "fa": "{amount} در {date} — پرداخت‌ها به {name} معمولاً حدود {typical} است.",
+            "fa": "{amount} در {date} — پرداخت به {name} معمولاً حدود {typical} است.",
             "es": "{amount} el {date}; los pagos a {name} suelen ser de unos {typical}.",
             "ar": "{amount} بتاريخ {date} — عادةً تكون الدفعات إلى {name} نحو {typical}.",
         },
@@ -176,13 +176,13 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
     "statement_due": {
         "title": {
             "en": "Time to upload a bank statement",
-            "fa": "وقت بارگذاری صورتحساب بانکی است",
+            "fa": "وقت بارگذاری صورت‌حساب بانکی است",
             "es": "Es hora de subir un extracto bancario",
             "ar": "حان وقت رفع كشف حساب بنكي",
         },
         "message": {
             "en": "The last statement covered up to {last}. Upload the new one and I'll check it against the books.",
-            "fa": "آخرین صورتحساب تا {last} را پوشش می‌داد. صورتحساب جدید را بارگذاری کنید تا با دفاتر مقایسه کنم.",
+            "fa": "آخرین صورت‌حساب تا {last} بود. صورت‌حساب جدید را بارگذاری کنید تا با دفاتر مقایسه کنم.",
             "es": "El último extracto llegaba hasta {last}. Sube el nuevo y lo comparo con los libros.",
             "ar": "غطّى آخر كشف حتى {last}. ارفع الجديد وسأقارنه بالدفاتر.",
         },
@@ -190,13 +190,13 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
     "statement_first": {
         "title": {
             "en": "Upload a bank statement to check your books",
-            "fa": "برای بررسی دفاتر یک صورتحساب بانکی بارگذاری کنید",
+            "fa": "برای بررسی دفاتر یک صورت‌حساب بانکی بارگذاری کنید",
             "es": "Sube un extracto bancario para comprobar tus libros",
             "ar": "ارفع كشف حساب بنكي للتحقق من دفاترك",
         },
         "message": {
             "en": "{count} bank movements were recorded in the last 90 days but no statement has been imported yet.",
-            "fa": "{count} گردش بانکی در ۹۰ روز گذشته ثبت شده اما هنوز صورتحسابی وارد نشده است.",
+            "fa": "{count} تراکنش بانکی در ۹۰ روز گذشته ثبت شده اما هنوز صورت‌حسابی وارد نشده است.",
             "es": "Se registraron {count} movimientos bancarios en 90 días pero aún no se importó ningún extracto.",
             "ar": "سُجّلت {count} حركة بنكية خلال 90 يومًا لكن لم يُستورد أي كشف بعد.",
         },
@@ -210,7 +210,7 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
         },
         "message": {
             "en": "Trade debtors: {current} now vs {previous} thirty days ago. Worth chasing the oldest invoices.",
-            "fa": "حساب‌های دریافتنی: {current} اکنون در برابر {previous} سی روز پیش. پیگیری فاکتورهای قدیمی‌تر لازم است.",
+            "fa": "حساب‌های دریافتنی: اکنون {current} در برابر {previous} سی روز پیش. بهتر است فاکتورهای قدیمی‌تر را پیگیری کنید.",
             "es": "Deudores: {current} ahora frente a {previous} hace treinta días. Conviene reclamar las facturas más antiguas.",
             "ar": "المدينون: {current} الآن مقابل {previous} قبل ثلاثين يومًا. يجدر متابعة أقدم الفواتير.",
         },

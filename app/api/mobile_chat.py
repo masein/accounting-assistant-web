@@ -672,7 +672,7 @@ class BriefingPayload(BaseModel):
 
 _FEED_APPROVAL = {
     "en": ("A voucher waits for your approval", "{title}: {amount} {cur}, asked by {who}"),
-    "fa": ("سندی منتظر تأیید شماست", "{title}: {amount} {cur}، درخواست {who}"),
+    "fa": ("سندی منتظر تأیید شماست", "{title}: {amount} {cur}، به درخواست {who}"),
     "es": ("Un asiento espera tu aprobación", "{title}: {amount} {cur}, lo pidió {who}"),
     "ar": ("قيد بانتظار موافقتك", "{title}: {amount} {cur}، طلبه {who}"),
 }

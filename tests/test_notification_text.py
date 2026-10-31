@@ -86,7 +86,7 @@ def test_a_notification_renders_for_its_reader():
                                                        "Receivable from the customer — 12 day(s) past due (2026-09-19)")
     title, message = render("invoice_overdue", params, "fa")
     assert title == "فاکتور ⁨INV-7⁩ سررسید گذشته"
-    assert message.startswith("⁨دریافت از مشتری⁩ — ⁨12⁩ روز")
+    assert message.startswith("⁨طلب از مشتری⁩ — ⁨12⁩ روز")
     assert render("invoice_overdue", params, "es")[0] == "Factura INV-7 vencida"
     # a phrase inside the message, an enumeration, a month, a season
     cheque = {"noun": "cheque", "seq": " 2/6", "title": "Rent", "amount": "5,000", "verb": "receive",

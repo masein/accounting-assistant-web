@@ -214,7 +214,7 @@ def send(db: Session, sub, message: dict[str, Any], *, client=None) -> str:
     return "sent"
 
 
-_SUMMARY = {"en": "{n} new alerts", "fa": "{n} هشدار تازه", "es": "{n} avisos nuevos", "ar": "{n} تنبيهات جديدة"}
+_SUMMARY = {"en": "{n} new alerts", "fa": "{n} اعلان جدید", "es": "{n} avisos nuevos", "ar": "{n} تنبيهات جديدة"}
 
 
 def _said(row, lang: str, calendar: str = "gregorian") -> tuple[str, str]:

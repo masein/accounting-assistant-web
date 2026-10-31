@@ -150,7 +150,7 @@ def test_ah3_an_account_it_cant_place_sends_the_card_to_the_journal_page(co):
                   _row(1, "1404/03/01", BANK, "طرح", 0, 1_000, number=False, date=False)])
     [f] = _drop(co["api"], [("odd.xlsx", data)])["intake"]["files"]
     assert f["unplaced_accounts"] == 1 and f["ready"] == 0
-    assert any("حساب نگاشت‌نشده" in n for n in f["notes"])
+    assert any("حساب معادل‌سازی‌نشده" in n for n in f["notes"])
     # the journal page reviews the same upload: nothing to choose again
     r = co["api"].post("/migration/journals/review", json={"token": f["token"]})
     assert r.status_code == 200 and r.json()["counts"] == {"unmapped_account": 1}
@@ -304,7 +304,7 @@ def test_ah10_one_code_for_several_accounts_is_said(co):
                   _row(2, "1404/03/02", BANK, "کارمزد", 0, 50, number=False, date=False)])
     [f] = _drop(co["api"], [("1305.xlsx", data)])["intake"]["files"]
     assert f["codes_reused"] == [{"code": "1305", "names": ["قبوض", "کارمزد بانکی"]}]
-    assert "در فایل، کد ۱۳۰۵ نام ۲ حساب است: قبوض، کارمزد بانکی" in f["notes"]
+    assert "در فایل، کد ۱۳۰۵ به ۲ حساب داده شده است: قبوض، کارمزد بانکی" in f["notes"]
 
 
 # --- AH9: options are chips --------------------------------------------------------------------------------

@@ -339,7 +339,7 @@ def test_get_insights_tool_and_registration(db, monkeypatch):
                 params={"pct": "30", "month": "2055-02", "current": "70", "average": "100"}),
     ]),))
     out = asyncio.run(GetInsights().run(ToolContext(db=db, user_id="u-ins"), GetInsightsInput(language="fa")))
-    assert out["count"] == 1 and out["insights"][0]["title"] == "درآمد در 2055-02 30٪ کم شد"
+    assert out["count"] == 1 and out["insights"][0]["title"] == "کاهش 30٪ درآمد در 2055-02"
 
 
 def test_briefing_text_and_endpoint(auth_client, db, monkeypatch):

@@ -271,9 +271,9 @@ def test_a_timed_out_second_step_says_so_in_a_code_not_just_words(client):
 
 
 def test_payroll_time_users_and_quotes_read_in_the_language_too():
-    assert localize_detail("Pay run not found.", "fa") == "دوره حقوق پیدا نشد."
+    assert localize_detail("Pay run not found.", "fa") == "لیست حقوق پیدا نشد."
     assert localize_detail("Run is draft; post it before paying.", "es") == "La nómina está en borrador; contabilízala antes de pagarla."
-    assert localize_detail("Run already paid; cannot post again.", "fa") == "این دوره حقوق قبلاً ⁨پرداخت‌شده⁩ است؛ دوباره ثبت نمی‌شود."
+    assert localize_detail("Run already paid; cannot post again.", "fa") == "این لیست حقوق قبلاً ⁨پرداخت‌شده⁩ است؛ دوباره ثبت نمی‌شود."
     assert localize_detail("A uk rule set for 2027 already exists.", "ar") == "توجد بالفعل مجموعة قواعد ⁨المملكة المتحدة⁩ لسنة ⁨2027⁩."
     assert localize_detail("A sent quote can't be edited; set it back to draft first.", "es") == \
         "Un presupuesto enviado no se puede editar; vuelve a ponerlo en borrador primero."

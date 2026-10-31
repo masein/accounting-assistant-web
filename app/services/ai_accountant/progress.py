@@ -40,7 +40,7 @@ _PHRASES = {
                 "ar": "يحسب الرواتب…"},
     "drafting": {"en": "Drafting the voucher…", "fa": "در حال نوشتن پیش‌نویس سند…", "es": "Redactando el asiento…",
                  "ar": "يكتب مسودة القيد…"},
-    "working": {"en": "Working on it…", "fa": "در حال کار…", "es": "Trabajando…", "ar": "يعمل…"},
+    "working": {"en": "Working on it…", "fa": "در حال انجام…", "es": "Trabajando…", "ar": "يعمل…"},
 }
 
 

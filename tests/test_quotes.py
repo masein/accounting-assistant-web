@@ -222,7 +222,7 @@ def test_invoice_pdf_title_unchanged(auth_client, customer, monkeypatch):
         "issue_date": "2026-09-01", "due_date": "2026-09-30", "amount": 1000, "entity_id": customer["id"],
     }).json()
     assert auth_client.get(f"/invoices/{inv['id']}/pdf").status_code == 200
-    assert captured["ctx"]["title"] in ("INVOICE", "صورتحساب")
+    assert captured["ctx"]["title"] in ("INVOICE", "فاکتور")
     assert captured["ctx"]["labels"]["due_date"] in [m["label"] for m in captured["ctx"]["meta"]]
 
 

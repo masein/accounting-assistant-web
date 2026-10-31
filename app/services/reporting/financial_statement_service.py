@@ -492,7 +492,7 @@ def build_cash_flow_statement(
         "financing": CashFlowSection(
             key="financing",
             label="Financing Activities",
-            label_fa="فعالیت‌های تامین مالی",
+            label_fa="فعالیت‌های تأمین مالی",
             lines=line_buckets["financing"],
             net=section_sums["financing"],
         ),

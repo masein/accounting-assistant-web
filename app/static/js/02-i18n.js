@@ -166,7 +166,7 @@
         ledgerKol: 'General ledger — کل',
         ledgerKolTotal: 'Total — {name}',
         ledgerMoin: 'Subsidiary — معین',
-        ledgerTafsili: 'Detail (by person) — تفضیلی',
+        ledgerTafsili: 'Detail (by person) — تفصیلی',
         fldBankName: 'Bank name',
         fldAccountHolder: 'Account holder',
         fldAccountNumber: 'Account number',

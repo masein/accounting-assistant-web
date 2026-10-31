@@ -216,7 +216,7 @@ def test_aj8_a_reading_that_stopped_is_said_and_the_file_comes_again(auth_client
     stopped = auth_client.get(f"/brain/bank-statements/{stmt.id}/reading").json()
     assert stopped["status"] == "failed" and stopped["read_report"]["stopped"] is True
     from app.services.ai_accountant.statement_intake import reading_said
-    assert reading_said(stopped["read_report"], "fa").startswith("خواندن صورتحساب پیش از پایان متوقف شد")
+    assert reading_said(stopped["read_report"], "fa").startswith("خواندن صورت‌حساب پیش از پایان متوقف شد")
 
 
 def test_aj8_the_same_file_after_a_stopped_read_is_read_again(auth_client, db, vision):

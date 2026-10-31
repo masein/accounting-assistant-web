@@ -898,3 +898,19 @@ The exchange put «کیف پول والای» right (312.265 OMR, $500, AED 1,78
 | ID | Scenario | Steps | Expected |
 |----|----------|-------|----------|
 | BC1 | More from someone you owe | The user owes Amir 300 OMR; «امیر به من ۶۰۰ ریال عمان دیگه داد، گذاشتم توی کیف پول سبز. حساب من با امیر الان چقدر هست؟» | One card: Dr the wallet / Cr «بدهی به دیگران» 600.000 OMR, Amir on it; the reply says the user owes Amir 900. A card that credits «طلب از دیگران» for someone who owes the user nothing is refused, and so is one that debits «بدهی به دیگران» for someone the user owes nothing; each is drafted again the right way. It had come as Amir "paying back", with «امیر ۳۰۰ ریال به تو بدهکار خواهد بود» |
+
+## BD. Persian that reads like an Iranian app (copy review, 2026-10-31)
+
+The owner said the Persian "doesn't sound natural". Every Persian string users read was reviewed against Iranian accounting software (حسابفا، سپیدار، هلو), banking apps and everyday apps, in four passes. The terms agreed are in docs/FA_GLOSSARY.md; tests/test_fa_glossary.py keeps the ruled-out words out.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BD1 | The assistant's name | Web, phone and server text that names the AI | «دستیار». «حسابدار» stays the human Accountant role. The chat feature is «گفتگوی هوشمند» everywhere (it was also «چت هوش مصنوعی» on the voucher page and the open/close button) |
+| BD2 | Polite address | Buttons, hints, notifications and the assistant's own messages | «شما» forms («بنویسید، بفرستید، دفاتر شما»). Only the suggestion chips the user taps stay in the user's own colloquial voice |
+| BD3 | Invoices and statements | Invoice pages, the bank statement page, the Moadian page | Invoices are «فاکتور فروش / خرید»; a bank statement is «صورت‌حساب» with the half-space; the Moadian e-invoice keeps its legal name «صورتحساب الکترونیکی» |
+| BD4 | Recurring vs duplicate | The recurring page; the statement review's duplicate rows | Recurring is «دوره‌ای»; «تکراری» only means a duplicate |
+| BD5 | Statement titles | Statements, the month-end pack | «صورت جریان‌های نقدی»; the pack's sheets «تحلیل سنی مطالبات» and «تحلیل سنی بدهی‌ها»; the pack is «بستهٔ بستن ماه» |
+| BD6 | Payroll and cheques | Payroll page; cheque actions | «لیست حقوق», «محاسبهٔ حقوق», «مشخصات حقوقی», «مقررات قانونی حقوق»; a cheque is «خرج» to a third party and «واگذار» to the bank for collection |
+| BD7 | The phone's affordability card | «ماشین ۳۰۰ میلیون ریال بخرم؟» on the phone, personal books | «قابل خرج», «ذخیرهٔ احتیاطی», bars «حالا» / «بعد از خرید», facts «درآمد ماهانه حدود …» |
+| BD8 | A closed period, in the company's calendar | Post back-dated into a closed period in an Iranian company | «دوره را باز کنید یا تاریخی بعد از ۱۴۰۵/۰۴/۰۹ انتخاب کنید.» Both dates are Jalali |
+| BD9 | The scan buttons | Invoices page in Persian | «اسکن و پر کردن فرم» and «اسکن و ایجاد» each on one line |

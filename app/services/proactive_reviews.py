@@ -588,7 +588,7 @@ def _span(start: str, end: str, cal: str, lang: str) -> tuple[str, str]:
 
 _WEEKDAYS = {
     "en": ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"),
-    "fa": ("دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه", "یکشنبه"),
+    "fa": ("دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه", "شنبه", "یکشنبه"),
     "es": ("el lunes", "el martes", "el miércoles", "el jueves", "el viernes", "el sábado", "el domingo"),
     "ar": ("الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"),
 }
@@ -639,7 +639,7 @@ W: dict[str, dict[str, str]] = {
                 "es": "Facturas vencidas: {count}, {total} en total; la más antigua, {oldest}, {days} días.",
                 "ar": "{count} فواتير متأخرة بإجمالي {total}؛ أقدمها {oldest} منذ {days} يومًا."},
     "bills_due": {"en": "Bills due in the next 7 days: {count}, {total}.",
-                  "fa": "{count} صورت‌حساب خرید تا ۷ روز دیگر سررسید می‌شود: {total}.",
+                  "fa": "{count} فاکتور خرید تا ۷ روز دیگر سررسید می‌شود: {total}.",
                   "es": "Facturas de compra que vencen en 7 días: {count}, {total}.",
                   "ar": "{count} فواتير شراء تستحق خلال 7 أيام: {total}."},
     "month_flows": {"en": "Income {income}, spending {spent}, saved {saved} ({rate} of income).",
@@ -647,7 +647,7 @@ W: dict[str, dict[str, str]] = {
                     "es": "Ingresos {income}, gastos {spent}, ahorro {saved} ({rate} de los ingresos).",
                     "ar": "الدخل {income}، الإنفاق {spent}، الادخار {saved} ({rate} من الدخل)."},
     "month_spent": {"en": "Spending {spent}.", "fa": "خرج {spent}.", "es": "Gastos {spent}.", "ar": "الإنفاق {spent}."},
-    "month_vs": {"en": "Spending is {pct} {dir} than {month}.", "fa": "خرج نسبت به {month} {pct} {dir} است.",
+    "month_vs": {"en": "Spending is {pct} {dir} than {month}.", "fa": "خرج {pct} {dir} از {month} است.",
                  "es": "El gasto está un {pct} {dir} que en {month}.", "ar": "الإنفاق {dir} بـ{pct} من {month}."},
     "budgets": {"en": "{kept} of {set} budgets kept.", "fa": "{kept} از {set} بودجه رعایت شد.",
                 "es": "{kept} de {set} presupuestos cumplidos.", "ar": "تم الالتزام بـ{kept} من {set} ميزانيات."},
@@ -667,8 +667,8 @@ W: dict[str, dict[str, str]] = {
                  "ar": "أكثر بـ{pct} من المعتاد"},
     "cat_less": {"en": "{pct} less than usual", "fa": "{pct} کمتر از معمول", "es": "{pct} menos de lo normal",
                  "ar": "أقل بـ{pct} من المعتاد"},
-    "cat_same": {"en": "as usual", "fa": "معمول", "es": "lo normal", "ar": "كالمعتاد"},
-    "cat_new": {"en": "new", "fa": "تازه", "es": "nuevo", "ar": "جديد"},
+    "cat_same": {"en": "as usual", "fa": "در حد معمول", "es": "lo normal", "ar": "كالمعتاد"},
+    "cat_new": {"en": "new", "fa": "جدید", "es": "nuevo", "ar": "جديد"},
     "cat_more_m": {"en": "{pct} more than last month", "fa": "{pct} بیشتر از ماه قبل", "es": "{pct} más que el mes anterior",
                    "ar": "أكثر بـ{pct} من الشهر السابق"},
     "cat_less_m": {"en": "{pct} less than last month", "fa": "{pct} کمتر از ماه قبل", "es": "{pct} menos que el mes anterior",
@@ -697,7 +697,7 @@ C: dict[str, dict[str, str]] = {
     "weeks": {"en": "The last five weeks", "fa": "پنج هفتهٔ اخیر", "es": "Las últimas cinco semanas", "ar": "آخر خمسة أسابيع"},
     "months": {"en": "The last four months", "fa": "چهار ماه اخیر", "es": "Los últimos cuatro meses", "ar": "آخر أربعة أشهر"},
     "this_week": {"en": "This week", "fa": "این هفته", "es": "Esta semana", "ar": "هذا الأسبوع"},
-    "usual": {"en": "usual", "fa": "معمول", "es": "lo normal", "ar": "المعتاد"},
+    "usual": {"en": "usual", "fa": "حد معمول", "es": "lo normal", "ar": "المعتاد"},
     "spending": {"en": "Spending", "fa": "خرج", "es": "Gastos", "ar": "الإنفاق"},
     "income": {"en": "Income", "fa": "درآمد", "es": "Ingresos", "ar": "الدخل"},
     "revenue": {"en": "Revenue", "fa": "درآمد", "es": "Ingresos", "ar": "الإيرادات"},
@@ -715,7 +715,7 @@ _IDEA_ICONS = {"goal_behind": "🎯", "goal_payday": "💰", "budget_pace": "⏳
 S: dict[str, dict[str, dict[str, str]]] = {
     "goal_behind": {
         "say": {"en": "To reach “{goal}” by {by}, it needs {needed} a month; the last three months put aside {pace} a month.",
-                "fa": "برای رسیدن به «{goal}» تا {by} ماهی {needed} لازم است؛ این سه ماه ماهی {pace} گذاشتید.",
+                "fa": "برای رسیدن به «{goal}» تا {by} ماهی {needed} لازم است؛ در سه ماه اخیر ماهی {pace} کنار گذاشته‌اید.",
                 "es": "Para llegar a «{goal}» en {by} hacen falta {needed} al mes; estos tres meses apartaste {pace} al mes.",
                 "ar": "للوصول إلى «{goal}» بحلول {by} يلزم {needed} شهريًا؛ ادّخرت في الأشهر الثلاثة الأخيرة {pace} شهريًا."},
         "ask": {"en": "How can I catch up on my {goal} goal?", "fa": "چطور به هدف {goal} برسم؟",
@@ -729,7 +729,7 @@ S: dict[str, dict[str, dict[str, str]]] = {
                 "es": "Mueve {amount} a {account} para mi meta {goal}", "ar": "انقل {amount} إلى {account} لهدف {goal}"}},
     "budget_pace": {
         "say": {"en": "At this pace “{category}” passes its budget around {on} ({spent} of {limit}).",
-                "fa": "با این روند، «{category}» حدود {on} از بودجه‌اش می‌گذرد ({spent} از {limit}).",
+                "fa": "با این روند، خرج «{category}» حدود {on} از بودجه‌اش بیشتر می‌شود ({spent} از {limit}).",
                 "es": "A este ritmo «{category}» supera su presupuesto hacia el {on} ({spent} de {limit}).",
                 "ar": "بهذا المعدل تتجاوز «{category}» ميزانيتها نحو {on} ({spent} من {limit})."},
         "ask": {"en": "How can I spend less on {category}?", "fa": "چطور خرج {category} را کم کنم؟",
@@ -757,14 +757,14 @@ S: dict[str, dict[str, dict[str, str]]] = {
                 "es": "Registra que {person} me devolvió el dinero", "ar": "سجّل سداد {person} لي"}},
     "subscriptions": {
         "say": {"en": "{count} payments repeat every month, {total} a month in all: {names}.",
-                "fa": "{count} پرداخت ماهانهٔ تکراری دارید، روی هم ماهی {total}: {names}.",
+                "fa": "{count} پرداخت هر ماه تکرار می‌شود، روی هم ماهی {total}: {names}.",
                 "es": "{count} pagos se repiten cada mes, {total} al mes en total: {names}.",
                 "ar": "{count} مدفوعات تتكرر كل شهر، بإجمالي {total} شهريًا: {names}."},
         "ask": {"en": "Show my repeating payments", "fa": "پرداخت‌های تکراری‌ام را نشان بده",
                 "es": "Muéstrame mis pagos recurrentes", "ar": "اعرض مدفوعاتي المتكررة"}},
     "overdue_invoices": {
         "say": {"en": "Overdue invoices: {count}, {total} in all — {oldest} for {days} days.",
-                "fa": "{count} فاکتور سررسیدگذشته دارید، روی هم {total} — {oldest} {days} روز.",
+                "fa": "{count} فاکتور سررسیدگذشته دارید، روی هم {total}؛ قدیمی‌ترین: {oldest}، {days} روز.",
                 "es": "Facturas vencidas: {count}, {total} en total; {oldest}, {days} días.",
                 "ar": "{count} فواتير متأخرة بإجمالي {total} — {oldest} منذ {days} يومًا."},
         "ask": {"en": "Which invoices are overdue?", "fa": "کدام فاکتورها سررسیدشان گذشته؟",

@@ -164,7 +164,7 @@ window.I18N_PACKS.es = Object.assign({
         ledgerKol: 'Mayor general — کل',
         ledgerKolTotal: 'Total — {name}',
         ledgerMoin: 'Auxiliar — معین',
-        ledgerTafsili: 'Detalle (por persona) — تفضیلی',
+        ledgerTafsili: 'Detalle (por persona) — تفصیلی',
         fldBankName: 'Nombre del banco',
         fldAccountHolder: 'Titular de la cuenta',
         fldAccountNumber: 'Número de cuenta',

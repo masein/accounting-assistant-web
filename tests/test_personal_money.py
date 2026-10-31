@@ -114,7 +114,7 @@ def test_z3_once_the_books_have_entries_their_currency_stays(person):
     assert api.get("/personal/currency").json()["currency"] == "IRR"
     from app.core.messages import localize_detail
     # the currency by its Persian name, isolated for the right-to-left sentence
-    assert localize_detail(r.json()["detail"], "fa").startswith("این دفاتر از قبل ثبت‌هایی به \u2068ریال ایران\u2069 دارند")
+    assert localize_detail(r.json()["detail"], "fa").startswith("در این دفاتر از قبل ثبت‌هایی به \u2068ریال ایران\u2069 هست")
 
 
 def test_z3_a_companys_currency_stays_with_the_platform_admin(client, db):

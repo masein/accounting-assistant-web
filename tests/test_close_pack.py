@@ -73,7 +73,7 @@ def test_an_iranian_company_gets_its_pack_for_a_jalali_month(company, db):
     wb = load_workbook(io.BytesIO(z.read("close-pack-1405-06.xlsx")))
     assert wb.sheetnames == ["فهرست بررسی", "صورت وضعیت مالی", "صورت سود و زیان", "صورت سود و زیان جامع",
                              "صورت تغییرات در حقوق مالکانه", "صورت جریان‌های نقدی", "تراز آزمایشی",
-                             "سنی مطالبات", "سنی بدهی‌ها", "بودجه و عملکرد"]      # no bank lines, no bank sheets
+                             "تحلیل سنی مطالبات", "تحلیل سنی بدهی‌ها", "بودجه و عملکرد"]      # no bank lines, no bank sheets
     check = wb["فهرست بررسی"]
     assert check.sheet_view.rightToLeft is True
     assert [c.value for c in check[1]] == ["وضعیت", "مورد", "توضیح"]

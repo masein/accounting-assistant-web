@@ -1,4 +1,4 @@
-"""سامانه مودیان export (roadmap §3.1, phase 1): the 22-char tax number,
+"""سامانه مؤدیان export (roadmap §3.1, phase 1): the 22-char tax number,
 the packet builder and its readiness checks, the export/result workflow,
 the confirmed-invoice lock and the 12-day deadline notifications."""
 from __future__ import annotations

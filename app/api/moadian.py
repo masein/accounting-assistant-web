@@ -1,4 +1,4 @@
-"""سامانه مودیان export (roadmap §3.1, phase 1): readiness per invoice,
+"""سامانه مؤدیان export (roadmap §3.1, phase 1): readiness per invoice,
 JSON export for a trusted provider (شرکت معتمد), result tracking, settings.
 Direct submission with the company's signing key is phase 2."""
 from __future__ import annotations
@@ -77,7 +77,7 @@ def write_settings(payload: SettingsUpdate, db: Session = Depends(get_db)) -> di
         db.rollback()
         raise HTTPException(status_code=422, detail=str(e)) from e
     log_audit_event(db, action="update", entity_type="moadian_settings", entity_id="moadian",
-                    detail=f"مودیان settings: memory id {'set' if saved['memory_id'] else 'empty'}, "
+                    detail=f"مؤدیان settings: memory id {'set' if saved['memory_id'] else 'empty'}, "
                            f"deadline {saved['deadline_days']} days")
     db.commit()
     return saved
@@ -137,7 +137,7 @@ def export(payload: ExportRequest, request: Request = None, db: Session = Depend
             continue
         if inv.moadian_status == "confirmed":
             skipped.append({"id": str(inv.id), "number": inv.number,
-                            "problems": ["Already confirmed by سامانه مودیان; send a corrective invoice instead."]})
+                            "problems": ["Already confirmed by سامانه مؤدیان; send a corrective invoice instead."]})
             continue
         check = builder.build(db, inv)
         if not check.ready:
@@ -156,7 +156,7 @@ def export(payload: ExportRequest, request: Request = None, db: Session = Depend
                       "serial": inv.moadian_serial, "warnings": b.warnings})
     if index:
         log_audit_event(db, action="export", entity_type="moadian", entity_id=now.strftime("%Y%m%d%H%M%S"),
-                        detail=f"{len(index)} invoice(s) exported for سامانه مودیان: "
+                        detail=f"{len(index)} invoice(s) exported for سامانه مؤدیان: "
                                + ", ".join(x["number"] for x in index)[:900])
     db.commit()
     return said({
@@ -180,7 +180,7 @@ def record_result(invoice_id: UUID, payload: ResultUpdate, db: Session = Depends
         inv.moadian_reference = payload.reference.strip() or None
     inv.moadian_error = (payload.error or "").strip() or None if status == "rejected" else None
     log_audit_event(db, action="update", entity_type="invoice", entity_id=str(inv.id),
-                    detail=f"مودیان status of {inv.number}: {status}"
+                    detail=f"مؤدیان status of {inv.number}: {status}"
                            + (f" (ref {inv.moadian_reference})" if inv.moadian_reference else ""))
     db.commit()
     return _row(db, _load(db, invoice_id), date.today())

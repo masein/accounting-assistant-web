@@ -37,7 +37,7 @@ class InvoiceItem(Base, TenantMixin):
     # and the treatment (standard | zero_rated | exempt | reverse_charge).
     tax_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     tax_treatment: Mapped[str] = mapped_column(String(24), default="standard", server_default="standard")
-    # سامانه مودیان: 13-digit goods/service id (شناسه کالا/خدمت) and the
+    # سامانه مؤدیان: 13-digit goods/service id (شناسه کالا/خدمت) and the
     # tax organisation's measurement-unit code. Blank → the company default.
     sstid: Mapped[str | None] = mapped_column(String(13), nullable=True)
     mu: Mapped[str | None] = mapped_column(String(8), nullable=True)

@@ -1,4 +1,4 @@
-"""One invoice → a سامانه مودیان packet, plus the problems that block it.
+"""One invoice → a سامانه مؤدیان packet, plus the problems that block it.
 
 Field codes follow the tax organisation's "دستورالعمل صدور صورتحساب
 الکترونیکی" JSON (header / body / payments), as implemented by the public
@@ -69,7 +69,7 @@ def _buyer(ent: Entity | None) -> tuple[int | None, str | None, str | None, str 
 class Shared:
     """What every invoice of a list shares or can read at once: the settings,
     the company's ids, the customers and the invoices' totals. Built one by
-    one, the مودیان list took 5.9 s and 17,508 queries on a year of books
+    one, the مؤدیان list took 5.9 s and 17,508 queries on a year of books
     (performance pass, 2026-10-06)."""
     conf: dict
     company_ids: tuple
@@ -91,14 +91,14 @@ def build(db: Session, inv: Invoice, *, serial: int | None = None, shared: Share
     conf = shared.conf if shared else get_settings(db)
     b = Built(packet=None)
     if inv.kind != "sales":
-        b.problems.append("Only sales invoices go to سامانه مودیان.")
+        b.problems.append("Only sales invoices go to سامانه مؤدیان.")
     if inv.status not in SENDABLE:
         b.problems.append(f"A {inv.status} invoice can't be sent; issue it first." if inv.status == "draft"
                           else f"A {inv.status} invoice can't be sent.")
     if (inv.currency or "").upper() != "IRR":
         b.problems.append(f"Only rial invoices are supported in this export (this one is {inv.currency}).")
     if not valid_memory_id(conf["memory_id"]):
-        b.problems.append("Enter the company's tax memory id (شناسه یکتای حافظه مالیاتی) in the مودیان settings.")
+        b.problems.append("Enter the company's tax memory id (شناسه یکتای حافظه مالیاتی) in the مؤدیان settings.")
     econ, nid = shared.company_ids if shared else _company_ids(db)
     tins = econ or nid
     if not tins:

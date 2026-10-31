@@ -591,7 +591,7 @@ _ACCOUNT_ALIASES: dict[str, dict[str, tuple[list[str], list[str]]]] = {
         # names it "Opening net worth", and «افتتاحیه» found nothing. Not «سرمایه»: in a person's
         # books that is investment (سرمایه‌گذاری, 4130) as often as capital
         "opening net worth": (["opening", "starting balance", "net worth", "افتتاحیه", "اولیه", "موجودی اولیه",
-                               "خالص دارایی"], ["3110"]),
+                               "خالص دارایی", "دارایی خالص"], ["3110"]),
     },
     "default": {
         "cash / bank": (["cash", "bank", "petty cash"], ["1110", "1200"]),

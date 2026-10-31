@@ -75,15 +75,15 @@ TEXT: dict[str, dict[str, dict[str, str]]] = {
          "ar": "تستحق الفاتورة {number} في {date}"},
         {"en": "{side}", "fa": "{side}", "es": "{side}", "ar": "{side}"}),
     "moadian_overdue": _both(
-        {"en": "Invoice {number} not sent to سامانه مودیان", "fa": "فاکتور {number} به سامانه مودیان ارسال نشده است",
-         "es": "La factura {number} no se envió a سامانه مودیان", "ar": "لم تُرسل الفاتورة {number} إلى سامانه مودیان"},
+        {"en": "Invoice {number} not sent to سامانه مؤدیان", "fa": "فاکتور {number} به سامانه مؤدیان ارسال نشده است",
+         "es": "La factura {number} no se envió a سامانه مؤدیان", "ar": "لم تُرسل الفاتورة {number} إلى سامانه مؤدیان"},
         {"en": "The {limit}-day deadline passed on {date} ({days} day(s) ago).",
          "fa": "مهلت {limit} روزه در {date} گذشت ({days} روز پیش).",
          "es": "El plazo de {limit} días venció el {date} (hace {days} día(s)).",
          "ar": "انتهت مهلة {limit} يوماً في {date} (قبل {days} يوماً)."}),
     "moadian_due": _both(
-        {"en": "Send invoice {number} to سامانه مودیان", "fa": "فاکتور {number} را به سامانه مودیان بفرستید",
-         "es": "Envía la factura {number} a سامانه مودیان", "ar": "أرسل الفاتورة {number} إلى سامانه مودیان"},
+        {"en": "Send invoice {number} to سامانه مؤدیان", "fa": "فاکتور {number} را به سامانه مؤدیان بفرستید",
+         "es": "Envía la factura {number} a سامانه مؤدیان", "ar": "أرسل الفاتورة {number} إلى سامانه مؤدیان"},
         {"en": "Deadline {date} ({days} day(s) left).", "fa": "مهلت {date} ({days} روز مانده).",
          "es": "Plazo: {date} (quedan {days} día(s)).", "ar": "الموعد {date} (متبقٍ {days} يوماً)."}),
     "apikey_expired": _both(

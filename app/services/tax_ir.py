@@ -3,7 +3,7 @@
 * **گزارش معاملات فصلی (ماده ۱۶۹ مکرر, TTMS)** — every counterparty the
   company bought from or sold to in a Jalali season, with the identity the
   tax organisation asks for, the amount before tax and the VAT, due **45 days**
-  after the season ends. Sales already registered in سامانه مودیان are left
+  after the season ends. Sales already registered in سامانه مؤدیان are left
   out by default: an electronic invoice accepted there needs no second report.
 * **اظهارنامه مالیات بر ارزش افزوده** — output VAT on sales, input VAT on
   purchases, returns (reduction credit notes) netted, the balance payable or
@@ -146,7 +146,7 @@ def ascii_digits(value: str | None) -> str:
 
 def person_type(ent: Entity | None) -> str:
     """حقیقی (10-digit national code) / حقوقی (11-digit national id), as the
-    مودیان builder reads it; unknown until one of them is entered."""
+    مؤدیان builder reads it; unknown until one of them is entered."""
     if ent is None:
         return "نامشخص"
     nid = "".join(ch for ch in ascii_digits(ent.national_id) if ch.isdigit())
@@ -265,7 +265,7 @@ def quarterly_report(db: Session, s: Season, *, include_moadian: bool = False) -
         if (cn.currency or REPORT_CURRENCY).upper() != REPORT_CURRENCY:
             continue
         if inv is not None and inv.kind == "sales" and inv.moadian_status == "confirmed" and not include_moadian:
-            continue  # the return of a مودیان invoice goes to مودیان as a return invoice
+            continue  # the return of a مؤدیان invoice goes to مؤدیان as a return invoice
         # The VAT inside a return is the credited share of its invoice's VAT.
         if inv is not None:
             split = invoice_split(inv)
@@ -304,14 +304,14 @@ def quarterly_report(db: Session, s: Season, *, include_moadian: bool = False) -
         "incomplete": incomplete,
         "details": details,
         "ready": not incomplete and not other_currency,
-        "note": "Sales accepted in سامانه مودیان are left out unless included. Purchases backed by an "
+        "note": "Sales accepted in سامانه مؤدیان are left out unless included. Purchases backed by an "
                 "electronic invoice you confirmed in the taxpayer portal can also be removed before filing.",
     }
 
 
 def vat_return(db: Session, s: Season) -> dict[str, Any]:
     """Figures for the seasonal VAT return, from every recognised rial invoice
-    (مودیان or not) and the season's reduction credit notes."""
+    (مؤدیان or not) and the season's reduction credit notes."""
     invoices = _season_invoices(db, s)
     out = {side: {"taxable_base": 0, "exempt_base": 0, "vat": 0, "returns_base": 0, "returns_vat": 0,
                   "invoice_count": 0} for side in ("sales", "purchases")}
@@ -352,7 +352,7 @@ def vat_return(db: Session, s: Season) -> dict[str, Any]:
 
 def reconciliation(db: Session, s: Season) -> dict[str, Any]:
     """The return and the TTMS report must describe the same trade: TTMS
-    (all counterparties, مودیان sales included) = the return, side by side."""
+    (all counterparties, مؤدیان sales included) = the return, side by side."""
     full = quarterly_report(db, s, include_moadian=True)
     ret = vat_return(db, s)
     rows = []
@@ -437,7 +437,7 @@ def export_xlsx(db: Session, s: Season, *, include_moadian: bool = False) -> byt
         ("فروش — مالیات خالص (ریال)", rep["totals"]["sales"]["net_vat"]),
         ("خرید — مبلغ خالص (ریال)", rep["totals"]["purchases"]["net_base"]),
         ("خرید — مالیات خالص (ریال)", rep["totals"]["purchases"]["net_vat"]),
-        ("فروش‌های ثبت‌شده در سامانه مودیان (کنار گذاشته شده)", rep["excluded_moadian"]["count"]),
+        ("فروش‌های ثبت‌شده در سامانه مؤدیان (کنار گذاشته شده)", rep["excluded_moadian"]["count"]),
         ("", ""),
         ("اظهارنامه — مالیات فروش (ریال)", ret["output_vat"]),
         ("اظهارنامه — اعتبار مالیاتی خرید (ریال)", ret["input_vat"]),
@@ -461,7 +461,7 @@ def export_xlsx(db: Session, s: Season, *, include_moadian: bool = False) -> byt
     sheet("فروش", _PARTY_HEADERS, party_rows(rep["sales"]))
     sheet("خرید", _PARTY_HEADERS, party_rows(rep["purchases"]))
     sheet("صورتحساب‌ها", ["نوع", "شماره", "تاریخ", "طرف معامله", "ارز", "مبلغ قبل از مالیات", "مالیات", "مبلغ کل",
-                          "وضعیت مودیان", "در گزارش"],
+                          "وضعیت مؤدیان", "در گزارش"],
           [["فروش" if d["kind"] == "sales" else "خرید", d["number"], d["issue_date_jalali"], d["counterparty"] or "—",
             d["currency"], d["base"], d["vat"], d["total"], d["moadian_status"] or "—", "بله" if d["reported"] else "خیر"]
            for d in rep["details"]])

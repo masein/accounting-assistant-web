@@ -54,7 +54,7 @@ def _keys(out) -> set[str]:
 
 
 def test_locale_limited_highlights(monkeypatch):
-    since = "2026.09.25.3"  # the release before the مودیان export
+    since = "2026.09.25.3"  # the release before the مؤدیان export
     assert "moadian-export" in _keys(rn.whats_new_for("owner", since, locale="ir"))
     assert "moadian-export" not in _keys(rn.whats_new_for("owner", since, locale="uk"))
     # Unknown locale (no company in the session) keeps every highlight.
@@ -122,7 +122,7 @@ def test_whats_new_for_role_and_last_seen():
     assert pkeys["insights"]["page"] == "personal-dashboard"
     assert _rel("owner", "2026.09.22")["insights"]["page"] == "dashboard"
     # …and on the current release: SME-only notes are hidden from personal users.
-    # The مودیان release is SME-only: a personal user got nothing from it…
+    # The مؤدیان release is SME-only: a personal user got nothing from it…
     assert _rel("personal", "2026.09.25.4") == {}
     # …from 2026.09.25.5 only the note meant for everyone…
     assert set(_rel("personal", "2026.09.25.5")) == {"two-factor"}

@@ -365,7 +365,7 @@ _add("POST", "/invoices/{invoice_id}/send", Perm.BOOKS_WRITE)
 _add("POST", "/entities/{entity_id}/statement/email", Perm.BOOKS_WRITE)
 _add("GET", "/entities/{entity_id}/emails", frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
 _add("PUT", "/invoices/reminder-settings", Perm.SETTINGS_WRITE)
-# سامانه مودیان export: books people prepare and track it; the memory id and
+# سامانه مؤدیان export: books people prepare and track it; the memory id and
 # defaults are company settings.
 _reads(["/moadian/settings", "/moadian/invoices", "/moadian/invoices/{invoice_id}/preview"],
        frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))

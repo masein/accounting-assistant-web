@@ -6,13 +6,14 @@ Decided from the seven reviewers' term lists. The basis, in order: established I
 
 | Concept (English) | Use | Never / only |
 |---|---|---|
-| The AI assistant | **دستیار** | «حسابدار» (that is the human Accountant role) |
+| The AI assistant | **دستیار** | «حسابدار» (that is the human Accountant role). The phone app's name stays «حسابدار» for now (owner, 2026-10-31) |
 | Addressing the user | polite **شما** forms everywhere in UI, buttons, notifications and the assistant's voice | «تو» forms («بنویس، بفرست، دفاترت»). Only the user's own suggested questions (chips the user taps) stay first-person colloquial |
 | Invoice (sales) / bill (supplier) | **فاکتور فروش** / **فاکتور خرید** (short: فاکتور) | «صورتحساب» or «صورت‌حساب» for invoices; «قبض» except utility bills |
 | To bill a client / billed | **صدور فاکتور** / **فاکتورشده** | «صورتحساب کنید» |
 | Bank statement | **صورت‌حساب بانکی** (with نیم‌فاصله; short: صورت‌حساب) | — |
 | Moadian e-invoice | **صورتحساب الکترونیکی** (its legal name, as the tax office writes it) | — |
-| Credit note | **برگ بستانکار** (unchanged: used consistently; «برگشت از فروش/خرید» stays where it already means returns) | «یادداشت بستانکار»، «اعلامیه…» |
+| The Moadian system | **سامانه مؤدیان** (with ؤ; owner, 2026-10-31) | «مودیان» |
+| Credit note | **برگ بستانکار** (kept for now; the owner means to change it later. «برگشت از فروش/خرید» stays where it already means returns) | «یادداشت بستانکار»، «اعلامیه…» |
 | Recurring | **دوره‌ای** (e.g. پرداخت دوره‌ای، فاکتور دوره‌ای); the feature title may say «تکرارشونده» | «تکراری» (that means *duplicate*, as in duplicate rows) |
 | Rule | **قاعده** | «قانون» (law) |
 | Chart of accounts | **کدینگ حساب‌ها** | «نمودار حساب‌ها»، «جدول حساب‌ها»، «سرفصل حساب‌ها» (a «سرفصل» is one heading account; fine in that sense) |
@@ -21,6 +22,7 @@ Decided from the seven reviewers' term lists. The basis, in order: established I
 | Cash flow statement | **صورت جریان‌های نقدی** (title of the revised Iranian standard No. 2, already on the app's statements) | «صورت جریان وجوه نقد» (the old title), «جریان نقد» as the statement name |
 | Financial statements | **صورت‌های مالی** | bare «صورت‌ها» |
 | Equity | **حقوق مالکانه** | «حقوق صاحبان سهام» (mixed) |
+| Net worth | **دارایی خالص** (owner, 2026-10-31) | «ارزش خالص»، «خالص دارایی» in labels (the seeded account names «خالص دارایی» / «خالص دارایی اولیه» are data, unchanged). «ارزش خالص» stays for stock's net value |
 | Opening voucher / balances | **سند افتتاحیه** (the voucher), **مانده‌های افتتاحیه** (the balances) | «تراز افتتاحیه» as a voucher description |
 | Aging (report) | **تحلیل سنی …** (column header «سن بدهی» is fine) | bare «سنی …» |
 | Bank reconciliation | **مغایرت‌گیری بانکی**; a difference is **مغایرت** | «فرق دارد» for a reconciliation difference |

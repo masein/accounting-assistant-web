@@ -1,7 +1,7 @@
 """Lists and reports on a busy year don't run a query per row (scenario K2).
 
 On a year of books (20,000 journals, 3,300 invoices) the Invoices page took
-12.7 s and 25,171 queries, the مودیان list 5.9 s, receivables aging 1,495
+12.7 s and 25,171 queries, the مؤدیان list 5.9 s, receivables aging 1,495
 queries and every bell poll 514 — each read its rows one invoice or one
 notification at a time. These tests pin the batched reads: the number of SQL
 statements must not grow with the number of invoices, and the batched figures
@@ -23,7 +23,7 @@ from tests.test_report_performance import count_queries
 
 @pytest.fixture()
 def books(client, db):
-    """A private Iranian company with a chart, a profile (for مودیان) and an owner."""
+    """A private Iranian company with a chart, a profile (for مؤدیان) and an owner."""
     from app.core.auth import CSRF_COOKIE, create_session_token, generate_csrf_token
     from app.core.config import settings
     from app.db.seed import seed_chart_if_empty

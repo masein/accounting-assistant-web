@@ -1,6 +1,6 @@
 """Iranian seasonal filings (roadmap 2026-09 §3.2): TTMS report + VAT return.
 
-Jalali seasons and their deadlines, the per-counterparty TTMS figures (مودیان
+Jalali seasons and their deadlines, the per-counterparty TTMS figures (مؤدیان
 sales left out, returns netted, other currencies and incomplete parties
 listed), the VAT return and its reconciliation with the report, the Excel
 file, the HTTP routes and the deadline reminders.

@@ -88,7 +88,7 @@ fun ChatShowcase(lang: String, startPosted: Boolean = false, fixedUndoSeconds: I
                 }
                 UserBubble(
                     from = if (fa) "پیامک${sep}بانک ملت" else "SMS${sep}Barclays",
-                    text = if (fa) "برداشت: ۲٬۵۰۰٬۰۰۰\nمانده: ۴۱٬۲۰۰٬۰۰۰\n۱۴۰۵/۰۷/۱۸ - ۱۲:۳۰"
+                    text = if (fa) "برداشت: ۲,۵۰۰,۰۰۰\nمانده: ۴۱,۲۰۰,۰۰۰\n۱۴۰۵/۰۷/۱۸ - ۱۲:۳۰"
                            else "Card payment £25.00\nBalance £412.00\n10/10/2026 12:30",
                 )
                 AssistantText(if (fa) "یک برداشت از کارت ملت. خرجِ چه بود؟"

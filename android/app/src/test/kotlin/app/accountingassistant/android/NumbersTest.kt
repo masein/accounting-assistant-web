@@ -8,8 +8,8 @@ import org.junit.Test
 
 class NumbersTest {
     @Test fun persianAmountsUsePersianDigitsAndTheArabicSeparator() {
-        assertEquals("۲٬۵۰۰٬۰۰۰", Numbers.amount(2_500_000, "fa"))
-        assertEquals("۱٬۰۰۵٬۵۴۵٬۵۵۰", Numbers.amount(1_005_545_550, "fa"))
+        assertEquals("۲,۵۰۰,۰۰۰", Numbers.amount(2_500_000, "fa"))
+        assertEquals("۱,۰۰۵,۵۴۵,۵۵۰", Numbers.amount(1_005_545_550, "fa"))
         assertEquals("−۱۲۰", Numbers.amount(-120, "fa"))
     }
 
@@ -32,7 +32,7 @@ class NumbersTest {
     }
 
     @Test fun aChangeKeepsItsSignInFrontInEveryDirection() {
-        assertEquals("\u2066+۱۸۰٬۰۰۰٬۰۰۰\u2069", Numbers.signed(180_000_000, "fa"))
+        assertEquals("\u2066+۱۸۰,۰۰۰,۰۰۰\u2069", Numbers.signed(180_000_000, "fa"))
         assertEquals("\u2066−2,500\u2069", Numbers.signed(-2_500, "en"))
         assertEquals("\u20660\u2069", Numbers.signed(0, "en"))
     }
@@ -56,7 +56,7 @@ class NumbersTest {
         assertEquals("۵۰۰٫۵۰ دلار", pricedInWords(java.math.BigDecimal("500.5"), "USD", "fa"))
         assertEquals("۱۲ یورو", pricedInWords(java.math.BigDecimal(12), "EUR", "fa"))
         assertEquals("۷۷٫۵۰۰ ریال عمان", pricedInWords(java.math.BigDecimal("77.5"), "OMR", "fa"))
-        assertEquals("۳٬۰۰۰٬۰۰۰ ریال", pricedInWords(java.math.BigDecimal(3_000_000), "IRR", "fa"))
+        assertEquals("۳,۰۰۰,۰۰۰ ریال", pricedInWords(java.math.BigDecimal(3_000_000), "IRR", "fa"))
         // other languages as before
         assertEquals("\$500.00", pricedInWords(java.math.BigDecimal(500), "USD", "en"))
         assertEquals("\$500.00", pricedInWords(java.math.BigDecimal(500), "USD", "ar"))
@@ -78,7 +78,7 @@ class NumbersTest {
         assertEquals("£7.50", priced(java.math.BigDecimal("7.5"), "GBP", "en"))
         assertEquals("£25,003", priced(25_003, "GBP", "en", compact = true))   // a chart stays compact
         assertEquals("1.235 KWD", priced(java.math.BigDecimal("1.2345"), "KWD", "en"))
-        assertEquals("۴۹٬۶۰۰٬۰۰۰ ریال", priced(49_600_000, "IRR", "fa"))
+        assertEquals("۴۹,۶۰۰,۰۰۰ ریال", priced(49_600_000, "IRR", "fa"))
         assertEquals("1,440 IRR", priced(1_440, "IRR", "en"))
         assertEquals("1,440", priced(1_440, null, "en"))
     }

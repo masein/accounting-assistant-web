@@ -51,7 +51,7 @@ data class WidgetState(
 data class Held(val currency: String, val total: Double)
 
 /** The widget's lines, worked out away from Android's views so they can be tested. [others]: the other
- *  currencies, «۳٬۰۰۰٬۰۰۰ ریال، ۵۰۰ دلار»; [line]: the budget left. */
+ *  currencies, «۳,۰۰۰,۰۰۰ ریال، ۵۰۰ دلار»; [line]: the budget left. */
 data class WidgetText(val title: String, val amount: String?, val line: String?, val note: String?, val others: String? = null)
 
 fun widgetText(state: WidgetState, lang: String, words: (Int) -> String, formatted: (Int, String) -> String): WidgetText {

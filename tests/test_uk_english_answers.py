@@ -37,9 +37,9 @@ def test_amounts_read_as_the_reader_writes_them():
     assert fp._priced(-50, "GBP", "en") == "-£50"
     assert fp._priced(1440, "EUR", "es") == "€1,440"
     assert fp._priced(1440, "IRR", "en") == "1,440 IRR"
-    assert fp._priced(23923, "IRR", "fa") == "۲۳٬۹۲۳ ریال"
+    assert fp._priced(23923, "IRR", "fa") == "۲۳,۹۲۳ ریال"
     assert fp._say("cash", "en", total="23,923", cur="GBP", total_p="£23,923") == "Cash and bank today: £23,923."
-    assert fp._say("cash", "fa", total="۲۳٬۹۲۳", cur="ریال", total_p="x") == "موجودی نقد و بانک امروز: ۲۳٬۹۲۳ ریال."
+    assert fp._say("cash", "fa", total="۲۳,۹۲۳", cur="ریال", total_p="x") == "موجودی نقد و بانک امروز: ۲۳,۹۲۳ ریال."
     assert fp._say("budget", "en", actual="1", budget="2", left="1", cur="GBP", actual_p="£1,077",
                    budget_p="£2,000", left_p="£923") == "This month: £1,077 of £2,000 spent, £923 left."
 

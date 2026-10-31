@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.22.1"
+CURRENT_RELEASE = "2026.10.31.1"
 
 
 @dataclass(frozen=True)
@@ -2307,6 +2307,27 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "بپرسید «در ۱۰ روز گذشته چقدر خرج کردم؟» تا هر ارز را با دسته‌هایش ببینید. دستیار کیف‌پول‌ها، حساب‌ها، دسته‌ها و اشخاص دفترتان را همان‌طور که هستند می‌شناسد؛ «کیف پول سبز» یا «مبدل برق» بی‌سؤال سر جای درستش می‌رود.",
                     "es": "Pregunta «¿cuánto gasté en los últimos 10 días?» y verás cada moneda con sus categorías. El asistente conoce tus carteras, cuentas, categorías y personas tal como están en tus libros, así que «mi cartera verde» o «un adaptador» van a su sitio sin preguntas.",
                     "ar": "اسأل «كم أنفقت في آخر ١٠ أيام؟» لترى كل عملة بفئاتها. يعرف المساعد محافظك وحساباتك وفئاتك والأشخاص كما هم في دفاترك، فتذهب «محفظتي الخضراء» أو «محوّل كهرباء» إلى مكانها الصحيح دون سؤال.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.10.31.1",
+        date="2026-10-31",
+        highlights=(
+            Highlight(
+                key="persian-reads-natural",
+                title={
+                    "en": "Persian that reads like an Iranian app",
+                    "fa": "فارسی روان‌تر، مثل یک برنامهٔ ایرانی",
+                    "es": "Un persa que se lee como una app iraní",
+                    "ar": "فارسية تُقرأ كتطبيق إيراني",
+                },
+                body={
+                    "en": "Every Persian screen, message, printed document and the assistant's own replies were checked by native readers: one term for each thing, amounts written «۱,۲۵۰,۰۰۰», account codes and dates in Persian digits, and a card the assistant prepares is «ready», not «recorded», until you confirm it.",
+                    "fa": "همهٔ صفحه‌ها، پیام‌ها، اسناد چاپی و پاسخ‌های دستیار به فارسی بازبینی شد: برای هر مفهوم یک واژه، مبلغ‌ها به‌صورت «۱,۲۵۰,۰۰۰»، کد حساب‌ها و تاریخ‌ها با رقم فارسی، و کارتی که دستیار آماده می‌کند تا وقتی تأییدش نکرده‌اید «آماده» است، نه «ثبت‌شده».",
+                    "es": "Todas las pantallas, mensajes y documentos impresos en persa, y las respuestas del asistente, se revisaron con lectores nativos: un término para cada cosa, importes como «۱,۲۵۰,۰۰۰», códigos de cuenta y fechas en cifras persas, y una tarjeta del asistente está «lista», no «registrada», hasta que la confirmas.",
+                    "ar": "رُوجعت كل الشاشات والرسائل والمستندات المطبوعة بالفارسية وردود المساعد مع قرّاء أصليين: مصطلح واحد لكل شيء، والمبالغ تُكتب «۱,۲۵۰,۰۰۰»، ورموز الحسابات والتواريخ بالأرقام الفارسية، والبطاقة التي يعدّها المساعد «جاهزة» لا «مسجّلة» حتى تؤكدها.",
                 },
             ),
         ),

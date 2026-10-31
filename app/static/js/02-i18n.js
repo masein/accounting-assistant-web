@@ -3342,7 +3342,7 @@
       currentLanguage = normalized;
       // charts' own numbers (doughnut tooltips and the rest without a callback) in the page's digits
       if (window.Chart && window.Chart.defaults) {
-        window.Chart.defaults.locale = normalized === 'fa' ? 'fa-IR' : 'en-US';
+        window.Chart.defaults.locale = normalized === 'fa' ? 'en-US-u-nu-arabext' : 'en-US';
         // and the page's own font (app.css), not Chart.js's Helvetica/Arial (scenario V3)
         window.Chart.defaults.font.family = {
           fa: "'Vazirmatn', 'Tahoma', 'Segoe UI', sans-serif",

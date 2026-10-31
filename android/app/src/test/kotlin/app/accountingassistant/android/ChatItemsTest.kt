@@ -96,7 +96,7 @@ class ChatItemsTest {
         assertEquals("7.50", app.accountingassistant.android.ui.chat.typedAmount("7.505", "en", 2))
         assertEquals("1,234.5", app.accountingassistant.android.ui.chat.typedAmount("1234.5", "en", 2))
         assertEquals("۷٫۵", app.accountingassistant.android.ui.chat.typedAmount("۷٫۵", "fa", 2))
-        assertEquals("۸۵٬۰۰۰٬۰۰۰", app.accountingassistant.android.ui.chat.typedAmount("85000000.5", "fa", 0))  // rials: no decimals
+        assertEquals("۸۵,۰۰۰,۰۰۰", app.accountingassistant.android.ui.chat.typedAmount("85000000.5", "fa", 0))  // rials: no decimals
         assertEquals(EditRequest(amount = "4.25"), editChange(item, "en", editableDate(item.dateIso, "en"), item.title, "4.25"))
         assertEquals(null, editChange(item, "en", editableDate(item.dateIso, "en"), item.title, "7.50"))   // the same amount
     }

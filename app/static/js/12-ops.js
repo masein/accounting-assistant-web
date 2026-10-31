@@ -171,7 +171,7 @@
       const split = s.tafsili_split || {};
       const opening = s.opening || {};
       const v = s.validation || {};
-      const fmt = (n) => (typeof n === 'number' ? n.toLocaleString(numLocale()) : n);
+      const fmt = (n) => (typeof n === 'number' ? fmtNum(n) : n);
       const tierLabels = { group: t('migrationTierGroups'), kol: t('migrationTierKol'), moein: t('migrationTierMoein'), tafsili: t('migrationTierTafsili') };
       let html = '<div style="display:flex;gap:1.5rem;flex-wrap:wrap;font-size:0.9rem;">';
       Object.keys(tiers).forEach((k) => {
@@ -249,7 +249,7 @@
           + (oj.kept
             ? `${escapeHtml(t('migrationOpeningKept'))}: <bdi dir="ltr">${escapeHtml(formatDisplayDate(oj.opening_date) || '')}</bdi>`
             : `${escapeHtml(t('migrationJournalPosted'))}: <bdi dir="ltr">${escapeHtml(formatDisplayDate(oj.opening_date) || '')}</bdi>`
-              + (oj.suspense_amount ? ` — ${escapeHtml(t('migrationBalancedNo'))} (${Number(oj.suspense_amount).toLocaleString(numLocale())})` : '')
+              + (oj.suspense_amount ? ` — ${escapeHtml(t('migrationBalancedNo'))} (${fmtNum(Number(oj.suspense_amount))})` : '')
               + (oj.replaced_previous ? ` ${escapeHtml(t('migrationJournalReplaced'))}` : ''))
           + (Object.keys(r.posting_roles || {}).length
             ? `<br>${escapeHtml(tf('migrationRolesSet', { n: Object.keys(r.posting_roles).length }))}`

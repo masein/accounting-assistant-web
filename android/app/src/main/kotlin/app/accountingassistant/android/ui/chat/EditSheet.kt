@@ -56,7 +56,7 @@ fun editChange(item: ChatItem.Proposal, lang: String, date: String, description:
 }
 
 /**
- * An amount as it is typed: the whole part grouped («۸۰٬۰۰۰٬۰۰۰», a rial
+ * An amount as it is typed: the whole part grouped («۸۰,۰۰۰,۰۰۰», a rial
  * amount is long), then a decimal mark and at most [places] decimals («7.5»
  * on the way to «7.50»). Digits only kept the whole part, so «7.50» became 750.
  */

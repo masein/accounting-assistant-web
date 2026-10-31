@@ -39,7 +39,7 @@ def test_persian_pieces_ranges_and_tiers_read_right(flow_page):
     assert (got["sep"], got["parts"], got["list"]) == ("، ", "امروز، ۱۸ مهر", "علی رضایی، سارا محمدی")
     assert got["range"] == got["rangeWant"], got                     # start first, in the page's direction
     assert got["when"].endswith(" ۱۱:۰۱") and not LATIN.search(got["when"]), got["when"]
-    assert got["zero"] == "۰" and "۲٬۵۰۰٬۰۰۰" in got["big"] and not LATIN.search(got["big"])   # Chart.js wrote «0»
+    assert got["zero"] == "۰" and "۲,۵۰۰,۰۰۰" in got["big"] and not LATIN.search(got["big"])   # Chart.js wrote «0»
     assert not LATIN.search(got["assets"]), got["assets"]           # the fixed-asset KPIs said «0»
 
     # the ledger: each group row tagged with its parent's tier on the chart, never «دفتر کل» for all

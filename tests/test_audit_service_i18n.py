@@ -52,7 +52,7 @@ def test_a_finding_reads_in_persian_with_its_values_kept_whole():
     title, detail = _negative_cash().localized("fa")
     assert title == "مانده منفی دارایی: ⁨Cash⁩"
     # the minus stays in front of its number inside a right-to-left line, the figure in Persian digits, the code as it is
-    assert "⁨-۵٬۰۰۰⁩" in detail and detail.startswith("حساب ⁨1110⁩")
+    assert "⁨-۵,۰۰۰⁩" in detail and detail.startswith("حساب ⁨۱۱۱۰⁩")
     assert _negative_cash().localized("es")[0] == "Saldo negativo de activo: Cash"
     # an unknown language, or a finding without a key, keeps its English wording
     assert _negative_cash().localized("de") == ("Negative asset balance: Cash", "Account 1110 (Cash) has negative balance: -5,000")

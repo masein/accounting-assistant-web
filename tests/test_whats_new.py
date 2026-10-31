@@ -144,6 +144,7 @@ def test_whats_new_for_role_and_last_seen():
                                                                           "language-switch",
                                                                           "persian-file-names",
                                                                           "self-service-forms",
+                                                                          "persian-reads-natural",
                                                                           "persian-digits"}
 
     # include_all lists history regardless of what was seen.

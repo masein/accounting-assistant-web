@@ -63,8 +63,8 @@ def test_ap1_a_week_in_two_currencies_is_two_cards(person, db):
     assert [c["name"] for c in omani["categories"]] == [groceries, dining, transport]
     assert [b["value"] for b in omani["chart"]["bars"]] == [10, 10, 10, 10, 41.5]
     assert [b["id"] for b in fa["blocks"]] == [f"review:{review.id}", f"review:{review.id}:OMR"]
-    assert fa["headline"].startswith("این هفته ۳٬۰۰۰٬۰۰۰ ریال ایران")                  # the bell: the first
-    assert "۴۱٫۵۰۰ ریال عمان" in fa["text"] and "۳٬۰۰۰٬۰۰۰ ریال ایران" in fa["text"]
+    assert fa["headline"].startswith("این هفته ۳,۰۰۰,۰۰۰ ریال ایران")                  # the bell: the first
+    assert "۴۱٫۵۰۰ ریال عمان" in fa["text"] and "۳,۰۰۰,۰۰۰ ریال ایران" in fa["text"]
 
 
 def test_ap2_a_week_in_omani_rials_only_is_told_in_omani_rials(person, db):

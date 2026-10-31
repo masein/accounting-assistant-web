@@ -77,7 +77,7 @@ def test_the_chat_reads_it_page_by_page_then_continues(flow_page):
         expect(go).to_have_text("ادامه با دستور شما")
         report = page.locator(".ai-reading-report")
         expect(report).to_have_class("ai-reading-report is-ok")
-        expect(report).to_contain_text("صفحهٔ ۸، ردیف ۲: ۴۷٬۵۲۲٬۰۲۰ ← ۸۴۷٬۵۲۲٬۰۲۰")
+        expect(report).to_contain_text("صفحهٔ ۸، ردیف ۲: ۴۷,۵۲۲,۰۲۰ ← ۸۴۷,۵۲۲,۰۲۰")
         page.locator("#ai-acct-messages").screenshot(path=os.path.join(ARTIFACTS, "chat-pdf-read-fa.png"))
 
         go.click()                                                                       # the same words again
@@ -132,7 +132,7 @@ def test_the_bank_page_follows_the_reading(flow_page):
         status.screenshot(path=os.path.join(ARTIFACTS, "bank-pdf-reading-fa.png"))
 
         expect(status).to_contain_text("۲۰۵", timeout=15_000)
-        expect(status).to_contain_text("صفحهٔ ۲۱، ردیف ۹: ۳۲٬۰۰۰ ← ۳۲۰٬۰۰۰")
+        expect(status).to_contain_text("صفحهٔ ۲۱، ردیف ۹: ۳۲,۰۰۰ ← ۳۲۰,۰۰۰")
         expect(page.locator("#bs-rows-body tr")).to_have_count(5)
         page.screenshot(path=os.path.join(ARTIFACTS, "bank-pdf-read-fa.png"), full_page=True)
         assert watch.problems() == [], watch.problems()

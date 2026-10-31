@@ -13,7 +13,7 @@ DROP = Insight(key="revenue-drop-1405-06", kind="revenue_drop", severity="warnin
 def test_the_briefing_names_the_month_and_writes_persian_figures():
     fa = briefing_text([DROP], "fa")
     assert "کاهش ۱۰۰٪ درآمد در شهریور ۱۴۰۵" in fa, fa
-    assert "۰ در برابر میانگین ۴۲۰٬۰۰۰٬۰۰۰" in fa, fa
+    assert "۰ در برابر میانگین ۴۲۰,۰۰۰,۰۰۰" in fa, fa
     assert not any(ch in "0123456789" for ch in fa), fa
 
 

@@ -346,7 +346,7 @@ fun currencySymbol(code: String): String? = when (code.uppercase()) {
 }
 
 /**
- * An amount as the cards write it: «£7.50», «£950.00», «−£50.00», «۴۹٬۶۰۰٬۰۰۰ ریال».
+ * An amount as the cards write it: «£7.50», «£950.00», «−£50.00», «۴۹,۶۰۰,۰۰۰ ریال».
  * A currency with places shows them (docs/PLAN_PENCE.md); [compact] keeps a
  * chart's figures whole («£25,003»). The chart and the statement said «25,003 GBP»
  * under a card saying «£23,923» (phone QA, 2026-10-12).
@@ -370,7 +370,7 @@ fun priced(value: Long, currency: String?, lang: String, compact: Boolean = fals
 
 /**
  * An amount among Persian words, its currency named after it: «۵۰۰ دلار», a
- * whole amount without «٫۰۰». The widget wrote «۳٬۰۰۰٬۰۰۰ ریال، ۵۰۰٫۰۰$», the
+ * whole amount without «٫۰۰». The widget wrote «۳,۰۰۰,۰۰۰ ریال، ۵۰۰٫۰۰$», the
  * sign on the figure's right (Persian copy review, 2026-10-31). Other
  * languages as [priced].
  */

@@ -151,7 +151,7 @@ def test_au5_baisa_always_written_for_the_model():
     out = _for_the_model({"currency": "OMR", "total": 2, "by_category": [{"amount": Decimal("7.45")}]}, persian=True)
     assert out["total_fa"] == "۲٫۰۰۰" and out["by_category"][0]["amount_fa"] == "۷٫۴۵۰"
     irr = _for_the_model({"currency": "IRR", "total": 500, "balance": 3_000_000}, persian=True)
-    assert "total_fa" not in irr and irr["balance_fa"] == "۳٬۰۰۰٬۰۰۰"        # rials as before
+    assert "total_fa" not in irr and irr["balance_fa"] == "۳,۰۰۰,۰۰۰"        # rials as before
     mixed = _for_the_model({"currency": "IRR", "by_currency": [{"currency": "OMR", "total": 41.5}]}, persian=True)
     assert mixed["by_currency"][0]["total_fa"] == "۴۱٫۵۰۰"
 

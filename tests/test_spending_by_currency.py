@@ -91,7 +91,7 @@ def test_ao4_ao5_the_quick_answer_and_the_card_list_each_currency(person, script
     phone = person["phone"]()
     reply = person["client"].post(f"{API}/chat", headers=phone, json={"message": "این ماه چقدر خرج کردم؟"}).json()
     words = [b for b in reply["blocks"] if b["type"] == "text"][-1]["text"]
-    assert words == "خرج این ماه تا امروز، هر ارز جداگانه: ۳٬۰۰۰٬۰۰۰ ریال، ۴۱٫۵۰۰ ریال عمان."
+    assert words == "خرج این ماه تا امروز، هر ارز جداگانه: ۳,۰۰۰,۰۰۰ ریال، ۴۱٫۵۰۰ ریال عمان."
     table = next(b for b in reply["blocks"] if b["type"] == "table")
     assert table["kind"] == "spending"
     assert [(row["sub"], row["value"], row["currency"]) for row in table["rows"]] == [

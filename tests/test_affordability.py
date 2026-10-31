@@ -135,10 +135,10 @@ def test_am9_the_card_on_the_phone_and_the_web(person, scripted, db):
     [card] = [b for b in body["blocks"] if b["type"] == "review"]
     assert contract_errors(card) == []
     assert (card["kind"], card["emoji"], card["mood"]) == ("afford", "🐷", "watch")
-    assert card["title"] == "ماشین به قیمت ۳۰۰٬۰۰۰٬۰۰۰ ریال ایران؟"
+    assert card["title"] == "ماشین به قیمت ۳۰۰,۰۰۰,۰۰۰ ریال ایران؟"
     assert [b["label"] for b in card["chart"]["bars"]] == ["حالا", "بعد از خرید"]
     assert card["chart"]["usual"] == 25_000_000 and card["ring"]["pct"] == round(95 / 300 * 100, 1)
-    assert card["ideas"][0]["ask"].startswith("یک هدف پس‌انداز ۳۰۰٬۰۰۰٬۰۰۰ ریال ایران برای ماشین تا ")
+    assert card["ideas"][0]["ask"].startswith("یک هدف پس‌انداز ۳۰۰,۰۰۰,۰۰۰ ریال ایران برای ماشین تا ")
     scripted(_calls(call), _text("Not in cash yet."))                         # the web gets the card too
     out = person["web"]().post("/ai-accountant/chat", json={"message": "can I buy a car for 300,000,000?"}).json()
     [web] = out["review_cards"]

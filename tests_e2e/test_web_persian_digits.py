@@ -25,19 +25,19 @@ def test_a_persian_page_writes_persian_digits_and_keeps_latin_where_it_must(flow
     debit = page.locator("#lines-tbody tr:first-child .line-debit")
     debit.fill("1250000")
     debit.dispatch_event("input")
-    wait_until(page, "() => (document.getElementById('bal-debit') || {}).innerText?.includes('۱٬۲۵۰٬۰۰۰')")
+    wait_until(page, "() => (document.getElementById('bal-debit') || {}).innerText?.includes('۱,۲۵۰,۰۰۰')")
     assert debit.input_value() == "1250000"               # what the form holds and sends stays Latin
     hint = page.inner_text("#date-jalali-hint")
     assert hint and not any(c in "0123456789" for c in hint), hint     # redrawn when the language changed
     shown = page.evaluate("""() => [formatNum(1234567), formatMoney(2500, 'GBP'), formatNum(-12.5),
                                     formatKpiValue(40, '%'), window.Chart && Chart.defaults.locale]""")
-    assert shown == ["۱٬۲۳۴٬۵۶۷", "£۲٬۵۰۰٫۰۰", "-۱۲٫۵۰", "۴۰٪", "fa-IR"], shown   # pounds with their places (P5)
+    assert shown == ["۱,۲۳۴,۵۶۷", "£۲,۵۰۰٫۰۰", "-۱۲٫۵۰", "۴۰٪", "en-US-u-nu-arabext"], shown   # pounds with their places (P5)
     page.evaluate("() => { location.hash = 'accounts'; }")              # account codes read in Persian too
     wait_until(page, "() => [...document.querySelectorAll('#coa-tree td')].some(td => td.textContent.trim() === '۱۱۱۰')")
     assert page.evaluate("() => [...document.querySelectorAll('#coa-tree td')].some(td => td.textContent.trim() === '1110')") is False
     assert page.evaluate("() => localCode('1110')") == "۱۱۱۰"
     mult = "() => document.querySelector('#excel-import-multiplier option[value=\"1000\"]').textContent"
-    assert page.evaluate(mult) == "۱٬۰۰۰×"                              # bare figures in the markup too
+    assert page.evaluate(mult) == "۱,۰۰۰×"                              # bare figures in the markup too
     with page.expect_download() as dl:                       # a CSV is read by other programs: Latin
         page.evaluate(TABLE)
     assert '"1,234,567"' in open(dl.value.path(), encoding="utf-8").read()

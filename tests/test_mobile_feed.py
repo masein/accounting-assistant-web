@@ -36,7 +36,7 @@ def test_n35_the_approver_is_told_what_waits_and_the_books_what_matters(client, 
     client.put(f"{API}/me/language", headers=cfo, json={"language": "fa"})
     items = client.get(f"{API}/feed", headers=cfo).json()["items"]
     assert [i["key"] for i in items] == [f"approval:{token}", "insight:payroll-change-1405-07"]
-    assert items[0]["title"] == "سندی منتظر تأیید شماست" and "۸۰٬۰۰۰٬۰۰۰" in items[0]["body"]
+    assert items[0]["title"] == "سندی منتظر تأیید شماست" and "۸۰,۰۰۰,۰۰۰" in items[0]["body"]
     # the keys stay the same, so the phone tells each thing once
     assert client.get(f"{API}/feed", headers=cfo).json()["items"] == items
 

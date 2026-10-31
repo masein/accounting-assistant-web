@@ -89,7 +89,7 @@
     // 2026-10-31); every linear axis without a callback of its own uses this one.
     function chartTick(v) {
       const n = Number(v);
-      return Number.isFinite(n) ? n.toLocaleString(numLocale(), { maximumFractionDigits: 4 }) : String(v);
+      return Number.isFinite(n) ? fmtNum(n, { maximumFractionDigits: 4 }) : String(v);
     }
     try {
       if (typeof Chart !== 'undefined' && Chart.defaults.scales && Chart.defaults.scales.linear) {
@@ -125,7 +125,8 @@
     }
 
     // Digits as the page's language writes them (the owner's call, 2026-10-12):
-    // Persian digits, «٬» groups and «٫» decimals in Persian; Latin everywhere
+    // Persian digits, «,» groups (the owner's call, 2026-10-31: «٬» drew as an
+    // apostrophe on the phone) and «٫» decimals in Persian; Latin everywhere
     // else, Arabic too (#336). For display only: what is parsed, exported or
     // sent stays Latin (latinDigits turns a shown figure back).
     const _FA_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
@@ -168,7 +169,7 @@
       const str = String(s);
       if (!_uiIsPersian()) return str;
       // no lookbehind: older Safari can't parse it, and one parse error stops the whole script
-      return str.replace(/[0-9]/g, (d) => _FA_DIGITS[d]).replace(/([۰-۹]),(?=[۰-۹])/g, '$1٬')
+      return str.replace(/[0-9]/g, (d) => _FA_DIGITS[d]).replace(/([۰-۹])٬(?=[۰-۹])/g, '$1,')
         .replace(/([۰-۹])\.(?=[۰-۹])/g, '$1٫').replace(/([۰-۹])%/g, '$1٪');
     }
     // An identifier the books write in digits (an account code «۱۱۱۰», an entity's code), in the
@@ -178,8 +179,14 @@
       const str = String(s == null ? '' : s);
       return _uiIsPersian() ? str.replace(/[0-9]/g, (d) => _FA_DIGITS[d]) : str;
     }
-    // The locale a figure's toLocaleString uses: Persian digits and «٬» in Persian, Latin elsewhere.
-    function numLocale() { return _uiIsPersian() ? 'fa-IR' : 'en-US'; }
+    // The locale a figure's toLocaleString uses: Persian digits with «,» groups in Persian (en-US with
+    // the Persian digits; fa-IR groups with «٬»), Latin elsewhere.
+    function numLocale() { return _uiIsPersian() ? 'en-US-u-nu-arabext' : 'en-US'; }
+    // A plain figure in the page's digits, as it is (formatNum pads money to its places): «۱,۲۳۴٫۵» in
+    // Persian (localDigits turns the decimal point into «٫»), "1,234.5" elsewhere.
+    function fmtNum(n, opts) {
+      return localDigits(Number(n).toLocaleString(numLocale(), opts));
+    }
     function _uiIsRtl() {
       const lang = typeof currentLanguage !== 'undefined' ? currentLanguage : 'en';
       return lang === 'fa' || lang === 'ar';

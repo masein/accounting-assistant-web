@@ -34,7 +34,7 @@ def test_a_part_paid_invoice_stays_overdue_and_says_what_is_open(co):
     due = format_jalali(date.fromisoformat(sale["due_date"]))       # an Iranian company's calendar (#292)
     assert item["message"].endswith(f"day(s) past due ({due}); 7,000,000 IRR still open"), item["message"]
     (fa,) = _about(_bell(co, "fa"), sale)
-    assert "مانده" in fa["message"] and "۷٬۰۰۰٬۰۰۰" in fa["message"]                    # in Persian digits
+    assert "مانده" in fa["message"] and "۷,۰۰۰,۰۰۰" in fa["message"]                    # in Persian digits
     assert "ریال" in fa["message"] and "IRR" not in fa["message"]           # the rial by its name
     for lang in ("es", "ar"):
         assert "7,000,000" in _about(_bell(co, lang), sale)[0]["message"]

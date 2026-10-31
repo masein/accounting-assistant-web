@@ -68,10 +68,10 @@ def test_an_amount_in_a_sentence():
 
 
 def test_figures_in_persian():
-    assert grouped_fa(2_500_000) == "۲٬۵۰۰٬۰۰۰"
+    assert grouped_fa(2_500_000) == "۲,۵۰۰,۰۰۰"
     assert grouped_fa(Decimal("7.5")) == "۷٫۵۰"                  # «۷.۵۰» read as a stray full stop
     # a full stop that ends the sentence stays one
-    assert persian_figures("مبلغ 1,250.75 پوند.") == "مبلغ ۱٬۲۵۰٫۷۵ پوند."
+    assert persian_figures("مبلغ 1,250.75 پوند.") == "مبلغ ۱,۲۵۰٫۷۵ پوند."
     assert persian_figures("1,234.5", thousands=",") == "۱,۲۳۴٫۵"   # pages that always kept the comma
 
 

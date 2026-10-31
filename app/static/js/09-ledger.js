@@ -1,4 +1,6 @@
 
+    let ledgerLevels = {};   // {code: tier} for the group rows (accountLevels)
+
     function parseCode(code) {
       const n = Number(code);
       return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
@@ -62,6 +64,13 @@
       return rows;
     }
 
+    // A bar's account: its code, then its name — cut names end in «…» («موجودی نقد و بان ۱۱۱۰» was cut
+    // mid-word with the code tacked on, Persian copy review 2026-10-31).
+    function ledgerChartLabel(r) {
+      const name = String(r.account_name || '');
+      return localCode(r.account_code) + ' ' + (name.length > 16 ? name.slice(0, 15).trimEnd() + '…' : name);
+    }
+
     function renderCharts(rows) {
       const row = document.getElementById('charts-row');
       if (!rows || rows.length === 0) { row.style.display = 'none'; return; }
@@ -69,7 +78,7 @@
       row.style.display = 'grid';
       const maxN = Number(ledgerTopNEl.value || 12);
       const chartRows = rows.slice(0, maxN);
-      const labels = chartRows.map(r => localCode(r.account_code) + ' ' + (r.account_name || '').slice(0, 16));
+      const labels = chartRows.map(ledgerChartLabel);
       if (chartTurnover) chartTurnover.destroy();
       if (chartBalance) chartBalance.destroy();
       const colors = ['#0f766e', '#14b8a6', '#0ea5e9', '#f59e0b'];
@@ -96,7 +105,7 @@
         }
       });
       // each bar says which account, as the turnover chart's do (a bare code said little)
-      const balanceLabels = chartRows.map(r => localCode(r.account_code) + ' ' + (r.account_name || '').slice(0, 16));
+      const balanceLabels = chartRows.map(ledgerChartLabel);
       const balanceData = chartRows.map(r => accountNet(r));
       chartBalance = new Chart(document.getElementById('chart-balance'), {
         type: 'line',
@@ -137,8 +146,9 @@
         ledgerKpisEl.innerHTML = '';
         return;
       }
-      // کل / معین structure: group معین (posting) accounts under their کل
-      // (parent GROUP) with a header + subtotal per group. Rows without a
+      // Each account under its parent, with a header + subtotal per parent. The header names the
+      // parent's own tier on the chart (گروه / کل / معین / تفصیلی): every parent was tagged «دفتر کل»
+      // though 11 is a «گروه» on the chart page (Persian copy review, 2026-10-31). Rows without a
       // parent fall into a trailing ungrouped block.
       const groups = new Map();
       rows.forEach(r => {
@@ -150,11 +160,12 @@
       const grouped = sortedGroups.length > 1 || (sortedGroups[0] && sortedGroups[0].code);
       sortedGroups.forEach(g => {
         if (grouped && g.code) {
+          const tier = accountLevelLabel(ledgerLevels, g.code);
           const gh = document.createElement('tr');
           gh.className = 'ledger-group-row';
           gh.innerHTML = `
             <td style="font-weight:700;background:var(--bg-subtle,#f4f6f8);">${escapeHtml(localCode(g.code))}</td>
-            <td colspan="5" style="font-weight:700;background:var(--bg-subtle,#f4f6f8);">${escapeHtml(g.name || '')} <span style="color:var(--text-muted);font-weight:400;font-size:0.78rem;">(${escapeHtml(t('ledgerKol'))})</span></td>
+            <td colspan="5" style="font-weight:700;background:var(--bg-subtle,#f4f6f8);">${escapeHtml(g.name || '')}${tier ? ` <span style="color:var(--text-muted);font-weight:400;font-size:0.78rem;">(${escapeHtml(tier)})</span>` : ''}</td>
           `;
           resultsTbody.appendChild(gh);
         }
@@ -220,7 +231,7 @@
         const opts = [data.currency].concat((data.other_currencies || []).filter(c => c !== data.currency));
         // more than one currency: offer them all together, at base value
         if (opts.length > 1 && !opts.includes('ALL')) opts.push('ALL');
-        const label = (c) => c === 'ALL' ? t('currencyAllInBase').replace('{base}', baseCurrencyCode()) : c;
+        const label = (c) => c === 'ALL' ? tf('currencyAllInBase', { base: baseCurrencyCode() }) : c;
         sel.innerHTML = opts.map(c => '<option value="' + escapeHtml(c) + '"' + (c === data.currency ? ' selected' : '') + '>' + escapeHtml(label(c)) + '</option>').join('');
       }
       renderCurrencyViewNote(document.getElementById('ledger-currency-note'), data, (c) => loadLedger(c));
@@ -231,12 +242,14 @@
       try {
         const sel = document.getElementById('ledger-currency');
         const ccy = (typeof currency === 'string' && currency) || (sel && sel.value) || '';
+        const levels = accountLevels();      // the parents' tiers, fetched alongside
         const res = await fetch(API + '/reports/ledger-summary' + (ccy ? ('?currency=' + encodeURIComponent(ccy)) : ''));
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           throw new Error('HTTP ' + res.status + (typeof err.detail === 'string' ? ' — ' + err.detail : ''));
         }
         const data = await res.json();
+        ledgerLevels = await levels;
         ledgerData = data;
         syncLedgerCurrencyControls(data);
         if (!data.rows || data.rows.length === 0) {

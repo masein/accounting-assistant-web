@@ -26,7 +26,7 @@
         div.innerHTML = `
           ${thumb}
           <div class="attachment-name">${escapeHtml(att.file_name)}</div>
-          <div class="attachment-meta">${escapeHtml(att.content_type)} · ${formatNum(att.size_bytes || 0)} ${escapeHtml(t('unitBytes'))}</div>
+          <div class="attachment-meta">${escapeHtml(joinParts([att.content_type, formatNum(att.size_bytes || 0) + ' ' + t('unitBytes')]))}</div>
           <div style="display:flex; gap:0.35rem;">
             <a class="btn btn-secondary btn-sm" href="${escapeHtml(att.url)}" target="_blank" rel="noreferrer" style="text-decoration:none;">${escapeHtml(t('btnOpen'))}</a>
             <button type="button" class="btn btn-danger btn-sm remove-attachment" data-id="${att.id}">${escapeHtml(t('btnRemove'))}</button>
@@ -197,7 +197,7 @@
           const none = document.createElement('option');
           none.value = '';
           none.dataset.accountCode = defaultCash;
-          none.textContent = '— ' + tf('optionDefaultBank', { code: defaultCash }) + ' —';
+          none.textContent = '— ' + tf('optionDefaultBank', { code: localCode(defaultCash) }) + ' —';
           bankSel.appendChild(none);
           (entityOptions.bank || []).forEach(e => {
             const opt = document.createElement('option');
@@ -222,7 +222,8 @@
         _invoicesCache = list || [];
         invoicesTbody.innerHTML = '';
         if (!list.length) {
-          invoicesTbody.innerHTML = '<tr><td colspan="6" class="empty-state">' + t('noInvoicesYet') + '</td></tr>';
+          // across all eight columns: it stopped short of «تاریخ سررسید» and «عملیات» (Persian copy review, 2026-10-31)
+          invoicesTbody.innerHTML = '<tr><td colspan="8" class="empty-state">' + escapeHtml(t('noInvoicesYet')) + '</td></tr>';
           return;
         }
         list.forEach(i => {

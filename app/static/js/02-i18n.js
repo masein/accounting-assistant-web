@@ -3200,7 +3200,7 @@
         aiReverseBtn: 'Reverse entry',
         aiReverseReverting: 'Reversing…',
         aiUndoReversed: 'Reversed ✓',
-        aiUndoReversalNote: 'Reversal transaction {id}… recorded.',
+        aiUndoReversalNote: 'Reversal transaction {id} recorded.',
         aiUndoDeleted: 'Removed ✓',
         aiUndoDeletedNote: 'The entry was removed from the books — nothing was recorded.',
         aiUndoRestored: 'Dates put back',
@@ -3280,6 +3280,19 @@
         invTax: 'Tax',
         aiChatStatusCounter: '{turns} turn(s) · {calls} tool call(s)',
         bsParseFailed: 'Couldn’t read this statement — try CSV/Excel, or check the AI model.',
+        dateRange: '{from} → {to}',
+        unitSecondsShort: 's',
+        unitHoursShort: 'h',
+        smsExampleKey: 'API key',
+        smsExampleText: 'the SMS as received',
+        mailSendersPlaceholder: 'statements@bank.example, Bank name\n@bank.example, Bank name',
+        equityAmountHintPlaces: 'Amounts are in {currency}, as everywhere in the books.',
+        payrollRulesUpto: 'up to {amount}: {rate}',
+        timeRateScope_project: 'project',
+        timeRateScope_client: 'client',
+        timeRateScope_default: 'default',
+        timeRateScope_profile: 'employee default (pay profile)',
+        chatIntakeAppliedSummary: 'Applied — {accounts} accounts and {entities} entities created. {opening}: {date}',
       },
     };
     Object.keys(I18N_EXTRA).forEach((lang) => {
@@ -3416,7 +3429,7 @@
       setPlaceholder('entity-code', 'placeholderEntityCode');
       setTextSel('#entities-table thead th:nth-child(1)', 'labelType');
       setTextSel('#entities-table thead th:nth-child(2)', 'labelName');
-      setTextSel('#entities-table thead th:nth-child(3)', 'labelCodeOptional');
+      setTextSel('#entities-table thead th:nth-child(3)', 'tableCode');   // the column, not the form's «Code (optional)»
       setTextSel('#entities-table thead th:nth-child(4)', 'usersActions');
 
       setTextSel('.card[data-page="invoices"] h2', 'invoicesTitle');
@@ -3597,6 +3610,7 @@
         if (typeof invRelocalizeRows === 'function') invRelocalizeRows();
         // The exchange-rate table and the rate feeds are drawn by script too.
         if (typeof fxRelocalize === 'function') fxRelocalize();
+        if (typeof fillSmsAutoExample === 'function') fillSmsAutoExample();
         if (typeof window.aiRelocalize === 'function') window.aiRelocalize();
         // the manager report on screen: chart titles, legends, statement row labels
         if (typeof mgrRelocalize === 'function') mgrRelocalize();

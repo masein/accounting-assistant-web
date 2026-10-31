@@ -72,10 +72,11 @@
           const d = new Date(iso);
           const mins = Math.floor((Date.now() - d.getTime()) / 60000);
           if (mins < 1) return t('chatTimeNow');
-          if (mins < 60) return mins + ' ' + t('chatTimeMin');
+          // in the page's digits: the threads list read «5 دقیقه پیش» (Persian copy review, 2026-10-31)
+          if (mins < 60) return localDigits(mins) + ' ' + t('chatTimeMin');
           const hrs = Math.floor(mins / 60);
-          if (hrs < 24) return hrs + ' ' + t('chatTimeHour');
-          return Math.floor(hrs / 24) + ' ' + t('chatTimeDay');
+          if (hrs < 24) return localDigits(hrs) + ' ' + t('chatTimeHour');
+          return localDigits(Math.floor(hrs / 24)) + ' ' + t('chatTimeDay');
         } catch (_) { return ''; }
       }
       function _highlight(text, q) {
@@ -97,12 +98,12 @@
           rows = await res.json();
         } catch (_) { box.hidden = true; return; }
         box.hidden = false;
-        document.getElementById('ai-prefs-count').textContent = rows.length ? ' (' + rows.length + ')' : '';
+        document.getElementById('ai-prefs-count').textContent = rows.length ? ' (' + localDigits(rows.length) + ')' : '';
         if (open && rows.length) box.open = true;
         if (!rows.length) { list.innerHTML = '<p class="ai-prefs-empty">' + escapeHtml(t('aiPrefsEmpty')) + '</p>'; return; }
         list.innerHTML = rows.map(r => {
-          const target = [r.account_code ? (r.account_code + (r.account_name ? ' ' + r.account_name : '')) : '',
-                          r.entity_name || ''].filter(Boolean).join(' · ');
+          const target = joinParts([r.account_code ? (localCode(r.account_code) + (r.account_name ? ' ' + r.account_name : '')) : '',
+                                    r.entity_name || '']);
           return `<div class="ai-pref" data-id="${escapeHtml(r.id)}">
             <div class="ai-pref-text"><bdi dir="auto">${escapeHtml(r.label)}</bdi> → <bdi dir="auto">${escapeHtml(target)}</bdi>
               <span class="ai-pref-meta">${escapeHtml(tf('aiPrefsMeta', { source: t('aiPrefsSource_' + r.source), n: r.times_used }))}</span></div>
@@ -131,10 +132,10 @@
           items = (await res.json()).items || [];
         } catch (_) { box.hidden = true; return; }
         box.hidden = !items.length;
-        document.getElementById('ai-approvals-count').textContent = items.length ? ' (' + items.length + ')' : '';
+        document.getElementById('ai-approvals-count').textContent = items.length ? ' (' + localDigits(items.length) + ')' : '';
         list.innerHTML = items.map(it => `<div class="ai-pref ai-approval" data-token="${escapeHtml(it.confirmation_token)}">
             <div class="ai-pref-text"><bdi dir="auto">${escapeHtml(it.summary || it.tool_name)}</bdi>
-              <span class="ai-pref-meta">${escapeHtml(tf('aiApprovalMeta', { who: it.requested_by }))}${it.amount != null ? ' · ' + escapeHtml(formatAmount(it.amount)) + ' ' + escapeHtml(currencyUnit()) : ''}</span>
+              <span class="ai-pref-meta">${escapeHtml(joinParts([tf('aiApprovalMeta', { who: it.requested_by }), it.amount != null ? formatAmount(it.amount) + ' ' + currencyUnit() : '']))}</span>
               ${it.mine ? `<span class="ai-pref-meta">${escapeHtml(t('aiApprovalMine'))}</span>` : `<span class="ai-approval-actions">
                 <button type="button" class="btn btn-primary btn-sm ai-approve">${escapeHtml(t('aiApprove'))}</button>
                 <button type="button" class="btn btn-secondary btn-sm ai-reject">${escapeHtml(t('aiReject'))}</button></span>`}
@@ -482,7 +483,7 @@
           // the file's name kept whole between isolates: on a Persian page the size had landed inside
           // «20261015_133322_receipt.pdf» (AJ10, 2026-10-21)
           name.textContent = (isImg ? '🖼 ' : (isSheet ? '📊 ' : '📄 ')) + '\u2068' + (att.file_name || t('msgDocumentDefault')) + '\u2069'
-            + (size ? ' · ' + size : '');
+            + (size ? partSep() + size : '');
           chip.appendChild(name);
           const rm = document.createElement('button');
           rm.type = 'button';
@@ -907,7 +908,7 @@
           who.className = 'ai-voucher-people';
           who.setAttribute('dir', 'auto');
           who.textContent = tf(currentRole === 'personal' ? 'aiCardPerson' : 'aiCardParty',
-                               { name: known.join(['fa', 'ar'].includes(currentLanguage) ? '، ' : ', ') });
+                               { name: known.join(listSep()) });
           box.appendChild(who);
         }
         const lines = document.createElement('div');
@@ -1063,7 +1064,7 @@
           html += '<div style="color:var(--danger,#dc3545);">' + escapeHtml(intake.error || t('chatStmtNeedsMapping')) + '</div>';
         } else {
           html += '<div>' + fmt(intake.total_rows || 0) + ' ' + escapeHtml(t('chatStmtRows'))
-            + ((intake.from_date && intake.to_date) ? ' · ' + escapeHtml(formatDateDual(intake.from_date)) + ' – ' + escapeHtml(formatDateDual(intake.to_date)) : '')
+            + ((intake.from_date && intake.to_date) ? escapeHtml(partSep() + formatDateRange(intake.from_date, intake.to_date)) : '')
             + '</div>';
           const bits = [];
           if (c.matched) bits.push('<span><strong>' + fmt(c.matched) + '</strong> ' + escapeHtml(t('chatStmtOnFile')) + '</span>');
@@ -1077,7 +1078,7 @@
           if (b && b.gap) {
             html += '<div style="margin-top:0.3rem;font-weight:600;color:' + (b.explained ? '#b45309' : 'var(--danger,#dc3545)') + ';">'
               + escapeHtml(tf('chatStmtGap', { gap: formatAmount(Math.abs(b.gap), intake.currency), ccy: intake.currency || '' }))
-              + (b.explained ? ' · ' + escapeHtml(t('chatStmtGapExplained')) : '') + '</div>';
+              + (b.explained ? escapeHtml(partSep() + t('chatStmtGapExplained')) : '') + '</div>';
           }
           // which account it was compared with; only the chart's default is said as such (scenario AJ12)
           const acct = intake.bank_account;
@@ -1333,7 +1334,7 @@
                            : '<span style="color:var(--danger,#dc3545);">' + escapeHtml(t('migrationBalancedNo')) + '</span>')
             + '</div>';
           if ((intake.missing_tiers || []).length) {
-            const tl = intake.missing_tiers.map((k) => tierLabels[k] || k).join('، ');
+            const tl = joinList(intake.missing_tiers.map((k) => tierLabels[k] || k));
             html += '<div style="color:var(--text-muted);margin-top:0.25rem;">' + escapeHtml(t('chatIntakeMissingTiers')) + ' ' + escapeHtml(tl) + '</div>';
           }
           if (intake.already_applied) {
@@ -1366,10 +1367,10 @@
               const chart = r.chart || {};
               const created = ['group', 'kol', 'moein'].reduce((a, k) => a + ((chart[k] || {}).created || 0), 0);
               const ents = r.entities || {};
-              appendBubble('assistant', t('chatIntakeApplied') + ' — ' + created + ' ' + t('migrationAccountsCreated')
-                + ', ' + ((ents.banks_created || 0) + (ents.counterparties_created || 0)) + ' ' + t('migrationEntitiesCreated')
-                + '. ' + t((r.opening_journal || {}).kept ? 'migrationOpeningKept' : 'migrationJournalPosted')
-                + ': ' + formatDisplayDate((r.opening_journal || {}).opening_date || ''));
+              appendBubble('assistant', tf('chatIntakeAppliedSummary', {
+                accounts: created, entities: (ents.banks_created || 0) + (ents.counterparties_created || 0),
+                opening: t((r.opening_journal || {}).kept ? 'migrationOpeningKept' : 'migrationJournalPosted'),
+                date: formatDisplayDate((r.opening_journal || {}).opening_date || '') }));
             }
             confirmBtn.textContent = '✓';
           } catch (e) {
@@ -1510,7 +1511,7 @@
           note.className = 'ai-card-posted';
           // each part in its own direction («JE-۰۰۴۲» beside a Persian date jumbled), a comma between
           // them on a right-to-left page, where a middle dot reads as a zero
-          const sep = document.documentElement.dir === 'rtl' ? '، ' : ' · ';
+          const sep = partSep();
           note.appendChild(document.createTextNode(t(posted.undone ? 'aiCardUndone' : 'aiCardPosted')));
           [posted.voucher ? localCode(posted.voucher) : '', posted.date && posted.date.display].filter(Boolean)
             .forEach((part) => {
@@ -1649,7 +1650,7 @@
           note.style.cssText = 'margin-top:0.3rem; color:var(--text-muted); font-size:0.78rem;';
           note.textContent = restored ? t('aiUndoRestoredNote') : deleted
             ? t('aiUndoDeletedNote')
-            : tf('aiUndoReversalNote', { id: (data.reversal_transaction_id || '').slice(0, 8) });
+            : tf('aiUndoReversalNote', { id: '\u2066' + (data.reversal_transaction_id || '').slice(0, 8) + '…\u2069' });
           cardEl.appendChild(note);
         } catch (e) {
           btn.disabled = false;

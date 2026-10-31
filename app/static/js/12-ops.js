@@ -101,10 +101,12 @@
         const opts = (r) => `<option value="">${escapeHtml(t('postingRolesDefault'))}${r.default_code ? ' (' + escapeHtml(localCode(r.default_code)) + ')' : ''}</option>`
           + accounts.map((a) => `<option value="${escapeHtml(a.code)}"${r.source && a.code === r.code ? ' selected' : ''}>${escapeHtml(localCode(a.code))} — ${escapeHtml(a.name)}</option>`).join('');
         const chip = (r) => r.source === 'migration' ? t('postingRolesFromMigration') : (r.source === 'owner' && r.code !== r.default_code ? t('postingRolesByOwner') : '');
+        // where a role's account came from sits under its picker: a third column was empty and headerless
+        // on most rows (Persian copy review, 2026-10-31)
         el.innerHTML = '<div style="overflow-x:auto;"><table class="mini-table"><tbody>' + _migrationRoles.map((r) =>
           `<tr><td>${escapeHtml(t('postingRole_' + r.category))}</td>`
-          + `<td><select data-role="${escapeHtml(r.category)}" aria-label="${escapeHtml(t('postingRole_' + r.category))}" style="width:100%;max-width:24rem;">${opts(r)}</select></td>`
-          + `<td class="fc-note">${escapeHtml(chip(r))}</td></tr>`).join('') + '</tbody></table></div>'
+          + `<td><select data-role="${escapeHtml(r.category)}" aria-label="${escapeHtml(t('postingRole_' + r.category))}" style="width:100%;max-width:24rem;">${opts(r)}</select>`
+          + (chip(r) ? `<div class="fc-note">${escapeHtml(chip(r))}</div>` : '') + `</td></tr>`).join('') + '</tbody></table></div>'
           + `<button type="button" class="btn btn-secondary btn-sm" data-action="migration-roles-save" style="margin-top:0.5rem;">${escapeHtml(t('postingRolesSave'))}</button>`
           + ' <span id="migration-roles-status" class="fc-note"></span>';
       } catch (_) { el.innerHTML = ''; }
@@ -161,7 +163,7 @@
       if (!types) return '';
       const map = { client: 'migCpTypeClient', supplier: 'migCpTypeSupplier', employee: 'migCpTypeEmployee' };
       const parts = Object.keys(types).map((k) => localDigits(types[k]) + ' ' + t(map[k] || k));
-      return parts.length ? ' (' + parts.join(' · ') + ')' : '';
+      return parts.length ? ' (' + joinParts(parts) + ')' : '';
     }
     function _migrationRenderPreview(body) {
       const s = body.summary || {};
@@ -242,8 +244,8 @@
         const entCreated = (ents.banks_created || 0) + (ents.counterparties_created || 0);
         let html = `<div style="background:var(--bg-success,#d4edda);border:1px solid var(--success,#28a745);border-radius:8px;padding:1rem;font-size:0.9rem;">`
           + `<strong>${escapeHtml(t('migrationApplied'))}</strong><br>`
-          + `${localDigits(created)} ${escapeHtml(t('migrationAccountsCreated'))} · ${localDigits(updated)} ${escapeHtml(t('migrationAccountsUpdated'))} · `
-          + `${localDigits(entCreated)} ${escapeHtml(t('migrationEntitiesCreated'))}<br>`
+          + escapeHtml(joinParts([localDigits(created) + ' ' + t('migrationAccountsCreated'), localDigits(updated) + ' ' + t('migrationAccountsUpdated'),
+            localDigits(entCreated) + ' ' + t('migrationEntitiesCreated')])) + '<br>'
           + (oj.kept
             ? `${escapeHtml(t('migrationOpeningKept'))}: <bdi dir="ltr">${escapeHtml(formatDisplayDate(oj.opening_date) || '')}</bdi>`
             : `${escapeHtml(t('migrationJournalPosted'))}: <bdi dir="ltr">${escapeHtml(formatDisplayDate(oj.opening_date) || '')}</bdi>`
@@ -253,7 +255,7 @@
             ? `<br>${escapeHtml(tf('migrationRolesSet', { n: Object.keys(r.posting_roles).length }))}`
             : '')
           + ((chart.conflicts || []).length
-            ? `<br>${escapeHtml(t('migrationConflictsLabel'))}: ` + chart.conflicts.map((c) => `<bdi>${escapeHtml(localCode(c.code))} «${escapeHtml(c.title)}»</bdi>`).join(' · ')
+            ? `<br>${escapeHtml(t('migrationConflictsLabel'))}: ` + chart.conflicts.map((c) => `<bdi>${escapeHtml(localCode(c.code))} «${escapeHtml(c.title)}»</bdi>`).join(listSep())
             : '')
           + `</div>`;
         const resEl = document.getElementById('migration-result');
@@ -281,12 +283,12 @@
           return;
         }
         el.innerHTML = rows.map((r) => {
-          const missing = (r.missing_fields || []).map(_migFieldLabel).join('، ');
+          const missing = joinList((r.missing_fields || []).map(_migFieldLabel));
           const flags = (r.review_flags || []).includes('type_ambiguous')
             ? `<span class="chip" style="font-size:0.75rem;">${escapeHtml(t('migrationReviewType'))}</span>` : '';
           return `<div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.75rem;margin-bottom:0.5rem;">`
             + `<strong>${escapeHtml(r.entity_name)}</strong>`
-            + `<span style="color:var(--text-muted);font-size:0.8rem;">${escapeHtml(r.entity_type)}${r.source_code ? ' · ' + escapeHtml(r.source_code) : ''}</span>`
+            + `<span style="color:var(--text-muted);font-size:0.8rem;">${escapeHtml(joinParts([enumLabel('entType_', r.entity_type), r.source_code ? localCode(r.source_code) : '']))}</span>`
             + (missing ? `<span style="font-size:0.8rem;">${escapeHtml(t('migrationMissing'))}: ${escapeHtml(missing)}</span>` : '')
             + flags
             + `<span style="margin-inline-start:auto;display:flex;gap:0.4rem;">`
@@ -303,7 +305,7 @@
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           const d = err.detail;
-          const missing = d && d.missing_fields ? d.missing_fields.map(_migFieldLabel).join('، ') : '';
+          const missing = d && d.missing_fields ? joinList(d.missing_fields.map(_migFieldLabel)) : '';
           showAlert((d && d.message ? d.message : t('migrationMissing')) + (missing ? ': ' + missing : ''), true);
         }
       } catch (_) {}
@@ -316,10 +318,9 @@
     function migrationAskAI(id) {
       const rec = _migrationPendingCache.find((r) => r.id === id);
       if (!rec) return;
-      const missing = (rec.missing_fields || []).map(_migFieldLabel).join('، ');
-      const msg = t('migrationAiPrompt')
-        .replaceAll('{type}', rec.entity_type).replaceAll('{name}', rec.entity_name)
-        .replaceAll('{missing}', missing).replaceAll('{id}', rec.entity_id);
+      const missing = joinList((rec.missing_fields || []).map(_migFieldLabel));
+      const msg = tf('migrationAiPrompt', { type: enumLabel('entType_', rec.entity_type), name: String(rec.entity_name || ''),
+                                            missing, id: String(rec.entity_id) });   // the id as written, not in Persian digits
       // opens the chat (restoring its latest session first) and sends
       if (typeof window.aiChatAsk === 'function') window.aiChatAsk(msg);
     }
@@ -454,7 +455,7 @@
         if (!list) return;
         list.innerHTML = rows.length ? rows.map(r => `
           <div style="display:flex; gap:0.4rem; align-items:center; padding:0.25rem 0.3rem; font-size:0.82rem;">
-            <span style="flex:1; ${r.status === 'paused' ? 'opacity:0.5;' : ''}">${escapeHtml(r.title)} · ${escapeHtml(formatDisplayDate(r.due_date))}${r.repeat !== 'none' ? ' ↻' : ''}</span>
+            <span style="flex:1; ${r.status === 'paused' ? 'opacity:0.5;' : ''}">${escapeHtml(joinParts([r.title, formatDisplayDate(r.due_date)]))}${r.repeat !== 'none' ? ' ↻' : ''}</span>
             <button type="button" class="rem-toggle" data-id="${r.id}" data-status="${r.status}" style="border:none;background:none;cursor:pointer;"
               title="${escapeHtml(t(r.status === 'paused' ? 'remResume' : 'remPause'))}" aria-label="${escapeHtml(t(r.status === 'paused' ? 'remResume' : 'remPause'))}">${r.status === 'paused' ? '▶' : '⏸'}</button>
             <button type="button" class="rem-del" data-id="${r.id}" style="border:none;background:none;cursor:pointer;"
@@ -607,7 +608,7 @@
         <strong style="font-size:0.9rem;">${escapeHtml(t('pettyPendingTitle'))}</strong>
         ${pend.map(x => `
           <div style="display:flex; gap:0.6rem; align-items:center; border:1px solid var(--border); border-radius:6px; padding:0.4rem 0.6rem; margin-top:0.3rem; font-size:0.85rem;">
-            <span style="flex:1;">${escapeHtml(x.holder)} — ${formatMoney(x.amount, baseCurrencyCode())} · ${escapeHtml(x.description || '')}</span>
+            <span style="flex:1;">${escapeHtml(x.holder)} — ${formatMoney(x.amount, baseCurrencyCode())}${x.description ? escapeHtml(partSep() + x.description) : ''}</span>
             <button type="button" class="btn btn-primary btn-sm petty-approve" data-id="${x.id}">${escapeHtml(t('pettyApproveBtn'))}</button>
             <button type="button" class="btn btn-danger btn-sm petty-reject" data-id="${x.id}">${escapeHtml(t('pettyRejectBtn'))}</button>
           </div>`).join('')}` : '';
@@ -699,7 +700,9 @@
       const hint = document.getElementById('equity-amount-hint');
       if (hint) {
         const ccy = baseCurrencyCode(), sym = currencySymbol(ccy);
-        hint.textContent = tf('equityAmountHint', { currency: sym && sym !== ccy ? ccy + ' (' + sym + ')' : ccy });
+        // «whole amounts» only for a currency without places: pence are kept, so it was false for pounds
+        hint.textContent = tf(moneyPlaces(ccy) ? 'equityAmountHintPlaces' : 'equityAmountHint',
+                              { currency: sym && sym !== ccy ? ccy + ' (' + sym + ')' : ccy });
       }
       const today = localIsoDate(new Date());
       ['equity-contrib-date', 'equity-div-date', 'equity-ci-date', 'equity-ca-date', 'equity-pay-date'].forEach(id => {
@@ -738,7 +741,7 @@
       const res = await fetch(API + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { showAlert(data.detail || t('equityPostError'), true); return null; }
-      showAlert(t(okKey) + (data.summary_lines && data.summary_lines.length ? ' — ' + data.summary_lines.join(' · ') : ''));
+      showAlert(t(okKey) + (data.summary_lines && data.summary_lines.length ? ' — ' + joinParts(data.summary_lines) : ''));
       loadEquity();
       return data;
     }
@@ -832,7 +835,7 @@
           <td class="num">${r.credit_effect ? formatAmount(r.credit_effect) : ''}</td>
           <td class="num">${formatAmount(r.running_balance)}</td></tr>`).join('');
         body.innerHTML = `
-          <p style="margin:0 0 0.6rem;color:var(--text-muted);font-size:0.84rem;">${escapeHtml(t('equityLedgerHint'))} · ${escapeHtml(t('equityColOutstandingClaim'))}: <strong>${formatAmount(data.closing_balance)}</strong></p>
+          <p style="margin:0 0 0.6rem;color:var(--text-muted);font-size:0.84rem;">${escapeHtml(t('equityLedgerHint') + partSep() + t('equityColOutstandingClaim'))}: <strong>${formatAmount(data.closing_balance)}</strong></p>
           <div style="max-height:400px;overflow:auto;"><table class="detail-table"><thead><tr>
             <th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelDescription'))}</th>
             <th class="num">${escapeHtml(t('equityColDebit'))}</th><th class="num">${escapeHtml(t('equityColCredit'))}</th>
@@ -933,7 +936,7 @@
       return `<tr data-row="${escapeHtml(r.id)}">
         <td class="cm-due" data-label="${escapeHtml(t('cmColDue'))}">${escapeHtml(formatDisplayDate(r.due_date))}</td>
         <td class="cm-what" dir="auto">${escapeHtml(r.title)}${escapeHtml(seq)} <span style="color:var(--text-muted); font-size:0.8rem;">${escapeHtml(who)}</span>
-          ${meta.length ? `<div class="cm-meta" dir="auto">${escapeHtml(meta.join(' · '))}</div>` : ''}</td>
+          ${meta.length ? `<div class="cm-meta" dir="auto">${escapeHtml(joinParts(meta))}</div>` : ''}</td>
         <td class="cm-amount" data-label="${escapeHtml(t('cmColAmount'))}">${escapeHtml(formatAmount(r.amount))}</td>
         <td class="cm-status">${cmStatusChip(r)}</td>
         <td class="cm-act"><div class="cm-actions">${actions}</div></td>
@@ -994,7 +997,7 @@
         const ev = data.events || [];
         row.firstElementChild.innerHTML = ev.length
           ? '<ol class="cm-history" style="margin:0; padding-inline-start:1.2rem; font-size:0.85rem;">' + ev.map(e =>
-              `<li>${escapeHtml(formatDisplayDate(e.on))} — ${escapeHtml(t('cmEv_' + e.action) || e.action)}${e.note ? ' <span dir="auto" style="color:var(--text-muted);">(' + escapeHtml(e.note) + ')</span>' : ''}${e.transaction_id ? ' <span style="color:var(--text-muted); font-size:0.75rem;">· ' + escapeHtml(t('cmEvPosted')) + '</span>' : ''}</li>`).join('') + '</ol>'
+              `<li>${escapeHtml(formatDisplayDate(e.on))} — ${escapeHtml(t('cmEv_' + e.action) || e.action)}${e.note ? ' <span dir="auto" style="color:var(--text-muted);">(' + escapeHtml(e.note) + ')</span>' : ''}${e.transaction_id ? '<span style="color:var(--text-muted); font-size:0.75rem;">' + escapeHtml(partSep() + t('cmEvPosted')) + '</span>' : ''}</li>`).join('') + '</ol>'
           : escapeHtml(t('cmNoHistory'));
       } catch (_) { row.firstElementChild.textContent = t('cmNoHistory'); }
     }
@@ -1259,9 +1262,8 @@
             <div>
               <strong dir="auto">${escapeHtml(r.description)}</strong>
               <div style="font-size:0.8rem; color:var(--text-muted);">
-                ${escapeHtml(approx + formatAmount(r.typical_amount))} ${escapeHtml(currencyUnit())} ·
-                ${escapeHtml(freq)} · ${escapeHtml(tf('rdSeenTimes', { n: r.occurrences }))} ·
-                ${escapeHtml(tf('rdNextAbout', { d: formatDisplayDate(r.next_expected) }))}
+                ${escapeHtml(joinParts([approx + formatAmount(r.typical_amount) + ' ' + currencyUnit(), freq,
+                  tf('rdSeenTimes', { n: r.occurrences }), tf('rdNextAbout', { d: formatDisplayDate(r.next_expected) })]))}
               </div>
             </div>
             <button class="btn btn-primary btn-sm rd-create"
@@ -1371,7 +1373,8 @@
     }
 
     function assetMoneyByCurrency(map, field) {
-      return Object.entries(map || {}).map(([ccy, v]) => formatAmount(field ? v[field] : v, ccy) + ' ' + ccy).join(' · ') || '0';
+      return joinParts(Object.entries(map || {}).map(([ccy, v]) => formatAmount(field ? v[field] : v, ccy) + ' ' + ccy))
+        || formatAmount(0) + ' ' + currencyUnit();
     }
 
     async function loadFixedAssets() {
@@ -1441,8 +1444,8 @@
         box.innerHTML = '<div style="display:flex; justify-content:space-between; gap:0.5rem; align-items:center;">'
           + '<h3 style="margin:0;" dir="auto">' + escapeHtml(a.number + ' — ' + a.name) + '</h3>'
           + '<button type="button" class="btn btn-secondary btn-sm" id="asset-detail-close">' + escapeHtml(t('assetClose')) + '</button></div>'
-          + '<p class="fc-note">' + escapeHtml(assetCategoryLabel(a.category) + ' · ' + assetTermsText(a) + ' · '
-            + tf('assetStartsFrom', { date: formatDisplayDate(a.depreciation_start) })) + '</p>'
+          + '<p class="fc-note">' + escapeHtml(joinParts([assetCategoryLabel(a.category), assetTermsText(a),
+            tf('assetStartsFrom', { date: formatDisplayDate(a.depreciation_start) })])) + '</p>'
           + dispose
           + '<details style="margin-top:0.6rem;"><summary>' + escapeHtml(tf('assetScheduleTitle', { n: (a.schedule || []).length })) + '</summary>'
           + '<table class="mini-table"><thead><tr><th>' + escapeHtml(t('assetColMonth')) + '</th><th>' + escapeHtml(t('assetColCharge'))
@@ -1570,7 +1573,7 @@
         return '<tr' + (n.is_active ? '' : ' style="opacity:0.55;"') + '><td dir="ltr" style="padding-inline-start:' + (0.4 + n.depth * 1.1) + 'rem;">' + escapeHtml(localCode(n.code)) + '</td>'
           + '<td dir="auto">' + escapeHtml(n.name)
           + ((n.source_codes || []).length ? ' <span class="coa-old-code" title="' + escapeHtml(t('coaOldCodeTitle')) + '">'
-            + escapeHtml(tf('coaOldCode', { codes: n.source_codes.map(localCode).join(['fa', 'ar'].includes(currentLanguage) ? '، ' : ', ') })) + '</span>' : '')
+            + escapeHtml(tf('coaOldCode', { codes: n.source_codes.map(localCode).join(listSep()) })) + '</span>' : '')
           + '</td><td>' + escapeHtml(t('coaLevel_' + n.level)) + '</td>'
           + '<td>' + escapeHtml(formatAmount(n.total)) + '</td>'
           + '<td>' + (n.is_active ? '' : '<span class="alert-chip low">' + escapeHtml(t('coaInactive')) + '</span>')
@@ -1651,7 +1654,7 @@
           yours.appendChild(input);
           if (aside[a.id]) note.textContent = t('coaOwnAside');
           else if (clashed.has(a.id)) note.textContent = t('coaOwnClash');
-          else if ((a.options || []).length > 1) note.textContent = tf('coaOwnOptions', { codes: a.options.map(localCode).join('، ') });
+          else if ((a.options || []).length > 1) note.textContent = tf('coaOwnOptions', { codes: joinList(a.options.map(localCode)) });
         }
         tr.append(name, app, yours, note);
         table.appendChild(tr);
@@ -1862,7 +1865,7 @@
       // one code the file gives to several accounts (منادی حق's 1305): each is kept apart (scenario AH10)
       (r.codes_reused || []).slice(0, 5).forEach((c) => {
         html += '<div class="fc-note" style="margin:0.2rem 0;">' + escapeHtml(tf('jiCodeReused', { code: localDigits(c.code),
-          n: formatNum(c.names.length), names: c.names.join(['fa', 'ar'].includes(currentLanguage) ? '، ' : ', ') })) + '</div>';
+          n: formatNum(c.names.length), names: c.names.join(listSep()) })) + '</div>';
       });
       // vouchers typed in another year (1400/11/29 in a 1404 journal): move them or keep them
       if (r.stray_years) {
@@ -1876,7 +1879,7 @@
           + '</div>';
         // which vouchers it means: «تاریخ ۱ سند بیرون از سال فایل» left the owner asking which (scenario P10)
         if ((r.stray_vouchers || []).length) {
-          const sep = ['fa', 'ar'].includes(currentLanguage) ? '، ' : ', ';
+          const sep = listSep();
           const items = r.stray_vouchers.map((sv) => {
             // the date as the file writes it (its own calendar), and the one it now has
             const asWritten = (iso, said) => (said ? localDigits(said) : formatDisplayDate(iso));

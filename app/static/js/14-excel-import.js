@@ -163,7 +163,7 @@
           <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:0.3rem;">
             <strong>${escapeHtml(tf('xiVoucherNo', { n: v.voucher_number }))}</strong>
             <span><bdi>${escapeHtml(String(dateStr))}</bdi></span>
-            <span style="${balClass}">${escapeHtml(t('tableDebit'))} ${formatAmount(v.total_debit)} · ${escapeHtml(t('tableCredit'))} ${formatAmount(v.total_credit)}</span>
+            <span style="${balClass}">${escapeHtml(joinParts([t('tableDebit') + ' ' + formatAmount(v.total_debit), t('tableCredit') + ' ' + formatAmount(v.total_credit)]))}</span>
           </div>
           <table style="width:100%;font-size:0.75rem;border-collapse:collapse;">
             <tr style="background:var(--bg-surface);"><th style="text-align:start;padding:2px 4px;">${escapeHtml(t('fieldAccount'))}</th><th style="text-align:start;padding:2px 4px;">${escapeHtml(t('labelDescription'))}</th><th style="text-align:end;padding:2px 4px;">${escapeHtml(t('tableDebit'))}</th><th style="text-align:end;padding:2px 4px;">${escapeHtml(t('tableCredit'))}</th></tr>`;

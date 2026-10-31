@@ -16,8 +16,11 @@
         _acctDetailLines = data.lines || [];
         _acctDetailMeta = { code: data.account_code, name: data.account_name, debit_turnover: data.debit_turnover, credit_turnover: data.credit_turnover, debit_balance: data.debit_balance, credit_balance: data.credit_balance };
         title.textContent = localCode(data.account_code) + ' — ' + data.account_name;
+        // the parent and the account each by its own tier on the chart, both codes in the page's digits: it
+        // said «دفتر کل: ۱۱ — … · دفتر معین: 1110» whatever the chart said (Persian copy review, 2026-10-31)
+        const levels = data.parent_code ? await accountLevels() : {};
         const kolLine = data.parent_code
-          ? `<p style="margin:0 0 0.6rem;color:var(--text-muted);font-size:0.84rem;">${escapeHtml(t('ledgerKol'))}: <strong>${escapeHtml(localCode(data.parent_code))} — ${escapeHtml(data.parent_name || '')}</strong> · ${escapeHtml(t('ledgerMoin'))}: <strong>${escapeHtml(data.account_code)}</strong></p>`
+          ? `<p style="margin:0 0 0.6rem;color:var(--text-muted);font-size:0.84rem;">${escapeHtml(accountLevelLabel(levels, data.parent_code) || t('ledgerKol'))}: <strong>${escapeHtml(localCode(data.parent_code))} — ${escapeHtml(data.parent_name || '')}</strong>${escapeHtml(partSep())}${escapeHtml(accountLevelLabel(levels, data.account_code) || t('ledgerMoin'))}: <strong>${escapeHtml(localCode(data.account_code))}</strong></p>`
           : '';
         body.innerHTML = `
           ${kolLine}
@@ -229,7 +232,7 @@
           } catch (_) {}
         }
         const addr = await uiPrompt({
-          title: t('invEmailTitle').replace('{n}', mailBtn.dataset.number),
+          title: tf('invEmailTitle', { n: mailBtn.dataset.number }),
           message: t('invEmailPrompt'), value: to, placeholder: 'billing@example.com', confirmLabel: t('invEmailSend'),
         });
         if (addr === null || addr === undefined) return;
@@ -241,7 +244,7 @@
           });
           const data = await readJsonSafe(res);
           if (!res.ok) { showAlert((data && typeof data.detail === 'string') ? data.detail : t('invEmailFailed'), true); return; }
-          showAlert(t('invEmailSent').replace('{to}', data.to_address));
+          showAlert(tf('invEmailSent', { to: data.to_address }));
         } catch (_) { showAlert(t('invEmailFailed'), true); }
         finally { mailBtn.disabled = false; }
         return;
@@ -1080,14 +1083,14 @@
         document.getElementById('mo-deadline').value = st.deadline_days || 12;
         _moRows = data.invoices || [];
         document.getElementById('mo-summary').textContent = data.overdue
-          ? t('moOverdueCount').replace('{n}', data.overdue) : '';
+          ? tf('moOverdueCount', { n: Number(data.overdue) }) : '';
         document.getElementById('mo-all').checked = false;
         if (!_moRows.length) { body.innerHTML = `<tr><td colspan="9" class="empty-state">${escapeHtml(t('moNone'))}</td></tr>`; return; }
         body.innerHTML = '';
         _moRows.forEach(r => {
           const late = r.moadian_status === null && r.days_left < 0;
           const deadline = r.moadian_status ? escapeHtml(formatDisplayDate(r.deadline))
-            : `<span style="color:${late ? 'var(--danger, #b91c1c)' : 'inherit'};"><span class="nowrap">${escapeHtml(formatDisplayDate(r.deadline))}</span> · <span class="nowrap">${escapeHtml(t(late ? 'moDaysLate' : 'moDaysLeft').replace('{n}', Math.abs(r.days_left)))}</span></span>`;
+            : `<span style="color:${late ? 'var(--danger, #b91c1c)' : 'inherit'};"><span class="nowrap">${escapeHtml(formatDisplayDate(r.deadline))}</span>${partSep()}<span class="nowrap">${escapeHtml(tf(late ? 'moDaysLate' : 'moDaysLeft', { n: Math.abs(r.days_left) }))}</span></span>`;
           const status = t('moState_' + (r.moadian_status || 'pending'))
             + (r.reference ? `<div style="font-size:0.72rem;color:var(--text-muted);" dir="ltr">${escapeHtml(r.reference)}</div>` : '')
             + (r.error ? `<div style="font-size:0.72rem;color:var(--danger, #b91c1c);">${escapeHtml(r.error)}</div>` : '')
@@ -1150,9 +1153,9 @@
           a.href = url; a.download = data.file_name; document.body.appendChild(a); a.click(); a.remove();
           setTimeout(() => URL.revokeObjectURL(url), 2000);
         }
-        let msg = t('moExported').replace('{n}', data.count);
+        let msg = tf('moExported', { n: Number(data.count) || 0 });
         if (data.skipped && data.skipped.length) {
-          msg += ' ' + t('moSkipped').replace('{n}', data.skipped.length) + ' '
+          msg += ' ' + tf('moSkipped', { n: data.skipped.length }) + ' '
             + data.skipped.map(x => `${x.number || x.id}: ${(x.problems || []).join('; ')}`).join(' | ');
         }
         showAlert(msg, !!(data.skipped && data.skipped.length));
@@ -1213,7 +1216,7 @@
         const data = await readJsonSafe(res);
         if (!res.ok) { showAlert(qtError(data, 'riSaveFailed'), true); return; }
         const n = (data.generated && data.generated.issued) || 0;
-        showAlert(n ? t('riCreatedNow').replace('{n}', n) : t('riCreatedLater').replace('{d}', data.next_run_date));
+        showAlert(n ? tf('riCreatedNow', { n: Number(n) }) : tf('riCreatedLater', { d: formatDisplayDate(data.next_run_date) }));
         if (data.last_error) showAlert(data.last_error, true);
         loadRecurringInvoices(data.id);
         if (n) { loadInvoices(); if (typeof loadOwnerDashboard === 'function') loadOwnerDashboard(); }
@@ -1238,10 +1241,10 @@
           tr.dataset.riId = r.id;
           tr.innerHTML = `
             <td>${escapeHtml(r.entity_name || '—')}${mail}</td>
-            <td>${escapeHtml(t('riFreq_' + r.frequency))}${r.calendar === 'jalali' ? ' · ' + escapeHtml(t('riCalendarJalali')) : ''}</td>
+            <td>${escapeHtml(joinParts([t('riFreq_' + r.frequency), r.calendar === 'jalali' ? t('riCalendarJalali') : '']))}</td>
             <td>${r.status === 'ended' ? '—' : escapeHtml(formatDisplayDate(r.next_run_date))}</td>
             <td>${formatMoney(r.total, ccy)} <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span></td>
-            <td>${escapeHtml(String(r.occurrences))}${r.last_invoice_number ? ' · ' + escapeHtml(r.last_invoice_number) : ''}</td>
+            <td>${escapeHtml(localDigits(r.occurrences))}${r.last_invoice_number ? partSep() + '<bdi>' + escapeHtml(r.last_invoice_number) + '</bdi>' : ''}</td>
             <td>${escapeHtml(t('riStatus_' + r.status))}${err}</td>
             <td>${toggle}<button type="button" class="btn btn-danger btn-sm ri-del" data-id="${r.id}" data-name="${escapeHtml(r.name)}" style="margin-inline-start:0.3rem;">${escapeHtml(t('btnDelete') || 'Delete')}</button></td>`;
           body.appendChild(tr);
@@ -1267,7 +1270,7 @@
         return;
       }
       if (del) {
-        const ok = await uiConfirm({ title: t('btnDelete') || 'Delete', message: t('riDeleteConfirm').replace('{n}', del.dataset.name) });
+        const ok = await uiConfirm({ title: t('btnDelete') || 'Delete', message: tf('riDeleteConfirm', { n: del.dataset.name }) });
         if (!ok) return;
         try {
           const res = await fetch(API + '/recurring-invoices/' + encodeURIComponent(del.dataset.id), { method: 'DELETE' });
@@ -1335,7 +1338,7 @@
         });
         const data = await readJsonSafe(res);
         if (!res.ok) { showAlert(qtError(data, 'qtSaveFailed'), true); return; }
-        showAlert(t('qtSaved').replace('{n}', data.number));
+        showAlert(tf('qtSaved', { n: data.number }));
         document.getElementById('inv-number').value = '';
         document.getElementById('inv-desc').value = '';
         invResetBuilder();
@@ -1418,7 +1421,7 @@
           if (r.ok) suggested = (await r.json()).invoice_number || '';
         } catch (_) {}
         const number = await uiPrompt({
-          title: t('qtConvertTitle').replace('{n}', conv.dataset.number),
+          title: tf('qtConvertTitle', { n: conv.dataset.number }),
           message: t('qtConvertPrompt'), value: suggested, confirmLabel: t('qtConvert'),
         });
         if (number === null || number === undefined) return;
@@ -1429,7 +1432,7 @@
           });
           const data = await readJsonSafe(res);
           if (!res.ok) { showAlert(qtError(data, 'qtConvertFailed'), true); return; }
-          showAlert(t('qtConverted').replace('{n}', data.invoice.number));
+          showAlert(tf('qtConverted', { n: data.invoice.number }));
           loadQuotes(conv.dataset.id);
           loadInvoices(data.invoice.id);
           if (typeof loadOwnerDashboard === 'function') loadOwnerDashboard();
@@ -1437,7 +1440,7 @@
         return;
       }
       if (del) {
-        const ok = await uiConfirm({ title: t('btnDelete') || 'Delete', message: t('qtDeleteConfirm').replace('{n}', del.dataset.number) });
+        const ok = await uiConfirm({ title: t('btnDelete') || 'Delete', message: tf('qtDeleteConfirm', { n: del.dataset.number }) });
         if (!ok) return;
         try {
           const res = await fetch(API + '/quotes/' + encodeURIComponent(del.dataset.id), { method: 'DELETE' });
@@ -1575,7 +1578,8 @@
         const res = await fetch(API + '/notifications/check', { method: 'POST' });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { showAlert(data.detail || t('msgAlertsCheckFailed'), true); return; }
-        showAlert(t('msgAlertsChecked') + ((data.delivered || []).join(', ') || t('msgNoneDelivered')));
+        const channel = { slack: 'digestChannelSlack', telegram: 'digestChannelTelegram', email: 'digestChannelEmail' };
+        showAlert(t('msgAlertsChecked') + (joinList((data.delivered || []).map((c) => (channel[c] ? t(channel[c]) : c))) || t('msgNoneDelivered')));
       } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     });
 
@@ -2039,7 +2043,7 @@
         _ttmsSeasons = Array.isArray(rows) ? rows : [];
         // Default to the season just ended: the one whose filings are due.
         const pick = _ttmsSeasons.find(s => !s.current) || _ttmsSeasons[0];
-        sel.innerHTML = _ttmsSeasons.map(s => `<option value="${s.year}-${s.season}"${s === pick ? ' selected' : ''}>${escapeHtml(s.name)}${s.current ? ' · ' + escapeHtml(t('ttmsCurrent')) : ''} (${escapeHtml(String(s.sales_count + s.purchase_count))})</option>`).join('');
+        sel.innerHTML = _ttmsSeasons.map(s => `<option value="${s.year}-${s.season}"${s === pick ? ' selected' : ''}>${escapeHtml(joinParts([s.name, s.current ? t('ttmsCurrent') : '']))} (${escapeHtml(localDigits(s.sales_count + s.purchase_count))})</option>`).join('');
         updateTtmsDownload();
         loadTtms();
       } catch (_) { sel.innerHTML = ''; }
@@ -2076,7 +2080,7 @@
           stat(t('ttmsSales'), money(s.net_base), escapeHtml(t('ttmsVat')) + ': ' + money(s.net_vat)),
           stat(t('ttmsPurchases'), money(pu.net_base), escapeHtml(t('ttmsVat')) + ': ' + money(pu.net_vat)),
           stat(ret.payable ? t('ttmsReturnPayable') : t('ttmsReturnCredit'), money(ret.payable || ret.credit_carried_forward),
-               escapeHtml(t('ttmsDeadlineVat')) + ': ' + escapeHtml(sd.vat_deadline_jalali) + ' · ' + escapeHtml(_ttmsDays(sdMeta.vat_days_left ?? 1))),
+               escapeHtml(t('ttmsDeadlineVat')) + ': ' + escapeHtml(sd.vat_deadline_jalali) + partSep() + escapeHtml(_ttmsDays(sdMeta.vat_days_left ?? 1))),
           stat(t('ttmsDeadlineTtms'), escapeHtml(sd.ttms_deadline_jalali), escapeHtml(_ttmsDays(sdMeta.ttms_days_left ?? 1))),
         ].join('');
         const notes = [];
@@ -2085,7 +2089,7 @@
         if (rep.excluded_moadian && rep.excluded_moadian.count) notes.push(`<div class="tfa-note">${escapeHtml(tf('ttmsExcludedMoadian', { n: rep.excluded_moadian.count }))}</div>`);
         if ((rep.other_currency || []).length) notes.push(`<div class="tfa-note">${escapeHtml(tf('ttmsOtherCurrency', { n: rep.other_currency.length }))}</div>`);
         if ((rep.incomplete || []).length) {
-          notes.push(`<div class="tfa-note"><strong>${escapeHtml(tf('ttmsIncomplete', { n: rep.incomplete.length }))}</strong><ul style="margin:0.3rem 0 0;padding-inline-start:1.1rem;">${rep.incomplete.slice(0, 12).map(r => `<li>${escapeHtml(r.name)} — ${escapeHtml(r.missing_labels.join('، '))}</li>`).join('')}</ul></div>`);
+          notes.push(`<div class="tfa-note"><strong>${escapeHtml(tf('ttmsIncomplete', { n: rep.incomplete.length }))}</strong><ul style="margin:0.3rem 0 0;padding-inline-start:1.1rem;">${rep.incomplete.slice(0, 12).map(r => `<li>${escapeHtml(r.name)} — ${escapeHtml(joinList(r.missing_labels))}</li>`).join('')}</ul></div>`);
         }
         alerts.innerHTML = notes.join('');
         const table = (title, rows) => `<div style="flex:1 1 22rem;"><h3 style="font-size:0.9rem;margin:0.4rem 0;">${escapeHtml(title)}</h3>
@@ -2121,7 +2125,7 @@
         const sel = document.getElementById('mtd-period');
         const periods = per.periods || [];
         const pick = periods.find(p => !p.open) || periods[0];
-        sel.innerHTML = periods.map(p => `<option value="${escapeHtml(p.end)}"${p === pick ? ' selected' : ''}>${escapeHtml(formatDisplayDate(p.start))} – ${escapeHtml(formatDisplayDate(p.end))}${p.open ? ' · ' + escapeHtml(t('mtdOpen')) : ''}</option>`).join('');
+        sel.innerHTML = periods.map(p => `<option value="${escapeHtml(p.end)}"${p === pick ? ' selected' : ''}>${escapeHtml(joinParts([formatDateRange(p.start, p.end), p.open ? t('mtdOpen') : '']))}</option>`).join('');
         _mtdLoaded = true;
         loadMtdReturn();
         loadMtdItsa();
@@ -2140,9 +2144,9 @@
         const fmt = (n, i) => i <= 5 ? formatMoney(n, d.currency) : formatMoney(Math.trunc(n), d.currency);
         const days = (() => { const ms = new Date(d.period.deadline) - new Date(new Date().toDateString()); return Math.round(ms / 86400000); })();
         box.innerHTML = `
-          <p style="font-size:0.84rem;margin:0 0 0.4rem;">${escapeHtml(tf('mtdDue', { date: formatDisplayDate(d.period.deadline) }))} · ${escapeHtml(days < 0 ? t('mtdPassed') : tf('mtdDaysLeft', { n: days }))} · ${escapeHtml(d.direction === 'payable' ? t('mtdPayable') : t('mtdRepayable'))}</p>
+          <p style="font-size:0.84rem;margin:0 0 0.4rem;">${escapeHtml(joinParts([tf('mtdDue', { date: formatDisplayDate(d.period.deadline) }), days < 0 ? t('mtdPassed') : tf('mtdDaysLeft', { n: days }), d.direction === 'payable' ? t('mtdPayable') : t('mtdRepayable')]))}</p>
           <table class="results-table" style="font-size:0.84rem;max-width:44rem;"><tbody>
-            ${MTD_BOXES.map(n => `<tr${n === '5' ? ' style="font-weight:700;"' : ''}><td style="width:3rem;">${escapeHtml(t('mtdBox'))} ${n}</td><td>${escapeHtml(t('mtdBox' + n))}</td><td dir="ltr" style="text-align:end;">${fmt(d.boxes[n], Number(n))}</td></tr>`).join('')}
+            ${MTD_BOXES.map(n => `<tr${n === '5' ? ' style="font-weight:700;"' : ''}><td style="width:3rem;white-space:nowrap;">${escapeHtml(t('mtdBox'))} ${escapeHtml(localDigits(n))}</td><td>${escapeHtml(t('mtdBox' + n))}</td><td dir="ltr" style="text-align:end;">${fmt(d.boxes[n], Number(n))}</td></tr>`).join('')}
           </tbody></table>
           ${(d.other_currency || []).length ? `<div class="tfa-note" style="margin-top:0.5rem;">${escapeHtml(tf('mtdOtherCurrency', { n: d.other_currency.length }))}</div>` : ''}
           <div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.4rem;">${escapeHtml(t('mtdNorthernIreland'))}</div>`;
@@ -2203,7 +2207,7 @@
       const box = document.getElementById('mtd-itsa');
       const src = document.getElementById('mtd-source').value;
       const yearSel = document.getElementById('mtd-itsa-year');
-      if (!yearSel.options.length) yearSel.innerHTML = _mtdTaxYears().map(v => `<option value="${v}">${v}</option>`).join('');
+      if (!yearSel.options.length) yearSel.innerHTML = _mtdTaxYears().map(v => `<option value="${v}">${escapeHtml(localDigits(v))}</option>`).join('');
       document.getElementById('mtd-itsa-body').style.display = 'none';
       if (src === 'none') { box.innerHTML = `<p class="empty-state" style="padding:0.3rem;">${escapeHtml(t('mtdChooseSource'))}</p>`; document.getElementById('mtd-itsa-mandation').innerHTML = ''; return; }
       try {
@@ -2213,7 +2217,7 @@
         const qSel = document.getElementById('mtd-itsa-quarter');
         const keep = qSel.value;
         const pick = (qd.quarters.find(q => !q.open && q.days_left >= 0) || qd.quarters.find(q => q.open) || qd.quarters[0]).quarter;
-        qSel.innerHTML = qd.quarters.map(q => `<option value="${q.quarter}">Q${q.quarter} · ${escapeHtml(formatDisplayDate(q.start))} – ${escapeHtml(formatDisplayDate(q.end))} · ${escapeHtml(tf('mtdDue', { date: formatDisplayDate(q.deadline) }))}</option>`).join('');
+        qSel.innerHTML = qd.quarters.map(q => `<option value="${q.quarter}">${escapeHtml(joinParts(['Q' + localDigits(q.quarter), formatDateRange(q.start, q.end), tf('mtdDue', { date: formatDisplayDate(q.deadline) })]))}</option>`).join('');
         qSel.value = keep && qd.quarters.some(q => String(q.quarter) === keep) ? keep : String(pick);
         const m = qd.mandation;
         document.getElementById('mtd-itsa-mandation').innerHTML = m ? `<div class="tfa-note">${escapeHtml(m.required

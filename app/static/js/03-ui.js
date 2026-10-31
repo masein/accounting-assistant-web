@@ -34,7 +34,7 @@
       const st = _wn.steps[_wn.idx];
       if (!st) return;
       const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-      set('whats-new-version', tf('wnVersion', { version: String(st.version).split('.').map(localDigits).join('.'), date: st.date || '' }) + ' · ' + tf('wnStep', { n: _wn.idx + 1, total: _wn.steps.length }));
+      set('whats-new-version', joinParts([tf('wnVersion', { version: String(st.version).split('.').map(localDigits).join('.'), date: st.date || '' }), tf('wnStep', { n: _wn.idx + 1, total: _wn.steps.length })]));
       set('whats-new-step-title', _wnText(st.title));
       set('whats-new-step-body', _wnText(st.body));
       const dots = document.getElementById('whats-new-dots');
@@ -487,10 +487,11 @@
     // counted in /fx/metadata.unconverted.
     function baseViewNoteText() {
       const base = baseCurrencyCode();
-      let txt = t('currencyBaseViewNote').replace('{base}', base);
+      let txt = tf('currencyBaseViewNote', { base });
       const u = window.__FX_META && window.__FX_META.unconverted;
       if (u && u.count) {
-        txt += ' ' + t('currencyBaseViewPending').replace('{n}', String(u.count)).replace('{currencies}', (u.currencies || []).join(', '));
+        // the count in the page's digits, the codes «USD، EUR» in Persian (it read «3 (USD, EUR)»)
+        txt += ' ' + tf('currencyBaseViewPending', { n: Number(u.count), currencies: joinList(u.currencies || []) });
       }
       return txt;
     }
@@ -504,11 +505,11 @@
         el.style.display = 'none'; el.innerHTML = ''; return;
       }
       const note = combined ? baseViewNoteText()
-        : t('currencyViewNote').replace('{currency}', data.currency).replace('{others}', others.join(', '));
+        : tf('currencyViewNote', { currency: data.currency, others: joinList(others) });
       const picks = combined ? others : ['ALL'].concat(others);
       const buttons = picks.map(c => '<button type="button" class="btn btn-secondary btn-sm ccy-view-switch" data-ccy="' + escapeHtml(c) + '">'
-        + escapeHtml(c === 'ALL' ? t('currencyAllInBase').replace('{base}', baseCurrencyCode())
-          : t('currencyViewOnly').replace('{currency}', c)) + '</button>').join(' ');
+        + escapeHtml(c === 'ALL' ? tf('currencyAllInBase', { base: baseCurrencyCode() })
+          : tf('currencyViewOnly', { currency: c })) + '</button>').join(' ');
       el.innerHTML = escapeHtml(note) + ' <span style="display:inline-flex;gap:0.35rem;flex-wrap:wrap;vertical-align:middle;">' + buttons + '</span>';
       el.style.display = '';
       el.querySelectorAll('.ccy-view-switch').forEach(b => b.addEventListener('click', () => { if (onPick) onPick(b.dataset.ccy); }));
@@ -545,7 +546,7 @@
       if (!sel || !meta) return;
       const pref = meta.reporting_currency || meta.most_common_currency || 'IRR';
       const allOpt = [...sel.options].find(o => o.value === 'ALL');
-      if (allOpt) allOpt.textContent = t('currencyAllInBase').replace('{base}', pref);
+      if (allOpt) allOpt.textContent = tf('currencyAllInBase', { base: pref });
       if (sel.dataset.defaulted) return;
       sel.dataset.defaulted = '1';
       const used = Array.isArray(meta.used_currencies) ? meta.used_currencies : [];
@@ -1317,13 +1318,13 @@
           const box = document.getElementById('messenger-code');
           box.innerHTML = '<div>' + escapeHtml(tf('msgOpenLink', { bot: '@' + d.bot })) + '</div>'
             + `<a class="btn btn-primary btn-sm" href="${escapeHtml(d.url)}" target="_blank" rel="noopener">${escapeHtml(tf('msgOpen', { name: st.platforms[b.dataset.platform].name }))}</a>`
-            + '<div class="fx-hint" style="margin-top:0.45rem;">' + escapeHtml(t('msgOrSend')) + ' <code dir="ltr">/start ' + escapeHtml(d.code) + '</code> · '
+            + '<div class="fx-hint" style="margin-top:0.45rem;">' + escapeHtml(t('msgOrSend')) + ' <code dir="ltr">/start ' + escapeHtml(d.code) + '</code>' + partSep()
             + escapeHtml(t('msgExpires')) + '</div>';
           box.hidden = false;
         } finally { b.disabled = false; }
       }));
       const links = document.getElementById('messenger-links');
-      links.innerHTML = (st.links || []).length ? st.links.map(l => `<div class="msg-link"><span><strong>${escapeHtml(l.name)}</strong> · <bdi>${escapeHtml(l.chat_name || '')}</bdi></span>
+      links.innerHTML = (st.links || []).length ? st.links.map(l => `<div class="msg-link"><span><strong>${escapeHtml(l.name)}</strong>${partSep()}<bdi>${escapeHtml(l.chat_name || '')}</bdi></span>
           <button type="button" class="btn btn-secondary btn-sm msg-unlink" data-id="${escapeHtml(l.id)}">${escapeHtml(t('msgUnlink'))}</button></div>`).join('')
         : '<p class="fx-hint">' + escapeHtml(t('msgNoLinks')) + '</p>';
       links.querySelectorAll('.msg-unlink').forEach(b => b.addEventListener('click', async () => {

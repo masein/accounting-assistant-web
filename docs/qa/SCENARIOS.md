@@ -968,3 +968,14 @@ Every Persian template rendered with real values (a count of 1 and of 3, names, 
 | BI2 | A period | A statement for one month, and one across two months | «۱ تا ۳۰ شهریور», «۱ مرداد تا ۳۰ شهریور» |
 | BI3 | The widget's other currencies | Rials and dollars in a Persian widget | «۳٬۰۰۰٬۰۰۰ ریال، ۵۰۰ دلار», not «$500» |
 | BI4 | Swipe to reply in RTL | Swipe a message in Persian | The reply icon is mirrored like the menu's |
+
+## BH. The web's Persian on screen (copy review, 2026-10-31)
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BH1 | No middle dot beside Persian digits | Forecast rows, Moadian deadlines, recurring rows, the audit details, commitments, payroll cells, the chat statement card in Persian | Pieces joined with «، » (« · » in English): the dot beside Persian digits read as a zero, «امروز · ۱۸ مهر» as «۱۸۰ مهر» |
+| BH2 | A date range | The ledger, MTD periods, the payslip, a statement's range in Persian | «۱۴۰۵/۰۷/۰۹ تا ۱۴۰۵/۰۸/۰۹» in the page's direction (Arabic «إلى»); English keeps «→» |
+| BH3 | The ledger's tiers | Ledger in Persian; open a contact's drawer | Each group row says its own tier from the chart («گروه», «کل», «معین»), not always «دفتر کل»; codes in Persian digits |
+| BH4 | No Latin digits | The audit table's times, fixed-asset cards, chart axes, the VAT boxes | «۱۱:۵۱», «۰٫۰۰», axis «۰», «خانه ۱» |
+| BH5 | Sentences from pieces | Overdue invoices, a recurring invoice made later, a goal's date, the migration queue, a rate saved, an import applied, the chat threads' times, an undo note | Persian digits and dates throughout; «client» shows as «مشتری»; one sentence for an applied import; «۵ دقیقه پیش» |
+| BH6 | Smaller ones | The SMS example, the equity hint for a currency with decimals, the payroll tax brackets, the contacts table, the empty invoice list | Left-aligned example with Persian placeholders; «تا {مبلغ}: ۲۰٪ … مازاد: ۴۵٪»; «کد»; the empty row spans the table |

@@ -235,11 +235,11 @@
           [t('kpiRunway'), formatKpiValue(kpi('runway_months'), 'months')],
           [t('ownerOverdueAR'), `${formatAmount(overdue(data.ar_aging))} ${currencyUnit()}`],
           [t('ownerOverdueAP'), `${formatAmount(overdue(data.ap_aging))} ${currencyUnit()}`],
-          [t('ownerDataHealth'), `${data.health_score || 0}/100`],
+          [t('ownerDataHealth'), localDigits(`${data.health_score || 0}/100`)],
           [t('ownerMostProfitableClient'), topProfitText],
         ];
         document.getElementById('owner-pack').innerHTML =
-          `<div class="owner-pack-date">${escapeHtml(t('ownerPackTitle'))} · ${escapeHtml(formatDisplayDate(localIsoDate(new Date())))}</div>` +
+          `<div class="owner-pack-date">${escapeHtml(joinParts([t('ownerPackTitle'), formatDisplayDate(localIsoDate(new Date()))]))}</div>` +
           `<ul>${facts.map(([k, v]) => `<li><span>${escapeHtml(k)}</span> <strong>${escapeHtml(v)}</strong></li>`).join('')}</ul>` +
           `<div class="owner-pack-actions">${escapeHtml(t('ownerPriorityActions'))}</div>` +
           `<ol>${['ownerAction1', 'ownerAction2', 'ownerAction3'].map((k) => `<li>${escapeHtml(t(k))}</li>`).join('')}</ol>`;
@@ -615,7 +615,7 @@
             <th>${escapeHtml(t('bscAccount'))}</th><th>${escapeHtml(from)}</th><th>${escapeHtml(to)}</th>
             <th>${escapeHtml(t('bscChange'))}</th></tr></thead><tbody>${
           d.accounts.map((a) => {
-            const name = a.kind === 'pl_to_date' ? t('bscPlToDate') : `${localCode(a.code)} · ${a.name}`;
+            const name = a.kind === 'pl_to_date' ? t('bscPlToDate') : joinParts([localCode(a.code), a.name]);
             const open = a.code ? ` data-code="${escapeHtml(a.code)}" data-name="${escapeHtml(a.name || a.code)}" style="cursor:pointer;"` : '';
             return `<tr${open}><td dir="auto">${escapeHtml(name)}</td>
               <td class="num">${escapeHtml(formatAmount(a.prior, ccy || undefined))}</td>
@@ -1380,7 +1380,7 @@
       let mixWarning = '';
       if (currency === 'ALL') {
         const others = Array.isArray(data.other_currencies) ? data.other_currencies : [];
-        const buttons = others.map(ccy => `<button type="button" class="btn btn-secondary btn-sm mgr-ccy-switch" data-ccy="${escapeHtml(ccy)}">${escapeHtml(t('currencyViewOnly').replace('{currency}', ccy))}</button>`).join(' ');
+        const buttons = others.map(ccy => `<button type="button" class="btn btn-secondary btn-sm mgr-ccy-switch" data-ccy="${escapeHtml(ccy)}">${escapeHtml(tf('currencyViewOnly', { currency: ccy }))}</button>`).join(' ');
         mixWarning = `<div class="report-meta" style="margin-bottom:0.6rem;">${escapeHtml(baseViewNoteText())}
             ${buttons ? `<div style="margin-top:0.35rem;display:flex;gap:0.35rem;flex-wrap:wrap;">${buttons}</div>` : ''}
           </div>`;
@@ -1389,8 +1389,8 @@
         // default): say which, and offer the other currencies separately.
         const others = Array.isArray(data.other_currencies) ? data.other_currencies : [];
         if (others.length) {
-          const buttons = others.map(ccy => `<button type="button" class="btn btn-secondary btn-sm mgr-ccy-switch" data-ccy="${escapeHtml(ccy)}">${escapeHtml(t('currencyViewOnly').replace('{currency}', ccy))}</button>`).join(' ');
-          mixWarning = `<div class="report-meta" style="margin-bottom:0.6rem;">${escapeHtml(t('currencyViewNote').replace('{currency}', data.currency).replace('{others}', others.join(', ')))}
+          const buttons = others.map(ccy => `<button type="button" class="btn btn-secondary btn-sm mgr-ccy-switch" data-ccy="${escapeHtml(ccy)}">${escapeHtml(tf('currencyViewOnly', { currency: ccy }))}</button>`).join(' ');
+          mixWarning = `<div class="report-meta" style="margin-bottom:0.6rem;">${escapeHtml(tf('currencyViewNote', { currency: data.currency, others: joinList(others) }))}
             <div style="margin-top:0.35rem;display:flex;gap:0.35rem;flex-wrap:wrap;">${buttons}</div>
           </div>`;
         }
@@ -1407,7 +1407,7 @@
       }
       mgrReportPreviewEl.innerHTML = `
         ${mixWarning}
-        ${period ? `<div class="report-meta">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}${currency ? ' · <span class="ccy-badge ccy-' + escapeHtml(currency) + '">' + escapeHtml(currency === 'ALL' ? t('currencyAllInBase').replace('{base}', baseCurrencyCode()) : currency) + '</span>' : ''}</div>` : ''}
+        ${period ? `<div class="report-meta">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}${currency ? partSep() + '<span class="ccy-badge ccy-' + escapeHtml(currency) + '">' + escapeHtml(currency === 'ALL' ? tf('currencyAllInBase', { base: baseCurrencyCode() }) : currency) + '</span>' : ''}</div>` : ''}
         ${renderReportPreviewHtml(data)}
       `;
       // Wire up the "switch currency" buttons in the warning banner
@@ -1654,7 +1654,7 @@
       const low = rows.reduce((a, r) => (r.projected_cash < a.projected_cash ? r : a), rows[0]);
       const neg = rows.find((r) => r.projected_cash < 0);
       const lowest = tf('forecastLowest', { amount: formatAmount(low.projected_cash), week: formatDisplayDate(low.week_start) });
-      el.textContent = neg ? tf('forecastNegative', { week: formatDisplayDate(neg.week_start) }) + ' · ' + lowest : lowest;
+      el.textContent = neg ? joinParts([tf('forecastNegative', { week: formatDisplayDate(neg.week_start) }), lowest]) : lowest;
       el.classList.toggle('forecast-risk', !!neg);
     }
 
@@ -1716,7 +1716,7 @@
     function forecastWhatIfHtml(data) {
       const c = forecastChoices(data);
       const pick = (name, i) => '<label class="fc-pick"><input type="checkbox" name="' + name + '" value="' + escapeHtml(i.source_id) + '"> '
-        + escapeHtml(formatDisplayDate(i.date) + ' · ' + forecastItemLabel(i) + ' · ' + formatAmount(i.amount)) + '</label>';
+        + escapeHtml(joinParts([formatDisplayDate(i.date), forecastItemLabel(i), formatAmount(i.amount)])) + '</label>';
       const none = '<div class="fc-note">' + escapeHtml(t('forecastNothingToPick')) + '</div>';
       const options = c.parties.map(([id, n]) => '<option value="' + escapeHtml(id) + '">' + escapeHtml(n) + '</option>').join('');
       return '<form id="fc-whatif" class="fc-whatif">'
@@ -2054,10 +2054,8 @@
     // Names from the chart can be Persian inside an English line (and the other
     // way round); numbers with a sign flip in right-to-left text. Isolate both.
     function rcName(text) { return `<bdi>${escapeHtml(text)}</bdi>`; }
-    // «،» in Persian and Arabic: «·» beside Persian digits reads as a zero («۲۰٫۲۵۰ · تفریح»)
-    function rcSep() { return ['fa', 'ar'].includes(rcLang()) ? '، ' : ' · '; }
     function rcSigned(n, suffix = '', ccy) {
-      return '\u2066' + (n > 0 ? '+' : '') + formatAmount(n, ccy) + suffix + '\u2069';
+      return '\u2066' + localDigits((n > 0 ? '+' : '') + formatAmount(n, ccy) + suffix) + '\u2069';   // «٪» in Persian
     }
 
     async function loadReportCard() {
@@ -2107,7 +2105,7 @@
       if (d.categories.length) {
         bits.push(`<p><strong>${escapeHtml(t('rcTopCategories'))}:</strong> ` + d.categories.map(c =>
           `${rcName(c.category)} <bdi dir="ltr">${escapeHtml(amt(c.amount))}</bdi>`
-          + (c.change_pct == null ? '' : ` <span class="goal-meta">(${escapeHtml(rcSigned(c.change_pct, '%'))})</span>`)).join(rcSep()) + '</p>');
+          + (c.change_pct == null ? '' : ` <span class="goal-meta">(${escapeHtml(rcSigned(c.change_pct, '%'))})</span>`)).join(partSep()) + '</p>');
       }
       if (d.biggest_rise) {
         bits.push(`<p>${escapeHtml(tf('rcBiggestRise', { cat: '\u2068' + d.biggest_rise.category + '\u2069', v: rcSigned(d.biggest_rise.increase, '', cur) }))}</p>`);
@@ -2118,7 +2116,7 @@
         bits.push(`<p>${escapeHtml(tf('rcNetWorth', { v: rcSigned(nw.change || 0, '', cur), end: amt(nw.end || 0) }))}</p>`);
       }
       if (d.goals.length) {
-        bits.push(`<p>${escapeHtml(t('goalsTitle'))}: ` + d.goals.map(g => `${rcName(g.name)} <bdi dir="ltr">${escapeHtml(formatNum(g.percent))}%</bdi>`).join(rcSep()) + '</p>');
+        bits.push(`<p>${escapeHtml(t('goalsTitle'))}: ` + d.goals.map(g => `${rcName(g.name)} <bdi dir="ltr">${escapeHtml(localDigits(formatNum(g.percent) + '%'))}</bdi>`).join(partSep()) + '</p>');
       }
       document.getElementById('rc-details').innerHTML = bits.join('');
     }
@@ -2156,13 +2154,13 @@
         // in the currency of the account it saves into (docs/PLAN_CURRENCIES.md phase 3)
         const amt = (v) => formatAmount(v, g.currency) + (g.currency ? ' ' + g.currency : '');
         const meta = [tf('goalProgress', { v: formatAmount(g.current, g.currency), target: amt(g.target_amount) })];
-        if (!g.reached && g.needed_per_month != null) meta.push(tf('goalNeeded', { v: amt(g.needed_per_month), date: g.target_date }));
+        if (!g.reached && g.needed_per_month != null) meta.push(tf('goalNeeded', { v: amt(g.needed_per_month), date: formatDisplayDate(g.target_date) }));
         if (!g.reached && g.pace_per_month > 0) meta.push(tf('goalPace', { v: amt(g.pace_per_month) }));
         return `<div class="goal${g.reached ? ' reached' : ''}" data-id="${escapeHtml(g.id)}">
           <div class="goal-top"><span class="goal-name">${rcName(g.name)}</span>
             <span>${badge} <button type="button" class="btn btn-secondary btn-sm goal-del" data-id="${escapeHtml(g.id)}" aria-label="${escapeHtml(t('goalDelete'))}">×</button></span></div>
           <div class="goal-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Number(g.percent)}"><span style="width:${Math.max(0, Math.min(100, Number(g.percent)))}%"></span></div>
-          <div class="goal-meta"><bdi dir="ltr">${escapeHtml(formatNum(g.percent))}%</bdi>${rcSep()}${rcName(g.account_name || g.account_code)}${rcSep()}${meta.map(m => `<bdi>${escapeHtml(m)}</bdi>`).join(rcSep())}</div>
+          <div class="goal-meta"><bdi dir="ltr">${escapeHtml(localDigits(formatNum(g.percent) + '%'))}</bdi>${partSep()}${rcName(g.account_name || g.account_code)}${partSep()}${meta.map(m => `<bdi>${escapeHtml(m)}</bdi>`).join(partSep())}</div>
         </div>`;
       }).join('');
     }
@@ -2272,12 +2270,12 @@
         headline.innerHTML = `
           <div style="font-size:1.6rem; font-weight:700;">${escapeHtml(formatAmount(d.net_worth, d.currency))} ${escapeHtml(d.currency)}</div>
           <div style="font-size:0.82rem; color:var(--text-muted);">
-            ${escapeHtml(t('nwAssets'))}: ${escapeHtml(formatAmount(d.total_assets, d.currency))}${rcSep()}${escapeHtml(t('nwDebts'))}: ${escapeHtml(formatAmount(d.total_liabilities, d.currency))}
+            ${escapeHtml(t('nwAssets'))}: ${escapeHtml(formatAmount(d.total_assets, d.currency))}${partSep()}${escapeHtml(t('nwDebts'))}: ${escapeHtml(formatAmount(d.total_liabilities, d.currency))}
           </div>
           ${gain ? `<div style="font-size:0.82rem; color:${gainColor};">${escapeHtml(t('nwUnrealized'))}: ${escapeHtml(formatAmount(gain, d.currency))}</div>` : ''}
           ${(d.missing_rates || []).length ? `<div class="alert-chip medium" style="margin-top:0.35rem;">${escapeHtml(tf('nwMissingRate', { units: d.missing_rates.join(', ') }))}</div>` : ''}
           ${others.length ? `<div class="nw-others">${escapeHtml(t('nwOthers'))}: ${others.map(x =>
-            `<bdi>${escapeHtml(formatAmount(x.net_worth, x.currency))} ${escapeHtml(x.name || x.currency)}</bdi>`).join(rcSep())}</div>` : ''}
+            `<bdi>${escapeHtml(formatAmount(x.net_worth, x.currency))} ${escapeHtml(x.name || x.currency)}</bdi>`).join(partSep())}</div>` : ''}
         `;
 
         renderMiniTable('nw-breakdown', ['account_name', 'value'],          // «Item» had no translation
@@ -2294,7 +2292,7 @@
           _nwTrendChart = new Chart(canvas, {
             type: 'line',
             data: {
-              labels: trend.map(r => r.period),
+              labels: trend.map(r => formatPeriodKey(r.period)),   // «آبان ۲۰۲۶», not «2026-11»
               datasets: [{
                 data: trend.map(r => r.value),
                 borderColor: _PD_PALETTE[0],

@@ -343,7 +343,7 @@
           for (let h = 0; h < 24; h++) hour.add(new Option(String(h).padStart(2, '0') + ':00', String(h)));
         }
         hour.value = String(_fxFeeds.hour);
-        document.getElementById('fx-feeds-ecb-list').textContent = (d.ecb_currencies || []).join(' · ');
+        document.getElementById('fx-feeds-ecb-list').textContent = joinList(d.ecb_currencies || []);
         renderRateFeeds();
         renderRateFeedStatus(d.status || {});
       } catch (_) { card.style.display = 'none'; }
@@ -362,17 +362,20 @@
       const el = document.getElementById('fx-feeds-status');
       if (!el) return;
       if (!st.ran_at) { el.textContent = t('fxFeedsNever'); return; }
-      const when = new Date(st.ran_at);
+      // in the company's calendar and the page's digits: it was the browser's own toLocaleString()
+      // («10/31/2026, 3:02:00 PM» on an English-locale browser), the rates' day raw ISO, the pieces
+      // joined with a Latin comma (Persian copy review, 2026-10-31)
+      const when = formatDisplayDateTime(st.ran_at) || String(st.ran_at);
       const items = (st.results || []).map(r => {
         const src = '<bdi>' + escapeHtml(r.source === 'ecb' ? 'ECB' : r.source) + '</bdi>';
         if (r.error) return `<li class="err">${src}: ${escapeHtml(t('fxFeedsFailed'))} — <bdi dir="ltr">${escapeHtml(r.error)}</bdi></li>`;
         let line = src + ': ' + tfBdi('fxFeedsResult', { added: r.added || 0, updated: r.updated || 0 });
-        if (r.kept) line += ', ' + tfBdi('fxFeedsKept', { kept: r.kept });
-        if (r.date) line += ' · ' + tfBdi('fxFeedsRatesOf', { date: r.date });
+        if (r.kept) line += escapeHtml(listSep()) + tfBdi('fxFeedsKept', { kept: r.kept });
+        if (r.date) line += escapeHtml(partSep()) + tfBdi('fxFeedsRatesOf', { date: formatDisplayDate(r.date) });
         if ((r.errors || []).length) line += ` <span class="err">(<bdi dir="ltr">${escapeHtml(r.errors.join('; '))}</bdi>)</span>`;
         return '<li>' + line + '</li>';
       });
-      el.innerHTML = tfBdi('fxFeedsLastRun', { when: isNaN(when) ? st.ran_at : when.toLocaleString() }) +
+      el.innerHTML = escapeHtml(tf('fxFeedsLastRun', { when: (_uiIsRtl() ? '\u2067' : '\u2066') + when + '\u2069' })) +
         (items.length ? '<ul>' + items.join('') + '</ul>' : '');
     }
 
@@ -806,7 +809,7 @@
     // can't auto-detect columns. Returns a {role: colIndex} object or null.
     async function promptColumnMapping(headers, requiredFields) {
       const fieldLabel = { date: 'fieldDate', amount: 'fieldAmount', description: 'fieldDescription' };
-      const headerList = (headers || []).map((h, i) => `${i}=${h}`).join(', ');
+      const headerList = joinList((headers || []).map((h, i) => `${localDigits(i)}=${h}`));
       const max = Math.max(0, (headers || []).length - 1);
       const map = {};
       for (const field of (requiredFields || [])) {
@@ -845,7 +848,7 @@
         if ((check.broken_count || 0) > 1) out += ' ' + tf('bsReadMoreBroken', { n: formatNum(check.broken_count) });
       }
       const failed = report.failed_pages || [];
-      if (failed.length) out += ' ' + tf('bsReadFailed', { pages: failed.map(formatNum).join(['fa', 'ar'].includes(currentLanguage) ? '، ' : ', ') });
+      if (failed.length) out += ' ' + tf('bsReadFailed', { pages: failed.map(formatNum).join(listSep()) });
       if (report.beyond) out += ' ' + tf('bsReadBeyond', { n: formatNum((report.pages || 0) - report.beyond) });
       return out;
     }
@@ -1118,7 +1121,8 @@
           const span = document.createElement('span');
           span.dir = 'auto';
           span.style.flex = '1';
-          span.textContent = `${escapeHtml(formatDisplayDate(s.tx_date))} · ${s.description || ''} · ${formatAmount(s.amount, data.currency)} ${data.currency || currencyUnit()} → ${s.account_code} ${s.account_name}`;
+          span.textContent = joinParts([formatDisplayDate(s.tx_date), s.description || '', formatAmount(s.amount, data.currency) + ' ' + (data.currency || currencyUnit())])
+            + ` → ${localCode(s.account_code)} ${s.account_name || ''}`;
           const btn = document.createElement('button');
           btn.className = 'btn btn-secondary btn-sm';
           btn.textContent = t('bsRecordBtn');
@@ -1224,11 +1228,11 @@
         const span = document.createElement('span');
         span.dir = 'auto';
         span.style.flex = '1';
-        let txt = (f.tx_date || '') + ' · ' + (f.description || '') + ' · ' + formatAmount(f.amount, ccy) + ' ' + ccy;
+        let txt = joinParts([formatDisplayDate(f.tx_date), f.description || '', formatAmount(f.amount, ccy) + ' ' + ccy]);
         if (f.kind === 'amount_mismatch' && f.matched_amount != null) {
-          txt += ' — ' + t('bsFindBook') + ': ' + formatAmount(f.matched_amount) + ' (' + (f.matched_date || '') + ')';
+          txt += ' — ' + t('bsFindBook') + ': ' + formatAmount(f.matched_amount) + ' (' + formatDisplayDate(f.matched_date) + ')';
         } else if (f.kind === 'needs_confirmation' && f.matched_date) {
-          txt += ' — ' + t('bsFindBook') + ': ' + (f.matched_date || '') + ' ' + (f.matched_description || '');
+          txt += ' — ' + t('bsFindBook') + ': ' + formatDisplayDate(f.matched_date) + ' ' + (f.matched_description || '');
         } else if (f.kind === 'unrecorded' && f.suggested_account_code) {
           txt += ' → ' + localCode(f.suggested_account_code) + ' ' + (f.suggested_account_name || '');
         }
@@ -1255,7 +1259,7 @@
       if (action === 'create') {
         const ok = await uiConfirm({
           title: t('bsRecordConfirmTitle'),
-          message: tf('bsRecordConfirmMsg', { desc: f.description || '', account: (f.suggested_account_code || '') + ' ' + (f.suggested_account_name || '') }),
+          message: tf('bsRecordConfirmMsg', { desc: f.description || '', account: localCode(f.suggested_account_code || '') + ' ' + (f.suggested_account_name || '') }),
         });
         if (!ok) return;
       }
@@ -1344,12 +1348,17 @@
     });
 
     // ═══════ Bank SMS capture (app/services/bank_sms.py) ═══════
+    // The request a phone sends, its placeholders in the page's language («<API key>» and «<the SMS as
+    // received>» stayed English on the Persian page); drawn again when the language changes.
+    function fillSmsAutoExample() {
+      const example = document.getElementById('sms-auto-example');
+      if (example) example.textContent = `POST ${location.origin}/api/v1/bank-sms\nAuthorization: Bearer <${t('smsExampleKey')}>\nContent-Type: application/json\n\n{"text": "<${t('smsExampleText')}>"}`;
+    }
     (function wireBankSms() {
       const box = document.getElementById('sms-text');
       if (!box) return;
       const note = document.getElementById('sms-preview-note');
-      const example = document.getElementById('sms-auto-example');
-      if (example) example.textContent = `POST ${location.origin}/api/v1/bank-sms\nAuthorization: Bearer <API key>\nContent-Type: application/json\n\n{"text": "<the SMS as received>"}`;
+      fillSmsAutoExample();
       let timer = null;
       box.addEventListener('input', () => {
         clearTimeout(timer);
@@ -1405,9 +1414,9 @@
     function mailWhen(iso) {
       const d = iso ? new Date(iso) : null;
       if (!d || isNaN(d.getTime())) return '';
-      const p = (n) => String(n).padStart(2, '0');
-      // an isolated LTR run: after Persian words "2026-09-29" would otherwise read "29-09-2026"
-      return `\u2066${formatDisplayDate(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`)} ${p(d.getHours())}:${p(d.getMinutes())}\u2069`;
+      // one isolated run, the date first in the reader's direction; the time in the page's digits
+      // (it stayed Latin, «۱۴۰۵/۰۸/۰۹ 15:02», Persian copy review 2026-10-31)
+      return (_uiIsRtl() ? '\u2067' : '\u2066') + formatDisplayDateTime(d) + '\u2069';
     }
     function mailError(r) {
       const f = _mailForm();
@@ -1426,8 +1435,8 @@
       else if (st.checked_at && st.ok === false) text = tf('mailStateError', { when: mailWhen(st.checked_at), error: mailError(st) });
       else if (st.checked_at) text = tf('mailStateOk', { when: mailWhen(st.checked_at), imported: st.imported || 0 });
       else text = cfg.enabled ? t('mailStateWaiting') : t('mailStatePaused');
-      if (st.deferred) text += ' · ' + tf('mailStateDeferred', { n: st.deferred });
-      if (cfg.host && !cfg.enabled && st.checked_at) text += ' · ' + t('mailStatePaused');
+      if (st.deferred) text += partSep() + tf('mailStateDeferred', { n: st.deferred });
+      if (cfg.host && !cfg.enabled && st.checked_at) text += partSep() + t('mailStatePaused');
       _mailEl('mail-summary-state').textContent = '— ' + text;
     }
     function renderMailbox(cfg) {

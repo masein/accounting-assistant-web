@@ -768,6 +768,9 @@
         wrap.classList.toggle('jdate-jalali', cal === 'jalali');
         text.value = localDigits(isoToFieldText(iso, cal));     // read back by fieldTextToIso, which takes both
         text.removeAttribute('aria-invalid');
+        // a message handed over for the old value (picked from the grid or set by a script, the box
+        // saw no input of its own) would hold the form back
+        if (text.dataset.i18nValidity) { text.setCustomValidity(''); delete text.dataset.i18nValidity; }
       }
       const name = input.getAttribute('aria-label') || (input.labels && input.labels[0] ? input.labels[0].textContent.trim() : '');
       if (name && text.getAttribute('aria-label') !== name) text.setAttribute('aria-label', name);

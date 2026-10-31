@@ -22,8 +22,8 @@ class InvoiceItemBase(BaseModel):
     tax_treatment: str = Field(default="standard", description="standard | zero_rated | exempt | reverse_charge")
     description: str | None = None
     inventory_item_id: UUID | None = None
-    sstid: str | None = Field(default=None, description="سامانه مودیان goods/service id, 13 digits")
-    mu: str | None = Field(default=None, max_length=8, description="سامانه مودیان measurement-unit code")
+    sstid: str | None = Field(default=None, description="سامانه مؤدیان goods/service id, 13 digits")
+    mu: str | None = Field(default=None, max_length=8, description="سامانه مؤدیان measurement-unit code")
 
     @field_validator("sstid")
     @classmethod
@@ -184,7 +184,7 @@ class InvoiceRead(InvoiceBase):
     # credit note beyond what it owed), and the party's credit available to it
     credit_available: Money = 0
     party_credit: Money = 0
-    # سامانه مودیان
+    # سامانه مؤدیان
     moadian_status: str | None = None
     moadian_taxid: str | None = None
     moadian_reference: str | None = None

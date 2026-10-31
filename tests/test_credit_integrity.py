@@ -193,7 +193,7 @@ def test_no_bounce_while_the_cheques_extra_was_refunded(ir):
     r = ir.api.post(f"/commitments/{c['id']}/bounce", json={"on": "2026-09-21"})
     assert r.status_code == 409 and "Reverse that first" in r.json()["detail"], r.text
     r = ir.api.post(f"/commitments/{c['id']}/bounce", json={"on": "2026-09-21"}, headers={"X-UI-Language": "fa"})
-    assert r.status_code == 409 and "برگشت بزنید" in r.json()["detail"]
+    assert r.status_code == 409 and "ابتدا آن را برگردانید" in r.json()["detail"]
 
 
 def test_an_issued_cheque_that_overpaid_a_bill_bounces_cleanly(ir):

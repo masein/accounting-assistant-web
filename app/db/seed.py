@@ -186,7 +186,7 @@ PERSONAL_SEED_ACCOUNTS = [
     # Groups
     ("11", "دارایی‌ها", "Assets", AccountLevel.GROUP),
     ("21", "بدهی‌ها و وام‌ها", "Liabilities & loans", AccountLevel.GROUP),
-    ("31", "خالص دارایی", "Net worth", AccountLevel.GROUP),
+    ("31", "دارایی خالص", "Net worth", AccountLevel.GROUP),
     ("41", "درآمدها", "Income", AccountLevel.GROUP),
     ("61", "هزینه‌های زندگی", "Living expenses", AccountLevel.GROUP),
     ("62", "سایر هزینه‌ها", "Other expenses", AccountLevel.GROUP),
@@ -206,7 +206,7 @@ PERSONAL_SEED_ACCOUNTS = [
     ("2130", "بدهی به دیگران", "Money I owe", AccountLevel.GENERAL),
     ("2140", "بدهی کارت اعتباری", "Credit card debt", AccountLevel.GENERAL),
     # Net worth
-    ("3110", "خالص دارایی اولیه", "Opening net worth", AccountLevel.GENERAL),
+    ("3110", "دارایی خالص اولیه", "Opening net worth", AccountLevel.GENERAL),
     ("3120", "تبدیل ارز", "Currency exchange", AccountLevel.GENERAL),   # money changed (AZ1); made on first use before
     ("3300", "مازاد (کسری) انباشته", "Accumulated surplus (deficit)", AccountLevel.GENERAL),
     # Income

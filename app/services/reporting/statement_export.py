@@ -46,12 +46,12 @@ TITLES = {
     "default": {
         "balance_sheet": ("ترازنامه", "Balance sheet"),
         "income_statement": ("صورت سود و زیان", "Income statement"),
-        "cash_flow": ("صورت جریان وجوه نقد", "Cash flow statement"),
+        "cash_flow": ("صورت جریان‌های نقدی", "Cash flow statement"),
     },
 }
 WORDS = {
     "fa": {"as_of": "در تاریخ", "period": "از {a} تا {b}", "total": "جمع", "item": "شرح", "prior": "دوره قبل",
-           "opening": "ابتدای دوره قبل", "page": "صفحه", "amounts": "مبالغ به {ccy}", "amounts_all": "همه ارزها، به ارزش {ccy}", "prepared": "تهیه شده در {d}"},
+           "opening": "ابتدای دوره قبل", "page": "صفحه", "amounts": "مبالغ به {ccy}", "amounts_all": "همه ارزها، به ارزش {ccy}", "prepared": "تهیه‌شده در {d}"},
     "en": {"as_of": "As at", "period": "{a} to {b}", "total": "Total", "item": "", "prior": "Prior period",
            "opening": "Prior period opening", "page": "Page", "amounts": "Amounts in {ccy}", "amounts_all": "All currencies, at their value in {ccy}", "prepared": "Prepared {d}"},
 }

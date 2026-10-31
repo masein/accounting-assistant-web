@@ -355,7 +355,7 @@ _TEMPLATES.update({
     "low_stock": {
         "title": {
             "en": "{count} item(s) at or below the reorder point",
-            "fa": "{count} کالا به نقطهٔ سفارش یا کمتر رسیده است",
+            "fa": "{count} کالا به نقطهٔ سفارش رسیده یا از آن کمتر شده است",
             "es": "{count} artículo(s) en el punto de pedido o por debajo",
             "ar": "{count} صنف/أصناف عند نقطة إعادة الطلب أو أقل",
         },

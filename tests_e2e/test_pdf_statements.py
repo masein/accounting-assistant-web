@@ -38,14 +38,14 @@ def test_the_chat_reads_it_page_by_page_then_continues(flow_page):
         sent.append(json.loads(route.request.post_data or "{}"))
         if len(sent) == 1:
             _json(route, {"session_id": "s-aj", "turns": 1, "stop_reason": "end_turn", "tool_calls": [], "proposals": [],
-                          "text": "صورتحساب دی را می‌خوانم — ۲۲ صفحه تصویر، صفحه به صفحه؛ کارتش نشان می‌دهد تا کجا خوانده شده."
+                          "text": "صورت‌حساب دی را می‌خوانم — ۲۲ صفحه تصویر، صفحه به صفحه؛ کارتش نشان می‌دهد تا کجا خوانده شده."
                                   " وقتی خوانده شد، «ادامه با دستور شما» آن‌ها را اعمال می‌کند.",
                           "intake": {"kind": "bank_statement", "status": "reading", "statement_id": SID, "bank_name": "Day",
                                      "bank_label": "دی", "file_name": "20261015_133322_receipt.pdf",
                                      "pages_total": 22, "pages_read": 0, "rules": True}})
         else:
             _json(route, {"session_id": "s-aj", "turns": 2, "stop_reason": "end_turn", "tool_calls": [], "proposals": [],
-                          "text": "کارت آماده است: ۲۰۵ ردیف صورتحساب دی، به‌تفکیک تاریخ."})
+                          "text": "کارت آماده است: ۲۰۵ ردیف صورت‌حساب دی، به‌تفکیک تاریخ."})
     polls = []
 
     def card(route):
@@ -54,7 +54,7 @@ def test_the_chat_reads_it_page_by_page_then_continues(flow_page):
             _json(route, {"status": "reading", "pages_total": 22, "pages_read": 9})
         else:
             _json(route, {"status": "parsed", "pages_total": 22, "pages_read": 22, "intake": INTAKE,
-                          "text": "صورتحساب دی را خواندم: ۲۰۵ ردیف. ۲۲ صفحه، ۲۰۵ ردیف خوانده شد؛"
+                          "text": "صورت‌حساب دی را خواندم: ۲۰۵ ردیف. ۲۲ صفحه، ۲۰۵ ردیف خوانده شد؛"
                                   " مانده‌ها از هر ردیف به ردیف بعد جور است."})
     page.route("**/ai-accountant/chat", chat)
     page.route(f"**/ai-accountant/statements/{SID}/card", card)
@@ -67,7 +67,7 @@ def test_the_chat_reads_it_page_by_page_then_continues(flow_page):
         page.click("#ai-acct-send")
         reading = page.locator(".ai-reading-card")
         expect(reading).to_be_visible()
-        expect(reading.locator(".ai-reading-title")).to_have_text("صورتحساب بانکی — دی")   # not «imported» yet
+        expect(reading.locator(".ai-reading-title")).to_have_text("صورت‌حساب بانکی — دی")   # not «imported» yet
         expect(reading.locator(".ai-reading-line")).to_contain_text("۹ از ۲۲")         # how far, from the server
         os.makedirs(ARTIFACTS, exist_ok=True)
         page.locator("#ai-acct-messages").screenshot(path=os.path.join(ARTIFACTS, "chat-pdf-reading-fa.png"))

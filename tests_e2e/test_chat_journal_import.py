@@ -19,14 +19,14 @@ INTAKE = {"kind": "journals", "repairs": 6, "calendar": "jalali", "files": [
     {"file_name": "manadi-1404.xlsx", "token": "a" * 32, "voucher_count": 199, "from": "2025-04-18", "to": "2026-03-20",
      "counts": {"ready": 199}, "ready": 199, "unplaced_accounts": 0, "new_accounts": 17, "stray_years": 0,
      "said": SAID_1, "notes": ["۱۹۹ سند آمادهٔ ورود", "۱۷ حساب تازه در کدینگ ساخته می‌شود",
-                               "در فایل، کد ۱۳۰۵ نام ۳ حساب است: سهم هزینه مشترک با فرهنگ نو، قبوض، کارمزد بانکی",
-                               "ورود قبلی ۶ سند را نادرست ثبت کرده؛ «مهاجرت از سیستم قبلی» فهرستشان را برای حذف نشان می‌دهد"]},
+                               "در فایل، کد ۱۳۰۵ به ۳ حساب داده شده است: سهم هزینه مشترک با فرهنگ نو، قبوض، کارمزد بانکی",
+                               "ورود قبلی ۶ سند را نادرست ثبت کرده؛ «انتقال اطلاعات» فهرستشان را برای حذف نشان می‌دهد"]},
     {"file_name": "manadi-1405.xlsx", "token": "b" * 32, "voucher_count": 53, "from": "2026-03-26", "to": "2026-06-21",
      "counts": {"ready": 52, "opening_repeat": 1}, "ready": 52, "unplaced_accounts": 2, "new_accounts": 0,
-     "stray_years": 0, "said": SAID_2, "notes": ["۵۲ سند آمادهٔ ورود", "۲ حساب نگاشت‌نشده", "کنار می‌ماند: ۱ افتتاحیهٔ تکراری"]},
+     "stray_years": 0, "said": SAID_2, "notes": ["۵۲ سند آمادهٔ ورود", "۲ حساب معادل‌سازی‌نشده", "کنار گذاشته می‌شود: ۱ سند افتتاحیهٔ تکراری"]},
 ]}
 REPLY = {"session_id": "s-ah", "turns": 1, "stop_reason": "end_turn", "tool_calls": [], "proposals": [], "intake": INTAKE,
-         "text": "به نظر فهرست سندهاست: " + SAID_1 + "؛ " + SAID_2 + "؛ ۲ حساب نگاشت‌نشده."}
+         "text": "به نظر فهرست سندهاست: " + SAID_1 + "؛ " + SAID_2 + "؛ ۲ حساب معادل‌سازی‌نشده."}
 APPLIED = {"posted": 199, "skipped": {}, "said": "۱۹۹ سند از \u2068manadi-1404.xlsx\u2069 وارد دفاتر شد، از ۲۹ فروردین ۱۴۰۴ تا ۲۹ اسفند ۱۴۰۴."}
 REPAIRS = {"vouchers": [{"id": f"00000000-0000-4000-8000-00000000000{i}", "reference": ref, "date": "2027-01-30",
                          "debit": 0, "credit": 200_000_000, "lines": 1, "currency": "IRR"}
@@ -64,8 +64,8 @@ def test_two_years_dropped_each_its_card_imported_whole(flow_page):
         expect(cards).to_have_count(2)
         expect(cards.nth(0).locator(".ai-journal-title")).to_have_text("به نظر فهرست سندهاست")
         expect(cards.nth(0).locator(".ai-journal-said")).to_have_text(SAID_1)
-        expect(cards.nth(1).get_by_role("button", name="تطبیق حساب‌ها")).to_be_visible()     # accounts to match first
-        expect(cards.nth(0).get_by_role("button", name="مهاجرت از سیستم قبلی")).to_be_visible()  # the misread six
+        expect(cards.nth(1).get_by_role("button", name="معادل‌سازی حساب‌ها")).to_be_visible()     # accounts to match first
+        expect(cards.nth(0).get_by_role("button", name="انتقال اطلاعات")).to_be_visible()  # the misread six
         os.makedirs(ARTIFACTS, exist_ok=True)
         page.locator("#ai-acct-messages").screenshot(path=os.path.join(ARTIFACTS, "chat-journals-fa.png"))
         cards.nth(0).get_by_role("button", name="وارد کردن ۱۹۹ سند").click()
@@ -88,7 +88,7 @@ def test_misread_vouchers_listed_and_old_codes_on_the_chart(flow_page):
         expect(panel).to_be_visible()
         expect(panel.locator(".ji-repairs-list li")).to_have_count(6)
         expect(panel).to_contain_text("«مخارج مدرسه» دو بار ساخته شده")
-        expect(panel.get_by_role("button", name="حذف این‌ها و یکی کردن")).to_be_visible()
+        expect(panel.get_by_role("button", name="حذف و ادغام")).to_be_visible()
         os.makedirs(ARTIFACTS, exist_ok=True)
         panel.screenshot(path=os.path.join(ARTIFACTS, "migration-repairs-fa.png"))
 

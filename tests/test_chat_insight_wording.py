@@ -12,7 +12,7 @@ DROP = Insight(key="revenue-drop-1405-06", kind="revenue_drop", severity="warnin
 
 def test_the_briefing_names_the_month_and_writes_persian_figures():
     fa = briefing_text([DROP], "fa")
-    assert "درآمد در شهریور ۱۴۰۵ ۱۰۰٪ کم شد" in fa, fa
+    assert "کاهش ۱۰۰٪ درآمد در شهریور ۱۴۰۵" in fa, fa
     assert "۰ در برابر میانگین ۴۲۰٬۰۰۰٬۰۰۰" in fa, fa
     assert not any(ch in "0123456789" for ch in fa), fa
 
@@ -31,5 +31,5 @@ def test_a_count_kept_as_a_number_is_written_in_persian_digits():
     ins = Insight(key="reversal-x", kind="reversal_pattern", severity="warning", page="ledger",
                   params={"name": "فروشگاه مهرگان", "undone": 0, "credits": 4})
     said = chat_wording(ins, "fa")["message"]
-    assert "۰ سند برگشت خورده و ۴ یادداشت" in said and not any(ch.isascii() and ch.isdigit() for ch in said), said
+    assert "۰ سند برگردانده شده و ۴ برگ بستانکار" in said and not any(ch.isascii() and ch.isdigit() for ch in said), said
     assert "0 entries undone and 4 credit notes" in chat_wording(ins, "en")["message"]

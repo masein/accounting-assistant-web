@@ -150,7 +150,7 @@ def test_a_short_statement_shared_without_words_is_imported(db, tmp_path):
 def test_the_summary_dates_follow_the_companys_calendar():
     from app.services.ai_accountant.statement_intake import _reply
     intake = {"bank_name": "Mellat", "total_rows": 3, "from_date": "2026-09-23", "to_date": "2026-10-01", "counts": {}}
-    assert _reply("fa", intake, jalali=True).startswith("صورتحساب ملت را خواندم: ۳ ردیف (۱ مهر ۱۴۰۵ تا ۹ مهر ۱۴۰۵)")
+    assert _reply("fa", intake, jalali=True).startswith("صورت‌حساب ملت را خواندم: ۳ ردیف (۱ مهر ۱۴۰۵ تا ۹ مهر ۱۴۰۵)")
     assert "(23 Sep 2026 to 1 Oct 2026)" in _reply("en", intake)
     assert "(1 Mehr 1405 to 9 Mehr 1405)" in _reply("en", intake, jalali=True)
 

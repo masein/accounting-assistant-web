@@ -309,7 +309,7 @@ def _ai_budget(db: Session, seen: set[str], today: date) -> None:
 
 
 def _moadian_deadlines(db: Session, seen: set[str], today: date) -> None:
-    """Only for companies that use مودیان (memory id entered): a warning
+    """Only for companies that use مؤدیان (memory id entered): a warning
     three days before the sending deadline, high once it has passed."""
     from app.services.moadian.settings import WARN_DAYS_BEFORE, enabled, get_settings
     if not enabled(db):
@@ -326,13 +326,13 @@ def _moadian_deadlines(db: Session, seen: set[str], today: date) -> None:
         number = inv.number or str(inv.id)[:8]
         if left < 0:
             _upsert(db, seen, dedupe_key=f"moadian-{inv.id}", kind="moadian", level="high",
-                    title=f"Invoice {number} not sent to سامانه مودیان",
+                    title=f"Invoice {number} not sent to سامانه مؤدیان",
                     message=f"The {days}-day deadline passed on {due.isoformat()} ({-left} day(s) ago).",
                     link_page="invoices", due_date=due,
                     text_key="moadian_overdue", params={"number": number, "limit": days, "date": due.isoformat(), "days": -left})
         else:
             _upsert(db, seen, dedupe_key=f"moadian-{inv.id}", kind="moadian", level="warning",
-                    title=f"Send invoice {number} to سامانه مودیان",
+                    title=f"Send invoice {number} to سامانه مؤدیان",
                     message=f"Deadline {due.isoformat()} ({left} day(s) left).",
                     link_page="invoices", due_date=due,
                     text_key="moadian_due", params={"number": number, "date": due.isoformat(), "days": left})
@@ -406,7 +406,7 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
                     message=label, link_page="invoices", due_date=inv.due_date,
                     text_key="invoice_due", params={"number": number, "date": inv.due_date.isoformat(), "side": side})
 
-    # --- سامانه مودیان: 12-day sending deadline -------------------------------
+    # --- سامانه مؤدیان: 12-day sending deadline -------------------------------
     _moadian_deadlines(db, seen, today)
 
     # --- integration keys about to stop working --------------------------------

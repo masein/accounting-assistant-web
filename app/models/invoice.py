@@ -44,7 +44,7 @@ class Invoice(Base, TenantMixin):
                                        name="fk_invoices_recurring_invoice"),
         nullable=True, index=True,
     )
-    # سامانه مودیان (roadmap §3.1). The serial is allocated once, on the first
+    # سامانه مؤدیان (roadmap §3.1). The serial is allocated once, on the first
     # export, and never reused; the 22-char tax number is derived from it,
     # the company's memory id and the issue date. Status: exported (handed to
     # the provider) | confirmed | rejected; NULL = not sent yet.

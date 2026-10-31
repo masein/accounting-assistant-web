@@ -56,10 +56,10 @@ def test_the_small_controls_are_thumb_sized_on_a_phone(browser):
         wait_until(page, "() => document.querySelectorAll('#rem-list .rem-del').length > 0")
         # the new reminder's date and repeat have names (#55)
         names = page.evaluate("() => ['rem-new-date', 'rem-new-repeat'].map(id => document.getElementById(id).getAttribute('aria-label'))")
-        assert names == ["تاریخ یادآور", "تکرار"], names
+        assert names == ["تاریخ یادآوری", "تکرار"], names
         rem = page.evaluate(SIZE, "#rem-list .rem-toggle, #rem-list .rem-del")
         assert rem and all(w >= 32 and h >= 32 for w, h, *_ in rem), rem
-        assert [label for *_x, label in rem][:2] == ["توقف یادآور", "حذف"], rem
+        assert [label for *_x, label in rem][:2] == ["توقف یادآوری", "حذف"], rem
         assert page.evaluate("() => document.documentElement.scrollWidth - window.innerWidth") <= 0
         # the bell's panel fits the screen in both directions (it ran 30 px off
         # the right in Persian and off the left in English, #52)

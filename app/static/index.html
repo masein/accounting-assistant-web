@@ -255,7 +255,7 @@
           <table class="results-table" id="inv-items-table" style="min-width:900px;">
             <thead><tr>
               <th data-i18n="ibDescription">Description</th>
-              <th class="ir-col" style="width:130px;" data-i18n="ibGoodsId" title="سامانه مودیان">Goods/service ID</th>
+              <th class="ir-col" style="width:130px;" data-i18n="ibGoodsId" title="سامانه مؤدیان">Goods/service ID</th>
               <th style="width:70px; text-align:end;" data-i18n="ibQty">Qty</th>
               <th style="width:120px; text-align:end;" data-i18n="ibUnitPrice">Unit price</th>
               <th style="width:215px;" data-i18n="ibTaxCode">Tax code</th>
@@ -289,7 +289,7 @@
           <label for="inv-ocr-file" data-i18n="importFromScan">Import from scan (OCR)</label>
           <input type="file" id="inv-ocr-file" accept="image/jpeg,image/png,image/webp,application/pdf">
         </div>
-        <div style="display:flex; align-items:flex-end; gap:0.45rem;">
+        <div style="display:flex; align-items:flex-end; gap:0.45rem; flex:0 0 auto;">
           <button type="button" class="btn btn-secondary" id="inv-ocr-scan" data-i18n="btnScanToForm">Scan to form</button>
           <button type="button" class="btn btn-secondary" id="inv-ocr-create" data-i18n="btnScanCreate">Scan + create</button>
         </div>
@@ -324,9 +324,9 @@
         <tbody id="quotes-tbody"><tr><td colspan="6" class="empty-state" data-i18n="qtNone">No quotes yet.</td></tr></tbody>
       </table>
 
-      <!-- سامانه مودیان export -->
+      <!-- سامانه مؤدیان export -->
       <details id="moadian-panel" class="ir-only" style="margin-top:1.25rem;">
-        <summary style="cursor:pointer;font-weight:600;" data-i18n="moTitle">سامانه مودیان (e-invoicing)</summary>
+        <summary style="cursor:pointer;font-weight:600;" data-i18n="moTitle">سامانه مؤدیان (e-invoicing)</summary>
         <p style="color:var(--text-muted);font-size:0.82rem;margin:0.4rem 0;" data-i18n="moSubtitle">Prepare sales invoices for the tax organisation: each one gets its 22-character tax number and is exported in the official JSON structure for your trusted provider (شرکت معتمد). Record the provider's answer here. Invoices must reach the system within the deadline after issue.</p>
         <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;">
           <div><label for="mo-memory" data-i18n="moMemoryId">Tax memory id</label>
@@ -339,7 +339,7 @@
             <input type="number" id="mo-deadline" min="1" max="60" style="width:5rem;"></div>
           <div><button type="button" class="btn btn-secondary" id="mo-save" data-i18n="moSave">Save</button></div>
         </div>
-        <p style="color:var(--text-muted);font-size:0.78rem;margin:0.25rem 0 0.6rem;" data-i18n="moSettingsHint">The memory id comes from your مودیان account. A line without its own goods/service ID uses the default; the unit code comes from the tax organisation's list of units.</p>
+        <p style="color:var(--text-muted);font-size:0.78rem;margin:0.25rem 0 0.6rem;" data-i18n="moSettingsHint">The memory id comes from your مؤدیان account. A line without its own goods/service ID uses the default; the unit code comes from the tax organisation's list of units.</p>
         <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;margin-bottom:0.5rem;">
           <div><label for="mo-state" data-i18n="qtFilter">Show</label>
             <select id="mo-state">
@@ -415,10 +415,10 @@
       <!-- Seasonal filings: TTMS (ماده ۱۶۹ مکرر) and the VAT return — Iranian companies -->
       <details id="ttms-panel" class="ir-only" style="margin-top:1.25rem;">
         <summary style="cursor:pointer;font-weight:600;" data-i18n="ttmsTitle">Seasonal tax reports (TTMS · VAT return)</summary>
-        <p style="color:var(--text-muted);font-size:0.82rem;margin:0.4rem 0;" data-i18n="ttmsDesc">For each Jalali season: the purchases and sales per counterparty for the quarterly transactions report (TTMS, due 45 days after the season) and the figures for the VAT return (due 15 days after). Sales already accepted in سامانه مودیان are left out of the TTMS figures.</p>
+        <p style="color:var(--text-muted);font-size:0.82rem;margin:0.4rem 0;" data-i18n="ttmsDesc">For each Jalali season: the purchases and sales per counterparty for the quarterly transactions report (TTMS, due 45 days after the season) and the figures for the VAT return (due 15 days after). Sales already accepted in سامانه مؤدیان are left out of the TTMS figures.</p>
         <div class="row" style="gap:0.5rem;flex-wrap:wrap;align-items:end;">
           <div><label for="ttms-season" data-i18n="ttmsSeason">Season</label><select id="ttms-season" style="min-width:14rem;"></select></div>
-          <label style="display:flex;gap:0.35rem;align-items:center;font-size:0.85rem;"><input type="checkbox" id="ttms-include-mo"> <span data-i18n="ttmsIncludeMoadian">Include sales accepted in مودیان</span></label>
+          <label style="display:flex;gap:0.35rem;align-items:center;font-size:0.85rem;"><input type="checkbox" id="ttms-include-mo"> <span data-i18n="ttmsIncludeMoadian">Include sales accepted in مؤدیان</span></label>
           <button type="button" class="btn btn-secondary btn-sm" id="ttms-load" data-i18n="ttmsLoad">Show</button>
           <a class="btn btn-secondary btn-sm" id="ttms-download" href="#" download data-i18n="ttmsDownload">Download Excel</a>
         </div>

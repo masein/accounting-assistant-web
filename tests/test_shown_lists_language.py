@@ -18,14 +18,14 @@ def test_an_invoices_moadian_problems_in_persian(co):
     inv = _invoice(api, _customer(api))                        # no memory id set yet
     en = api.get(f"/moadian/invoices/{inv['id']}/preview").json()["problems"]
     fa = api.get(f"/moadian/invoices/{inv['id']}/preview", headers=FA).json()["problems"]
-    assert "Enter the company's tax memory id (شناسه یکتای حافظه مالیاتی) in the مودیان settings." in en
-    assert "شناسه یکتای حافظه مالیاتی شرکت را در تنظیمات مودیان وارد کنید." in fa and len(fa) == len(en)
+    assert "Enter the company's tax memory id (شناسه یکتای حافظه مالیاتی) in the مؤدیان settings." in en
+    assert "شناسه یکتای حافظه مالیاتی شرکت را در تنظیمات مؤدیان وارد کنید." in fa and len(fa) == len(en)
     listed = api.get("/moadian/invoices", params={"state": "all"}, headers=FA).json()["invoices"]
     assert all(not any("Enter the" in p for p in row["problems"]) for row in listed)
     _setup(api)
     bare = _invoice(api, _customer(api, national_id=None, economic_code=None, postal_code=None))
     warnings = api.get(f"/moadian/invoices/{bare['id']}/preview", headers=FA).json()["warnings"]
-    assert "مشتری شناسه ملی یا کد اقتصادی ندارد؛ این فاکتور از نوع دوم ارسال می‌شود." in warnings, warnings
+    assert "مشتری کد ملی، شناسه ملی یا کد اقتصادی ندارد؛ این فاکتور از نوع دوم ارسال می‌شود." in warnings, warnings
     out = api.post("/moadian/export", json={"invoice_ids": [inv["id"], "00000000-0000-0000-0000-000000000000"]},
                    headers=FA).json()
     assert "فاکتور پیدا نشد." in [p for s in out["skipped"] for p in s["problems"]]

@@ -1,4 +1,4 @@
-"""Per-company سامانه مودیان settings (app_settings key "moadian")."""
+"""Per-company سامانه مؤدیان settings (app_settings key "moadian")."""
 from __future__ import annotations
 
 import json
@@ -11,7 +11,7 @@ from app.services.moadian.taxid import normalize_memory_id, valid_memory_id
 from app.core.money import json_dumps
 
 KEY = "moadian"
-DEFAULT_DEADLINE_DAYS = 12   # ماده ۲۲ قانون پایانه‌های فروشگاهی و سامانه مودیان
+DEFAULT_DEADLINE_DAYS = 12   # ماده ۲۲ قانون پایانه‌های فروشگاهی و سامانه مؤدیان
 WARN_DAYS_BEFORE = 3
 
 
@@ -41,7 +41,7 @@ def get_settings(db: Session) -> dict:
 
 
 def enabled(db: Session) -> bool:
-    """A company "uses" مودیان once it has entered its memory id."""
+    """A company "uses" مؤدیان once it has entered its memory id."""
     return valid_memory_id(get_settings(db).get("memory_id"))
 
 

@@ -804,7 +804,7 @@ def _post_opening_journal(db: Session, lines: list[dict], opening_date: date, lo
     payload = TransactionCreate(
         date=opening_date,
         reference=OPENING_REFERENCE,
-        description="تراز افتتاحیه — مهاجرت از سیستم قبلی / Opening balances migrated from previous system",
+        description="سند افتتاحیه — انتقال اطلاعات از نرم‌افزار قبلی / Opening balances migrated from previous system",
         currency="IRR",
         lines=lines,
     )

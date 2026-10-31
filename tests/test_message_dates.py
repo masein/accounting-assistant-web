@@ -17,7 +17,8 @@ def test_the_dates_in_a_message_can_be_written_in_jalali():
     assert "1405/04/09" in fa and "1405/02/11" in fa and "2026-" not in fa
     en = localize_detail(CLOSED, "en", jalali=True)
     assert en.startswith("Period is closed through 1405/04/09; cannot post or back-date an entry dated 1405/02/11.")
-    assert localize_detail(CLOSED, "fa") .count("2026-") == 2          # a Gregorian company's, as before
+    greg = localize_detail(CLOSED, "fa")                                # a Gregorian company's, as before
+    assert "2026-06-30" in greg and "2026-05-01" in greg and "1405/" not in greg
     assert localize_detail("Not a date: 2026-13-45", "en", jalali=True) == "Not a date: 2026-13-45"
 
 

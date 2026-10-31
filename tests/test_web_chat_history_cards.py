@@ -46,7 +46,7 @@ def test_ae1_a_card_comes_back_under_its_answer_and_still_works(person, model):
     card = answers[0]["cards"][0]
     assert card["state"] == "pending" and card["tool_name"] == "propose_money_place"
     assert card["card"]["title"] == "کیف پول سبز — موجودی اولیه"
-    assert [ln["name"] for ln in card["card"]["lines"]] == ["کیف پول سبز", "خالص دارایی اولیه"]
+    assert [ln["name"] for ln in card["card"]["lines"]] == ["کیف پول سبز", "دارایی خالص اولیه"]
     # still pending: Confirm works from the history
     r = web.post("/ai-accountant/execute", json={"confirmation_token": green})
     assert r.status_code == 200, r.text

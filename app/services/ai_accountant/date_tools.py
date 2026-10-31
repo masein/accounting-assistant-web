@@ -93,7 +93,7 @@ class ProposeChangeDate(BaseTool):
         one_day = len(days) == 1
         when = _day(_date.fromisoformat(days[0]), persian, jalali) if one_day else None
         if persian:
-            description = (f"تاریخ {len(rows)} سند" + (f" ← {when}" if one_day else ": هر کدام روز خودش")
+            description = (f"تاریخ {len(rows)} سند" + (f" ← {when}" if one_day else ": هر کدام به تاریخ خودش")
                            if len(rows) > 1 else f"{rows[0]['description']}: تاریخ ← {_day(_date.fromisoformat(rows[0]['new_date']), True, jalali)}")
         else:
             description = (f"New date for {len(rows)} entries" + (f": {when}" if one_day else ", each its own")

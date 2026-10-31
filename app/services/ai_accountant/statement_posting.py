@@ -249,7 +249,7 @@ class ProposePostStatement(BaseTool):
         bank_label = _bank_label(stmt, persian)
         if persian:
             from app.utils.jalali import to_persian_digits
-            description = f"صورتحساب {bank_label}: {to_persian_digits(made['rows'])} ردیف در {to_persian_digits(len(made['vouchers']))} سند"
+            description = f"صورت‌حساب {bank_label}: {to_persian_digits(made['rows'])} ردیف در {to_persian_digits(len(made['vouchers']))} سند"
         else:
             description = f"{bank_label} statement: {made['rows']} rows in {len(made['vouchers'])} voucher(s)"
         # the card's lines: what each account receives in all, debits first
@@ -260,7 +260,7 @@ class ProposePostStatement(BaseTool):
         total = sum(ln["debit"] for ln in lines)
         payload = {"statement_id": str(stmt.id), "bank_account_code": bank[0],
                    # a bank made on confirm (AF9): the card names it by the words the user gave
-                   **({"new_bank_name": new_bank, "new_account": True, "account_code": bank[0], "place": f"{new_bank} (تازه)"
+                   **({"new_bank_name": new_bank, "new_account": True, "account_code": bank[0], "place": f"{new_bank} (جدید)"
                        if persian else f"{new_bank} (new)"} if new_bank else {}),
                    "money_in_account_code": args.money_in_account_code,
                    "money_out_account_code": args.money_out_account_code, "rules": rules, "per": args.per,

@@ -392,4 +392,4 @@ def test_a_push_speaks_each_recipients_language(db, co):
         _alert(db, co, text_key="invoice_overdue", params={"number": "8", "side": "payable", "days": 1, "date": "2026-09-30"})
     svc = PushService()
     _deliver(db, co, svc)
-    assert _received(svc, owner)[0]["title"] == "5 هشدار تازه"
+    assert _received(svc, owner)[0]["title"] == "5 اعلان جدید"

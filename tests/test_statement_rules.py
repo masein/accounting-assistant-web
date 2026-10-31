@@ -153,7 +153,7 @@ def test_af2_af3_posted_by_his_rules_a_voucher_a_day(auth_client, db, school, mo
     by = {(ln["account_code"], "Dr" if ln["debit"] else "Cr"): ln["debit"] or ln["credit"] for ln in preview["lines"]}
     assert by == {(school["bank"], "Dr"): IN, (school["tuition"], "Cr"): IN, (school["fees"], "Dr"): FEES,
                   (school["spend"], "Dr"): OUT_OTHER, (school["bank"], "Cr"): FEES + OUT_OTHER}
-    assert card["card"]["title"].startswith("صورتحساب") and len(card["card"]["lines"]) == 5
+    assert card["card"]["title"].startswith("صورت‌حساب") and len(card["card"]["lines"]) == 5
 
     r = auth_client.post("/ai-accountant/execute", json={"confirmation_token": card["confirmation_token"]})
     assert r.status_code == 200, r.text

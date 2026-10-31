@@ -48,6 +48,6 @@ def test_the_preview_asks_and_keeps_the_books_opening_by_default(flow_page):
     wait_until(page, "() => getComputedStyle(document.getElementById('migration-result')).display !== 'none'")
     assert sent and sent[0]["opening"] == "keep" and sent[0]["token"] == "t-e2e", sent
     shown = page.inner_text("#migration-result")
-    assert "تراز افتتاحیه همان‌طور که بود ماند" in shown and when in shown, shown
+    assert "مانده‌های افتتاحیه بدون تغییر ماند" in shown and when in shown, shown
     assert "۱۱۱۳" in shown and "سایر حساب‌ها و اسناد دریافتنی" in shown, shown     # left out of the chart, said
     assert watch.problems() == [], watch.problems()

@@ -114,7 +114,7 @@ def test_z3_once_the_books_have_entries_their_currency_stays(person):
     assert api.get("/personal/currency").json()["currency"] == "IRR"
     from app.core.messages import localize_detail
     # the currency by its Persian name, isolated for the right-to-left sentence
-    assert localize_detail(r.json()["detail"], "fa").startswith("این دفاتر از قبل ثبت‌هایی به \u2068ریال ایران\u2069 دارند")
+    assert localize_detail(r.json()["detail"], "fa").startswith("در این دفاتر از قبل ثبت‌هایی به \u2068ریال ایران\u2069 هست")
 
 
 def test_z3_a_companys_currency_stays_with_the_platform_admin(client, db):
@@ -170,7 +170,7 @@ def test_z2_money_in_another_currency_is_named_not_guessed(person, scripted):
 
 # --- Z4: the words for opening net worth ----------------------------------------------------------------------
 
-@pytest.mark.parametrize("words", ["افتتاحیه", "موجودی اولیه", "خالص دارایی", "opening balance"])
+@pytest.mark.parametrize("words", ["افتتاحیه", "موجودی اولیه", "خالص دارایی", "دارایی خالص", "opening balance"])
 def test_z4_opening_net_worth_is_found_by_its_words(person, db, words):
     import asyncio
     from app.db.tenant import use_company

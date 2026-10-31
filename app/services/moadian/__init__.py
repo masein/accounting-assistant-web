@@ -1,4 +1,4 @@
-"""سامانه مودیان (Iran's e-invoicing system), roadmap §3.1.
+"""سامانه مؤدیان (Iran's e-invoicing system), roadmap §3.1.
 
 Phase 1 is an EXPORT: invoices are built in the tax organisation's JSON
 structure (header / body / payments with the official field codes) and

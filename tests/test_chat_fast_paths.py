@@ -164,7 +164,7 @@ def test_n32_the_forecast_comes_back_as_a_chart_with_no_model(client, db, co, no
     assert chart["type"] == "chart" and chart["kind"] == "cash_forecast" and len(chart["points"]) == 13
     assert chart["start"]["value"] == 49_600_000                       # today's cash: 50m in, the taxi out
     assert contract_errors(chart) == []
-    assert words["text"].startswith("نقدینگی ۱۳ هفتهٔ آینده، به تخمین: از ۴۹٬۶۰۰٬۰۰۰")
+    assert words["text"].startswith("پیش‌بینی نقدینگی ۱۳ هفتهٔ آینده: از ۴۹٬۶۰۰٬۰۰۰")
 
 
 def test_n32_a_gregorian_company_dates_in_the_readers_language():

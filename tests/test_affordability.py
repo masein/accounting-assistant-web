@@ -136,7 +136,7 @@ def test_am9_the_card_on_the_phone_and_the_web(person, scripted, db):
     assert contract_errors(card) == []
     assert (card["kind"], card["emoji"], card["mood"]) == ("afford", "🐷", "watch")
     assert card["title"] == "ماشین به قیمت ۳۰۰٬۰۰۰٬۰۰۰ ریال ایران؟"
-    assert [b["label"] for b in card["chart"]["bars"]] == ["الان", "بعد از خرید"]
+    assert [b["label"] for b in card["chart"]["bars"]] == ["حالا", "بعد از خرید"]
     assert card["chart"]["usual"] == 25_000_000 and card["ring"]["pct"] == round(95 / 300 * 100, 1)
     assert card["ideas"][0]["ask"].startswith("یک هدف پس‌انداز ۳۰۰٬۰۰۰٬۰۰۰ ریال ایران برای ماشین تا ")
     scripted(_calls(call), _text("Not in cash yet."))                         # the web gets the card too

@@ -53,7 +53,7 @@ _TRANSPORT = None                    # tests put an httpx.MockTransport here
 TEXTS = {
     "en": {
         "hello": "Hi! To use me, link this chat to your account: in the app, open the account menu → "
-                 "Connect Telegram or Bale, and tap the link it shows.",
+                 "Telegram / Bale, and tap the link it shows.",
         "linked": "Linked to {company} as {user}. Tell me what you spent or earned — for example "
                   "\"paid 20 for lunch from the card\" — or send a voice note. /new starts a new conversation, "
                   "/stop unlinks this chat.",
@@ -74,20 +74,20 @@ TEXTS = {
         "busy": "The assistant is busy or over today's limit — try again later.",
     },
     "fa": {
-        "hello": "سلام! برای استفاده، این گفتگو را به حساب خود وصل کنید: در برنامه منوی حساب ← «اتصال تلگرام یا بله» را باز "
-                 "کنید و روی پیوندی که نشان می‌دهد بزنید.",
+        "hello": "سلام! برای استفاده، این گفتگو را به حساب خود وصل کنید: در برنامه، منوی حساب ← «تلگرام / بله» را باز "
+                 "کنید و روی لینکی که نشان می‌دهد بزنید.",
         "linked": "به {company} با کاربر {user} وصل شد. بگویید چه خرج یا دریافتی داشتید — مثلاً «۵۰ هزار تومن نون "
-                  "از کارت» — یا پیام صوتی بفرستید. /new گفتگوی تازه، /stop قطع اتصال.",
-        "bad_code": "این پیوند منقضی شده یا قبلاً استفاده شده — در برنامه پیوند تازه بسازید.",
+                  "از کارت» — یا پیام صوتی بفرستید. /new گفتگوی جدید، /stop قطع اتصال.",
+        "bad_code": "این لینک منقضی شده یا قبلاً استفاده شده است — در برنامه لینک جدیدی بسازید.",
         "unlinked": "اتصال این گفتگو قطع شد. می‌توانید دوباره از برنامه وصلش کنید.",
-        "new": "گفتگوی تازه شروع شد.",
+        "new": "گفتگوی جدید شروع شد.",
         "not_allowed": "نقش شما در {company} اجازهٔ استفاده از دستیار را ندارد.",
         "suspended": "این حساب معلق است.",
         "groups": "فقط در گفتگوی خصوصی کار می‌کنم.",
         "only_text": "متن یا پیام صوتی بفرستید — رسید و فایل را فعلاً از خود برنامه بفرستید.",
         "voice_failed": "پیام صوتی را متوجه نشدم — دوباره بفرستید یا بنویسید.",
         "heard": "🎙 {text}",
-        "confirm": "✅ تأیید", "cancel": "✖ لغو",
+        "confirm": "✅ تأیید", "cancel": "✖ انصراف",
         "done": "✅ ثبت شد.", "cancelled": "لغو شد — چیزی ثبت نشد.",
         "awaiting_approval": "⏳ برای تأیید فرستاده شد — پس از تأیید یک نفر دیگر ثبت می‌شود.",
         "expired": "این کارت منقضی شده — دوباره بپرسید.", "not_yours": "این کارت مال شما نیست.",

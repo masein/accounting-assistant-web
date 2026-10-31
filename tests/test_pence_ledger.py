@@ -101,7 +101,7 @@ def test_q3_rials_have_no_decimals(client, db):
         assert api.post("/transactions", headers={"X-UI-Language": "fa"}, json={
             "date": "2026-10-11", "description": "x", "lines": [
                 {"account_code": "6112", "debit": 0.5, "credit": 0},
-                {"account_code": "1110", "debit": 0, "credit": 0.5}]}).json()["detail"] == "مبلغ به ⁨IRR⁩ اعشار ندارد."
+                {"account_code": "1110", "debit": 0, "credit": 0.5}]}).json()["detail"] == "مبلغ به ⁨IRR⁩ نمی‌تواند اعشار داشته باشد."
     finally:
         client.cookies.clear()
         _purge_company(db, cid)

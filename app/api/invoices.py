@@ -753,7 +753,7 @@ def update_invoice(invoice_id: UUID, payload: InvoiceUpdate, db: Session = Depen
         if touched:
             raise HTTPException(
                 status_code=409,
-                detail=("This invoice is registered in سامانه مودیان; its " + ", ".join(sorted(touched))
+                detail=("This invoice is registered in سامانه مؤدیان; its " + ", ".join(sorted(touched))
                         + " can't change. Issue a corrective (اصلاحی) invoice instead."),
             )
     if payload.number is not None:

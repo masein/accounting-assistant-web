@@ -49,7 +49,7 @@ _VERIFY = {
            "note": "The link is valid for {hours} hours. If you did not create this account, you can ignore this message."},
     "fa": {"subject": "نشانی ایمیل خود را تأیید کنید", "hello": "سلام {name}،",
            "ask": "برای تکمیل ساخت حساب، نشانی ایمیل خود را تأیید کنید:", "button": "تأیید ایمیل",
-           "note": "این پیوند {hours} ساعت معتبر است. اگر این حساب را شما نساخته‌اید، این پیام را نادیده بگیرید."},
+           "note": "این لینک {hours} ساعت معتبر است. اگر این حساب را شما نساخته‌اید، این پیام را نادیده بگیرید."},
     "es": {"subject": "Confirma tu dirección de correo", "hello": "Hola, {name}:",
            "ask": "Confirma tu dirección de correo para terminar de configurar tu cuenta:", "button": "Confirmar mi correo",
            "note": "El enlace es válido durante {hours} horas. Si no creaste esta cuenta, puedes ignorar este mensaje."},

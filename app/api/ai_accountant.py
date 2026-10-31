@@ -298,7 +298,7 @@ def _statement_handoff(db: Session, turn, message: str | None) -> str | None:
 
 _NO_AI_FOR_RULES = {
     "en": "I imported the statement, but the assistant isn't available to apply your rules right now. Try again in a few minutes, or post the rows from the Bank statements page.",
-    "fa": "صورتحساب وارد شد، اما دستیار الان در دسترس نیست تا قاعده‌های شما را اعمال کند. چند دقیقهٔ دیگر دوباره بفرستید، یا ردیف‌ها را از صفحهٔ صورتحساب‌های بانکی ثبت کنید.",
+    "fa": "صورت‌حساب وارد شد، اما دستیار الان در دسترس نیست تا قاعده‌های شما را اعمال کند. چند دقیقهٔ دیگر دوباره امتحان کنید، یا ردیف‌ها را از صفحهٔ صورت‌حساب‌های بانکی ثبت کنید.",
     "es": "Importé el extracto, pero el asistente no está disponible para aplicar tus reglas ahora. Inténtalo de nuevo en unos minutos o registra las filas desde la página de extractos bancarios.",
     "ar": "استوردت الكشف، لكن المساعد غير متاح الآن لتطبيق قواعدك. حاول بعد دقائق، أو سجّل الصفوف من صفحة كشوف الحساب البنكية.",
 }
@@ -404,8 +404,8 @@ async def chat(
         ).scalars().first()
         if pending is not None:
             text = (
-                "برای ثبت، روی دکمهٔ «Confirm» روی همان کارت پیشنهاد بالا کلیک کنید "
-                "(یا «Cancel» برای انصراف). من از پیام متنی چیزی ثبت نمی‌کنم و کارت "
+                "برای ثبت، روی دکمهٔ «تأیید» در همان کارت پیشنهادی بالا بزنید "
+                "(یا «انصراف» اگر نمی‌خواهید ثبت شود). من از پیام متنی چیزی ثبت نمی‌کنم و کارت "
                 "جدیدی هم نمی‌سازم — کارت قبلی هنوز منتظر تأیید شماست."
                 if _user_language(db, user) == "fa"
                 else "To record it, click the Confirm button on the proposal card above "
@@ -420,7 +420,7 @@ async def chat(
     # upload. Deterministic, no LLM call.
     if not payload.attachment_ids and is_path_only_message(payload.message):
         text = (
-            "آن فقط مسیر فایل است — من به محتوای فایل دسترسی ندارم. لطفاً خود فایل را "
+            "این فقط مسیر فایل است — من به محتوای فایل دسترسی ندارم. لطفاً خود فایل را "
             "با گیره 📎 پیوست کنید یا آن را داخل گفتگو بکشید و رها کنید."
             if _user_language(db, user) == "fa"
             else "That's just a file path — I can't read files from a path. Please attach "
@@ -618,7 +618,7 @@ async def chat(
         if extra:
             result.proposals.append(extra)
             hint = (
-                "👉 برای ثبت این ردیف، روی «Confirm» کارت زیر بزنید (یا «Cancel»)."
+                "👉 برای ثبت این ردیف، روی «تأیید» در کارت زیر بزنید (یا «انصراف»)."
                 if _user_language(db, user) == "fa"
                 else "👉 Click Confirm on the card below to record this row (or Cancel to skip it)."
             )

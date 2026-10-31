@@ -33,7 +33,7 @@ def test_the_summary_in_each_language():
     assert es.startswith("Leí tu extracto de Mellat: 12 filas (del 1 sept 2026 al 30 sept 2026)") and "3 no están en los libros" in es
     ar = si._reply("ar", INTAKE)
     assert ar.startswith("قرأت كشف حساب ملت: 12 سطراً (من 1 سبتمبر 2026 إلى 30 سبتمبر 2026)") and "؛ " in ar and "«إصلاح خطوة بخطوة»" in ar
-    assert si._reply("fa", {**INTAKE, "clean": True}).endswith("همه‌چیز با دفاتر می‌خواند؛ کاری لازم نیست.")
+    assert si._reply("fa", {**INTAKE, "clean": True}).endswith("همه‌چیز با دفاتر مطابقت دارد؛ کاری لازم نیست.")
     assert si._reply("de", INTAKE) == si._reply("en", INTAKE)               # an unknown language: English
     assert si._duplicate_reply("es", []) == ("Este archivo ya se importó. Puedes seguir con él desde su tarjeta "
                                              "o pedirme que lo compare con los libros.")
@@ -42,10 +42,10 @@ def test_the_summary_in_each_language():
 def test_persian_writes_its_digits_and_arabic_western_ones():
     big = {**INTAKE, "total_rows": 3500, "counts": {"unrecorded": 3500}, "balance": {"gap": 1_839_800_000}}
     fa = si._reply("fa", big)
-    assert fa.startswith("صورتحساب ملت را خواندم: ۳٬۵۰۰ ردیف (۱ سپتامبر ۲۰۲۶ تا ۳۰ سپتامبر ۲۰۲۶)"), fa
+    assert fa.startswith("صورت‌حساب ملت را خواندم: ۳٬۵۰۰ ردیف (۱ سپتامبر ۲۰۲۶ تا ۳۰ سپتامبر ۲۰۲۶)"), fa
     assert "۳٬۵۰۰ ردیف در دفاتر نیست" in fa and "۱٬۸۳۹٬۸۰۰٬۰۰۰" in fa
     assert not any(ch in "0123456789" for ch in fa)                          # no Western digit inside the Persian
-    assert si._reply("fa", big, jalali=True).startswith("صورتحساب ملت را خواندم: ۳٬۵۰۰ ردیف (۱۰ شهریور ۱۴۰۵ تا ۸ مهر ۱۴۰۵)")
+    assert si._reply("fa", big, jalali=True).startswith("صورت‌حساب ملت را خواندم: ۳٬۵۰۰ ردیف (۱۰ شهریور ۱۴۰۵ تا ۸ مهر ۱۴۰۵)")
     ar = si._reply("ar", big)
     assert "3,500" in ar and not any(ch in "٠١٢٣٤٥٦٧٨٩" for ch in ar)      # Arabic: Western digits, the owner's call
 

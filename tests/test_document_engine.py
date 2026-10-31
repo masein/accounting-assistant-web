@@ -144,7 +144,7 @@ def test_ir_invoice_html_is_rtl_persian(Session):
     company = _company(db, "ir", "IRR", "ir-co")
     html = _render_html_invoice(db, company)
     assert 'dir="rtl"' in html
-    assert "صورتحساب" in html                    # "invoice" in Persian
+    assert "فاکتور" in html                       # "invoice" in Persian
     assert "ریال" in html                        # currency word in amount-in-words
     assert any(ch in html for ch in "۰۱۲۳۴۵۶۷۸۹")  # Persian digits
     db.close()

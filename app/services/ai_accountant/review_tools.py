@@ -20,8 +20,8 @@ _NAMES = {"weekly": "the weekly review", "monthly": "the monthly review", "sugge
 _CARD = {
     "en": {"on": "On: ", "off": "Off: ", "weekly": "weekly review", "monthly": "monthly review",
            "suggestions": "suggestions", "nudge": "nudge after quiet days"},
-    "fa": {"on": "روشن: ", "off": "خاموش: ", "weekly": "مرور هفتگی", "monthly": "مرور ماهانه",
-           "suggestions": "پیشنهادها", "nudge": "یادآوری بعد از روزهای بی‌ثبت"},
+    "fa": {"on": "فعال: ", "off": "غیرفعال: ", "weekly": "مرور هفتگی", "monthly": "مرور ماهانه",
+           "suggestions": "پیشنهادها", "nudge": "یادآوری پس از چند روز بدون ثبت"},
     "es": {"on": "Activado: ", "off": "Desactivado: ", "weekly": "resumen semanal", "monthly": "resumen mensual",
            "suggestions": "sugerencias", "nudge": "aviso tras días sin registros"},
     "ar": {"on": "تشغيل: ", "off": "إيقاف: ", "weekly": "المراجعة الأسبوعية", "monthly": "المراجعة الشهرية",

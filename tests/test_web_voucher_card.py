@@ -25,7 +25,7 @@ def test_ad1_the_card_comes_with_its_lines_and_names(person, model):
     assert card["title"] == "کیف پول سبز — موجودی اولیه"
     assert card["amount"] == {"value": 77.5, "currency": "OMR"}
     assert [(ln["account"], ln["name"], ln["debit"], ln["credit"]) for ln in card["lines"]] == [
-        ("112001", "کیف پول سبز", 77.5, 0), ("3110", "خالص دارایی اولیه", 0, 77.5)]
+        ("112001", "کیف پول سبز", 77.5, 0), ("3110", "دارایی خالص اولیه", 0, 77.5)]
     # the date in the question's language: Persian words, Persian digits
     assert card["date"]["display"] and not any(ch.isascii() and ch.isdigit() for ch in card["date"]["display"])
 

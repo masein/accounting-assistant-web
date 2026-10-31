@@ -71,19 +71,26 @@ EN = {
     "debit": "Debit",
     "credit": "Credit",
     "balance": "Balance",
+    "regular_hours": "Regular hours",
+    "overtime_hours": "Overtime hours",
+    "leave_hours": "Paid leave hours",
+    "hours_unit": "h",
+    "item": "Item",
+    "goods_services": "Service / Product",
+    "paid_by": "Paid by",
 }
 
 FA = {
-    "invoice": "صورتحساب",
+    "invoice": "فاکتور",
     "quote": "پیش‌فاکتور",
     "valid_until": "معتبر تا",
-    "time_invoice": "صورتحساب",
+    "time_invoice": "فاکتور",
     "receipt": "رسید",
-    "statement": "صورت‌حساب دوره‌ای",
+    "statement": "صورت‌حساب طرف حساب",
     "purchase_order": "سفارش خرید",
     "payslip": "فیش حقوقی",
     "from": "از",
-    "bill_to": "صورتحساب برای",
+    "bill_to": "خریدار",
     "supplier": "تأمین‌کننده",
     "employee": "کارمند",
     "number": "شماره",
@@ -108,7 +115,7 @@ FA = {
     "amount_paid": "مبلغ پرداختی",
     "balance_due": "مانده بدهی",
     "net_pay": "خالص پرداختی",
-    "gross_pay": "ناخالص حقوق",
+    "gross_pay": "حقوق ناخالص",
     "eidi": "عیدی و پاداش",
     "sanavat": "حق سنوات",
     "days_worked": "روزهای کارکرد در سال",
@@ -123,7 +130,7 @@ FA = {
     "reg_no": "شماره ثبت",
     "economic_code": "شماره اقتصادی",
     "national_id": "شناسه ملی",
-    "postal_code": "کدپستی",
+    "postal_code": "کد پستی",
     "account_no": "شماره حساب",
     "iban": "شبا",
     "paid_to": "واریز به",
@@ -139,6 +146,13 @@ FA = {
     "debit": "بدهکار",
     "credit": "بستانکار",
     "balance": "مانده",
+    "regular_hours": "کارکرد عادی",
+    "overtime_hours": "اضافه‌کاری",
+    "leave_hours": "مرخصی با حقوق",
+    "hours_unit": "ساعت",
+    "item": "کالا",
+    "goods_services": "کالا / خدمات",
+    "paid_by": "روش پرداخت",
 }
 
 
@@ -162,7 +176,7 @@ STATUS = {
     "accepted": ("Accepted", "پذیرفته‌شده"),
     "declined": ("Declined", "ردشده"),
     "expired": ("Expired", "منقضی"),
-    "converted": ("Invoiced", "فاکتور شده"),
+    "converted": ("Invoiced", "فاکتورشده"),
     "partially_received": ("Partially received", "دریافت جزئی"),
     "received": ("Received", "دریافت‌شده"),
     "closed": ("Closed", "بسته‌شده"),
@@ -174,6 +188,25 @@ def status_label(status: str | None, locale: str | None) -> str:
     words too («On hold»), never with its underscore."""
     key = (status or "").strip().lower()
     words = STATUS.get(key)
+    if words:
+        return words[1] if (locale or "").lower() == "ir" else words[0]
+    return key.replace("_", " ").capitalize()
+
+
+# How a payment was made (app/models/payment.py ``method``), for a receipt:
+# it printed the raw code («شرایط پرداخت: bank»; scenario BE4).
+METHOD = {
+    "bank": ("Bank", "بانک"),
+    "transfer": ("Bank transfer", "انتقال بانکی"),
+    "cash": ("Cash", "نقد"),
+    "cheque": ("Cheque", "چک"),
+    "credit": ("Credit note", "برگ بستانکار"),
+}
+
+
+def method_label(method: str | None, locale: str | None) -> str:
+    key = (method or "bank").strip().lower()
+    words = METHOD.get(key)
     if words:
         return words[1] if (locale or "").lower() == "ir" else words[0]
     return key.replace("_", " ").capitalize()

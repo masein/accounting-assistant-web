@@ -551,7 +551,7 @@
       // Localised so the caption matches the active interface language.
       const CHAT_THINKING_PHRASES = {
         en: ['Working on it…', 'Looking that up…', 'Reviewing the ledger…', 'Checking the figures…', 'Almost there…'],
-        fa: ['در حال انجام…', 'در حال جست‌وجو…', 'بررسی دفتر کل…', 'بررسی ارقام…', 'تقریباً آماده است…'],
+        fa: ['در حال انجام…', 'در حال جستجو…', 'بررسی دفتر کل…', 'بررسی ارقام…', 'تقریباً آماده است…'],
         es: ['Trabajando en ello…', 'Consultando los datos…', 'Revisando el libro mayor…', 'Comprobando las cifras…', 'Casi listo…'],
         ar: ['جارٍ العمل على ذلك…', 'جارٍ البحث…', 'مراجعة دفتر الأستاذ…', 'التحقّق من الأرقام…', 'اقتربنا من الانتهاء…'],
       };

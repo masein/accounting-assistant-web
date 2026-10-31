@@ -131,7 +131,7 @@ def test_aj13_one_card_at_a_time_and_the_next_after_confirming(client, db, co, p
     third = client.post(f"/ai-accountant/statements/{sid}/next", headers=phone, json={"session_id": session}).json()
     assert third["left"] == 0 and len(third["proposals"]) == 1                  # «بعدی» skips the pending one
     last = client.post(f"/ai-accountant/statements/{sid}/next", headers=phone, json={"session_id": session}).json()
-    assert last["proposals"] == [] and "همهٔ ردیف‌های این صورتحساب" in last["text"]
+    assert last["proposals"] == [] and "همهٔ ردیف‌های این صورت‌حساب" in last["text"]
     # the conversation keeps each card with its words, and where step by step stands
     msgs = client.get(f"/ai-accountant/sessions/{session}/messages", headers=phone).json()
     steps = [m["content"]["statement_next"] for m in msgs if m["content"].get("statement_next")]

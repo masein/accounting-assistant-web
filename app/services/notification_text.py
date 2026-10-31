@@ -27,25 +27,25 @@ _SAYAD_MSG = {"en": "{amount} due {date} — ", "fa": "{amount}، سررسید {
               "ar": "{amount}، يستحق في {date} — "}
 _TAX_IR_MSG = {
     "en": "Figures and the Excel file: Invoices → Seasonal tax reports. A Friday or holiday deadline moves to the next working day.",
-    "fa": "ارقام و فایل اکسل: فاکتورها ← گزارش‌های مالیاتی فصلی. مهلتی که به جمعه یا تعطیل بیفتد به روز کاری بعد می‌رود.",
+    "fa": "ارقام و فایل اکسل: فاکتورها ← گزارش‌های مالیاتی فصلی. اگر مهلت به جمعه یا روز تعطیل بیفتد، به اولین روز کاری بعد منتقل می‌شود.",
     "es": "Cifras y archivo Excel: Facturas → Informes fiscales trimestrales. Un plazo en viernes o festivo pasa al siguiente día hábil.",
     "ar": "الأرقام وملف Excel: الفواتير ← التقارير الضريبية الفصلية. الموعد الذي يقع يوم جمعة أو عطلة ينتقل إلى يوم العمل التالي.",
 }
 _MTD_VAT_MSG = {
     "en": "Boxes 1–9 and a CSV for your MTD software: Invoices → Making Tax Digital.",
-    "fa": "خانه‌های ۱ تا ۹ و یک فایل CSV برای نرم‌افزار MTD: فاکتورها ← Making Tax Digital.",
+    "fa": "خانه‌های ۱ تا ۹ و یک فایل CSV برای نرم‌افزار MTD: فاکتورها ← مالیات دیجیتال بریتانیا (MTD).",
     "es": "Las casillas 1–9 y un CSV para tu software MTD: Facturas → Making Tax Digital.",
     "ar": "الخانات 1–9 وملف CSV لبرنامج MTD: الفواتير ← Making Tax Digital.",
 }
 _MTD_ITSA_MSG = {
     "en": "Figures by HMRC category and the update file: Invoices → Making Tax Digital.",
-    "fa": "ارقام به تفکیک دسته‌های HMRC و فایل به‌روزرسانی: فاکتورها ← Making Tax Digital.",
+    "fa": "ارقام به تفکیک دسته‌های HMRC و فایل به‌روزرسانی: فاکتورها ← مالیات دیجیتال بریتانیا (MTD).",
     "es": "Cifras por categoría de HMRC y el archivo de actualización: Facturas → Making Tax Digital.",
     "ar": "الأرقام حسب فئات HMRC وملف التحديث: الفواتير ← Making Tax Digital.",
 }
 _APIKEY_MSG = {
     "en": "Integrations using {prefix}… stop working on {date}. Create a new key under Settings → API keys and update the integration.",
-    "fa": "یکپارچه‌سازی‌هایی که از {prefix}… استفاده می‌کنند در {date} از کار می‌افتند. در تنظیمات ← کلیدهای API کلید تازه بسازید و یکپارچه‌سازی را به‌روز کنید.",
+    "fa": "سرویس‌هایی که از کلید {prefix}… استفاده می‌کنند، از {date} از کار می‌افتند. در تنظیمات ← کلیدهای API کلید جدید بسازید و آن را در این سرویس‌ها جایگزین کنید.",
     "es": "Las integraciones que usan {prefix}… dejarán de funcionar el {date}. Crea una clave nueva en Ajustes → Claves API y actualiza la integración.",
     "ar": "تتوقف التكاملات التي تستخدم {prefix}… في {date}. أنشئ مفتاحاً جديداً من الإعدادات ← مفاتيح API وحدّث التكامل.",
 }
@@ -75,15 +75,15 @@ TEXT: dict[str, dict[str, dict[str, str]]] = {
          "ar": "تستحق الفاتورة {number} في {date}"},
         {"en": "{side}", "fa": "{side}", "es": "{side}", "ar": "{side}"}),
     "moadian_overdue": _both(
-        {"en": "Invoice {number} not sent to سامانه مودیان", "fa": "فاکتور {number} به سامانه مودیان ارسال نشده است",
-         "es": "La factura {number} no se envió a سامانه مودیان", "ar": "لم تُرسل الفاتورة {number} إلى سامانه مودیان"},
+        {"en": "Invoice {number} not sent to سامانه مؤدیان", "fa": "فاکتور {number} به سامانه مؤدیان ارسال نشده است",
+         "es": "La factura {number} no se envió a سامانه مؤدیان", "ar": "لم تُرسل الفاتورة {number} إلى سامانه مؤدیان"},
         {"en": "The {limit}-day deadline passed on {date} ({days} day(s) ago).",
          "fa": "مهلت {limit} روزه در {date} گذشت ({days} روز پیش).",
          "es": "El plazo de {limit} días venció el {date} (hace {days} día(s)).",
          "ar": "انتهت مهلة {limit} يوماً في {date} (قبل {days} يوماً)."}),
     "moadian_due": _both(
-        {"en": "Send invoice {number} to سامانه مودیان", "fa": "فاکتور {number} را به سامانه مودیان بفرستید",
-         "es": "Envía la factura {number} a سامانه مودیان", "ar": "أرسل الفاتورة {number} إلى سامانه مودیان"},
+        {"en": "Send invoice {number} to سامانه مؤدیان", "fa": "فاکتور {number} را به سامانه مؤدیان بفرستید",
+         "es": "Envía la factura {number} a سامانه مؤدیان", "ar": "أرسل الفاتورة {number} إلى سامانه مؤدیان"},
         {"en": "Deadline {date} ({days} day(s) left).", "fa": "مهلت {date} ({days} روز مانده).",
          "es": "Plazo: {date} (quedan {days} día(s)).", "ar": "الموعد {date} (متبقٍ {days} يوماً)."}),
     "apikey_expired": _both(
@@ -98,7 +98,7 @@ TEXT: dict[str, dict[str, dict[str, str]]] = {
          "ar": "نفدت حصة الذكاء الاصطناعي ({pct}٪)"},
         {lang: s + _AI_SEE[lang] for lang, s in {
             "en": "{used} of {budget} tokens in the last 24 hours. AI features are paused until older use drops out of the window.",
-            "fa": "{used} از {budget} توکن در ۲۴ ساعت گذشته. ویژگی‌های هوش مصنوعی تا خارج شدن مصرف قدیمی‌تر متوقف است.",
+            "fa": "{used} از {budget} توکن در ۲۴ ساعت گذشته. قابلیت‌های هوش مصنوعی متوقف شده‌اند و با کم شدن مصرف ۲۴ ساعت اخیر دوباره فعال می‌شوند.",
             "es": "{used} de {budget} tokens en las últimas 24 horas. Las funciones de IA quedan en pausa hasta que el uso antiguo salga de la ventana.",
             "ar": "{used} من {budget} رمز في آخر 24 ساعة. ميزات الذكاء الاصطناعي متوقفة حتى يخرج الاستخدام الأقدم من النافذة."}.items()}),
     "ai_budget_near": _both(
@@ -106,28 +106,28 @@ TEXT: dict[str, dict[str, dict[str, str]]] = {
          "ar": "استُخدم {pct}٪ من حصة الذكاء الاصطناعي"},
         {lang: s + _AI_SEE[lang] for lang, s in {
             "en": "{used} of {budget} tokens in the last 24 hours. AI features pause when it reaches 100%.",
-            "fa": "{used} از {budget} توکن در ۲۴ ساعت گذشته. در ۱۰۰٪ ویژگی‌های هوش مصنوعی متوقف می‌شوند.",
+            "fa": "{used} از {budget} توکن در ۲۴ ساعت گذشته. با رسیدن به ۱۰۰٪، قابلیت‌های هوش مصنوعی متوقف می‌شوند.",
             "es": "{used} de {budget} tokens en las últimas 24 horas. Las funciones de IA se pausan al llegar al 100 %.",
             "ar": "{used} من {budget} رمز في آخر 24 ساعة. تتوقف ميزات الذكاء الاصطناعي عند 100٪."}.items()}),
     "bank_mail_waiting_one": _both(
-        {"en": "1 bank statement arrived by e-mail", "fa": "یک صورتحساب بانکی با ایمیل رسید", "es": "Llegó 1 extracto bancario por correo",
+        {"en": "1 bank statement arrived by e-mail", "fa": "یک صورت‌حساب بانکی با ایمیل رسید", "es": "Llegó 1 extracto bancario por correo",
          "ar": "وصل كشف حساب بنكي واحد بالبريد"},
         {"en": "It's on the Bank statements page, waiting for you to check and approve it.",
-         "fa": "در صفحه صورتحساب‌های بانکی منتظر بررسی و تأیید شماست.",
+         "fa": "در صفحه صورت‌حساب‌های بانکی منتظر بررسی و تأیید شماست.",
          "es": "Está en la página de extractos bancarios, esperando que lo revises y apruebes.",
          "ar": "إنه في صفحة كشوف الحسابات، بانتظار مراجعتك واعتمادك."}),
     "bank_mail_waiting": _both(
-        {"en": "{n} bank statements arrived by e-mail", "fa": "{n} صورتحساب بانکی با ایمیل رسید",
+        {"en": "{n} bank statements arrived by e-mail", "fa": "{n} صورت‌حساب بانکی با ایمیل رسید",
          "es": "Llegaron {n} extractos bancarios por correo", "ar": "وصل {n} كشف حساب بنكي بالبريد"},
         {"en": "They're on the Bank statements page, waiting for you to check and approve them.",
-         "fa": "در صفحه صورتحساب‌های بانکی منتظر بررسی و تأیید شما هستند.",
+         "fa": "در صفحه صورت‌حساب‌های بانکی منتظر بررسی و تأیید شما هستند.",
          "es": "Están en la página de extractos bancarios, esperando que los revises y apruebes.",
          "ar": "إنها في صفحة كشوف الحسابات، بانتظار مراجعتك واعتمادك."}),
     "bank_mail_failing": _both(
-        {"en": "The statements mailbox can't be read", "fa": "صندوق ایمیل صورتحساب‌ها خوانده نمی‌شود",
+        {"en": "The statements mailbox can't be read", "fa": "صندوق ایمیل صورت‌حساب‌ها خوانده نمی‌شود",
          "es": "No se puede leer el buzón de extractos", "ar": "تتعذّر قراءة صندوق بريد الكشوف"},
         {"en": "The last {n} checks failed: {error}. Check the server, username and password on the Bank statements page.",
-         "fa": "{n} بررسی آخر ناموفق بود: {error}. سرور، نام کاربری و رمز را در صفحه صورتحساب‌های بانکی بررسی کنید.",
+         "fa": "{n} تلاش آخر ناموفق بود: {error}. سرور، نام کاربری و رمز عبور را در صفحه صورت‌حساب‌های بانکی بررسی کنید.",
          "es": "Las últimas {n} comprobaciones fallaron: {error}. Revisa el servidor, el usuario y la contraseña en la página de extractos.",
          "ar": "فشلت آخر {n} محاولات: {error}. تحقّق من الخادم واسم المستخدم وكلمة المرور في صفحة كشوف الحسابات."}),
     "tax_ir_vat_today": _both(
@@ -147,12 +147,12 @@ TEXT: dict[str, dict[str, dict[str, str]]] = {
          "es": "El informe trimestral de operaciones (TTMS) de {season} vence en {days} día(s)",
          "ar": "يستحق تقرير المعاملات الفصلي (TTMS) لـ {season} خلال {days} يوماً"}, _TAX_IR_MSG),
     "mtd_vat_today": _both(
-        {"en": "VAT return for {start_month}–{end_month} due today", "fa": "مهلت اظهارنامه VAT برای {start_month} تا {end_month} امروز است",
+        {"en": "VAT return for {start_month}–{end_month} due today", "fa": "مهلت اظهارنامه ارزش افزوده (VAT) برای {start_month} تا {end_month} امروز است",
          "es": "La declaración de IVA de {start_month}–{end_month} vence hoy",
          "ar": "يستحق إقرار ضريبة القيمة المضافة لـ {start_month}–{end_month} اليوم"}, _MTD_VAT_MSG),
     "mtd_vat_in": _both(
         {"en": "VAT return for {start_month}–{end_month} due in {days} day(s)",
-         "fa": "مهلت اظهارنامه VAT برای {start_month} تا {end_month} تا {days} روز دیگر",
+         "fa": "مهلت اظهارنامه ارزش افزوده (VAT) برای {start_month} تا {end_month}، {days} روز دیگر",
          "es": "La declaración de IVA de {start_month}–{end_month} vence en {days} día(s)",
          "ar": "يستحق إقرار ضريبة القيمة المضافة لـ {start_month}–{end_month} خلال {days} يوماً"}, _MTD_VAT_MSG),
     "mtd_itsa_today": _both(
@@ -167,13 +167,13 @@ TEXT: dict[str, dict[str, dict[str, str]]] = {
     "payday_passed": _both(
         {"en": "Payroll payday {date}", "fa": "روز پرداخت حقوق: {date}", "es": "Día de pago de la nómina: {date}",
          "ar": "يوم صرف الرواتب: {date}"},
-        {"en": "Pay run {start}–{end} is {status} — pay date passed", "fa": "دوره حقوق {start} تا {end} {status} است — روز پرداخت گذشته",
+        {"en": "Pay run {start}–{end} is {status} — pay date passed", "fa": "لیست حقوق {start} تا {end} {status} است — روز پرداخت گذشته است",
          "es": "La nómina {start}–{end} está {status}: la fecha de pago ya pasó",
          "ar": "دورة الرواتب {start}–{end} {status} — مضى يوم الدفع"}),
     "payday_coming": _both(
         {"en": "Payroll payday {date}", "fa": "روز پرداخت حقوق: {date}", "es": "Día de pago de la nómina: {date}",
          "ar": "يوم صرف الرواتب: {date}"},
-        {"en": "Pay run {start}–{end} is {status} — pay date coming up", "fa": "دوره حقوق {start} تا {end} {status} است — روز پرداخت نزدیک است",
+        {"en": "Pay run {start}–{end} is {status} — pay date coming up", "fa": "لیست حقوق {start} تا {end} {status} است — روز پرداخت نزدیک است",
          "es": "La nómina {start}–{end} está {status}: se acerca la fecha de pago",
          "ar": "دورة الرواتب {start}–{end} {status} — يقترب يوم الدفع"}),
     "ai_approval": _both(
@@ -193,12 +193,12 @@ TEXT: dict[str, dict[str, dict[str, str]]] = {
     "expenses_pending": _both(
         {"en": "{n} expense claim(s) awaiting approval", "fa": "{n} درخواست هزینه در انتظار تأیید",
          "es": "{n} solicitud(es) de gasto pendiente(s) de aprobación", "ar": "{n} مطالبة مصروفات بانتظار الاعتماد"},
-        {"en": "Review and approve or reject the pending expense claims.", "fa": "درخواست‌های هزینه در انتظار را بررسی و تأیید یا رد کنید.",
+        {"en": "Review and approve or reject the pending expense claims.", "fa": "درخواست‌های هزینهٔ منتظر تأیید را بررسی و تأیید یا رد کنید.",
          "es": "Revisa y aprueba o rechaza las solicitudes de gasto pendientes.", "ar": "راجع مطالبات المصروفات المعلقة واعتمدها أو ارفضها."}),
     "petty_pending": _both(
         {"en": "{n} petty cash expense(s) awaiting approval", "fa": "{n} هزینه تنخواه در انتظار تأیید",
          "es": "{n} gasto(s) de caja chica pendiente(s) de aprobación", "ar": "{n} مصروف عهدة نقدية بانتظار الاعتماد"},
-        {"en": "Review the pending petty cash expenses.", "fa": "هزینه‌های تنخواه در انتظار را بررسی کنید.",
+        {"en": "Review the pending petty cash expenses.", "fa": "هزینه‌های تنخواهِ منتظر تأیید را بررسی کنید.",
          "es": "Revisa los gastos de caja chica pendientes.", "ar": "راجع مصروفات العهدة النقدية المعلقة."}),
     "recurring_due": _both(
         {"en": "Recurring: {name} due {date}", "fa": "تکرارشونده: {name}، سررسید {date}", "es": "Recurrente: {name}, vence el {date}",
@@ -232,7 +232,7 @@ TEXT: dict[str, dict[str, dict[str, str]]] = {
          "ar": "سجّل الشيك في نظام صياد: {title}"},
         {lang: _SAYAD_MSG[lang] + s for lang, s in {
             "en": "an issued cheque must be registered in the Sayad system (صیاد) to be honoured.",
-            "fa": "چک صادره برای پرداخت شدن باید در سامانه صیاد ثبت شود.",
+            "fa": "چک صادره برای پاس شدن باید در سامانه صیاد ثبت شود.",
             "es": "un cheque emitido debe registrarse en el sistema Sayad (صیاد) para pagarse.",
             "ar": "يجب تسجيل الشيك الصادر في نظام صياد ليُصرف."}.items()}),
     "sayad_confirm": _both(
@@ -248,21 +248,21 @@ TEXT: dict[str, dict[str, dict[str, str]]] = {
         {"en": "{amount} {verb} — {when}", "fa": "{amount} {verb} — {when}", "es": "{amount} {verb} — {when}",
          "ar": "{amount} {verb} — {when}"}),
     "budget_over": _both(
-        {"en": "Budget exceeded: {category}", "fa": "بودجه رد شد: {category}", "es": "Presupuesto superado: {category}",
+        {"en": "Budget exceeded: {category}", "fa": "فراتر از بودجه: {category}", "es": "Presupuesto superado: {category}",
          "ar": "تم تجاوز الميزانية: {category}"},
         {"en": "{actual} of {limit} spent in {month} ({spent}%)", "fa": "{actual} از {limit} در {month} خرج شده ({spent}٪)",
          "es": "{actual} de {limit} gastado en {month} ({spent} %)", "ar": "أُنفق {actual} من {limit} في {month} ({spent}٪)"}),
     "budget_near": _both(
-        {"en": "Budget at {pct}%: {category}", "fa": "بودجه در {pct}٪: {category}", "es": "Presupuesto al {pct} %: {category}",
+        {"en": "Budget at {pct}%: {category}", "fa": "{pct}٪ از بودجه مصرف شد: {category}", "es": "Presupuesto al {pct} %: {category}",
          "ar": "الميزانية عند {pct}٪: {category}"},
         {"en": "{actual} of {limit} spent in {month} ({spent}%)", "fa": "{actual} از {limit} در {month} خرج شده ({spent}٪)",
          "es": "{actual} de {limit} gastado en {month} ({spent} %)", "ar": "أُنفق {actual} من {limit} في {month} ({spent}٪)"}),
     "project_over": _both(
-        {"en": "Project over budget: {name}", "fa": "پروژه از بودجه گذشت: {name}", "es": "Proyecto por encima del presupuesto: {name}",
+        {"en": "Project over budget: {name}", "fa": "پروژه فراتر از بودجه: {name}", "es": "Proyecto por encima del presupuesto: {name}",
          "ar": "المشروع تجاوز الميزانية: {name}"},
         {"en": "{parts}", "fa": "{parts}", "es": "{parts}", "ar": "{parts}"}),
     "project_near": _both(
-        {"en": "Project near its budget: {name}", "fa": "پروژه نزدیک بودجه‌اش است: {name}", "es": "Proyecto cerca de su presupuesto: {name}",
+        {"en": "Project near its budget: {name}", "fa": "پروژه نزدیک به سقف بودجه: {name}", "es": "Proyecto cerca de su presupuesto: {name}",
          "ar": "المشروع قريب من ميزانيته: {name}"},
         {"en": "{parts}", "fa": "{parts}", "es": "{parts}", "ar": "{parts}"}),
 }
@@ -284,7 +284,7 @@ PHRASES: dict[str, dict[str, str]] = {
 
 ENUMS: dict[str, dict[str, dict[str, str]]] = {
     "side": {"en": {"receivable": "Receivable from the customer", "payable": "Payable to the supplier"},
-             "fa": {"receivable": "دریافت از مشتری", "payable": "پرداخت به تأمین‌کننده"},
+             "fa": {"receivable": "طلب از مشتری", "payable": "بدهی به تأمین‌کننده"},
              "es": {"receivable": "Cobro al cliente", "payable": "Pago al proveedor"},
              "ar": {"receivable": "مستحق من العميل", "payable": "مستحق للمورّد"}},
     "status": {"en": {"draft": "draft", "posted": "posted", "paid": "paid", "voided": "voided"},

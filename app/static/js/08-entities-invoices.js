@@ -1064,7 +1064,7 @@
       } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     });
 
-    // ═══════ سامانه مودیان export ═══════
+    // ═══════ سامانه مؤدیان export ═══════
     let _moRows = [];
     async function loadMoadian() {
       const body = document.getElementById('mo-tbody');

@@ -16,11 +16,11 @@ from tests_e2e.conftest import ARTIFACTS, switch_language
 
 TOKEN = "7f1c2a9e-0000-4000-8000-0000000ca4d5"
 SUMMARY = ("Proposed journal entry on 2026-10-16 (OMR):\n  کیف پول سبز — موجودی اولیه\n"
-           "  DR 112001 کیف پول سبز: 77.5\n  CR 3110 خالص دارایی اولیه: 77.5\n  Total: 77.5 OMR")
+           "  DR 112001 کیف پول سبز: 77.5\n  CR 3110 دارایی خالص اولیه: 77.5\n  Total: 77.5 OMR")
 CARD = {"title": "کیف پول سبز — موجودی اولیه", "amount": {"value": 77.5, "currency": "OMR"},
         "date": {"iso": "2026-10-16", "display": "۲۴ مهر ۱۴۰۵"},
         "lines": [{"account": "112001", "name": "کیف پول سبز", "debit": 77.5, "credit": 0},
-                  {"account": "3110", "name": "خالص دارایی اولیه", "debit": 0, "credit": 77.5}]}
+                  {"account": "3110", "name": "دارایی خالص اولیه", "debit": 0, "credit": 77.5}]}
 REPLY = {"session_id": "s-cards", "text": "کارت آماده است.", "turns": 2, "stop_reason": "end_turn", "tool_calls": [],
          "proposals": [{"confirmation_token": TOKEN, "tool_name": "propose_money_place", "summary": SUMMARY,
                         "preview": {"description": "کیف پول سبز — موجودی اولیه"}, "expires_at": None, "card": CARD}]}

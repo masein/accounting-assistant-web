@@ -313,7 +313,7 @@ def test_a_refused_cheque_step_reads_in_the_page_language(ir):
     assert dup.status_code == 409 and dup.json()["detail"] == f"چکی با شناسه صیادی \u2068{SAYAD}\u2069 قبلاً ثبت شده است."
     issued = ir.cheque(direction="pay", title="Supplier cheque", amount=100)
     r = ir.api.post(f"/commitments/{issued['id']}/deposit", headers=fa, json={"on": "2026-09-10"})
-    assert r.status_code == 400 and r.json()["detail"].startswith("فقط چک دریافتی به بانک سپرده می‌شود")
+    assert r.status_code == 400 and r.json()["detail"].startswith("فقط چک دریافتی به بانک واگذار می‌شود")
     c = ir.cheque(counter_account_code="1112")
     ir.step(c, "deposit", on="2026-09-10")
     r = ir.api.post(f"/commitments/{c['id']}/return", headers={"X-UI-Language": "es"}, json={})

@@ -111,7 +111,7 @@
     .jdate-day:focus-visible, .jdate-nav:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
     .jdate-foot { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 0.45rem; }
     /* the Jalali day printed under a Gregorian field says nothing a Jalali field doesn't */
-    .jdate + .jalali-hint { display: none; }
+    .jdate.jdate-jalali + .jalali-hint { display: none; }   /* a Gregorian box keeps the Jalali day under it */
     .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; }
     /* buttons under a form's fields, a little below them (they touched the field: scenario V5) */
     .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }

@@ -2242,6 +2242,7 @@
         jdateToday: "Today",
         jdateClear: "Clear",
         jdateInvalid: "Not a day in the Jalali calendar — write year/month/day, e.g. 1405/07/09.",
+        gdateInvalid: "Not a day — write year/month/day, e.g. 2026/10/31.",
         validityRequired: "Fill in this field.",
         validityChoose: "Choose an option.",
         validityTick: "Tick this box to go on.",

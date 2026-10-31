@@ -31,12 +31,16 @@ def test_the_native_input_stays_the_value():
     # a script's input.value = … repaints the box; the native input is still in the page
     assert "set(v) { _dateInputValue.set.call(this, v); paintDateField(this); }" in UI
     assert re.search(r"\.jdate \.jdate-native \{[^}]*opacity: 0", CSS)
-    assert ".jdate + .jalali-hint { display: none; }" in CSS
+    assert ".jdate.jdate-jalali + .jalali-hint { display: none; }" in CSS
 
 
-def test_only_the_jalali_calendar_dresses():
-    assert "const jalali = (window.__DISPLAY_CALENDAR || 'gregorian') === 'jalali';" in UI
-    assert "jalali ? paintDateField(input) : _undressDateField(input)" in UI
+def test_the_jalali_calendar_or_a_persian_page_dresses():
+    """A Jalali company's dates, and any date on a Persian page: there a Gregorian company's
+    field wrote «mm/dd/yyyy» and English month names (scenario BK1). An English page of a
+    Gregorian company keeps the browser's field."""
+    assert "function _dressesDateFields() { return _dateFieldCalendar() === 'jalali' || _uiIsPersian(); }" in UI
+    assert "dress ? paintDateField(input) : _undressDateField(input)" in UI
+    assert "fieldTextToIso(text.value, _dateFieldCalendar())" in UI
 
 
 def test_a_range_of_dates_reads_in_the_pages_direction():

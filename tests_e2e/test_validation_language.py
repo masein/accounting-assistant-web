@@ -8,6 +8,9 @@ from tests_e2e.conftest import switch_language
 
 MESSAGE = r"""(sel) => { const el = document.querySelector(sel); el.form ? el.form.checkValidity() : el.checkValidity();
   return el.validationMessage; }"""
+# on a Persian page the date is the app's own box (BK1): the message is said there, where it is seen
+DATE_BOX = ".jdate:has(#date) .jdate-text"
+BOX_VALID = "() => document.querySelector('.jdate:has(#date) .jdate-text').validity.valid"
 
 
 def test_the_voucher_form_says_what_is_wrong_in_persian(flow_page):
@@ -17,9 +20,16 @@ def test_the_voucher_form_says_what_is_wrong_in_persian(flow_page):
         page.click('.nav-btn[data-page="transactions"]')
         page.wait_for_selector("#transaction-form .line-debit")
         page.fill("#date", "")
-        assert page.evaluate(MESSAGE, "#date") == "این خانه را پر کنید."
+        assert page.evaluate(MESSAGE, DATE_BOX) == "این خانه را پر کنید."
         page.fill("#date", "2026-10-01")
-        assert page.evaluate(MESSAGE, "#date") == ""            # a value: valid again, no message left behind
+        assert page.evaluate(BOX_VALID)                         # a value: valid again, no message left behind
+        assert page.evaluate(MESSAGE, DATE_BOX) == ""
+        # a day picked from the grid clears it too (the box saw no typing of its own)
+        page.fill("#date", "")
+        assert page.evaluate(MESSAGE, DATE_BOX) == "این خانه را پر کنید."
+        page.click("#date >> xpath=.. >> .jdate-btn")
+        page.locator("#jdate-pop .jdate-day").first.click()
+        assert page.evaluate(BOX_VALID)
 
         debit = "#transaction-form .line-debit >> nth=0"
         page.fill(debit, "-5")

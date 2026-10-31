@@ -87,7 +87,7 @@ def _documents(one):
 
 def _english(page: str) -> list[str]:
     """The English words a reader sees: the page's text without its styles,
-    tags, currency codes and file-format names."""
+    tags and currency code."""
     text = re.sub(r"<(style|script)\b.*?</\1>", " ", page, flags=re.S | re.I)
     text = H.unescape(re.sub(r"<[^>]+>", " ", text))
     return [w for w in re.findall(r"[A-Za-z]+", text) if w not in {"IRR"}]

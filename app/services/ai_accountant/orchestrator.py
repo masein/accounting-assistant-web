@@ -268,7 +268,7 @@ PERSONAL_MODE_ADDENDUM = """
 The books you manage here belong to ONE PERSON tracking their own daily money — not a business. Adjust accordingly:
 
 * Say "your money / your spending / your budget", never "the company", "the books", "the manager". The user is the owner of their own finances.
-* SPEAK HUMAN, NOT ACCOUNTANT. Never say debit/credit, journal entry, voucher, ledger, AR/AP in replies — say "I'll log 250,000 Toman under Food & groceries, paid from your bank account". (Proposals still need technically correct lines — the translation is in how you TALK, not in what you propose.)
+* SPEAK HUMAN, NOT ACCOUNTANT. Never say debit/credit, journal entry, voucher, ledger, AR/AP in replies — say "the card for 250,000 Toman under Food & groceries, paid from your bank account, is ready". (Proposals still need technically correct lines — the translation is in how you TALK, not in what you propose.)
 * The chart of accounts is a set of everyday categories (خوراک، حمل‌ونقل، اجاره، اقساط…), listed at the end under YOUR BOOKS AT A GLANCE with the places and the people: take them from there (``search_accounts`` for anything not listed). When nothing fits, use the closest category or Miscellaneous (متفرقه) — don't interrogate the user about classification.
 * Paid "نقدی / نقد / cash" → the money comes from **موجودی نقد (1120, cash on hand)**; paid by "کارت / کارت به کارت / بانک / انتقال / card / transfer" → **حساب بانکی (1110)**. ``search_accounts`` returns these first in personal mode — use its top match, don't swap them.
 * Most entries have NO counterparty entity. Groceries, taxi, utility bills → empty ``entity_links``; don't ask "which supplier?". Create an entity only for a real party the user names (their landlord, a person who owes them money or whom they owe, their bank).
@@ -315,7 +315,7 @@ _STATUS_STRINGS = {
     },
     "fa": {
         "max_turns_candidates": "این موارد احتمالی را پیدا کردم — لطفاً بگویید کدام‌یک مدنظرتان است (یا بنویسید «هیچ‌کدام»):\n{candidates}",
-        "max_turns_dead_end": "نتوانستم این کار را به‌صورت خودکار کامل کنم. لطفاً کمی جزئیات بیشتر بدهید (مبلغ، تاریخ و کدام حساب یا شخص) تا سند را پیشنهاد دهم.",
+        "max_turns_dead_end": "نتوانستم این کار را به‌صورت خودکار کامل کنم. لطفاً کمی جزئیات بیشتر بدهید (مبلغ، تاریخ و کدام حساب یا شخص) تا کارتش را آماده کنم.",
         "tool_budget": "همین‌جا متوقف شدم؛ کارهای این پیام زیاد بود. بگویید تا بقیه را ادامه بدهم.",
     },
     "es": {
@@ -1020,7 +1020,7 @@ def maybe_autotitle_session(db: Session, session: AIChatSession, user_message: s
 _JALALI_ISO = re.compile(r"^\s*(1[34]\d\d)[-/](\d{1,2})[-/](\d{1,2})\s*$")
 
 
-_DATE_KEY = re.compile(r"date|^(on|as_of|day|due|start|end)$", re.IGNORECASE)
+_DATE_KEY = re.compile(r"date|(^|_)(on|as_of|day|due|start|end)$", re.IGNORECASE)
 
 
 _CODE_KEY = re.compile(r"code|query|reference|number|invoice|cheque", re.IGNORECASE)
@@ -1187,6 +1187,17 @@ def _no_stray_tail(text: str) -> str:
     if not m or not _ARABIC_SCRIPT.search(text[:m.start()]):
         return text
     return text[:m.start() + 1]
+
+
+_FA_DECIMAL = re.compile(r"(?<=[۰-۹])\.(?=[۰-۹])")
+_FA_THOUSANDS = re.compile(r"(?<=[۰-۹])،(?=[۰-۹]{3}(?![۰-۹]))")
+
+
+def _persian_separators(text: str) -> str:
+    """Persian figures take Persian separators: «۳۳۳.۷۷ دلار» → «۳۳۳٫۷۷», «۴۵،۰۰۰،۰۰۰ ریال» → «۴۵٬۰۰۰٬۰۰۰»
+    (the model's replies, Persian copy review 2026-10-31, scenario BF4). Only between Persian digits:
+    «۱، ۲» (a list) and Latin figures stay as they are."""
+    return _FA_THOUSANDS.sub("٬", _FA_DECIMAL.sub("٫", text or ""))
 
 
 def _true_figures(text: str, tool_call_log: list[dict]) -> str:
@@ -1556,6 +1567,13 @@ async def run_chat_turn(
     system_prompt += f"\n\nThis turn: the user's message is in {_LANG_NAMES[lang]} — answer it in {_LANG_NAMES[lang]}."
     if lang != "fa":
         system_prompt += " Write figures with Latin digits and the currency code (843,110,379 IRR), and translate account names carefully (حقوق پایه is base salary)."
+    else:
+        # how the Persian replies read (copy review, 2026-10-31, scenarios BF1–BF3): seven of 34 said a card was
+        # «ثبت شد» before it was confirmed, and one said Amir owed the user when the user owed Amir
+        system_prompt += (" Persian: short sentences in Persian word order; no «آیا». A card is «آماده است»: never «ثبت شد» or "
+                          "«ثبت کردم» before the user confirms it, and don't tell them to confirm it. Who owes whom: «شما به امیر "
+                          "بدهکارید» (the user owes Amir), «امیر به شما بدهکار است» (Amir owes the user). Say «دفاتر», never "
+                          "«کتاب‌ها»; a pay run is «لیست حقوق».")
 
     shape = "anthropic"
     if client is None:
@@ -1714,7 +1732,7 @@ async def run_chat_turn(
             )
 
         if stop_reason == "end_turn" or not assistant_msg.tool_calls:
-            final_text = _no_stray_tail(_true_figures(assistant_msg.text or "", tool_call_log))
+            final_text = _persian_separators(_no_stray_tail(_true_figures(assistant_msg.text or "", tool_call_log)))
             final_text = _choices_as_chips(final_text, tool_call_log)
             # Final one-card pass over EVERY proposal raised this chat turn (the
             # standalone create and the transaction/time action are often in

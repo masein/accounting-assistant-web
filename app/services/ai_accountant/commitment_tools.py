@@ -151,7 +151,7 @@ class ProposeCreateChequeInput(Replaceable):
     due_date: _date
     direction: str = Field("pay", description="pay = a cheque we issued; receive = a cheque we hold from a customer.")
     reference: str | None = Field(None, description="Cheque number (serial).")
-    sayad_id: str | None = Field(None, description="The 16-digit Sayad id (شناسه صیاد) printed on the cheque.")
+    sayad_id: str | None = Field(None, description="The 16-digit Sayad id (شناسهٔ صیادی) printed on the cheque.")
     bank_name: str | None = None
     counterparty: str | None = None
     invoice: str | None = Field(None, description="Number of the sales invoice (received cheque) or bill (issued) it pays.")

@@ -151,7 +151,32 @@ class GetPeopleBalances(BaseTool):
                                     for side in ("you_owe", "owes_you")}
             out["note"] = ("A card of this conversation is waiting for the user's confirm: cards_waiting is what it moves, "
                            "once_posted what is owed after it. Say both: what is owed now, and once it is posted.")
+        if _persian_text(ctx.user_message or ""):
+            # who owes whom, said once in code: «امیر الان به شما ۳۰۰ ریال عمان بدهکار است» told a user who owed
+            # Amir the opposite (Persian copy review, 2026-10-31, scenario BF2)
+            for p in out["people"]:
+                p["said_fa"] = _owing_fa(p["person"], p)
+                if p.get("once_posted"):
+                    p["once_posted_said_fa"] = _owing_fa(p["person"], p["once_posted"])
+            out["note"] = ((out.get("note") or "") + " Who owes whom: use each person's said_fa as it stands.").strip()
         return out
+
+
+def _persian_text(s: str) -> bool:
+    return any("\u0600" <= ch <= "\u06ff" for ch in s)
+
+
+def _owing_fa(name: str, sides: dict) -> str:
+    """«شما ۳۰۰٫۰۰۰ ریال عمان به امیر بدهکارید» / «امیر ۵۰ دلار به شما بدهکار است» / «حساب شما با امیر صاف است»."""
+    from app.services.ai_accountant.fast_paths import _in_currency
+    def amounts(side: str) -> str:
+        return " و ".join(_in_currency(v, c, "fa") for c, v in sorted((sides.get(side) or {}).items()) if v)
+    said = []
+    if mine := amounts("you_owe"):
+        said.append(f"شما {mine} به {name} بدهکارید")
+    if theirs := amounts("owes_you"):
+        said.append(f"{name} {theirs} به شما بدهکار است")
+    return "؛ ".join(said) if said else f"حساب شما با {name} صاف است"
 
 
 def _waiting_between_people(ctx) -> dict[str, dict[str, dict[str, Any]]]:

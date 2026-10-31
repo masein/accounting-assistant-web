@@ -100,7 +100,16 @@ class ProposeChangeDate(BaseTool):
                            if len(rows) > 1 else f"{rows[0]['description']}: new date {rows[0]['new_date']}")
         payload = {"entries": rows, "description": description}
         token = _register(ctx, self.name, payload)
-        summary = "; ".join(f"{r['description'] or r['transaction_id'][:8]}: {r['old_date']} → {r['new_date']}" for r in rows)
+        # dates as the reader says them: given «2026-09-06» the model wrote «۶ شهریور» for ۱۵ شهریور (BF3), so a
+        # Persian reader gets the Jalali words to copy, beside the ISO day in books kept in the Gregorian calendar
+        def said(iso: str) -> str:
+            d = _date.fromisoformat(iso)
+            if not persian or jalali:
+                return _day(d, persian, jalali)
+            from app.utils.jalali import format_jalali_long
+            return f"{iso} ({format_jalali_long(d)})"
+        summary = "; ".join(f"{r['description'] or r['transaction_id'][:8]}: {said(r['old_date'])} → {said(r['new_date'])}"
+                            for r in rows)
         return {"confirmation_token": str(token), "status": "pending", "preview": payload,
                 "summary": f"Only the dates change — {summary}."}
 

@@ -332,15 +332,19 @@ class GetSpendingSummary(BaseTool):
         }
         if not only and (len(per_currency) > 1 or (per_currency and per_currency[0]["currency"] != currency)):
             out["by_currency"] = per_currency
+        personal = getattr(ctx, "mode", "default") == "personal"
         if not only and currency == base and not_counted:
             left = ", ".join(f"{plain(v)} {k}" for k, v in sorted(not_counted.items()))
-            out["note"] = (f"The total in {base} leaves out {left}: no exchange rate yet. Say each currency's own "
-                           "total and categories from by_currency; never add them together, never say it is zero.")
+            # a person's books never convert, so "no exchange rate yet" came back to them as a missing rate (BF5)
+            why = "they are in their own currencies" if personal else "no exchange rate yet"
+            out["note"] = (f"The total in {base} leaves out {left}: {why}. Say each currency's own "
+                           "total and categories from by_currency; never add them together, never say it is zero"
+                           + (", and don't say why." if personal else "."))
         if cal == "jalali":
             out["today_jalali"] = format_jalali(today)
             out["today_jalali_long"] = format_jalali_long(today)
         from app.services.fx_base import unconverted_note
-        if not only and currency == base and (left_out := unconverted_note(ctx.db)):
+        if not only and currency == base and not personal and (left_out := unconverted_note(ctx.db)):
             out["unconverted"] = left_out
         if not categories and not out.get("by_currency"):
             out["note"] = f"No {args.kind} recorded between {period.from_date.isoformat()} and {period.to_date.isoformat()}."

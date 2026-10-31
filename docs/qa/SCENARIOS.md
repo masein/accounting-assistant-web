@@ -931,3 +931,16 @@ The Persian copy review found English printed on Persian PDFs where the code fel
 | BE5 | A receipt's invoice number | Print a receipt for invoice INV-12 in an Iranian company | «فاکتور INV-۱۲», the number in Persian digits like the invoice itself |
 | BE6 | The cheque print test | Iranian company; cheques page → print test | The sample payee is «نمونه». It was «نمونه — Sample». A UK company's says «Sample» |
 | BE7 | Every document, no stray English | Render the invoice, quote, time invoice, receipt, statement, purchase order and payslip for an Iranian company with Persian party names | No English word on the page apart from codes, numbers, currency codes and the company's own data |
+
+## BF. The assistant's own Persian (copy review, 2026-10-31)
+
+The 34 Persian eval conversations, run on the production model (gpt-4.1-mini), read the way the assistant really writes. Most of the chat's Persian is the model's, not the app's strings.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BF1 | A card is ready, not recorded | «۲۰۰ هزار تومان ناهار از بانک دادیم», «۱۲ ریال عمان ناهار از کیف پول سبز», a budget, a goal, a date change | The reply says the card is ready («کارت … آماده است»), never «ثبت شد» / «ثبت کردم» before the confirm, and doesn't tell the user to confirm it. 7 of 34 replies said «ثبت شد» |
+| BF2 | Who owes whom | The user owes Amir 300 OMR; «امیر به من ۶۰۰ ریال عمان دیگه داد… حساب من با امیر الان چقدر هست؟»; «چقدر به امیر بدهکارم؟» | «شما … به امیر بدهکارید», from the people tool's own sentence (said_fa). It said «امیر الان به شما ۳۰۰ ریال عمان بدهکار است» |
+| BF3 | Dates as the reader says them | «اون Muscat Airbnb… مال ۱۵ شهریور ۱۴۰۵ بود»; a pay run in a Jalali company | The reply says «۱۵ شهریور ۱۴۰۵» (it said «۶ شهریور»: the tool gave ISO dates); the pay run's period in Jalali (it said «۱ نوامبر تا ۳۰ نوامبر ۲۰۲۶») and «لیست حقوق», not «اجرای حقوق» |
+| BF4 | Persian separators | Amounts with decimals or thousands in a Persian reply | «۳۳۳٫۷۷ دلار», «۴۵٬۰۰۰٬۰۰۰ ریال» (the model wrote «۳۳۳.۷۷» and «۴۵،۰۰۰،۰۰۰») |
+| BF5 | No notes said back | «پول من کجاست؟» and «این ماه چقدر خرج کردم؟» in several currencies, personal books | Each currency on its own; no «مجموع کل به صورت مجموع ارزها…», no «نبود نرخ تبدیل» in books that never convert |
+| BF6 | The words | Any Persian reply | «دفاتر», never «کتاب‌ها»; no «آیا» questions; short sentences in Persian word order |

@@ -278,7 +278,7 @@ def test_payroll_time_users_and_quotes_read_in_the_language_too():
     assert localize_detail("A sent quote can't be edited; set it back to draft first.", "es") == \
         "Un presupuesto enviado no se puede editar; vuelve a ponerlo en borrador primero."
     hours = localize_detail("That would be 26 hours on 2026-10-01 (20 already logged); a day has 24.", "fa")
-    assert hours.startswith("با این ثبت، ⁨2026-10-01⁩ به ⁨26⁩ ساعت")
+    assert hours.startswith("با این ثبت، ساعت‌های کار روز ⁨2026-10-01⁩ به ⁨26⁩ می‌رسد")
     assert localize_detail("You cannot delete yourself", "fa") == "نمی‌توانید خودتان را حذف کنید"
 
 

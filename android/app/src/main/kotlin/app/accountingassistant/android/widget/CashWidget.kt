@@ -22,6 +22,7 @@ import app.accountingassistant.android.MainActivity
 import app.accountingassistant.android.R
 import app.accountingassistant.android.security.AppLock
 import app.accountingassistant.android.ui.components.priced
+import app.accountingassistant.android.ui.components.pricedInWords
 import app.accountingassistant.android.util.Dates
 import app.accountingassistant.android.util.Numbers
 import kotlinx.serialization.Serializable
@@ -50,7 +51,7 @@ data class WidgetState(
 data class Held(val currency: String, val total: Double)
 
 /** The widget's lines, worked out away from Android's views so they can be tested. [others]: the other
- *  currencies, «۳٬۰۰۰٬۰۰۰ ریال · ۵۰۰٫۰۰ $»; [line]: the budget left. */
+ *  currencies, «۳٬۰۰۰٬۰۰۰ ریال، ۵۰۰ دلار»; [line]: the budget left. */
 data class WidgetText(val title: String, val amount: String?, val line: String?, val note: String?, val others: String? = null)
 
 fun widgetText(state: WidgetState, lang: String, words: (Int) -> String, formatted: (Int, String) -> String): WidgetText {
@@ -66,9 +67,8 @@ fun widgetText(state: WidgetState, lang: String, words: (Int) -> String, formatt
                 formatted(R.string.widget_budget_left, Numbers.amount(java.math.BigDecimal.valueOf(it), lang, Numbers.places(state.budgetCurrency)))
             },
             note = state.asOf?.let { formatted(R.string.widget_as_of, Dates.short(it, lang, state.calendar)) },
-            // «،» in Persian: «·» beside Persian digits reads as a zero
-            others = state.others.takeIf { it.isNotEmpty() }?.joinToString(if (lang == "fa" || lang == "ar") "، " else " · ") {
-                priced(java.math.BigDecimal.valueOf(it.total), it.currency, lang)
+            others = state.others.takeIf { it.isNotEmpty() }?.joinToString(Numbers.separator(lang)) {
+                pricedInWords(java.math.BigDecimal.valueOf(it.total), it.currency, lang)
             },
         )
     }
@@ -121,7 +121,7 @@ class CashWidget : AppWidgetProvider() {
                 setTextViewText(R.id.widget_title, t.title)
                 setViewVisibility(R.id.widget_title, if (figures) View.GONE else View.VISIBLE)
                 setTextViewText(R.id.widget_label, listOfNotNull(context.getString(R.string.widget_cash), t.note)
-                    .joinToString(if (lang == "fa" || lang == "ar") "، " else " · "))
+                    .joinToString(Numbers.separator(lang)))
                 setViewVisibility(R.id.widget_label, if (figures) View.VISIBLE else View.GONE)
                 setTextViewText(R.id.widget_amount, t.amount ?: t.note ?: "")
                 // a line more under it when there are other currencies: the budget left kept clear of the edge

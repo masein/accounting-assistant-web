@@ -40,6 +40,7 @@ import app.accountingassistant.android.ui.components.Voucher
 import app.accountingassistant.android.ui.components.VoucherLine
 import app.accountingassistant.android.ui.components.VoucherState
 import app.accountingassistant.android.ui.theme.LocalAccountantColors
+import app.accountingassistant.android.util.Numbers
 import kotlinx.coroutines.delay
 
 /**
@@ -52,6 +53,8 @@ import kotlinx.coroutines.delay
 fun ChatShowcase(lang: String, startPosted: Boolean = false, fixedUndoSeconds: Int? = null) {
     val c = LocalAccountantColors.current
     val fa = lang == "fa"
+    // «،» between the pieces in Persian: a middle dot beside «۱۸» read «۱۸۰ مهر» (Persian copy review, 2026-10-31)
+    val sep = Numbers.separator(rtl = fa)
     val cats = if (fa) listOf("خوراک", "رستوران", "حمل‌ونقل", "سایر") else listOf("Groceries", "Eating out", "Transport", "Other")
     val catLines = if (fa) listOf("خوراک و خواربار", "رستوران", "حمل‌ونقل", "سایر هزینه‌ها")
                    else listOf("Groceries", "Eating out", "Transport", "Other spending")
@@ -79,12 +82,12 @@ fun ChatShowcase(lang: String, startPosted: Boolean = false, fixedUndoSeconds: I
             ) {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Surface(shape = CircleShape, color = c.surface2) {
-                        Text(if (fa) "امروز · ۱۸ مهر" else "Today · 10 Oct", color = c.muted, fontSize = 11.sp,
+                        Text(if (fa) "امروز${sep}۱۸ مهر" else "Today${sep}10 Oct", color = c.muted, fontSize = 11.sp,
                              modifier = Modifier.padding(horizontal = 10.dp, vertical = 1.dp))
                     }
                 }
                 UserBubble(
-                    from = if (fa) "پیامک · بانک ملت" else "SMS · Barclays",
+                    from = if (fa) "پیامک${sep}بانک ملت" else "SMS${sep}Barclays",
                     text = if (fa) "برداشت: ۲٬۵۰۰٬۰۰۰\nمانده: ۴۱٬۲۰۰٬۰۰۰\n۱۴۰۵/۰۷/۱۸ - ۱۲:۳۰"
                            else "Card payment £25.00\nBalance £412.00\n10/10/2026 12:30",
                 )
@@ -97,14 +100,16 @@ fun ChatShowcase(lang: String, startPosted: Boolean = false, fixedUndoSeconds: I
                     lang = lang,
                     amount = spent,
                     currency = if (fa) "IRR" else "GBP",
-                    summary = if (fa) "هزینهٔ ${catLines[picked]} · کارت ملت · ۱۸ مهر ۱۴۰۵"
-                              else "${catLines[picked]} · Barclays card · 10 Oct 2026",
+                    summary = if (fa) "هزینهٔ ${catLines[picked]}${sep}کارت ملت${sep}۱۸ مهر ۱۴۰۵"
+                              else "${catLines[picked]}${sep}Barclays card${sep}10 Oct 2026",
                     lines = listOf(
                         VoucherLine(if (fa) "6110" else "7400", catLines[picked], debit = spent),
                         VoucherLine(if (fa) "1110" else "1200", if (fa) "بانک ملت" else "Barclays", credit = spent),
                     ),
                     booksName = if (fa) "دفتر شخصی" else "Personal",
                     booksColor = c.saffron,
+                    // personal books: To and From, as a person's own cards say them, not Dr and Cr (Persian copy review, 2026-10-31)
+                    plainSides = true,
                     state = if (posted) VoucherState.Posted("217", if (fa) "1405/07/18" else "10/10/2026", undo) else VoucherState.Draft,
                     onConfirm = { posted = true; undo = fixedUndoSeconds ?: 120 },
                     onEdit = {}, onCancel = {}, onUndo = { posted = false },

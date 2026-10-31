@@ -1,6 +1,7 @@
 package app.accountingassistant.android
 
 import app.accountingassistant.android.ui.components.priced
+import app.accountingassistant.android.ui.components.pricedInWords
 import app.accountingassistant.android.util.Numbers
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -34,6 +35,31 @@ class NumbersTest {
         assertEquals("\u2066+۱۸۰٬۰۰۰٬۰۰۰\u2069", Numbers.signed(180_000_000, "fa"))
         assertEquals("\u2066−2,500\u2069", Numbers.signed(-2_500, "en"))
         assertEquals("\u20660\u2069", Numbers.signed(0, "en"))
+    }
+
+    /** Beside Persian digits a middle dot reads as a zero, «۱۸۰ مهر»: «،» between the pieces (Persian copy review, 2026-10-31). */
+    @Test fun piecesOfALineAreJoinedWithACommaInPersianAndArabic() {
+        assertEquals("، ", Numbers.separator("fa"))
+        assertEquals("، ", Numbers.separator("ar"))
+        assertEquals(" · ", Numbers.separator("en"))
+        assertEquals(" · ", Numbers.separator("es"))
+        // what came as it was sent: by its own letters and digits, whatever the phone's language
+        assertEquals("کیف پول سبز، ۲۴ مهر ۱۴۰۵", Numbers.joined(listOf("کیف پول سبز", "۲۴ مهر ۱۴۰۵")))
+        assertEquals("Rent، ۷۷٫۵۰۰", Numbers.joined(listOf("Rent", "۷۷٫۵۰۰")))
+        assertEquals("Office rent · £950.00", Numbers.joined(listOf("Office rent", "£950.00")))
+        assertEquals("Office rent", Numbers.joined(listOf("Office rent")))
+    }
+
+    /** The widget's other currencies: named after the figure in Persian, «۵۰۰ دلار», not «۵۰۰٫۰۰$» (Persian copy review, 2026-10-31). */
+    @Test fun anAmountAmongPersianWordsNamesItsCurrency() {
+        assertEquals("۵۰۰ دلار", pricedInWords(java.math.BigDecimal("500.00"), "USD", "fa"))
+        assertEquals("۵۰۰٫۵۰ دلار", pricedInWords(java.math.BigDecimal("500.5"), "USD", "fa"))
+        assertEquals("۱۲ یورو", pricedInWords(java.math.BigDecimal(12), "EUR", "fa"))
+        assertEquals("۷۷٫۵۰۰ ریال عمان", pricedInWords(java.math.BigDecimal("77.5"), "OMR", "fa"))
+        assertEquals("۳٬۰۰۰٬۰۰۰ ریال", pricedInWords(java.math.BigDecimal(3_000_000), "IRR", "fa"))
+        // other languages as before
+        assertEquals("\$500.00", pricedInWords(java.math.BigDecimal(500), "USD", "en"))
+        assertEquals("\$500.00", pricedInWords(java.math.BigDecimal(500), "USD", "ar"))
     }
 
     @Test fun aShareIsWrittenTheWayEachLanguageWritesIt() {

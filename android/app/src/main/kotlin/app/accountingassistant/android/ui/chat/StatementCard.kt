@@ -46,9 +46,9 @@ fun StatementCard(item: ChatItem.Statement, lang: String, onFix: () -> Unit) {
                 item.bank?.let { Text(it, color = c.ink, fontSize = 12.sp, fontWeight = FontWeight(600)) }
             }
             Text(listOfNotNull(
-                     if (item.from != null && item.to != null) "\u2068${Dates.short(item.from, lang, LocalCalendar.current)} – ${Dates.short(item.to, lang, LocalCalendar.current)}\u2069" else null,
+                     if (item.from != null && item.to != null) Dates.range(item.from, item.to, lang, LocalCalendar.current) else null,
                      Numbers.digits(pluralStringResource(R.plurals.statement_rows, item.rows, item.rows), lang),
-                 ).joinToString(" · "),
+                 ).joinToString(Numbers.separator(lang)),
                  color = c.ink, fontSize = 15.sp, fontWeight = FontWeight(700))
             val chips = listOf(
                 Triple("matched", R.plurals.statement_matched, c.firouzeh),

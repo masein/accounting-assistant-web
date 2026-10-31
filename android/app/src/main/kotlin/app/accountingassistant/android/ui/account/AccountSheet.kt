@@ -93,7 +93,8 @@ fun AccountSheetContent(
            verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Column {
             Text(username, color = c.ink, fontSize = 18.sp, fontWeight = FontWeight(800))
-            Text("$booksName · ${roleName(role)}", color = c.muted, fontSize = 13.sp)
+            Text(booksName + Numbers.separator(LocalConfiguration.current.locales[0].language) + roleName(role),
+                 color = c.muted, fontSize = 13.sp)
         }
         HorizontalDivider(color = c.line)
         if (currency != null) BooksCurrencySetting(currency)
@@ -234,7 +235,7 @@ private fun SmsSettings(sms: SmsSection) {
                 verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     val bank = BankText.displayName(s.bank, lang)
-                    Text(Numbers.digits(s.sender, lang) + (bank?.let { " · $it" } ?: ""), color = c.ink, fontSize = 14.sp,
+                    Text(Numbers.digits(s.sender, lang) + (bank?.let { Numbers.separator(lang) + it } ?: ""), color = c.ink, fontSize = 14.sp,
                          fontWeight = FontWeight(600))
                     Text(when (s.read) {
                         true -> stringResource(R.string.sms_reading)

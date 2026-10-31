@@ -198,12 +198,21 @@ class ChatItemsTest {
     /** Scenarios AC2, AC8: a card copied as it reads, its lines To and From in a person's books. */
     @Test fun aCardCopiesAsWhatItIsItsAmountAndItsLines() {
         val card = parseBlock(block(wallet))
-        assertEquals("کیف پول سبز — موجودی اولیه · ۲۴ مهر ۱۴۰۵\n77.500 OMR\n" +
+        // «،» between a Persian title and its date: a middle dot beside «۲۴» reads as a zero (Persian copy review, 2026-10-31)
+        assertEquals("کیف پول سبز — موجودی اولیه، ۲۴ مهر ۱۴۰۵\n77.500 OMR\n" +
                      "112001 کیف پول سبز  To 77.500\n3110 دارایی خالص اولیه  From 77.500",
                      card.asText("en", "To" to "From"))
         assertEquals("۳۱۱۰ دارایی خالص اولیه  بس ۷۷٫۵۰۰", card.asText("fa", "بد" to "بس")!!.lines().last())
         // a reply to it quotes its title and amount, and names the card
-        assertEquals(Quote(false, "کیف پول سبز — موجودی اولیه · 77.500 OMR", "t9"), card.quote("en", "Dr" to "Cr"))
+        assertEquals(Quote(false, "کیف پول سبز — موجودی اولیه، 77.500 OMR", "t9"), card.quote("en", "Dr" to "Cr"))
+        assertEquals("کیف پول سبز — موجودی اولیه، ۷۷٫۵۰۰ ریال عمان", card.quote("fa", "به" to "از")!!.text)
+    }
+
+    /** A statement copied: its bank, then its period, «،» between them in Persian (Persian copy review, 2026-10-31). */
+    @Test fun aStatementCopiesWithItsLanguagesSeparator() {
+        val st = ChatItem.Statement("st1", "s9", "Barclays", "2026-08-23", "2026-09-21", 12, emptyMap(), null, "GBP", false)
+        assertEquals("Barclays، ۲۰۲۶-۰۸-۲۳ – ۲۰۲۶-۰۹-۲۱", st.asText("fa", "بد" to "بس"))
+        assertEquals("Barclays · 2026-08-23 – 2026-09-21", st.asText("en", "Dr" to "Cr"))
     }
 
     /** Scenario AC1: the words as they read, bold without its stars; a long one quoted in short. */

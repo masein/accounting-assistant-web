@@ -13,7 +13,7 @@ from playwright.sync_api import expect
 from tests_e2e.conftest import ARTIFACTS, switch_language
 
 TOKEN = "7f1c2a9e-0000-4000-8000-0000000af001"
-CARD = {"title": "صورتحساب پارسیان: ۹۵ ردیف در ۴۳ سند", "amount": {"value": 23045354368, "currency": "IRR"},
+CARD = {"title": "صورت‌حساب پارسیان: ۹۵ ردیف در ۴۳ سند", "amount": {"value": 23045354368, "currency": "IRR"},
         "date": {"iso": "2026-06-22", "display": "۱ تیر ۱۴۰۵"},
         "lines": [{"account": "111001", "name": "بانک دی حساب 0105222028000", "debit": 5144811663, "credit": 0},
                   {"account": "611201", "name": "هزینه های تنخواه طی ماه", "debit": 17898395405, "credit": 0},
@@ -26,7 +26,7 @@ INTAKE = {"kind": "bank_statement", "status": "imported", "statement_id": "88131
           "counts": {"matched": 0, "unrecorded": 95, "needs_confirmation": 0, "amount_mismatch": 0, "missing_in_bank": 0},
           "balance": {"statement_closing": 3910384886, "book_balance": 0, "gap": 3910384886}}
 REPLY = {"session_id": "s-af", "turns": 2, "stop_reason": "end_turn", "tool_calls": [], "intake": INTAKE,
-         "text": "کارت آماده است: ۹۵ ردیف صورتحساب پارسیان، به‌تفکیک تاریخ در ۴۳ سند از ۱ تیر ۱۴۰۵ تا ۳۱ شهریور ۱۴۰۵.",
+         "text": "کارت آماده است: ۹۵ ردیف صورت‌حساب پارسیان، به‌تفکیک تاریخ در ۴۳ سند از ۱ تیر ۱۴۰۵ تا ۳۱ شهریور ۱۴۰۵.",
          "proposals": [{"confirmation_token": TOKEN, "tool_name": "propose_post_statement",
                         "summary": "Post 95 rows of the Parsian statement as 43 voucher(s)", "card": CARD,
                         "preview": {"description": CARD["title"], "vouchers": 43}, "expires_at": None}]}
@@ -45,7 +45,7 @@ def test_the_statement_and_one_card_for_it(flow_page):
         page.click("#ai-acct-send")
         card = page.locator(f'.ai-card[data-token="{TOKEN}"]')
         expect(card).to_be_visible()
-        expect(card.locator(".ai-voucher-what")).to_contain_text("صورتحساب پارسیان: ۹۵ ردیف در ۴۳ سند")
+        expect(card.locator(".ai-voucher-what")).to_contain_text("صورت‌حساب پارسیان: ۹۵ ردیف در ۴۳ سند")
         expect(card.locator(".ai-voucher-line")).to_have_count(5)
         expect(page.locator("#ai-acct-messages")).to_contain_text("۹۵")              # the statement's own card
         os.makedirs(ARTIFACTS, exist_ok=True)
@@ -59,7 +59,7 @@ def test_a_new_bank_on_the_card(flow_page):
     """AF9: the file really is Parsian's — the card's bank line is the bank it makes on confirm (the real
     model's card, 2026-10-18)."""
     page, watch = flow_page("e2e_stmtrules")
-    new = "بانک پارسیان (تازه)"
+    new = "بانک پارسیان (جدید)"
     lines = [{**ln, "account": "111002", "name": new} if ln["account"] == "111001" else ln for ln in CARD["lines"]]
     reply = {**REPLY, "text": "کارت آماده است: سمت بانکی روی حساب جدید «بانک پارسیان» (۱۱۱۰۰۲) که با تأیید همین کارت ساخته می‌شود.",
              "proposals": [{**REPLY["proposals"][0], "card": {**CARD, "lines": lines},

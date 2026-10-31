@@ -154,7 +154,7 @@ def test_can_i_afford_it_as_a_card(flow_page):
         card = page.locator(".ai-review-card.mood-watch")
         expect(card).to_be_visible()
         expect(card.locator(".ai-review-emoji")).to_have_text("🐷")
-        expect(card.locator(".ai-review-badge")).to_have_text("می‌تونم بخرم؟")
+        expect(card.locator(".ai-review-badge")).to_have_text("می‌توانم بخرم؟")
         expect(card.locator(".ai-review-headline .ai-review-label")).to_have_text("ماهی ۱۵٬۰۰۰٬۰۰۰ ریال ایران کنار بگذارید، حدود ۱۴ ماه")
         expect(card.locator(".ai-review-col")).to_have_count(2)
         expect(card.locator(".ai-review-ring-pct")).to_have_text("۳۲٪ از قیمت")

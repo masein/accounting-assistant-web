@@ -22,7 +22,7 @@ Decided from the seven reviewers' term lists. The basis, in order: established I
 | Cash flow statement | **صورت جریان‌های نقدی** (title of the revised Iranian standard No. 2, already on the app's statements) | «صورت جریان وجوه نقد» (the old title), «جریان نقد» as the statement name |
 | Financial statements | **صورت‌های مالی** | bare «صورت‌ها» |
 | Equity | **حقوق مالکانه** | «حقوق صاحبان سهام» (mixed) |
-| Net worth | **دارایی خالص** (owner, 2026-10-31) | «ارزش خالص»، «خالص دارایی» in labels (the seeded account names «خالص دارایی» / «خالص دارایی اولیه» are data, unchanged). «ارزش خالص» stays for stock's net value |
+| Net worth | **دارایی خالص** (owner, 2026-10-31) | «ارزش خالص»، «خالص دارایی». A person's chart says it too: 31 «دارایی خالص», 3110 «دارایی خالص اولیه» (migration 086). «ارزش خالص» stays for stock's net value |
 | Opening voucher / balances | **سند افتتاحیه** (the voucher), **مانده‌های افتتاحیه** (the balances) | «تراز افتتاحیه» as a voucher description |
 | Aging (report) | **تحلیل سنی …** (column header «سن بدهی» is fine) | bare «سنی …» |
 | Bank reconciliation | **مغایرت‌گیری بانکی**; a difference is **مغایرت** | «فرق دارد» for a reconciliation difference |

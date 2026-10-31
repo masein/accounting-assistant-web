@@ -383,7 +383,7 @@ def pending_exchanges_into(db, session_id, code: str, currency: str) -> bool:
 
 
 def _exchange_account(db):
-    """«تبدیل ارز» beside «خالص دارایی اولیه»: made the first time money is changed in books kept before it."""
+    """«تبدیل ارز» beside «دارایی خالص اولیه»: made the first time money is changed in books kept before it."""
     from app.models.account import Account
     acc = db.execute(select(Account).where(Account.code == EXCHANGE)).scalars().first()
     if acc is not None:

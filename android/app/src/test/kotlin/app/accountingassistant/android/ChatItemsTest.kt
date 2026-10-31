@@ -193,15 +193,15 @@ class ChatItemsTest {
     private val wallet = """{"type":"proposal","id":"proposal:t9","token":"t9","title":"کیف پول سبز — موجودی اولیه",
         "amount":{"value":77.5,"currency":"OMR"},"date":{"iso":"2026-10-16","display":"۲۴ مهر ۱۴۰۵"},
         "lines":[{"account":"112001","name":"کیف پول سبز","debit":77.5,"credit":0},
-                 {"account":"3110","name":"خالص دارایی اولیه","debit":0,"credit":77.5}],"needs_approval":false}"""
+                 {"account":"3110","name":"دارایی خالص اولیه","debit":0,"credit":77.5}],"needs_approval":false}"""
 
     /** Scenarios AC2, AC8: a card copied as it reads, its lines To and From in a person's books. */
     @Test fun aCardCopiesAsWhatItIsItsAmountAndItsLines() {
         val card = parseBlock(block(wallet))
         assertEquals("کیف پول سبز — موجودی اولیه · ۲۴ مهر ۱۴۰۵\n77.500 OMR\n" +
-                     "112001 کیف پول سبز  To 77.500\n3110 خالص دارایی اولیه  From 77.500",
+                     "112001 کیف پول سبز  To 77.500\n3110 دارایی خالص اولیه  From 77.500",
                      card.asText("en", "To" to "From"))
-        assertEquals("۳۱۱۰ خالص دارایی اولیه  بس ۷۷٫۵۰۰", card.asText("fa", "بد" to "بس")!!.lines().last())
+        assertEquals("۳۱۱۰ دارایی خالص اولیه  بس ۷۷٫۵۰۰", card.asText("fa", "بد" to "بس")!!.lines().last())
         // a reply to it quotes its title and amount, and names the card
         assertEquals(Quote(false, "کیف پول سبز — موجودی اولیه · 77.500 OMR", "t9"), card.quote("en", "Dr" to "Cr"))
     }

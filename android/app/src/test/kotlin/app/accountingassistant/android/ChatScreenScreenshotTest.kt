@@ -536,7 +536,7 @@ class ChatScreenScreenshotTest {
         id = "p9", token = "t9", title = "کیف پول سبز — موجودی اولیه", amount = java.math.BigDecimal("77.5"), currency = "OMR",
         date = "۲۴ مهر ۱۴۰۵",
         lines = listOf(VoucherLine("112001", "کیف پول سبز", debit = java.math.BigDecimal("77.5")),
-                       VoucherLine("3110", "خالص دارایی اولیه", credit = java.math.BigDecimal("77.5"))),
+                       VoucherLine("3110", "دارایی خالص اولیه", credit = java.math.BigDecimal("77.5"))),
         needsApproval = false)
 
     private fun personal(state: ChatUiState, lang: String) {

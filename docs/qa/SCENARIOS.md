@@ -915,7 +915,8 @@ The owner said the Persian "doesn't sound natural". Every Persian string users r
 | BD8 | A closed period, in the company's calendar | Post back-dated into a closed period in an Iranian company | «دوره را باز کنید یا تاریخی بعد از ۱۴۰۵/۰۴/۰۹ انتخاب کنید.» Both dates are Jalali |
 | BD9 | The scan buttons | Invoices page in Persian | «اسکن و پر کردن فرم» and «اسکن و ایجاد» each on one line |
 | BD10 | The Moadian system's name | Invoices page → the e-invoicing section; a sales invoice not yet sent; the seasonal tax workbook | «سامانه مؤدیان» with ؤ everywhere (owner's choice, 2026-10-31); the server's messages about it still read in every language |
-| BD11 | Net worth | Personal books: the net worth panel, its chart and legend, the monthly report card, a chat «دارایی خالص من چقدره؟» | «دارایی خالص» on every one (it was also «خالص دارایی» and «ارزش خالص»). The opening account «خالص دارایی اولیه» keeps its name |
+| BD11 | Net worth | Personal books: the net worth panel, its chart and legend, the monthly report card, a chat «دارایی خالص من چقدره؟» | «دارایی خالص» on every one (it was also «خالص دارایی» and «ارزش خالص») |
+| BD12 | The chart says it too | A person's books from before 2026-10-31, then new books; also books where the person renamed 3110 | Group 31 «دارایی خالص», 3110 «دارایی خالص اولیه» (migration 086), so the opening card's lines match its title. A name the person chose stays |
 
 ## BE. No English on a Persian company's documents (2026-10-31)
 

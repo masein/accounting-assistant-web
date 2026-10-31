@@ -170,7 +170,7 @@ def test_z2_money_in_another_currency_is_named_not_guessed(person, scripted):
 
 # --- Z4: the words for opening net worth ----------------------------------------------------------------------
 
-@pytest.mark.parametrize("words", ["افتتاحیه", "موجودی اولیه", "خالص دارایی", "opening balance"])
+@pytest.mark.parametrize("words", ["افتتاحیه", "موجودی اولیه", "خالص دارایی", "دارایی خالص", "opening balance"])
 def test_z4_opening_net_worth_is_found_by_its_words(person, db, words):
     import asyncio
     from app.db.tenant import use_company

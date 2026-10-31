@@ -2193,6 +2193,7 @@ window.I18N_PACKS.ar = Object.assign({
         jdateToday: "اليوم",
         jdateClear: "مسح",
         jdateInvalid: "ليس يوماً في التقويم الشمسي — اكتب سنة/شهر/يوم، مثلاً 1405/07/09.",
+        gdateInvalid: "ليس يومًا صحيحًا — اكتب سنة/شهر/يوم، مثل 2026/10/31.",
         validityRequired: "املأ هذا الحقل.",
         validityChoose: "اختر خياراً.",
         validityTick: "حدّد هذا المربع للمتابعة.",

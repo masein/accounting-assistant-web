@@ -2193,6 +2193,7 @@ window.I18N_PACKS.es = Object.assign({
         jdateToday: "Hoy",
         jdateClear: "Borrar",
         jdateInvalid: "No es un día del calendario persa: escribe año/mes/día, p. ej. 1405/07/09.",
+        gdateInvalid: "No es un día: escribe año/mes/día, p. ej. 2026/10/31.",
         validityRequired: "Rellena este campo.",
         validityChoose: "Elige una opción.",
         validityTick: "Marca esta casilla para continuar.",

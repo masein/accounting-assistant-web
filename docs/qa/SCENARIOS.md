@@ -986,3 +986,13 @@ Every Persian template rendered with real values (a count of 1 and of 3, names, 
 |----|----------|-------|----------|
 | BJ1 | «,» between thousands | Any amount in Persian: web tables and cards, chart axes and tooltips, the phone's cards and widget, the server's messages, notifications, the digest, the assistant's replies | «۱,۲۵۰,۰۰۰», decimals «۷٫۵۰». «٬» drew as an apostrophe on the phone («۴۰’۰۰۰’۰۰۰»). A figure typed or pasted with «٬» is still read |
 | BJ2 | Account codes in Persian digits | An error naming an account («حساب ۱۱۱۰ غیرفعال است»), an audit finding, the web and the phone | «۱۱۱۰» everywhere; a barcode, an invoice number («INV-12») and ids keep the digits they were typed in |
+
+## BK. A Gregorian company's dates on a Persian page (2026-10-31)
+
+The owner's choice: on a Persian page every date field is the app's own, in the company's calendar. A company kept in the Gregorian calendar got the browser's field there: «mm/dd/yyyy», English month names, Latin digits.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BK1 | The field | A Gregorian-calendar company, the app in Persian; the voucher's date | The app's box: «۲۰۲۶/۱۰/۰۱» in Persian digits, «سال/ماه/روز» when empty; typing «۲۰۲۶/۱۱/۰۵» (or Latin digits) sets 5 November 2026; «2026/02/30» is said not to be a day, in Persian. The Jalali day still shows under it («۱۴۰۵/۰۷/۰۹») |
+| BK2 | The month grid | Open the field's grid | Gregorian months named in Persian («اکتبر ۲۰۲۶»), the week from Saturday («ش»), the chosen day pressed; picking a day sets it |
+| BK3 | Other languages | The same company in English; a Jalali company in any language | English: the browser's own field, as before. A Jalali company: the Jalali box, as before |

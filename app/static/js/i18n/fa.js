@@ -2237,6 +2237,7 @@ window.I18N_PACKS.fa = Object.assign({
         jdateToday: "امروز",
         jdateClear: "پاک کردن",
         jdateInvalid: "این روز در تقویم شمسی نیست؛ به شکل سال/ماه/روز بنویسید، مثلاً ۱۴۰۵/۰۷/۰۹.",
+        gdateInvalid: "این روز در تقویم میلادی نیست؛ به شکل سال/ماه/روز بنویسید، مثلاً ۲۰۲۶/۱۰/۳۱.",
         validityRequired: "این خانه را پر کنید.",
         validityChoose: "یکی را انتخاب کنید.",
         validityTick: "برای ادامه این گزینه را علامت بزنید.",

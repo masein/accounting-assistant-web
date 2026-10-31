@@ -106,15 +106,45 @@ def test_a_jalali_company_types_and_picks_dates_in_jalali(browser, flow_page):
         page.fill("#date", "2026-09-22")
         assert page.evaluate(FIELD)["text"] == "۱۴۰۵/۰۶/۳۱"
 
-        # back to Gregorian: the browser's own field again
+        # back to Gregorian, on a Persian page: the app's own box in that calendar, Persian digits and
+        # Persian month names — the browser's field wrote «mm/dd/yyyy» and English months (BK1, BK2)
         assert owner.evaluate(POST, ["/admin/display-calendar", {"calendar": "gregorian"}])[0] == 200
         page.reload()
         page.wait_for_load_state("networkidle")
         page.click('.nav-btn[data-page="transactions"]')
-        assert page.evaluate("() => document.querySelectorAll('.jdate').length") == 0
-        assert page.locator("#date").is_visible()
+        wait_until(page, "() => document.getElementById('date').closest('.jdate')")
         page.fill("#date", "2026-10-01")
+        assert page.evaluate(FIELD) == {"text": "۲۰۲۶/۱۰/۰۱", "value": "2026-10-01", "invalid": None}
         assert page.locator("#date-jalali-hint").inner_text() == "۱۴۰۵/۰۷/۰۹"   # under a Gregorian field, it helps
+        assert page.evaluate("""() => { let bad = 0;
+            for (let t = Date.UTC(1990, 0, 1); t <= Date.UTC(2050, 11, 31); t += 86400000) {
+              const iso = new Date(t).toISOString().slice(0, 10);
+              if (fieldTextToIso(isoToFieldText(iso, 'gregorian'), 'gregorian') !== iso) bad++; }
+            return bad; }""") == 0
+        _text(page).fill("۲۰۲۶/۱۱/۰۵")
+        assert page.evaluate(FIELD)["value"] == "2026-11-05"
+        _text(page).fill("2026/02/30")
+        _text(page).press("Tab")
+        assert page.evaluate(FIELD) == {"text": "2026/02/30", "value": "2026-11-05", "invalid": "true"}
+        assert "میلادی" in _text(page).get_attribute("title")
+        page.click("#date >> xpath=.. >> .jdate-btn")
+        assert pop.locator(".jdate-title").inner_text() == "نوامبر ۲۰۲۶"
+        assert pop.locator(".jdate-wd").first.inner_text() == "ش"
+        # 1 November 2026 is a Sunday: one blank cell (Saturday) before it
+        assert page.evaluate("() => document.querySelector('#jdate-pop .jdate-grid').children[7].className") == ""
+        assert page.evaluate("() => document.querySelector('#jdate-pop .jdate-grid').children[8].className").startswith("jdate-day")
+        pop.locator('.jdate-day[data-iso="2026-11-20"]').click()
+        assert page.evaluate(FIELD) == {"text": "۲۰۲۶/۱۱/۲۰", "value": "2026-11-20", "invalid": None}
+        os.makedirs(ARTIFACTS, exist_ok=True)
+        page.click("#date >> xpath=.. >> .jdate-btn")
+        page.screenshot(path=os.path.join(ARTIFACTS, "gregorian-date-field-fa.png"))
+        page.keyboard.press("Escape")
+
+        # in English, a Gregorian company keeps the browser's own field (BK3)
+        switch_language(page, "en")
+        page.wait_for_load_state("networkidle")
+        wait_until(page, "() => document.querySelectorAll('.jdate').length === 0")
+        assert page.locator("#date").is_visible()
         assert watch.problems() == [], watch.problems()
     except Exception:
         if page is not None:

@@ -133,7 +133,7 @@ def test_a_stock_count_posts_what_differs(flow_page):
         wait_until(page, "(n) => [...document.querySelectorAll('#count-sheet tr')].some(tr => tr.textContent.includes(n) && tr.children[1].textContent.trim().startsWith('8'))",
                    names["Chair"])
         switch_language(page, "fa")
-        expect(page.locator("#count-post")).to_have_text("ثبت شمارش")
+        expect(page.locator("#count-post")).to_have_text("ثبت انبارگردانی")
         # the sheet and the result line again, in Persian
         expect(page.locator("#count-sheet th").first).to_have_text("کالا")
         expect(out).to_contain_text("شمارش ثبت شد")

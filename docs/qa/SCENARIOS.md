@@ -914,3 +914,17 @@ The owner said the Persian "doesn't sound natural". Every Persian string users r
 | BD7 | The phone's affordability card | «ماشین ۳۰۰ میلیون ریال بخرم؟» on the phone, personal books | «قابل خرج», «ذخیرهٔ احتیاطی», bars «حالا» / «بعد از خرید», facts «درآمد ماهانه حدود …» |
 | BD8 | A closed period, in the company's calendar | Post back-dated into a closed period in an Iranian company | «دوره را باز کنید یا تاریخی بعد از ۱۴۰۵/۰۴/۰۹ انتخاب کنید.» Both dates are Jalali |
 | BD9 | The scan buttons | Invoices page in Persian | «اسکن و پر کردن فرم» and «اسکن و ایجاد» each on one line |
+
+## BE. No English on a Persian company's documents (2026-10-31)
+
+The Persian copy review found English printed on Persian PDFs where the code fell back to a hard-coded word.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BE1 | An hourly payslip | Iranian company; an hourly employee with 160 regular, 10 overtime and 8 paid-leave hours; print the payslip | Rows «کارکرد عادی: ۱۶۰ ساعت», «اضافه‌کاری: ۱۰ ساعت», «مرخصی با حقوق: ۸ ساعت». It printed «Regular hours: 160 h» |
+| BE2 | An invoice with no items | An invoice with an amount but no item rows and no description | The row reads «کالا / خدمات». It read «Service / Product» |
+| BE3 | An item with no name | An invoice item or a purchase-order line with no name | «کالا». It read «Item» |
+| BE4 | A receipt | Record a payment by bank, cash, cheque and transfer; print each receipt | «روش پرداخت: بانک / نقد / چک / انتقال بانکی». It read «شرایط پرداخت: bank». In English, «Paid by: Bank» |
+| BE5 | A receipt's invoice number | Print a receipt for invoice INV-12 in an Iranian company | «فاکتور INV-۱۲», the number in Persian digits like the invoice itself |
+| BE6 | The cheque print test | Iranian company; cheques page → print test | The sample payee is «نمونه». It was «نمونه — Sample». A UK company's says «Sample» |
+| BE7 | Every document, no stray English | Render the invoice, quote, time invoice, receipt, statement, purchase order and payslip for an Iranian company with Persian party names | No English word on the page apart from codes, numbers, currency codes and the company's own data |

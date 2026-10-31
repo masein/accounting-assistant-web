@@ -71,6 +71,13 @@ EN = {
     "debit": "Debit",
     "credit": "Credit",
     "balance": "Balance",
+    "regular_hours": "Regular hours",
+    "overtime_hours": "Overtime hours",
+    "leave_hours": "Paid leave hours",
+    "hours_unit": "h",
+    "item": "Item",
+    "goods_services": "Service / Product",
+    "paid_by": "Paid by",
 }
 
 FA = {
@@ -139,6 +146,13 @@ FA = {
     "debit": "بدهکار",
     "credit": "بستانکار",
     "balance": "مانده",
+    "regular_hours": "کارکرد عادی",
+    "overtime_hours": "اضافه‌کاری",
+    "leave_hours": "مرخصی با حقوق",
+    "hours_unit": "ساعت",
+    "item": "کالا",
+    "goods_services": "کالا / خدمات",
+    "paid_by": "روش پرداخت",
 }
 
 
@@ -174,6 +188,25 @@ def status_label(status: str | None, locale: str | None) -> str:
     words too («On hold»), never with its underscore."""
     key = (status or "").strip().lower()
     words = STATUS.get(key)
+    if words:
+        return words[1] if (locale or "").lower() == "ir" else words[0]
+    return key.replace("_", " ").capitalize()
+
+
+# How a payment was made (app/models/payment.py ``method``), for a receipt:
+# it printed the raw code («شرایط پرداخت: bank»; scenario BE4).
+METHOD = {
+    "bank": ("Bank", "بانک"),
+    "transfer": ("Bank transfer", "انتقال بانکی"),
+    "cash": ("Cash", "نقد"),
+    "cheque": ("Cheque", "چک"),
+    "credit": ("Credit note", "برگ بستانکار"),
+}
+
+
+def method_label(method: str | None, locale: str | None) -> str:
+    key = (method or "bank").strip().lower()
+    words = METHOD.get(key)
     if words:
         return words[1] if (locale or "").lower() == "ir" else words[0]
     return key.replace("_", " ").capitalize()

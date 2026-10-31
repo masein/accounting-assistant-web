@@ -12,7 +12,7 @@ from app.services.documents.formatting import (
     fmt_digits,
     fmt_money,
 )
-from app.services.documents.labels import labels_for, status_label
+from app.services.documents.labels import labels_for, method_label, status_label
 from app.core.money import plain
 
 
@@ -96,7 +96,7 @@ def _render_invoice_like(db: Session, inv, party, *, kind: str = "invoice") -> b
     if not items:
         amt = plain(inv.amount or 0)
         rows.append({"cells": [
-            {"value": inv.description or "Service / Product"},
+            {"value": inv.description or L["goods_services"]},
             {"value": fmt_digits("1", loc), "num": True},
             {"value": _money(amt, ccy, loc), "num": True},
             {"value": fmt_digits("0%", loc), "num": True},
@@ -109,7 +109,7 @@ def _render_invoice_like(db: Session, inv, party, *, kind: str = "invoice") -> b
         qty = f"{float(it.quantity or 1):g}"
         taxr = f"{float(getattr(it, 'tax_rate', 0) or 0):g}%"
         rows.append({"cells": [
-            {"value": it.product_name or "Item"},
+            {"value": it.product_name or L["item"]},
             {"value": fmt_digits(qty, loc), "num": True},
             {"value": _money(it.unit_price or 0, ccy, loc), "num": True},
             {"value": fmt_digits(taxr, loc), "num": True},
@@ -194,13 +194,13 @@ def render_receipt_pdf(db: Session, payment, inv, party, balance_after: int) -> 
     brand, L, loc = _ctx(db)
     ccy = payment.currency or brand["base_currency"]
     amt = plain(payment.amount or 0)
-    desc = f"{L['invoice']} {inv.number}" if inv else L["received_with_thanks"]
+    desc = f"{L['invoice']} {fmt_digits(inv.number, loc)}" if inv else L["received_with_thanks"]
     ctx = {
         **brand, "title": L["receipt"], "labels": L,
         "meta": [
             {"label": L["number"], "value": fmt_digits(str(payment.id)[:8].upper(), loc)},
             {"label": L["date"], "value": fmt_date(payment.date, loc)},
-            {"label": L["payment_terms"], "value": (payment.method or "bank")},
+            {"label": L["paid_by"], "value": method_label(payment.method, loc)},
         ],
         "parties": [_issuer_party(brand, L), _recipient_party(build_recipient(party), L, L["bill_to"])],
         "columns": [{"label": L["description"]}, {"label": L["amount"], "num": True}],
@@ -264,7 +264,7 @@ def render_purchase_order_pdf(db: Session, po, supplier) -> bytes:
         lt = plain(ln.line_total or 0)
         total += lt
         rows.append({"cells": [
-            {"value": ln.description or "Item"},
+            {"value": ln.description or L["item"]},
             {"value": fmt_digits(f"{float(ln.ordered_qty or 0):g}", loc), "num": True},
             {"value": _money(ln.unit_price or 0, ccy, loc), "num": True},
             {"value": _money(lt, ccy, loc), "num": True},
@@ -311,14 +311,14 @@ def render_payslip_pdf(db: Session, run, line, employee) -> bytes:
     rows = []
     # Hours breakdown (hourly staff): regular / overtime / paid leave.
     _hrs = [
-        ("regular_hours", "Regular hours", float(line.hours or 0)),
-        ("overtime_hours", "Overtime hours", float(line.overtime_hours or 0)),
-        ("leave_hours", "Paid leave hours", float(getattr(line, "leave_hours", 0) or 0)),
+        ("regular_hours", float(line.hours or 0)),
+        ("overtime_hours", float(line.overtime_hours or 0)),
+        ("leave_hours", float(getattr(line, "leave_hours", 0) or 0)),
     ]
-    for key, fallback, h in _hrs:
+    for key, h in _hrs:
         if h > 0:
             rows.append({"cells": [
-                {"value": f"{L.get(key, fallback)}: {h:g} h"}, {"value": "", "num": True},
+                {"value": f"{L[key]}: {fmt_digits(f'{h:g}', loc)} {L['hours_unit']}"}, {"value": "", "num": True},
             ]})
     year_end = (getattr(run, "kind", None) or "regular") == "year_end"
     if year_end:                                    # عیدی and سنوات, then the gross they make (§3.3)

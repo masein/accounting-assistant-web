@@ -205,7 +205,12 @@ def cheque_values(db: Session, row, *, payee: str | None = None, national_id: st
     }
 
 
-SAMPLE = {"payee": "نمونه — Sample", "national_id": "0012345678"}
+SAMPLE = {"payee": {"ir": "نمونه", "uk": "Sample"}, "national_id": "0012345678"}
+
+
+def sample_payee(db: Session) -> str:
+    """The print test's payee in the cheque's language (it read «نمونه — Sample»; scenario BE6)."""
+    return SAMPLE["payee"]["ir" if locale_of(db) == "ir" else "uk"]
 
 
 def fit_font_size(text: str, width_mm: float, size_pt: float) -> float:

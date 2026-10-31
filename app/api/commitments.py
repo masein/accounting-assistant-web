@@ -239,7 +239,7 @@ def reset_print_layout(db: Session = Depends(get_db)) -> dict:
 def print_test(db: Session = Depends(get_db)) -> Response:
     """The guide with sample values, to calibrate before there is a cheque to print."""
     from types import SimpleNamespace
-    sample = SimpleNamespace(amount=12_500_000, due_date=date.today(), counterparty=cheque_print.SAMPLE["payee"],
+    sample = SimpleNamespace(amount=12_500_000, due_date=date.today(), counterparty=cheque_print.sample_payee(db),
                              entity_id=None)
     values = cheque_print.cheque_values(db, sample, national_id=cheque_print.SAMPLE["national_id"])
     return _pdf(cheque_print.render_pdf(db, values, guide=True), "cheque-guide.pdf")

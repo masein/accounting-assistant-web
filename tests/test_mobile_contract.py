@@ -121,7 +121,7 @@ def _conversations(db) -> dict[str, list[dict]]:
                 "summary": "Proposed journal entry on 2026-10-10 (IRR):\n  اجارهٔ دفتر، مهر", "preview": TXN_PREVIEW,
                 "needs_approval": False, "expires_at": "2026-10-10T10:10:00+00:00", "new_entities": []}
     return {
-        "cash-fa": turn(text="موجودی نقد و بانک امروز: ۱٬۲۴۰٬۰۰۰٬۰۰۰ ریال.", calls=[("get_cash_position", {
+        "cash-fa": turn(text="موجودی نقد و بانک امروز: ۱,۲۴۰,۰۰۰,۰۰۰ ریال.", calls=[("get_cash_position", {
             "total": 1_240_000_000, "currency": "IRR", "as_of": "2026-10-10",
             "accounts": [{"account_code": "1110", "account_name": "بانک ملت", "balance": 1_000_000_000},
                          {"account_code": "1120", "account_name": "صندوق", "balance": 240_000_000}]})]),
@@ -168,7 +168,7 @@ def _conversations(db) -> dict[str, list[dict]]:
                         {"run_id": "6a7b8c9d-0000-4000-8000-000000000006", "period_start": "2026-08-23", "period_end": "2026-09-22",
                          "pay_date": "2026-09-22", "status": "paid", "currency": "IRR", "gross": 100_000_000, "net_pay": 84_000_000}],
             "totals_by_currency": {}})]),
-        "net-worth-fa": turn(text="دارایی خالص شما امروز: ۹۵۰٬۰۰۰٬۰۰۰ ریال.", calls=[("get_net_worth", {
+        "net-worth-fa": turn(text="دارایی خالص شما امروز: ۹۵۰,۰۰۰,۰۰۰ ریال.", calls=[("get_net_worth", {
             "as_of": "2026-10-10", "currency": "IRR", "net_worth": 950_000_000, "total_assets": 1_150_000_000,
             "total_liabilities": 200_000_000, "unrealized_gain": 180_000_000,
             "assets": [{"account_code": "1130", "account_name": "طلا", "book_value": 420_000_000, "market_value": 600_000_000,

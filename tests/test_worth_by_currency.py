@@ -46,7 +46,7 @@ def test_ar2_asked_in_the_chat(person, db, scripted):
     _books(db, person["cid"])
     r = person["client"].post(f"{API}/chat", headers=person["phone"](), json={"message": "دارایی خالصم چقدره؟"}).json()
     words = [b for b in r["blocks"] if b["type"] == "text"][-1]["text"]
-    assert words == "دارایی خالص شما امروز، هر ارز جداگانه: ۱۰٬۰۰۰٬۰۰۰ ریال، ۷۰٫۰۰۰ ریال عمان."
+    assert words == "دارایی خالص شما امروز، هر ارز جداگانه: ۱۰,۰۰۰,۰۰۰ ریال، ۷۰٫۰۰۰ ریال عمان."
     table = next(b for b in r["blocks"] if b["type"] == "table" and b["kind"] == "net_worth_currencies")
     assert [(row["currency"], row["value"]) for row in table["rows"]] == [("IRR", 10_000_000), ("OMR", 70)]
 

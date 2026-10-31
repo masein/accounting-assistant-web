@@ -98,7 +98,7 @@ def test_ab4_ab5_many_places_many_currencies_each_as_it_is(person, scripted):
         _confirm(person, phone, _card(_say(person, phone, f"{amount} {ccy} {place}")))
     reply = _say(person, phone, "چقدر پول دارم؟")                              # a quick answer: no model
     words = [b for b in reply["blocks"] if b["type"] == "text"][-1]["text"]
-    assert words == "موجودی نقد و بانک امروز، هر ارز جداگانه: ۳٬۰۰۰٬۰۰۰ ریال، ۷۷٫۵۰۰ ریال عمان، ۵۰۰٫۰۰ دلار آمریکا."
+    assert words == "موجودی نقد و بانک امروز، هر ارز جداگانه: ۳,۰۰۰,۰۰۰ ریال، ۷۷٫۵۰۰ ریال عمان، ۵۰۰٫۰۰ دلار آمریکا."
     table = next(b for b in reply["blocks"] if b["type"] == "table")
     assert table["kind"] == "holdings"
     assert sorted((r["label"], r["currency"], r["value"]) for r in table["rows"]) == [

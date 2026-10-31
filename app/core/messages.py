@@ -718,7 +718,9 @@ class _Pattern:
                     said = "; ".join(_translated(part, lang) or part for part in raw.split("; "))
             else:
                 said = self.values.get(name, {}).get(lang, {}).get(raw, raw)
-                if said == raw and name not in _AS_TYPED:
+                if said == raw and name in _ACCOUNT_CODES:
+                    said = _code(raw, lang)
+                elif said == raw and name not in _AS_TYPED:
                     said = _figure(raw, lang)
             parts[name] = _iso(said, lang)
         return self.text[lang].format(**parts)
@@ -726,9 +728,18 @@ class _Pattern:
 
 # A count or an amount inside a Persian sentence reads in Persian digits: «هر بار
 # حداکثر 50 پیامک», «هزینه 2,500,000 از موجودی تنخواه» (Persian copy review,
-# 2026-10-31). An identifier keeps the digits it was typed in (docs/FA_GLOSSARY.md).
+# 2026-10-31). An identifier keeps the digits it was typed in (docs/FA_GLOSSARY.md);
+# an account code is written in Persian digits, nothing else changed, as the web and
+# the phone show it (the owner's call, 2026-10-31, scenario BJ2).
 _FIGURE = re.compile(r"^[-−+]?[0-9][0-9,]*(?:\.[0-9]+)?%?$")
-_AS_TYPED = frozenset({"code", "codes", "id", "t", "number", "v", "sayad", "line", "value"})
+_AS_TYPED = frozenset({"id", "t", "number", "v", "sayad", "line", "value", "barcode"})
+_ACCOUNT_CODES = frozenset({"code", "codes"})
+_FA_CODE_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+
+
+def _code(value: str, lang: str) -> str:
+    """«1110» → «۱۱۱۰» in Persian: the digits only, so «11.10» never reads as a decimal."""
+    return value.translate(_FA_CODE_DIGITS) if lang == "fa" and isinstance(value, str) else value
 
 
 def _figure(value: str, lang: str) -> str:
@@ -1082,9 +1093,9 @@ PATTERNS: list[_Pattern] = [
              {"fa": "دفاتر از قبل تا {date} قفل است.", "es": "Los libros ya están bloqueados hasta el {date}.", "ar": "الدفاتر مقفلة بالفعل حتى {date}."}),
     _Pattern(r"^Component not found: (?P<id>.+)$",
              {"fa": "جزء پیدا نشد: {id}", "es": "Componente no encontrado: {id}", "ar": "المكوّن غير موجود: {id}"}),
-    _Pattern(r"^Another item already has barcode (?P<code>.+)\.$",
-             {"fa": "کالای دیگری از قبل بارکد {code} را دارد.", "es": "Otro artículo ya tiene el código de barras {code}.",
-              "ar": "لصنف آخر الرمز الشريطي {code} بالفعل."}),
+    _Pattern(r"^Another item already has barcode (?P<barcode>.+)\.$",
+             {"fa": "کالای دیگری از قبل بارکد {barcode} را دارد.", "es": "Otro artículo ya tiene el código de barras {barcode}.",
+              "ar": "لصنف آخر الرمز الشريطي {barcode} بالفعل."}),
     _Pattern(r"^No sheet named «(?P<name>.*)» in the file\.$",
              {"fa": "برگه‌ای به نام «{name}» در فایل نیست.", "es": "No hay ninguna hoja llamada «{name}» en el archivo.",
               "ar": "لا توجد ورقة باسم «{name}» في الملف."}),

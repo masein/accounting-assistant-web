@@ -75,7 +75,7 @@ Decided from the seven reviewers' term lists. The basis, in order: established I
 | Link/code validity | **معتبر است** | «کار می‌کند» |
 
 ## Writing conventions
-- Persian digits and «٪» in Persian text, except codes, IDs, formats («YYYY-MM-DD»), and keyboard keys.
+- Figures in Persian text: Persian digits, «,» between thousands and «٫» for the decimal point («۱,۲۵۰,۰۰۰», «۷٫۵۰»; the owner's choice, 2026-10-31: «٬» drew as an apostrophe on the phone), «٪» for percent. Account codes in Persian digits too («۱۱۱۰»). Document numbers and ids («INV-12»), formats («YYYY-MM-DD») and keyboard keys keep their Latin digits.
 - «،» «؛» «؟» «» in Persian text. In right-to-left text an arrow between two places is «←», not «→».
 - نیم‌فاصله as already used. Leave the ezafe «ـهٔ» and «همه/همهٔ» as they are (no mass change: low value, high churn).
 - Keep every placeholder, HTML tag and escape exactly.

@@ -1170,7 +1170,7 @@
         ${period ? `<div class="report-meta" style="margin-bottom:0.75rem;">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
         <div class="detail-summary" style="margin-bottom:1rem;">
           <div><span>${escapeHtml(t('invTotalItems'))}</span><strong>${localDigits(rows.length)}</strong></div>
-          <div><span>${escapeHtml(t('invTotalOnHand'))}</span><strong>${totalQty.toLocaleString(numLocale())}</strong></div>
+          <div><span>${escapeHtml(t('invTotalOnHand'))}</span><strong>${fmtNum(totalQty)}</strong></div>
           <div><span>${escapeHtml(t('fieldInventoryValue'))}</span><strong>${formatAmount(totalValue)} ${currencyUnit()}</strong></div>
           <div><span>${escapeHtml(t('invTotalCogs'))}</span><strong>${formatAmount(totalCOGS)} ${currencyUnit()}</strong></div>
         </div>
@@ -1190,9 +1190,9 @@
               <td><strong>${escapeHtml(r.item_name)}</strong></td>
               <td>${escapeHtml(r.sku || '—')}</td>
               <td>${escapeHtml(r.unit || t('invUnitDefault'))}</td>
-              <td class="num">${r.qty_in.toLocaleString(numLocale())}</td>
-              <td class="num">${r.qty_out.toLocaleString(numLocale())}</td>
-              <td class="num" style="font-weight:600;">${r.on_hand_qty.toLocaleString(numLocale())}</td>
+              <td class="num">${fmtNum(r.qty_in)}</td>
+              <td class="num">${fmtNum(r.qty_out)}</td>
+              <td class="num" style="font-weight:600;">${fmtNum(r.on_hand_qty)}</td>
               <td class="num">${formatAmount(r.average_cost)}</td>
               <td class="num">
                 <div style="display:flex;align-items:center;gap:0.4rem;justify-content:flex-end;">
@@ -1207,9 +1207,9 @@
           }).join('')}</tbody>
           <tfoot><tr style="font-weight:700;background:#f1f5f9;">
             <td colspan="3">${escapeHtml(t('tableTotal'))}</td>
-            <td class="num">${rows.reduce((s,r)=>s+r.qty_in,0).toLocaleString(numLocale())}</td>
-            <td class="num">${rows.reduce((s,r)=>s+r.qty_out,0).toLocaleString(numLocale())}</td>
-            <td class="num">${totalQty.toLocaleString(numLocale())}</td>
+            <td class="num">${fmtNum(rows.reduce((s,r)=>s+r.qty_in,0))}</td>
+            <td class="num">${fmtNum(rows.reduce((s,r)=>s+r.qty_out,0))}</td>
+            <td class="num">${fmtNum(totalQty)}</td>
             <td class="num">—</td>
             <td class="num">${formatAmount(totalValue)}</td>
             <td class="num" style="color:#c62828;">${formatAmount(totalCOGS)}</td>
@@ -1245,8 +1245,8 @@
         ${period ? `<div class="report-meta" style="margin-bottom:0.75rem;">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
         <div class="detail-summary" style="margin-bottom:1rem;">
           <div><span>${escapeHtml(t('invTotalMovements'))}</span><strong>${localDigits(rows.length)}</strong></div>
-          <div><span>${escapeHtml(t('invQtyIn'))}</span><strong style="color:#2e7d32;"><bdi dir="ltr">+${qtyIn.toLocaleString(numLocale())}</bdi></strong></div>
-          <div><span>${escapeHtml(t('invQtyOut'))}</span><strong style="color:#c62828;"><bdi dir="ltr">-${qtyOut.toLocaleString(numLocale())}</bdi></strong></div>
+          <div><span>${escapeHtml(t('invQtyIn'))}</span><strong style="color:#2e7d32;"><bdi dir="ltr">+${fmtNum(qtyIn)}</bdi></strong></div>
+          <div><span>${escapeHtml(t('invQtyOut'))}</span><strong style="color:#c62828;"><bdi dir="ltr">-${fmtNum(qtyOut)}</bdi></strong></div>
           <div><span>${escapeHtml(t('invValueIn'))}</span><strong style="color:#2e7d32;">${formatAmount(totalIn)}</strong></div>
           <div><span>${escapeHtml(t('invValueOut'))}</span><strong style="color:#c62828;">${formatAmount(totalOut)}</strong></div>
         </div>
@@ -1256,9 +1256,9 @@
         <table class="mini-table"><thead><tr><th>${escapeHtml(t('stockColItem'))}</th><th class="num">${escapeHtml(t('invColIn'))}</th><th class="num">${escapeHtml(t('invColOut'))}</th><th class="num">${escapeHtml(t('invColAdj'))}</th><th class="num">${escapeHtml(t('invColNetValue'))}</th></tr></thead>
           <tbody>${Object.entries(byItem).map(([name, v]) => `<tr>
             <td><strong>${escapeHtml(name)}</strong></td>
-            <td class="num" style="color:#2e7d32;"><bdi dir="ltr">+${v.in.toLocaleString(numLocale())}</bdi></td>
-            <td class="num" style="color:#c62828;"><bdi dir="ltr">-${v.out.toLocaleString(numLocale())}</bdi></td>
-            <td class="num">${v.adj.toLocaleString(numLocale())}</td>
+            <td class="num" style="color:#2e7d32;"><bdi dir="ltr">+${fmtNum(v.in)}</bdi></td>
+            <td class="num" style="color:#c62828;"><bdi dir="ltr">-${fmtNum(v.out)}</bdi></td>
+            <td class="num">${fmtNum(v.adj)}</td>
             <td class="num" style="font-weight:600;">${formatAmount(v.value)}</td>
           </tr>`).join('')}</tbody>
         </table>
@@ -1279,7 +1279,7 @@
             <td>${escapeHtml(formatDisplayDate(r.movement_date))}</td>
             <td><strong>${escapeHtml(r.item_name)}</strong></td>
             <td><span style="display:inline-block;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.78rem;font-weight:600;color:${typeColor(r.movement_type)};background:${typeBg(r.movement_type)};">${escapeHtml(({ IN: t('movementIn'), OUT: t('movementOut'), ADJUSTMENT: t('movementAdjustment') })[r.movement_type] || r.movement_type)}</span></td>
-            <td class="num">${r.quantity.toLocaleString(numLocale())}</td>
+            <td class="num">${fmtNum(r.quantity)}</td>
             <td class="num">${formatAmount(r.unit_cost)}</td>
             <td class="num" style="font-weight:600;">${formatAmount(r.movement_value)}</td>
             <td>${escapeHtml(r.reference || '—')}</td>

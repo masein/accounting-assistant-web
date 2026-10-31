@@ -979,3 +979,10 @@ Every Persian template rendered with real values (a count of 1 and of 3, names, 
 | BH4 | No Latin digits | The audit table's times, fixed-asset cards, chart axes, the VAT boxes | «۱۱:۵۱», «۰٫۰۰», axis «۰», «خانه ۱» |
 | BH5 | Sentences from pieces | Overdue invoices, a recurring invoice made later, a goal's date, the migration queue, a rate saved, an import applied, the chat threads' times, an undo note | Persian digits and dates throughout; «client» shows as «مشتری»; one sentence for an applied import; «۵ دقیقه پیش» |
 | BH6 | Smaller ones | The SMS example, the equity hint for a currency with decimals, the payroll tax brackets, the contacts table, the empty invoice list | Left-aligned example with Persian placeholders; «تا {مبلغ}: ۲۰٪ … مازاد: ۴۵٪»; «کد»; the empty row spans the table |
+
+## BJ. Persian figures: the owner's choices (2026-10-31)
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BJ1 | «,» between thousands | Any amount in Persian: web tables and cards, chart axes and tooltips, the phone's cards and widget, the server's messages, notifications, the digest, the assistant's replies | «۱,۲۵۰,۰۰۰», decimals «۷٫۵۰». «٬» drew as an apostrophe on the phone («۴۰’۰۰۰’۰۰۰»). A figure typed or pasted with «٬» is still read |
+| BJ2 | Account codes in Persian digits | An error naming an account («حساب ۱۱۱۰ غیرفعال است»), an audit finding, the web and the phone | «۱۱۱۰» everywhere; a barcode, an invoice number («INV-12») and ids keep the digits they were typed in |

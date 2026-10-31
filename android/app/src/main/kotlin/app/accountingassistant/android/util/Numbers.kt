@@ -2,7 +2,8 @@ package app.accountingassistant.android.util
 
 /**
  * Money and digits as each language writes them. Persian: Persian digits and
- * the Arabic thousands separator (٬); Arabic, English and Spanish: Western
+ * a comma between thousands (the owner's call, 2026-10-31: the Arabic thousands
+ * separator ٬ drew as an apostrophe, «۴۰’۰۰۰’۰۰۰»); Arabic, English and Spanish: Western
  * digits and a comma, as the web and the server write them (Arabic was
  * Arabic-Indic until the owner chose Western, 2026-10-11). Amounts are in the
  * currency's own unit with its places (docs/PLAN_PENCE.md): £7.50 is 7.50 and
@@ -30,13 +31,13 @@ object Numbers {
 
     /**
      * An amount with [places] decimals, rounded half-up: 7.5 with 2 → "7.50",
-     * 2500000 with 0 → "۲٬۵۰۰٬۰۰۰" (fa, with the Persian decimal mark ٫ when it has places).
+     * 2500000 with 0 → "۲,۵۰۰,۰۰۰" (fa, with the Persian decimal mark ٫ when it has places).
      */
     fun amount(value: java.math.BigDecimal, lang: String, places: Int): String {
         val v = value.setScale(places, java.math.RoundingMode.HALF_UP)
         val abs = v.abs()
         val whole = abs.toBigInteger().toString()
-        val sep = if (lang == "fa") '٬' else ','
+        val sep = ','
         val grouped = whole.reversed().chunked(3).joinToString(sep.toString()).reversed()
         val frac = if (places > 0) (if (lang == "fa") "٫" else ".") + abs.toPlainString().substringAfter('.', "").padEnd(places, '0') else ""
         return digits((if (v.signum() < 0) "−" else "") + grouped + frac, lang)
@@ -49,16 +50,16 @@ object Numbers {
         return t.toBigDecimalOrNull()
     }
 
-    /** 2500000 → "۲٬۵۰۰٬۰۰۰" (fa) or "2,500,000" (en). Negative amounts keep their sign. */
+    /** 2500000 → "۲,۵۰۰,۰۰۰" (fa) or "2,500,000" (en). Negative amounts keep their sign. */
     fun amount(value: Long, lang: String): String {
-        val sep = if (lang == "fa") '٬' else ','
+        val sep = ','
         val abs = kotlin.math.abs(value).toString()
         val grouped = abs.reversed().chunked(3).joinToString(sep.toString()).reversed()
         return digits((if (value < 0) "−" else "") + grouped, lang)
     }
 
     /**
-     * A change with its sign, kept left to right as one unit: «+۱۸۰٬۰۰۰٬۰۰۰»
+     * A change with its sign, kept left to right as one unit: «+۱۸۰,۰۰۰,۰۰۰»
      * inside Persian words would otherwise put the plus after the number.
      */
     fun signed(value: Long, lang: String): String =

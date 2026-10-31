@@ -119,7 +119,7 @@ def test_n10_in_persian_with_persian_digits(client, db, co, no_model):
     assert web.patch("/auth/preferences", json={"language": "fa"}).status_code == 200
     r = web.post("/ai-accountant/chat", json={"message": "موجودی چقدره؟"})
     assert r.status_code == 200, r.text
-    assert r.json()["text"] == "موجودی نقد و بانک امروز: ۴۹٬۶۰۰٬۰۰۰ ریال."
+    assert r.json()["text"] == "موجودی نقد و بانک امروز: ۴۹,۶۰۰,۰۰۰ ریال."
     r = web.post("/ai-accountant/chat", json={"message": "این ماه چقدر خرج کردم؟"})
     assert r.json()["text"].startswith("خرج این ماه تا امروز:")
 
@@ -164,7 +164,7 @@ def test_n32_the_forecast_comes_back_as_a_chart_with_no_model(client, db, co, no
     assert chart["type"] == "chart" and chart["kind"] == "cash_forecast" and len(chart["points"]) == 13
     assert chart["start"]["value"] == 49_600_000                       # today's cash: 50m in, the taxi out
     assert contract_errors(chart) == []
-    assert words["text"].startswith("پیش‌بینی نقدینگی ۱۳ هفتهٔ آینده: از ۴۹٬۶۰۰٬۰۰۰")
+    assert words["text"].startswith("پیش‌بینی نقدینگی ۱۳ هفتهٔ آینده: از ۴۹,۶۰۰,۰۰۰")
 
 
 def test_n32_a_gregorian_company_dates_in_the_readers_language():

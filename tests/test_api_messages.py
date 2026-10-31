@@ -179,7 +179,7 @@ def test_a_message_chosen_by_a_condition_is_translated_both_ways():
     """The guard follows ``a if … else b``: petty cash's overdraw message has a
     tail only when expenses are pending, and neither form was translated."""
     assert localize_detail("Expense 900,000 exceeds the petty cash available (500,000). Top up the float first.", "fa") == \
-        "هزینه \u2068۹۰۰٬۰۰۰\u2069 از موجودی تنخواه (\u2068۵۰۰٬۰۰۰\u2069) بیشتر است. ابتدا تنخواه را شارژ کنید."
+        "هزینه \u2068۹۰۰,۰۰۰\u2069 از موجودی تنخواه (\u2068۵۰۰,۰۰۰\u2069) بیشتر است. ابتدا تنخواه را شارژ کنید."
     assert localize_detail("Expense 900,000 exceeds the petty cash available (500,000 after 200,000 pending). "
                            "Top up the float first.", "es") == \
         "El gasto de 900,000 supera el saldo de la caja chica (500,000 tras 200,000 pendientes). Repón el fondo primero."
@@ -227,12 +227,12 @@ def test_messages_read_in_the_language_asked_for():
     assert localize_detail("Something nobody translated", "fa") == "Something nobody translated"
     assert localize_detail({"code": "x"}, "fa") == {"code": "x"}            # a structured detail is left alone
     # a message built at run time: its parts kept whole (and isolated in a right-to-left line)
-    assert localize_detail("Account not found: 6112", "fa") == "حساب پیدا نشد: ⁨6112⁩"
+    assert localize_detail("Account not found: 6112", "fa") == "حساب پیدا نشد: ⁨۶۱۱۲⁩"   # account codes in Persian digits (BJ2)
     assert localize_detail("Cannot pay a void invoice.", "es") == "No se puede pagar una factura anulada."
     assert localize_detail("Sales invoice number 'S-7' already exists (id 12).", "fa").startswith("شماره فاکتور ⁨فروش⁩")
     # a reason inside a reason is translated too
     nested = localize_detail("Could not post the payment — Account not found: 6112", "fa")
-    assert nested == "پرداخت ثبت نشد — ⁨حساب پیدا نشد: ⁨6112⁩⁩"
+    assert nested == "پرداخت ثبت نشد — ⁨حساب پیدا نشد: ⁨۶۱۱۲⁩⁩"
 
 
 def test_the_language_comes_from_the_page_then_the_browser():

@@ -42,10 +42,10 @@ def test_the_summary_in_each_language():
 def test_persian_writes_its_digits_and_arabic_western_ones():
     big = {**INTAKE, "total_rows": 3500, "counts": {"unrecorded": 3500}, "balance": {"gap": 1_839_800_000}}
     fa = si._reply("fa", big)
-    assert fa.startswith("صورت‌حساب ملت را خواندم: ۳٬۵۰۰ ردیف (۱ سپتامبر ۲۰۲۶ تا ۳۰ سپتامبر ۲۰۲۶)"), fa
-    assert "۳٬۵۰۰ ردیف در دفاتر نیست" in fa and "۱٬۸۳۹٬۸۰۰٬۰۰۰" in fa
+    assert fa.startswith("صورت‌حساب ملت را خواندم: ۳,۵۰۰ ردیف (۱ سپتامبر ۲۰۲۶ تا ۳۰ سپتامبر ۲۰۲۶)"), fa
+    assert "۳,۵۰۰ ردیف در دفاتر نیست" in fa and "۱,۸۳۹,۸۰۰,۰۰۰" in fa
     assert not any(ch in "0123456789" for ch in fa)                          # no Western digit inside the Persian
-    assert si._reply("fa", big, jalali=True).startswith("صورت‌حساب ملت را خواندم: ۳٬۵۰۰ ردیف (۱۰ شهریور ۱۴۰۵ تا ۸ مهر ۱۴۰۵)")
+    assert si._reply("fa", big, jalali=True).startswith("صورت‌حساب ملت را خواندم: ۳,۵۰۰ ردیف (۱۰ شهریور ۱۴۰۵ تا ۸ مهر ۱۴۰۵)")
     ar = si._reply("ar", big)
     assert "3,500" in ar and not any(ch in "٠١٢٣٤٥٦٧٨٩" for ch in ar)      # Arabic: Western digits, the owner's call
 

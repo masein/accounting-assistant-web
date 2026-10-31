@@ -160,22 +160,23 @@ _FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
 _DECIMAL_POINT = re.compile(r"(?<=\d)\.(?=\d)")
 
 
-def persian_figures(text: str, *, thousands: str = "٬") -> str:
-    """``text`` with its figures as Persian writes them: Persian digits, «٬»
-    between thousands and «٫» for the decimal point (a «.» read as a stray
-    full stop: «۷.۵۰»). A full stop that ends a sentence stays one.
-    ``thousands=","`` keeps the comma where a page always printed one."""
+def persian_figures(text: str, *, thousands: str = ",") -> str:
+    """``text`` with its figures as Persian writes them: Persian digits, «,»
+    between thousands (the owner's choice, 2026-10-31: the Persian «٬» drew as
+    an apostrophe on the phone, «۴۰’۰۰۰’۰۰۰») and «٫» for the decimal point (a
+    «.» read as a stray full stop: «۷.۵۰»). A full stop that ends a sentence
+    stays one."""
     return _DECIMAL_POINT.sub("٫", str(text).replace(",", thousands)).translate(_FA_DIGITS)
 
 
 def grouped_fa(value: Any) -> str:
-    """``grouped`` in Persian: «۲٬۵۰۰٬۰۰۰», «۷٫۵۰»."""
+    """``grouped`` in Persian: «۲,۵۰۰,۰۰۰», «۷٫۵۰»."""
     return persian_figures(grouped(value))
 
 
 def signed_fa(text: str) -> str:
     """A Persian figure with a minus as one left-to-right run with a true minus
-    sign, «⁦−۵۰٬۰۰۰⁩»: inside a right-to-left sentence a bare «-۵۰٬۰۰۰» shows
+    sign, «⁦−۵۰,۰۰۰⁩»: inside a right-to-left sentence a bare «-۵۰,۰۰۰» shows
     its minus on the figure's right (Persian copy review, 2026-10-31). Anything
     else as it is."""
     text = str(text)

@@ -34,8 +34,8 @@ class WidgetTest {
     fun theTwoNumbersInPersian() {
         val t = widgetText(books, "fa", words, formatted)
         assertEquals("شرکت بازرگانی آرمان", t.title)
-        assertEquals("۴۹٬۶۰۰٬۰۰۰ ریال", t.amount)
-        assertEquals("بودجهٔ مانده: ۹٬۶۰۰٬۰۰۰", t.line)
+        assertEquals("۴۹,۶۰۰,۰۰۰ ریال", t.amount)
+        assertEquals("بودجهٔ مانده: ۹,۶۰۰,۰۰۰", t.line)
         assertEquals("تا ۱۸ مهر", t.note)
         // a Gregorian company: the date in its calendar, in Persian words (scenario N38)
         assertEquals("تا ۱۰ اکتبر", widgetText(books.copy(calendar = "gregorian"), "fa", words, formatted).note)
@@ -57,9 +57,9 @@ class WidgetTest {
         val t = widgetText(wallets, "fa", words, formatted)
         assertEquals("۷۷٫۵۰۰ ریال عمان", t.amount)
         // the dollars named after their figure, «۵۰۰ دلار»: «$۵۰۰٫۰۰» put its sign on the right (Persian copy review, 2026-10-31)
-        assertEquals("۳٬۰۰۰٬۰۰۰ ریال، ۵۰۰ دلار", t.others)
+        assertEquals("۳,۰۰۰,۰۰۰ ریال، ۵۰۰ دلار", t.others)
         assertEquals("3,000,000 IRR · \$500.00", widgetText(wallets, "en", words, formatted).others)
-        assertEquals("بودجهٔ مانده: ۹٬۶۰۰٬۰۰۰", t.line)
+        assertEquals("بودجهٔ مانده: ۹,۶۰۰,۰۰۰", t.line)
         assertNull(widgetText(books, "fa", words, formatted).others)
     }
 

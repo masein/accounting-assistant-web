@@ -73,7 +73,7 @@ def test_bf3_dates_as_the_reader_says_them(db, person):
 
 @pytest.mark.parametrize("said, shown", [
     ("۳۳۳.۷۷ دلار", "۳۳۳٫۷۷ دلار"),
-    ("۴۵،۰۰۰،۰۰۰ ریال", "۴۵٬۰۰۰٬۰۰۰ ریال"),
+    ("۴۵،۰۰۰،۰۰۰ ریال", "۴۵,۰۰۰,۰۰۰ ریال"),
     ("موارد ۱، ۲ و ۳", "موارد ۱، ۲ و ۳"),                    # a list keeps its comma
     ("تا ۱۴۰۵. سپس", "تا ۱۴۰۵. سپس"),                        # a full stop after a year
     ("333.77 USD", "333.77 USD"),                              # Latin figures as they are

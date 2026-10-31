@@ -108,7 +108,7 @@ def test_al1_a_persons_week_against_their_usual_week(person, db):
     assert en["choices"] == [f"Set a monthly budget of 3,000,000 Iranian rial for {dining}"]     # its average month
     assert en["headline"].startswith("You spent 5,000,000")
     fa = render(review, "fa")                                                     # AL16
-    assert "این هفته ۵٬۰۰۰٬۰۰۰ ریال ایران خرج کردید؛ ۶۷٪ بیشتر از هفته‌های معمولتان" in fa["text"]
+    assert "این هفته ۵,۰۰۰,۰۰۰ ریال ایران خرج کردید؛ ۶۷٪ بیشتر از هفته‌های معمولتان" in fa["text"]
     card = fa["card"]                                                             # AL17: the card
     assert (card["mood"], card["emoji"]) == ("watch", "👀")                       # 67% above the usual week
     assert card["headline"]["label"] == "خرج این هفته" and card["headline"]["value"] == 5_000_000
@@ -297,8 +297,8 @@ def test_al10_someone_owed_a_month_with_no_word(person, db):
     assert owed["params"]["person"] == "امیر" and owed["params"]["amount"] == 4_000_000
     from app.services.proactive_reviews import render
     fa = render(review, "fa")
-    assert "هنوز به امیر ۴٬۰۰۰٬۰۰۰ ریال ایران بدهکارید" in fa["text"] and "پس دادن پول امیر را ثبت کن" in fa["choices"]
-    assert "به امیر ۴٬۰۰۰٬۰۰۰ ریال ایران بدهکارید." in fa["text"]          # and in the week's own words
+    assert "هنوز به امیر ۴,۰۰۰,۰۰۰ ریال ایران بدهکارید" in fa["text"] and "پس دادن پول امیر را ثبت کن" in fa["choices"]
+    assert "به امیر ۴,۰۰۰,۰۰۰ ریال ایران بدهکارید." in fa["text"]          # and in the week's own words
 
 
 # --- AL3, AL11: a month's review, repeating payments -----------------------------------------------------------

@@ -32,6 +32,7 @@ RULED_OUT = {
     "چت هوش مصنوعی": "گفتگوی هوشمند",
     "مودیان": "مؤدیان",
     "خالص دارایی": "دارایی خالص",
+    "٬": "«,» between thousands (the owner's choice, 2026-10-31, BJ1)",
     "ي": "ی (Persian yeh)",
     "ك": "ک (Persian kaf)",
 }

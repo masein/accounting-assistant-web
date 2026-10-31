@@ -74,7 +74,7 @@ def test_the_iranian_fields(ir):
             "payee": "Pars Paper",
             "national_id": "۱۰۱۰۱۲۳۴۵۶۷",
             "amount_words": "دوازده میلیون و پانصد هزار ریال",
-            "amount": "#۱۲٬۵۰۰٬۰۰۰#",
+            "amount": "#۱۲,۵۰۰,۰۰۰#",
         }
         # what the dialog overrides
         v2 = cp.cheque_values(ir.db, row, payee="Someone else", national_id="0012345678", on=date(2026, 9, 28))

@@ -41,7 +41,7 @@ def test_v1_v2_the_persian_report_writes_persian_figures_and_no_runway(co, db):
     for text in said:                                                     # V1
         assert not re.search(r"[0-9]", text), text                       # no Latin digit anywhere
         assert "IRR" not in text, text
-    assert "۳۴٬۴۸۰٬۸۳۰٬۰۰۰ ریال" in fa.narrative and "۷۱۹٬۳۰۰٬۳۵۶ ریال" in fa.narrative
+    assert "۳۴,۴۸۰,۸۳۰,۰۰۰ ریال" in fa.narrative and "۷۱۹,۳۰۰,۳۵۶ ریال" in fa.narrative
     assert any("٪" in i.title + i.body for i in fa.insights)              # «۳۸٪», not «38٪»
     assert "34,480,830,000 IRR" in en.narrative                           # English keeps both
 

@@ -153,7 +153,7 @@ def test_aj3_a_misread_amount_is_set_right_from_the_balances_either_side(auth_cl
     said = reading_said(rep, "en")
     assert "the balance agrees" in said and "2 misread amount(s) set right" in said
     assert f"page 2, row 2: {true['amount'] // 10:,} → {true['amount']:,}" in said
-    assert "صفحهٔ ۲، ردیف ۲: ۱۱٬۰۰۲ ← ۱۱۰٬۰۲۹" in reading_said(rep, "fa")
+    assert "صفحهٔ ۲، ردیف ۲: ۱۱,۰۰۲ ← ۱۱۰,۰۲۹" in reading_said(rep, "fa")
 
 # --- AJ6, AJ7: in the chat, a statement called a receipt, read after the reply, then the instructions ------------
 

@@ -54,8 +54,9 @@ class AuditFinding:
 
 # A Persian finding read «اسناد 3fa2b1c4 و 9e01d2aa در تاریخ 2026-10-07: مبلغ یکسان
 # (1,250,000)» (Persian copy review, 2026-10-31): its figures in Persian digits and
-# its dates in the company's calendar; ids, account codes and names as they are.
-_AS_TYPED = frozenset({"code", "ref", "a", "b", "name", "category"})
+# its dates in the company's calendar; an account code in Persian digits (the owner's
+# call, 2026-10-31, BJ2); ids and names as they are.
+_AS_TYPED = frozenset({"ref", "a", "b", "name", "category"})
 _DATES = frozenset({"date", "created"})
 _FIGURE = re.compile(r"^[-−+]?[0-9][0-9,]*(?:\.[0-9]+)?%?$")
 
@@ -71,6 +72,8 @@ def _said(name: str, value, lang: str, calendar: str) -> str:
             except ValueError:
                 pass
         return persian_figures(said) if lang == "fa" else said
+    if lang == "fa" and name == "code":
+        return said.translate(str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹"))
     if lang == "fa" and name not in _AS_TYPED and _FIGURE.match(said):
         return persian_figures(said).replace("%", "٪")
     return said

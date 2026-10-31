@@ -18,8 +18,8 @@ def test_n36_net_worth_with_the_gold_at_todays_rate(db):
     _rate(db, "GOLD_GRAM", 5_000_000)                    # … worth 50m today
     assert match("دارایی خالص من چقدره؟") == "net_worth" and match("what's my net worth?") == "net_worth"
     ans = asyncio.run(answer(db, "دارایی خالص من چقدره؟", user_id="u1", username="t", lang="fa", mode="personal"))
-    assert ans.text.startswith("دارایی خالص شما امروز: ۱۲۰٬۰۰۰٬۰۰۰ ریال")         # 70m in the bank + 50m of gold
-    assert "طلا و ارز به نرخ امروز ۲۰٬۰۰۰٬۰۰۰ بیشتر می‌ارزند" in ans.text
+    assert ans.text.startswith("دارایی خالص شما امروز: ۱۲۰,۰۰۰,۰۰۰ ریال")         # 70m in the bank + 50m of gold
+    assert "طلا و ارز به نرخ امروز ۲۰,۰۰۰,۰۰۰ بیشتر می‌ارزند" in ans.text
     figure, chart, holdings = B.data_blocks(ans.tool_calls, lang="fa", calendar="jalali")
     assert figure["type"] == "figure" and figure["value"] == 120_000_000 and figure["label"] == "دارایی خالص"
     assert chart["kind"] == "net_worth" and len(chart["points"]) == 12 and chart["points"][-1]["value"] == 120_000_000

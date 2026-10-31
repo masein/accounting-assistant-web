@@ -34,8 +34,8 @@ def test_the_preview_asks_and_keeps_the_books_opening_by_default(flow_page):
     assert choice == [["keep", True], ["replace", False]], choice
     legend = page.inner_text("#migration-opening-choice legend")
     when = page.evaluate("() => formatDisplayDate('2026-10-04')")             # the company's calendar
-    assert "۸۰٬۸۱۸٬۶۷۳٬۹۰۹" in legend and when in legend and "۴" in when, legend   # the books' total and date, in the page's digits
-    assert "۴۳٬۰۱۴٬۴۱۶٬۳۳۸" in page.inner_text("#migration-opening-choice")
+    assert "۸۰,۸۱۸,۶۷۳,۹۰۹" in legend and when in legend and "۴" in when, legend   # the books' total and date, in the page's digits
+    assert "۴۳,۰۱۴,۴۱۶,۳۳۸" in page.inner_text("#migration-opening-choice")
     os.makedirs(ARTIFACTS, exist_ok=True)
     page.screenshot(path=os.path.join(ARTIFACTS, "migration-opening-choice.png"))
 

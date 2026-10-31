@@ -281,7 +281,7 @@ def test_ag4_who_do_i_owe_and_who_owes_me_person_by_person(person, scripted, db)
 
     assert ask("who do I owe?") == "You owe Amir 4,555.06 USD, Sara 40.00 USD."
     assert ask("who owes me?") == "Nobody owes you anything."
-    assert ask("به کی بدهکارم؟") == ("بدهی‌های شما: \u2068Amir\u2069 ۴٬۵۵۵٫۰۶ دلار آمریکا، "
+    assert ask("به کی بدهکارم؟") == ("بدهی‌های شما: \u2068Amir\u2069 ۴,۵۵۵٫۰۶ دلار آمریکا، "
                                      "\u2068Sara\u2069 ۴۰٫۰۰ دلار آمریکا.")
     one = ask("به Sara چقدر بدهکارم؟")                                                  # the one named, alone
     assert "Sara" in one and "Amir" not in one, one

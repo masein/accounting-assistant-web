@@ -83,7 +83,7 @@ def test_a_credit_note_asks_which_goods_come_back(flow_page):
         modal.wait_for(state="visible")
         expect(page.locator("#cn-returns-title")).to_have_text("کالای برگشتی")
         modal.locator(".cn-ret-qty").fill("3")
-        expect(page.locator("#cn-returns-total")).to_contain_text("۱٬۰۸۰")
+        expect(page.locator("#cn-returns-total")).to_contain_text("۱,۰۸۰")
         _shot(page, "credit-note-returns-fa.png")
         page.click("#cn-returns-close")
         expect(modal).to_be_hidden()

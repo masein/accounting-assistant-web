@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.services.ai_accountant.base import ToolContext
-from app.core.money import plain, grouped, grouped_fa
+from app.core.money import plain, grouped, grouped_fa, signed_fa
 
 MAX_LENGTH = 80
 
@@ -136,13 +136,12 @@ class FastAnswer:
 
 
 def _money(n: int, lang: str) -> str:
-    return grouped_fa(n) if lang == "fa" else grouped(n)
+    return signed_fa(grouped_fa(n)) if lang == "fa" else grouped(n)
 
 
 def _cur(code: str | None, lang: str) -> str:
-    if (code or "").upper() == "IRR" and lang == "fa":
-        return "ریال"
-    return code or ""
+    from app.core.currencies import after_amount
+    return after_amount(code, lang)
 
 
 _SYMBOLS = {"GBP": "£", "USD": "$", "EUR": "€"}
@@ -150,13 +149,12 @@ _SYMBOLS = {"GBP": "£", "USD": "$", "EUR": "€"}
 
 def _in_currency(n, code: str, lang: str) -> str:
     """«۷۷٫۵۰۰ ریال عمان», "77.500 OMR": to the currency's own places, named in Persian."""
-    from app.core.currencies import name as currency_name
     from app.core.money import exponent, to_decimal
     places = exponent(code)
     figure = f"{int(to_decimal(n)):,}" if places == 0 else f"{to_decimal(n):,.{places}f}"
     if lang == "fa":
         from app.core.money import persian_figures
-        return f"{persian_figures(figure)} {'ریال' if code == 'IRR' else currency_name(code, 'fa')}"
+        return f"{signed_fa(persian_figures(figure))} {_cur(code, lang)}"
     return f"{figure} {code}"
 
 
@@ -210,12 +208,20 @@ _T = {
                "fa": "این ماه: {actual} از {budget} {cur} خرج شده، {left} مانده.",
                "es": "Este mes: {actual_p} de {budget_p} gastados, quedan {left_p}.",
                "ar": "هذا الشهر: أُنفق {actual_p} من {budget_p}، وتبقّى {left_p}."},
+    # spent past the budget: not a negative «… -۵۰٬۰۰۰ مانده» (Persian copy review, 2026-10-31)
+    "budget_over": {"en": "This month: {actual_p} of {budget_p} spent, {over_p} over budget.",
+                    "fa": "این ماه: {actual} از {budget} {cur} خرج شده، {over} فراتر از بودجه.",
+                    "es": "Este mes: {actual_p} de {budget_p} gastados, {over_p} por encima del presupuesto.",
+                    "ar": "هذا الشهر: أُنفق {actual_p} من {budget_p}، بتجاوز {over_p} للميزانية."},
     "forecast": {"en": "Cash over the next {weeks} weeks, an estimate: from {opening_p} to {closing_p}; the lowest, {lowest_p}, in the week of {low_week}.",
                  "fa": "پیش‌بینی نقدینگی {weeks} هفتهٔ آینده: از {opening} به {closing} {cur}؛ کمترین مقدار {lowest} در هفتهٔ {low_week}.",
                  "es": "Caja en las próximas {weeks} semanas, una estimación: de {opening_p} a {closing_p}; el mínimo, {lowest_p}, la semana del {low_week}.",
                  "ar": "النقد في الأسابيع الـ{weeks} القادمة، تقديرًا: من {opening_p} إلى {closing_p}؛ الأدنى، {lowest_p}، في أسبوع {low_week}."},
     "forecast_negative": {"en": " It goes below zero in the week of {week}.", "fa": " در هفتهٔ {week} منفی می‌شود.",
                           "es": " Baja de cero la semana del {week}.", "ar": " ينخفض تحت الصفر في أسبوع {week}."},
+    # the lowest week is the first below zero: the week once («… در هفتهٔ ۹ آذر ۱۴۰۵. در هفتهٔ ۹ آذر ۱۴۰۵ منفی می‌شود.»)
+    "forecast_negative_same": {"en": "; it goes below zero that week.", "fa": "؛ از همان هفته منفی می‌شود.",
+                               "es": "; esa semana baja de cero.", "ar": "؛ وينخفض تحت الصفر في ذلك الأسبوع."},
     "net_worth": {"en": "Your net worth today: {net_p}: {assets_p} owned, {owed_p} owed.",
                   "fa": "دارایی خالص شما امروز: {net} {cur}؛ {assets} دارایی، {owed} بدهی.",
                   "es": "Tu patrimonio neto hoy: {net_p}: {assets_p} en activos, {owed_p} en deudas.",
@@ -491,7 +497,9 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
                     closing=_money(r.get("closing_cash") or 0, lang), cur=cur, lowest=_money(low.get("closing") or 0, lang),
                     low_week=day(low.get("week_start")), opening_p=_priced(r["opening_cash"], code, lang),
                     closing_p=_priced(r.get("closing_cash") or 0, code, lang), lowest_p=_priced(low.get("closing") or 0, code, lang))
-        if r.get("first_negative_week"):
+        if r.get("first_negative_week") == low.get("week_start") and text.endswith("."):
+            text = text[:-1] + _say("forecast_negative_same", lang)
+        elif r.get("first_negative_week"):
             text += _say("forecast_negative", lang, week=day(r["first_negative_week"]))
     else:  # budget
         from app.services.ai_accountant.period_tools import GetBudgetStatus, GetBudgetStatusInput
@@ -500,9 +508,10 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
             text = _say("budget_none", lang)
         else:
             cur, code = _cur(r.get("currency"), lang), r.get("currency")
-            text = _say("budget", lang, actual=_money(r.get("total_actual") or 0, lang),
-                        budget=_money(r.get("total_budget") or 0, lang), left=_money(r.get("total_left") or 0, lang), cur=cur,
-                        actual_p=_priced(r.get("total_actual") or 0, code, lang),
+            left = r.get("total_left") or 0
+            text = _say("budget" if left >= 0 else "budget_over", lang, actual=_money(r.get("total_actual") or 0, lang),
+                        budget=_money(r.get("total_budget") or 0, lang), left=_money(left, lang), cur=cur,
+                        over=_money(-left, lang), actual_p=_priced(r.get("total_actual") or 0, code, lang),
                         budget_p=_priced(r.get("total_budget") or 0, code, lang),
-                        left_p=_priced(r.get("total_left") or 0, code, lang))
+                        left_p=_priced(left, code, lang), over_p=_priced(-left, code, lang))
     return FastAnswer(intent=intent, text=text, tool_calls=calls)

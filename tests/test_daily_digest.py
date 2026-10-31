@@ -101,7 +101,7 @@ def test_the_digest_is_written_in_its_readers_language(db):
         set_digest_settings(db, enabled=True, cash_threshold=1_000_000)
         d = build_daily_digest(db)
     fa = format_digest("آکمه", d, "fa")
-    assert fa.startswith("خلاصه روزانه — آکمه") and "نقدینگی کم (نقد کمتر از آستانه)" in fa and "موجودی نقد: 0" in fa
+    assert fa.startswith("خلاصه روزانه — آکمه") and "نقدینگی کم (نقد کمتر از آستانه)" in fa and "موجودی نقد: ۰ " in fa   # Persian digits
     assert format_digest("Acme", d, "es").startswith("Resumen diario — Acme")
     en = format_digest("Acme", d)
     assert "LOW CASH (cash below the threshold)" in en and "Cash on hand: 0" in en

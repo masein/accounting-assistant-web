@@ -31,7 +31,7 @@ def test_ba1_each_currency_on_its_own_and_no_total(db, person):
     assert all("balance" not in a for a in out["accounts"])               # a place's name, not a rial figure
     held = {x["currency"]: Decimal(str(x["total"])) for x in out["by_currency"]}
     assert held == {"IRR": Decimal("47000000"), "OMR": Decimal("423.5"), "USD": Decimal("2400"), "AED": Decimal("1785")}
-    assert "never add them up" in out["note"]
+    assert "Don't add them up" in out["note"] and "say each one" in out["note"]
 
 
 def test_ba1_the_card_is_a_table_of_places(db, person):

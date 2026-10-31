@@ -267,7 +267,7 @@ def test_a_rows_problem_reads_in_the_page_language(auth_client, db):
         {"row_id": str(row.id), "action": "create", "account_code": "6112"},
         {"row_id": str(ghost), "action": "approve"}]})
     assert r.status_code == 200, r.text
-    assert r.json()["errors"] == ["ردیف \u20681\u2069: \u2068پیش‌تر وارد شده است؛ دوباره ثبت نشد.\u2069",
+    assert r.json()["errors"] == ["ردیف \u2068۱\u2069: \u2068پیش‌تر وارد شده است؛ دوباره ثبت نشد.\u2069",
                                   f"ردیف \u2068{ghost}\u2069: \u2068در این صورت‌حساب نیست.\u2069"]
     r = auth_client.post(f"/brain/bank-statements/{s.id}/approve", json={"approvals": [
         {"row_id": str(row.id), "action": "create", "account_code": "6112"}]})

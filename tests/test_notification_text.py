@@ -86,7 +86,7 @@ def test_a_notification_renders_for_its_reader():
                                                        "Receivable from the customer — 12 day(s) past due (2026-09-19)")
     title, message = render("invoice_overdue", params, "fa")
     assert title == "فاکتور ⁨INV-7⁩ سررسید گذشته"
-    assert message.startswith("⁨طلب از مشتری⁩ — ⁨12⁩ روز")
+    assert message.startswith("⁨طلب از مشتری⁩ — ⁨۱۲⁩ روز")                    # a count in Persian digits
     assert render("invoice_overdue", params, "es")[0] == "Factura INV-7 vencida"
     # a phrase inside the message, an enumeration, a month, a season
     cheque = {"noun": "cheque", "seq": " 2/6", "title": "Rent", "amount": "5,000", "verb": "receive",
@@ -94,7 +94,7 @@ def test_a_notification_renders_for_its_reader():
     assert render("commitment", cheque, "en") == ("Cheque 2/6: Rent", "5,000 to receive — bounced — the customer owes it again (2026-09-01)")
     assert "برگشتی" in render("commitment", cheque, "fa")[1]
     assert render("budget_over", {"category": "Rent", "actual": "120", "limit": "100", "month": "2026-10", "spent": 120},
-                  "fa")[1].startswith("⁨120⁩ از ⁨100⁩ در ⁨اکتبر ۲۰۲۶⁩")
+                  "fa")[1].startswith("⁨۱۲۰⁩ از ⁨۱۰۰⁩ در ⁨اکتبر ۲۰۲۶⁩")
     assert render("tax_ir_vat_in", {"season": "1405-2", "days": 5}, "en")[0] == "VAT return for Summer 1405 due in 5 day(s)"
     project = {"name": "Site", "parts": [{"key": "project_hours", "params": {"used": "90", "budget": "100", "pct": 90}},
                                          {"key": "project_amount", "params": {"used": "9,000", "budget": "10,000",
@@ -108,7 +108,9 @@ def test_an_insight_renders_from_its_own_wording():
     from app.services.insight_service import _TEMPLATES
     kind = next(iter(_TEMPLATES))
     params = {f: "1" for part in ("title", "message") for said in _TEMPLATES[kind][part].values() for f in _fields(said)}
-    assert render(f"insight:{kind}", params, "fa")[0] == _TEMPLATES[kind]["title"]["fa"].format(**params)
+    # as the chat says it: its figures in Persian digits
+    assert render(f"insight:{kind}", params, "fa")[0] == _TEMPLATES[kind]["title"]["fa"].format(**{k: "۱" for k in params})
+    assert render(f"insight:{kind}", params, "en")[0] == _TEMPLATES[kind]["title"]["en"].format(**params)
 
 
 def test_the_bell_speaks_the_page_language(auth_client, db):
@@ -135,7 +137,8 @@ def test_dates_are_written_in_the_company_calendar():
     overdue = {"number": "INV-7", "side": "receivable", "days": 12, "date": "2026-09-19"}
     for lang in LANGS:
         message = render("invoice_overdue", overdue, lang, "jalali")[1]
-        assert "1405/06/28" in message and "2026-09-19" not in message, (lang, message)
+        day = "۱۴۰۵/۰۶/۲۸" if lang == "fa" else "1405/06/28"                     # Persian digits in Persian
+        assert day in message and "2026-09-19" not in message, (lang, message)
     assert render("invoice_overdue", overdue, "en")[1].endswith("(2026-09-19)")            # Gregorian: as it was
     assert render("invoice_overdue", overdue, "en", "gregorian")[1].endswith("(2026-09-19)")
     # inside a phrase, and a pay run's period
@@ -152,6 +155,7 @@ def test_dates_are_written_in_the_company_calendar():
 def test_the_bell_and_the_push_use_the_company_calendar(auth_client, db):
     from app.models.invoice import Invoice
     from app.models.notification import Notification
+    from app.core.money import persian_figures
     from app.services import web_push
     from app.utils.jalali import format_jalali
 
@@ -167,9 +171,10 @@ def test_the_bell_and_the_push_use_the_company_calendar(auth_client, db):
         for lang in ("en", "fa"):
             feed = auth_client.get("/notifications/feed", headers={"X-UI-Language": lang}).json()
             hit = next(i for i in feed if i["kind"] == "invoice_overdue" and inv.number in i["title"])
-            assert format_jalali(due) in hit["message"] and due.isoformat() not in hit["message"], hit
+            day = persian_figures(format_jalali(due)) if lang == "fa" else format_jalali(due)
+            assert day in hit["message"] and due.isoformat() not in hit["message"], hit
         row = db.execute(select(Notification).where(Notification.dedupe_key == f"inv-{inv.id}-overdue")).scalar_one()
-        assert format_jalali(due) in web_push._message(row, "fa", "jalali")["body"]
+        assert persian_figures(format_jalali(due)) in web_push._message(row, "fa", "jalali")["body"]
         assert due.isoformat() in web_push._message(row, "en")["body"]           # a Gregorian company's push
     finally:
         inv.status = "paid"

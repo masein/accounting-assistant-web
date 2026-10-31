@@ -13,13 +13,19 @@ CLOSED = ("Period is closed through 2026-06-30; cannot post or back-date an entr
 
 
 def test_the_dates_in_a_message_can_be_written_in_jalali():
-    fa = localize_detail(CLOSED, "fa", jalali=True)
-    assert "1405/04/09" in fa and "1405/02/11" in fa and "2026-" not in fa
+    fa = localize_detail(CLOSED, "fa", jalali=True)                       # in Persian digits in a Persian sentence
+    assert "۱۴۰۵/۰۴/۰۹" in fa and "۱۴۰۵/۰۲/۱۱" in fa and "2026-" not in fa and "1405/" not in fa
     en = localize_detail(CLOSED, "en", jalali=True)
     assert en.startswith("Period is closed through 1405/04/09; cannot post or back-date an entry dated 1405/02/11.")
-    greg = localize_detail(CLOSED, "fa")                                # a Gregorian company's, as before
-    assert "2026-06-30" in greg and "2026-05-01" in greg and "1405/" not in greg
+    greg = localize_detail(CLOSED, "fa")                                # a Gregorian company's, in Persian digits
+    assert "۲۰۲۶-۰۶-۳۰" in greg and "۲۰۲۶-۰۵-۰۱" in greg and "۱۴۰۵/" not in greg and "2026-" not in greg
+    ar = localize_detail(CLOSED, "ar", jalali=True)                       # Arabic as it was
+    assert "1405/04/09" in ar and "1405/02/11" in ar
     assert localize_detail("Not a date: 2026-13-45", "en", jalali=True) == "Not a date: 2026-13-45"
+    # a date that shows how to type one stays the example it is, in either calendar
+    example = "That date couldn't be read. Write it like 1405/07/18 or 2026-10-10."
+    assert localize_detail(example, "fa", jalali=True).endswith("۱۴۰۵/۰۷/۱۸ یا 2026-10-10 بنویسید.")
+    assert localize_detail(example, "en", jalali=True) == example
 
 
 @pytest.fixture()
@@ -38,7 +44,7 @@ def company(client, db):
 
 
 @pytest.mark.parametrize("locale, currency, lang, closed, entry", [
-    ("ir", "IRR", "fa", "1405/04/09", "1405/02/11"),
+    ("ir", "IRR", "fa", "۱۴۰۵/۰۴/۰۹", "۱۴۰۵/۰۲/۱۱"),
     ("ir", "IRR", "en", "1405/04/09", "1405/02/11"),
     ("uk", "GBP", "en", "2026-06-30", "2026-05-01"),
 ])

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -39,15 +40,40 @@ class AuditFinding:
     key: str = ""
     params: dict = field(default_factory=dict)
 
-    def localized(self, lang: str) -> tuple[str, str]:
-        """(title, detail) in ``lang`` — English for an unknown key or language."""
+    def localized(self, lang: str, calendar: str = "gregorian") -> tuple[str, str]:
+        """(title, detail) in ``lang`` — English for an unknown key or language;
+        a date in the company's ``calendar``."""
         text = FINDING_TEXT.get(self.key)
         if not text or lang not in text["title"]:
             return self.title, self.detail
-        params = self.params
+        params = {k: _said(k, v, lang, calendar) for k, v in self.params.items()}
         if lang in ("fa", "ar"):   # a name or a signed number keeps its own direction in a right-to-left line
             params = {k: f"\u2068{v}\u2069" for k, v in params.items()}
         return text["title"][lang].format(**params), text["detail"][lang].format(**params)
+
+
+# A Persian finding read «اسناد 3fa2b1c4 و 9e01d2aa در تاریخ 2026-10-07: مبلغ یکسان
+# (1,250,000)» (Persian copy review, 2026-10-31): its figures in Persian digits and
+# its dates in the company's calendar; ids, account codes and names as they are.
+_AS_TYPED = frozenset({"code", "ref", "a", "b", "name", "category"})
+_DATES = frozenset({"date", "created"})
+_FIGURE = re.compile(r"^[-−+]?[0-9][0-9,]*(?:\.[0-9]+)?%?$")
+
+
+def _said(name: str, value, lang: str, calendar: str) -> str:
+    from app.core.money import persian_figures
+    said = str(value)
+    if name in _DATES:
+        if calendar == "jalali":
+            from app.utils.jalali import format_jalali
+            try:
+                said = format_jalali(date.fromisoformat(said[:10]))
+            except ValueError:
+                pass
+        return persian_figures(said) if lang == "fa" else said
+    if lang == "fa" and name not in _AS_TYPED and _FIGURE.match(said):
+        return persian_figures(said).replace("%", "٪")
+    return said
 
 
 # The findings' wording in each language the app speaks; {placeholders} are the

@@ -14,9 +14,15 @@ EN = {
     "statement": "ACCOUNT STATEMENT",
     "purchase_order": "PURCHASE ORDER",
     "payslip": "PAYSLIP",
+    # the two parties, by their role on each document (render.ROLES)
+    "seller": "Seller",
+    "buyer": "Buyer",
+    "received_by": "Received by",
+    "payer": "Paid by",
     "from": "From",
-    "bill_to": "Bill To",
+    "account_of": "Account of",
     "supplier": "Supplier",
+    "employer": "Employer",
     "employee": "Employee",
     "number": "No.",
     "issue_date": "Issue date",
@@ -77,7 +83,7 @@ EN = {
     "hours_unit": "h",
     "item": "Item",
     "goods_services": "Service / Product",
-    "paid_by": "Paid by",
+    "paid_by": "Payment method",      # how a receipt was paid; "Paid by" is now its payer's box
 }
 
 FA = {
@@ -89,9 +95,14 @@ FA = {
     "statement": "صورت‌حساب طرف حساب",
     "purchase_order": "سفارش خرید",
     "payslip": "فیش حقوقی",
+    "seller": "فروشنده",
+    "buyer": "خریدار",
+    "received_by": "دریافت‌کننده",
+    "payer": "پرداخت‌کننده",
     "from": "صادرکننده",
-    "bill_to": "خریدار",
+    "account_of": "طرف حساب",
     "supplier": "تأمین‌کننده",
+    "employer": "کارفرما",
     "employee": "کارمند",
     "number": "شماره",
     "issue_date": "تاریخ صدور",

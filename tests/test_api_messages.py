@@ -168,7 +168,7 @@ def test_every_whole_message_the_code_raises_has_a_translation():
 def test_a_password_rule_reads_in_the_page_language(auth_client):
     r = auth_client.post("/admin/users", headers={"X-UI-Language": "fa"},
                          json={"username": f"short-{uuid.uuid4().hex[:6]}", "password": "abc1", "role": "viewer"})
-    assert r.status_code == 400 and r.json()["detail"] == "رمز عبور باید دست‌کم \u20688\u2069 نویسه باشد"
+    assert r.status_code == 400 and r.json()["detail"] == "رمز عبور باید دست‌کم \u2068۸\u2069 نویسه باشد"   # a count in Persian digits
     r = auth_client.post("/admin/users", headers={"X-UI-Language": "es"},
                          json={"username": f"alpha-{uuid.uuid4().hex[:6]}", "password": "onlyletters", "role": "viewer"})
     assert r.status_code == 400 and r.json()["detail"] == "La contraseña debe tener al menos un número o un símbolo"
@@ -179,7 +179,7 @@ def test_a_message_chosen_by_a_condition_is_translated_both_ways():
     """The guard follows ``a if … else b``: petty cash's overdraw message has a
     tail only when expenses are pending, and neither form was translated."""
     assert localize_detail("Expense 900,000 exceeds the petty cash available (500,000). Top up the float first.", "fa") == \
-        "هزینه \u2068900,000\u2069 از موجودی تنخواه (\u2068500,000\u2069) بیشتر است. ابتدا تنخواه را شارژ کنید."
+        "هزینه \u2068۹۰۰٬۰۰۰\u2069 از موجودی تنخواه (\u2068۵۰۰٬۰۰۰\u2069) بیشتر است. ابتدا تنخواه را شارژ کنید."
     assert localize_detail("Expense 900,000 exceeds the petty cash available (500,000 after 200,000 pending). "
                            "Top up the float first.", "es") == \
         "El gasto de 900,000 supera el saldo de la caja chica (500,000 tras 200,000 pendientes). Repón el fondo primero."
@@ -278,14 +278,14 @@ def test_payroll_time_users_and_quotes_read_in_the_language_too():
     assert localize_detail("A sent quote can't be edited; set it back to draft first.", "es") == \
         "Un presupuesto enviado no se puede editar; vuelve a ponerlo en borrador primero."
     hours = localize_detail("That would be 26 hours on 2026-10-01 (20 already logged); a day has 24.", "fa")
-    assert hours.startswith("با این ثبت، ساعت‌های کار روز ⁨2026-10-01⁩ به ⁨26⁩ می‌رسد")
+    assert hours.startswith("با این ثبت، ساعت‌های کار روز ⁨۲۰۲۶-۱۰-۰۱⁩ به ⁨۲۶⁩ می‌رسد")
     assert localize_detail("You cannot delete yourself", "fa") == "نمی‌توانید خودتان را حذف کنید"
 
 
 def test_the_books_cheques_parties_and_orders_read_in_the_language_too():
     closed = localize_detail("Period is closed through 2026-06-30; cannot post or back-date an entry dated 2026-05-01. "
                              "Reopen the period or use a later date.", "fa")
-    assert closed.startswith("دوره تا ⁨2026-06-30⁩ بسته است")
+    assert closed.startswith("دوره تا ⁨۲۰۲۶-۰۶-۳۰⁩ بسته است")
     assert localize_detail("This cheque is bounced.", "es") == "Este cheque está rechazado."
     assert localize_detail("A supplier named 'Paper Co' already exists (id 9). Use it, or send allow_duplicate=true "
                            "to create another one on purpose.", "fa") == "یک ⁨تأمین‌کننده⁩ با نام «⁨Paper Co⁩» قبلاً وجود دارد. همان را به کار ببرید."

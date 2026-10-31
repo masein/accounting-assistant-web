@@ -575,7 +575,10 @@ def _money(value, ccy: str, lang: str) -> str:
     from app.core.money import exponent, persian_figures, to_decimal
     places = exponent(ccy) if ccy else 0
     text = f"{to_decimal(value):,.{places}f}" if places else grouped(value)
-    return f"{persian_figures(text) if lang == 'fa' else text} {name(ccy, lang)}"
+    if lang == "fa":
+        from app.core.money import signed_fa
+        text = signed_fa(persian_figures(text))          # its minus on the left in a right-to-left line
+    return f"{text} {name(ccy, lang)}"
 
 
 def _span(start: str, end: str, cal: str, lang: str) -> tuple[str, str]:
@@ -646,6 +649,11 @@ W: dict[str, dict[str, str]] = {
                     "fa": "درآمد {income}، خرج {spent}، پس‌انداز {saved} ({rate} از درآمد).",
                     "es": "Ingresos {income}, gastos {spent}, ahorro {saved} ({rate} de los ingresos).",
                     "ar": "الدخل {income}، الإنفاق {spent}، الادخار {saved} ({rate} من الدخل)."},
+    # spent more than came in: «پس‌انداز −۱۰۰٬۰۰۰ ریال (۱۳٪ از درآمد)» lost the rate's minus (Persian copy review, 2026-10-31)
+    "month_flows_over": {"en": "Income {income}, spending {spent}: {over} more than came in.",
+                         "fa": "درآمد {income}، خرج {spent}؛ {over} بیشتر از درآمد خرج شد.",
+                         "es": "Ingresos {income}, gastos {spent}: {over} más de lo que entró.",
+                         "ar": "الدخل {income}، الإنفاق {spent}: أُنفق {over} أكثر من الدخل."},
     "month_spent": {"en": "Spending {spent}.", "fa": "خرج {spent}.", "es": "Gastos {spent}.", "ar": "الإنفاق {spent}."},
     "month_vs": {"en": "Spending is {pct} {dir} than {month}.", "fa": "خرج {pct} {dir} از {month} است.",
                  "es": "El gasto está un {pct} {dir} que en {month}.", "ar": "الإنفاق {dir} بـ{pct} من {month}."},
@@ -656,10 +664,13 @@ W: dict[str, dict[str, str]] = {
     "net_worth": {"en": "Net worth {dir} by {amount}.", "fa": "دارایی خالص {amount} {dir}.",
                   "es": "Tu patrimonio neto {dir} {amount}.", "ar": "صافي ثروتك {dir} بمقدار {amount}."},
     "goals": {"en": "Goals: {list}.", "fa": "هدف‌ها: {list}.", "es": "Metas: {list}.", "ar": "الأهداف: {list}."},
-    "co_month": {"en": "Revenue {income}, expenses {spent}, profit {profit} (last month {prev}).",
-                 "fa": "درآمد {income}، هزینه {spent}، سود {profit} (ماه قبل {prev}).",
-                 "es": "Ingresos {income}, gastos {spent}, beneficio {profit} (el mes anterior {prev}).",
-                 "ar": "الإيرادات {income}، المصروفات {spent}، الربح {profit} (الشهر السابق {prev})."},
+    "co_month": {"en": "Revenue {income}, expenses {spent}, {result} (last month {prev}).",
+                 "fa": "درآمد {income}، هزینه {spent}، {result} (ماه قبل {prev}).",
+                 "es": "Ingresos {income}, gastos {spent}, {result} (el mes anterior {prev}).",
+                 "ar": "الإيرادات {income}، المصروفات {spent}، {result} (الشهر السابق {prev})."},
+    # a month's result by its name: a loss read «سود −۵۰٬۰۰۰ ریال» (Persian copy review, 2026-10-31)
+    "profit": {"en": "profit {amount}", "fa": "سود {amount}", "es": "beneficio {amount}", "ar": "الربح {amount}"},
+    "loss": {"en": "loss {amount}", "fa": "زیان {amount}", "es": "pérdida {amount}", "ar": "الخسارة {amount}"},
     "receivables": {"en": "Customers owe {ar}; you owe suppliers {ap}.", "fa": "طلب از مشتریان {ar}؛ بدهی به تأمین‌کنندگان {ap}.",
                     "es": "Los clientes deben {ar}; debes a proveedores {ap}.", "ar": "مستحق من العملاء {ar}؛ ومستحق للموردين {ap}."},
     "categories": {"en": "Where it went:", "fa": "کجا خرج شد:", "es": "En qué se fue:", "ar": "أين ذهب:"},
@@ -915,7 +926,10 @@ def _render_one(review: ProactiveReview, f: dict, lang: str, *, first: bool, ide
         title = _say(W, "monthly_title" if personal else "monthly_title_co", lang, month=month)
         prev_month = _month_name(f["previous_month"], lang)
         if personal:
-            if f.get("income"):
+            if f.get("income") and (f.get("saved") or 0) < 0:
+                lines.append(_say(W, "month_flows_over", lang, income=m(f["income"]), spent=m(f["spent"]),
+                                  over=m(-f["saved"])))
+            elif f.get("income"):
                 lines.append(_say(W, "month_flows", lang, income=m(f["income"]), spent=m(f["spent"]), saved=m(f["saved"]),
                                   rate=_pct(f["rate"] or 0, lang)))
             else:
@@ -940,8 +954,10 @@ def _render_one(review: ProactiveReview, f: dict, lang: str, *, first: bool, ide
                 lines.append(_say(W, "goals", lang, list=_sep(lang).join(
                     f"{g['name']} {_pct(g['percent'], lang)}" for g in f["goals"])))
         else:
-            lines.append(_say(W, "co_month", lang, income=m(f["income"]), spent=m(f["spent"]), profit=m(f["profit"]),
-                              prev=m((f.get("previous") or {}).get("profit") or 0)))
+            prev = (f.get("previous") or {}).get("profit") or 0
+            lines.append(_say(W, "co_month", lang, income=m(f["income"]), spent=m(f["spent"]),
+                              result=_say(W, "loss" if f["profit"] < 0 else "profit", lang, amount=m(abs(f["profit"]))),
+                              prev=_say(W, "loss", lang, amount=m(-prev)) if prev < 0 else m(prev)))
             headline = lines[0]
             lines.extend(_company_lines(f, lang, m))
         for c in f.get("top") or []:
@@ -1061,7 +1077,8 @@ def _card(review: ProactiveReview, lang: str, *, title: str, lines: list[str], r
     else:
         card["chart"] = None
     card["ring"] = None
-    if personal and monthly and f.get("income") and f.get("rate") is not None:
+    if personal and monthly and f.get("income") and f.get("rate") is not None and f["rate"] >= 0:
+        # a month spent past its income has no saving to ring: «۱۳٪ از درآمد» beside a negative saving
         rate = max(0.0, min(100.0, float(f["rate"])))
         card["ring"] = {"pct": rate, "label": C["saved"][lang], "display": m(f.get("saved") or 0),
                         "text": f"{_pct(f['rate'], lang)} {C['of_income'][lang]}"}

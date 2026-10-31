@@ -928,7 +928,7 @@ The Persian copy review found English printed on Persian PDFs where the code fel
 | BE2 | An invoice with no items | An invoice with an amount but no item rows and no description | The row reads «کالا / خدمات». It read «Service / Product» |
 | BE3 | An item with no name | An invoice item or a purchase-order line with no name | «کالا». It read «Item» |
 | BE4 | A receipt | Record a payment by bank, cash, cheque and transfer; print each receipt | «روش پرداخت: بانک / نقد / چک / انتقال بانکی». It read «شرایط پرداخت: bank». In English, «Paid by: Bank» |
-| BE5 | A receipt's invoice number | Print a receipt for invoice INV-12 in an Iranian company | «فاکتور INV-۱۲», the number in Persian digits like the invoice itself |
+| BE5 | A receipt's invoice number | Print a receipt for invoice INV-12 in an Iranian company | «فاکتور INV-12»: document numbers and ids print as typed, as codes do (the glossary), on the invoice itself too |
 | BE6 | The cheque print test | Iranian company; cheques page → print test | The sample payee is «نمونه». It was «نمونه — Sample». A UK company's says «Sample» |
 | BE7 | Every document, no stray English | Render the invoice, quote, time invoice, receipt, statement, purchase order and payslip for an Iranian company with Persian party names | No English word on the page apart from codes, numbers, currency codes and the company's own data |
 

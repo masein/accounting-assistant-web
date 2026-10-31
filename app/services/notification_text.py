@@ -11,13 +11,16 @@ A value is shown as it is, except:
 * ``month`` — a period key ("1405-07", "2026-10") named in the language, and
   ``season`` — an Iranian season ("1405-2");
 * a dict ``{"key": …, "params": …}`` — a phrase of its own (``PHRASES``), and
-  a list — several, joined by " · ".
+  a list — several, joined by " · " («، » in Persian);
+* in Persian, a figure, a day count or a date in Persian digits, a currency by
+  its Persian name, and an installment's «۲ از ۶» (``_fa``).
 In Persian and Arabic every value is a first-strong isolate, so a name or a
 date keeps its direction. tests/test_notification_text.py keeps every key
 the service writes worded in all four languages with the same values.
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 LANGS = ("en", "fa", "es", "ar")
@@ -309,6 +312,30 @@ def _fa_digits(text: str) -> str:
     return text.translate(str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹"))
 
 
+# The bell and the phone's feed read «12 روز از سررسید گذشته (1405/07/15)؛ مانده
+# 1,250,000 ریال», «قسط 2/6» beside the season's Persian digits (Persian copy
+# review, 2026-10-31). An invoice number or a key's prefix keeps its digits.
+_AS_TYPED = {"number", "prefix", "label", "title", "name", "summary", "who", "error", "headline", "category", "note"}
+_FIGURE = re.compile(r"^([-−+]?[0-9][0-9,]*(?:\.[0-9]+)?)(?: ([A-Z]{3}))?$")
+
+
+def _fa(name: str, said: str) -> str:
+    """A value in a Persian sentence: its figures in Persian digits."""
+    from app.core.currencies import after_amount
+    from app.core.money import persian_figures
+    if name in _AS_TYPED:
+        return said
+    if name == "seq":                                   # " 2/6" → « ۲ از ۶»
+        part, _, whole = said.strip().partition("/")
+        return f" {_fa_digits(part)} از {_fa_digits(whole)}" if whole else _fa_digits(said)
+    if name in _DATES or name == "taxyear":
+        return persian_figures(said)
+    m = _FIGURE.match(said)
+    if m is None:
+        return said
+    return persian_figures(m.group(1)) + (f" {after_amount(m.group(2), 'fa')}" if m.group(2) else "")
+
+
 _DATES = {"date", "start", "end"}     # ISO days (2026-09-08), written in the company's calendar
 
 
@@ -331,9 +358,14 @@ def _value(name: str, value: Any, lang: str, calendar: str = "gregorian") -> str
         phrase = PHRASES[value["key"]][lang]
         return phrase.format(**{k: _value(k, v, lang, calendar) for k, v in (value.get("params") or {}).items()})
     if isinstance(value, list):
-        return " · ".join(_value(name, v, lang, calendar) for v in value)
+        # «، », not «·»: beside Persian digits a middle dot reads as a zero
+        return ("، " if lang == "fa" else " · ").join(_value(name, v, lang, calendar) for v in value)
     if name in _DATES and value is not None:
-        return _day(str(value), calendar)
+        said = _day(str(value), calendar)
+        return _fa(name, said) if lang == "fa" else said
+    if name == "currency" and lang == "fa":
+        from app.core.currencies import after_amount
+        return after_amount(str(value), lang)          # «ریال», «دلار آمریکا»; not «USD»
     if name in ENUMS:
         return ENUMS[name][lang].get(str(value), str(value))
     if name in ("month", "start_month", "end_month"):
@@ -342,7 +374,9 @@ def _value(name: str, value: Any, lang: str, calendar: str = "gregorian") -> str
     if name == "season":
         year, n = str(value).split("-")
         return f"{_SEASONS[lang][int(n) - 1]} {_fa_digits(year) if lang == 'fa' else year}"
-    return "" if value is None else str(value)
+    if value is None:
+        return ""
+    return _fa(name, str(value)) if lang == "fa" else str(value)
 
 
 def render(key: str | None, params: dict[str, Any] | None, lang: str,
@@ -355,8 +389,9 @@ def render(key: str | None, params: dict[str, Any] | None, lang: str,
     lang = lang if lang in LANGS else "en"
     params = params or {}
     if key.startswith("insight:"):
-        from app.services.insight_service import Insight
-        loc = Insight(key="", kind=key.split(":", 1)[1], severity="info", page="", params=params).localize(lang)
+        # as the chat says it: a month key as the month, Persian figures («حقوق و دستمزد 1405-07: 12٪ بیشتر»)
+        from app.services.insight_service import Insight, chat_wording
+        loc = chat_wording(Insight(key="", kind=key.split(":", 1)[1], severity="info", page="", params=params), lang)
         return loc["title"], loc["message"]
     text = TEXT.get(key)
     if text is None:

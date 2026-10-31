@@ -119,10 +119,12 @@ def test_a_receipt_says_how_it_was_paid(render, method, fa, en):
     payment = NS(id="3f2a9c1e-0000", amount=400_000, currency="IRR", date=date(2026, 5, 10), method=method)
     page = render("ir")(R.render_receipt_pdf, payment, _invoice(number="INV-12"), PARTY, 0)
     assert "روش پرداخت" in page and fa in page and "شرایط پرداخت" not in page
-    assert "INV-۱۲" in page                                   # the invoice's number in Persian digits (BE5)
+    # the invoice's number as it was typed, as the statement and the phone print it (was «INV-۱۲», BE5)
+    assert "INV-12" in page and "INV-۱۲" not in page
+    assert ">3F2A9C1E<" in re.sub(r"\s+", "", page)            # the receipt's own number, a code, as it is
     payment.currency = "GBP"
     uk = render("uk", "GBP")(R.render_receipt_pdf, payment, _invoice(number="INV-12", currency="GBP"), PARTY, 0)
-    assert "Paid by" in uk and en in uk
+    assert "Payment method" in uk and en in uk                # "Paid by" is the payer's box now
 
 
 def test_the_cheque_print_test_names_its_sample_in_the_cheques_language(Session):
@@ -133,3 +135,36 @@ def test_the_cheque_print_test_names_its_sample_in_the_cheques_language(Session)
         with use_company(company.id):
             assert cheque_print.sample_payee(db) == payee
     db.close()
+
+
+def _label(page: str) -> list[str]:
+    return re.findall(r'<div class="label">\s*(.*?)\s*</div>', page)
+
+
+@pytest.mark.parametrize("locale, currency, labels", [
+    ("ir", "IRR", {"invoice": ["فروشنده", "خریدار"], "quote": ["فروشنده", "خریدار"], "time invoice": ["فروشنده", "خریدار"],
+                   "receipt by bank": ["دریافت‌کننده", "پرداخت‌کننده"], "statement": ["صادرکننده", "طرف حساب"],
+                   "purchase order": ["خریدار", "تأمین‌کننده"], "payslip": ["کارفرما", "کارمند"]}),
+    ("uk", "GBP", {"invoice": ["Seller", "Buyer"], "quote": ["Seller", "Buyer"], "time invoice": ["Seller", "Buyer"],
+                   "receipt by bank": ["Received by", "Paid by"], "statement": ["From", "Account of"],
+                   "purchase order": ["Buyer", "Supplier"], "payslip": ["Employer", "Employee"]}),
+])
+def test_each_party_is_named_by_its_role_on_the_document(render, locale, currency, labels):
+    """One «صادرکننده / خریدار» pair named a statement's customer and a receipt's payer a buyer (Persian copy review, 2026-10-31)."""
+    pages = dict(_documents(render(locale, currency)))
+    for name, pair in labels.items():
+        assert _label(pages[name]) == pair, (name, _label(pages[name]))
+
+
+def test_a_tax_rate_and_an_hourly_rate_read_as_persian_figures(render):
+    one = render("ir")
+    taxed = [NS(product_name="کاغذ", quantity=2.5, unit_price=100_000, tax_rate=9, line_total=250_000),
+             NS(product_name="خودکار", quantity=1, unit_price=100_000, tax_rate=9.5, line_total=100_000)]
+    page = one(R.render_invoice_pdf, _invoice(items=taxed), PARTY)
+    assert "۹٪" in page and "۹٫۵٪" in page and not re.search(r"[۰-۹]%", page)
+    assert "۲٫۵" in page                                       # a quantity's decimal mark
+    timed = one(R.render_time_invoice_pdf, _invoice(), PARTY,
+                [{"project": "پروژهٔ آرمان", "worker": "مریم احمدی", "hours": 10, "rate": 100_000, "amount": 1_000_000}],
+                None)
+    from app.services.documents.formatting import fmt_money
+    assert fmt_money(100_000, "IRR", "ir") in timed and "۱۰۰۰۰۰" not in timed     # the rate as money, like the amount

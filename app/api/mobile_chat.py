@@ -877,7 +877,8 @@ async def mobile_statement_next(statement_id: str, payload: StatementNextPayload
 
 _APPROVALS_LINE = {
     "en": lambda n: f"{n} voucher{'s' if n != 1 else ''} wait{'s' if n == 1 else ''} for your approval.",
-    "fa": lambda n: f"{n} سند منتظر تأیید شماست.",
+    # «یک سند», not «۱ سند», in running text (Persian copy review, 2026-10-31)
+    "fa": lambda n: f"{n} سند منتظر تأیید شماست." if n != 1 else "یک سند منتظر تأیید شماست.",
     "es": lambda n: f"{n} asiento{'s' if n != 1 else ''} espera{'n' if n != 1 else ''} tu aprobación.",
     "ar": lambda n: f"{n} من القيود بانتظار موافقتك." if n != 1 else "قيد واحد بانتظار موافقتك.",
 }

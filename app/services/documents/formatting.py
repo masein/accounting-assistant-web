@@ -51,7 +51,12 @@ def to_persian_digits(text: str) -> str:
 
 
 def fmt_digits(text: str, locale: str | None) -> str:
-    return to_persian_digits(text) if is_rtl(locale) else str(text)
+    """A figure (a quantity, hours) in the document's digits, «۲٫۵» on a Persian
+    one. Not for a document's number: a code prints as it was typed."""
+    if not is_rtl(locale):
+        return str(text)
+    import re
+    return to_persian_digits(re.sub(r"(?<=\d)\.(?=\d)", "٫", str(text)))
 
 
 def fmt_money(amount, currency: str | None, locale: str | None) -> str:

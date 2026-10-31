@@ -66,17 +66,22 @@ class Insight:
         if self.kind not in _TEMPLATES:
             from app.services import anomaly_detection, inventory_costing  # noqa: F401 — register their templates
         tpl = _TEMPLATES[self.kind]
+        # names kept as a list are joined as the language writes a list: «کاغذ A4, خودکار» had a Latin comma
+        sep = "، " if lang in ("fa", "ar") else ", "
+        params = {k: sep.join(map(str, v)) if isinstance(v, list) else v for k, v in self.params.items()}
         out = {}
         for part in ("title", "message"):
             text = tpl[part].get(lang) or tpl[part]["en"]
             try:
-                out[part] = text.format(**self.params)
+                out[part] = text.format(**params)
             except (KeyError, IndexError, ValueError):
-                out[part] = tpl[part]["en"].format(**self.params)
+                out[part] = tpl[part]["en"].format(**params)
         return out
 
-    def as_dict(self, lang: str) -> dict[str, Any]:
-        loc = self.localize(lang)
+    def as_dict(self, lang: str, *, worded: bool = True) -> dict[str, Any]:
+        """``worded``: the title and message as the chat says them (chat_wording), for a page;
+        False keeps the keys and figures as computed (the assistant's get_insights reads them)."""
+        loc = chat_wording(self, lang) if worded else self.localize(lang)
         return {
             "key": self.key, "kind": self.kind, "severity": self.severity, "page": self.page,
             "title": loc["title"], "message": loc["message"], "amount": self.amount,
@@ -470,7 +475,7 @@ def detect_payroll(db: Session, today: date) -> list[Insight]:
         out.append(Insight(
             key=f"new-employee-{_month_key(today)}-{len(fresh)}", kind="new_employee",
             severity="info", page="payroll",
-            params={"names": ", ".join(names), "delta": _fmt(delta)}, amount=delta,
+            params={"names": names, "delta": _fmt(delta)}, amount=delta,
             data={"names": names, "monthly_delta": delta},
         ))
     return out
@@ -852,12 +857,14 @@ def _compute_insights(db: Session, *, today: date, use_cache: bool) -> list[Insi
     return out
 
 
-def insights_payload(db: Session, lang: str, *, today: date | None = None) -> dict[str, Any]:
+def insights_payload(db: Session, lang: str, *, today: date | None = None, worded: bool = True) -> dict[str, Any]:
+    """The insights for the dashboard's panel, worded as the chat words them: «کاهش 35٪ درآمد در
+    1405-07» reached a Persian page with the raw key and Latin digits (Persian copy review, 2026-10-31)."""
     items = compute_insights(db, today=today)
     return {
         "language": lang if lang in SUPPORTED_LANGUAGES else "en",
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "insights": [i.as_dict(lang) for i in items],
+        "insights": [i.as_dict(lang, worded=worded) for i in items],
     }
 
 

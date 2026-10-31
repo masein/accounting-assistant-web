@@ -7,6 +7,7 @@ from __future__ import annotations
 from datetime import date
 
 from app.core.messages import localize_lists, said, say_all
+from app.core.money import persian_figures
 from app.utils.jalali import format_jalali
 from tests.test_moadian import _customer, _invoice, _setup, co  # noqa: F401 — the company fixture
 
@@ -67,7 +68,8 @@ def test_a_duplicate_upload_names_its_day_in_the_company_calendar(co):
     again = api.post("/brain/bank-statements/upload", files={"file": ("mellat.csv", csv, "text/csv")}, headers=FA).json()
     assert again["duplicate"] is True
     [err] = again["errors"]
-    assert "وارد شده است" in err and format_jalali(date.today()) in err and "already imported" not in err, err
+    day = persian_figures(format_jalali(date.today()))                          # in Persian digits in a Persian sentence
+    assert "وارد شده است" in err and day in err and "already imported" not in err, err
 
 
 def test_the_helpers():

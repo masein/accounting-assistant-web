@@ -928,6 +928,54 @@ The Persian copy review found English printed on Persian PDFs where the code fel
 | BE2 | An invoice with no items | An invoice with an amount but no item rows and no description | The row reads «کالا / خدمات». It read «Service / Product» |
 | BE3 | An item with no name | An invoice item or a purchase-order line with no name | «کالا». It read «Item» |
 | BE4 | A receipt | Record a payment by bank, cash, cheque and transfer; print each receipt | «روش پرداخت: بانک / نقد / چک / انتقال بانکی». It read «شرایط پرداخت: bank». In English, «Paid by: Bank» |
-| BE5 | A receipt's invoice number | Print a receipt for invoice INV-12 in an Iranian company | «فاکتور INV-۱۲», the number in Persian digits like the invoice itself |
+| BE5 | A receipt's invoice number | Print a receipt for invoice INV-12 in an Iranian company | «فاکتور INV-12»: document numbers and ids print as typed, as codes do (the glossary), on the invoice itself too |
 | BE6 | The cheque print test | Iranian company; cheques page → print test | The sample payee is «نمونه». It was «نمونه — Sample». A UK company's says «Sample» |
 | BE7 | Every document, no stray English | Render the invoice, quote, time invoice, receipt, statement, purchase order and payslip for an Iranian company with Persian party names | No English word on the page apart from codes, numbers, currency codes and the company's own data |
+
+## BF. The assistant's own Persian (copy review, 2026-10-31)
+
+The 34 Persian eval conversations, run on the production model (gpt-4.1-mini), read the way the assistant really writes. Most of the chat's Persian is the model's, not the app's strings.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BF1 | A card is ready, not recorded | «۲۰۰ هزار تومان ناهار از بانک دادیم», «۱۲ ریال عمان ناهار از کیف پول سبز», a budget, a goal, a date change | The reply says the card is ready («کارت … آماده است»), never «ثبت شد» / «ثبت کردم» before the confirm, and doesn't tell the user to confirm it. 7 of 34 replies said «ثبت شد» |
+| BF2 | Who owes whom | The user owes Amir 300 OMR; «امیر به من ۶۰۰ ریال عمان دیگه داد… حساب من با امیر الان چقدر هست؟»; «چقدر به امیر بدهکارم؟» | «شما … به امیر بدهکارید», from the people tool's own sentence (said_fa). It said «امیر الان به شما ۳۰۰ ریال عمان بدهکار است» |
+| BF3 | Dates as the reader says them | «اون Muscat Airbnb… مال ۱۵ شهریور ۱۴۰۵ بود»; a pay run in a Jalali company | The reply says «۱۵ شهریور ۱۴۰۵» (it said «۶ شهریور»: the tool gave ISO dates); the pay run's period in Jalali (it said «۱ نوامبر تا ۳۰ نوامبر ۲۰۲۶») and «لیست حقوق», not «اجرای حقوق» |
+| BF4 | Persian separators | Amounts with decimals or thousands in a Persian reply | «۳۳۳٫۷۷ دلار», «۴۵٬۰۰۰٬۰۰۰ ریال» (the model wrote «۳۳۳.۷۷» and «۴۵،۰۰۰،۰۰۰») |
+| BF5 | No notes said back | «پول من کجاست؟» and «این ماه چقدر خرج کردم؟» in several currencies, personal books | Each currency on its own; no «مجموع کل به صورت مجموع ارزها…», no «نبود نرخ تبدیل» in books that never convert |
+| BF6 | The words | Any Persian reply | «دفاتر», never «کتاب‌ها»; no «آیا» questions; short sentences in Persian word order |
+
+## BG. The server's Persian, filled in (copy review, 2026-10-31)
+
+Every Persian template rendered with real values (a count of 1 and of 3, names, dates, amounts): the wording held, but what the code put in came as Latin digits, ISO dates and currency codes.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BG1 | An error message | Post into a closed period in an Iranian company; send more than 50 bank SMS at once | «دوره تا ۱۴۰۵/۰۶/۳۱ بسته است…», «… ۵۰ پیامک…»: Persian digits, the company's calendar; codes and ids as typed |
+| BG2 | The bell and the phone feed | An overdue receivable, an installment, an expiring API key | «۱۲ روز از سررسید گذشته (۱۴۰۵/۰۷/۱۵)؛ مانده ۱٬۲۵۰٬۰۰۰ ریال», «قسط ۲ از ۶»; currencies named |
+| BG3 | Insights on the dashboard and in the bell | Revenue down 35% in Mehr; low stock on three items | «کاهش ۳۵٪ درآمد در مهر ۱۴۰۵» (it read «در 1405-07»); names joined «، » |
+| BG4 | The daily digest | Telegram/Bale/e-mail digest in Persian | «موجودی نقد: ۱٬۲۵۰٬۰۰۰٬۰۰۰ ریال», «دوام نقدینگی: ۴٫۲ ماه» (it read «1,250,000,000 IRR») |
+| BG5 | Audit findings | Two same-amount vouchers on one day; a negative balance | Persian figures, the date in the company's calendar, the minus on the number's left |
+| BG6 | Quick answers | «موجودی بانک مسقط چقدره؟», a budget gone over, a forecast whose low week is its first negative week | «… ریال عمان» (not «OMR»), «… فراتر از بودجه», the week named once |
+| BG7 | Reviews | A month spent past its income; a company month at a loss | No «(۱۳٪ از درآمد)» beside a negative saving; «زیان …», not «سود −…» |
+| BG8 | A printed document's parties | Invoice, receipt, account statement, purchase order, payslip of an Iranian company | «فروشنده / خریدار», «دریافت‌کننده / پرداخت‌کننده», «صادرکننده / طرف حساب», «خریدار / تأمین‌کننده», «کارفرما / کارمند»; tax «۹٪»; numbers as typed |
+
+## BI. The phone, as the screens showed it (copy review, 2026-10-31)
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BI1 | No middle dot beside Persian digits | A statement card, a copied card, a quote, the account sheet, the widget | «۱ تا ۳۰ شهریور، ۱۲ ردیف»: «·» beside Persian digits read as a zero («۱۲۰ ردیف», «۱۸۰ مهر») |
+| BI2 | A period | A statement for one month, and one across two months | «۱ تا ۳۰ شهریور», «۱ مرداد تا ۳۰ شهریور» |
+| BI3 | The widget's other currencies | Rials and dollars in a Persian widget | «۳٬۰۰۰٬۰۰۰ ریال، ۵۰۰ دلار», not «$500» |
+| BI4 | Swipe to reply in RTL | Swipe a message in Persian | The reply icon is mirrored like the menu's |
+
+## BH. The web's Persian on screen (copy review, 2026-10-31)
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BH1 | No middle dot beside Persian digits | Forecast rows, Moadian deadlines, recurring rows, the audit details, commitments, payroll cells, the chat statement card in Persian | Pieces joined with «، » (« · » in English): the dot beside Persian digits read as a zero, «امروز · ۱۸ مهر» as «۱۸۰ مهر» |
+| BH2 | A date range | The ledger, MTD periods, the payslip, a statement's range in Persian | «۱۴۰۵/۰۷/۰۹ تا ۱۴۰۵/۰۸/۰۹» in the page's direction (Arabic «إلى»); English keeps «→» |
+| BH3 | The ledger's tiers | Ledger in Persian; open a contact's drawer | Each group row says its own tier from the chart («گروه», «کل», «معین»), not always «دفتر کل»; codes in Persian digits |
+| BH4 | No Latin digits | The audit table's times, fixed-asset cards, chart axes, the VAT boxes | «۱۱:۵۱», «۰٫۰۰», axis «۰», «خانه ۱» |
+| BH5 | Sentences from pieces | Overdue invoices, a recurring invoice made later, a goal's date, the migration queue, a rate saved, an import applied, the chat threads' times, an undo note | Persian digits and dates throughout; «client» shows as «مشتری»; one sentence for an applied import; «۵ دقیقه پیش» |
+| BH6 | Smaller ones | The SMS example, the equity hint for a currency with decimals, the payroll tax brackets, the contacts table, the empty invoice list | Left-aligned example with Persian placeholders; «تا {مبلغ}: ۲۰٪ … مازاد: ۴۵٪»; «کد»; the empty row spans the table |

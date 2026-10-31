@@ -25,11 +25,8 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.absolutePadding
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
 import kotlinx.coroutines.launch
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.offset
@@ -501,7 +498,7 @@ internal fun summaryOf(title: String, date: String?): String {
     }
     return listOfNotNull(title.ifBlank { null }, said)
         // beside Persian digits a middle dot reads as a zero, «۲۴۰ مهر»: a comma there
-        .joinToString(if (rtl) "، " else " · ")
+        .joinToString(Numbers.separator(rtl))
 }
 
 /**
@@ -566,15 +563,15 @@ private fun Held(item: ChatItem, lang: String, sides: Pair<String, String>, onRe
     Box(Modifier.onGloballyPositioned { box = it }) {
         val pulled = (-pull.value / line).coerceIn(0f, 1f)
         if (pulled > 0f) {
-            // the arrow points the way the finger goes, in a right-to-left page too
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                Surface(shape = CircleShape, color = if (armed) c.firouzeh else c.surface2,
-                        modifier = Modifier.align(AbsoluteAlignment.CenterRight).absolutePadding(right = 6.dp).size(32.dp)
-                            .graphicsLayer { alpha = pulled; scaleX = 0.6f + 0.4f * pulled; scaleY = 0.6f + 0.4f * pulled }) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(AppIcons.Reply, contentDescription = null, tint = if (armed) c.onFirouzeh else c.firouzeh,
-                             modifier = Modifier.size(17.dp))
-                    }
+            // at the right edge whichever way the page runs; the arrow mirrored in a right-to-left page as the
+            // hold menu's Reply is: forced left to right, it pointed left beside a menu pointing right (Persian
+            // copy review, 2026-10-31)
+            Surface(shape = CircleShape, color = if (armed) c.firouzeh else c.surface2,
+                    modifier = Modifier.align(AbsoluteAlignment.CenterRight).absolutePadding(right = 6.dp).size(32.dp)
+                        .graphicsLayer { alpha = pulled; scaleX = 0.6f + 0.4f * pulled; scaleY = 0.6f + 0.4f * pulled }) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(AppIcons.Reply, contentDescription = null, tint = if (armed) c.onFirouzeh else c.firouzeh,
+                         modifier = Modifier.size(17.dp))
                 }
             }
         }

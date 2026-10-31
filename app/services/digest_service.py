@@ -161,10 +161,18 @@ def format_digest(company_name: str, d: dict, lang: str = "en") -> str:
         why = "، ".join if lang in ("fa", "ar") else ", ".join
         lines.append(say("low", why=why(_TEXT[r][lang] if r in _TEXT else r for r in d["low_cash_reasons"])))
     months = d["runway_months"] if d["runway_months"] is not None else _TEXT["na"][lang]
+    n = lambda v: f"{grouped(v)}"  # noqa: E731
+    if lang == "fa":
+        # «موجودی نقد: 1,250,000,000 IRR», «دوام نقدینگی: 4.2 ماه» in a Persian digest (Persian copy review, 2026-10-31)
+        from app.core.currencies import after_amount
+        from app.core.money import grouped_fa, persian_figures, signed_fa
+        n = lambda v: signed_fa(grouped_fa(v))  # noqa: E731
+        cur = after_amount(cur, lang)
+        months = persian_figures(str(months))
     lines += [
-        say("cash", amount=f"{grouped(d['cash_on_hand'])}", cur=cur),
+        say("cash", amount=n(d["cash_on_hand"]), cur=cur),
         say("runway", months=months),
-        say("ar", amount=f"{grouped(d['ar_outstanding'])}", cur=cur, overdue=f"{grouped(d['ar_overdue'])}"),
-        say("ap", amount=f"{grouped(d['ap_outstanding'])}", cur=cur, overdue=f"{grouped(d['ap_overdue'])}"),
+        say("ar", amount=n(d["ar_outstanding"]), cur=cur, overdue=n(d["ar_overdue"])),
+        say("ap", amount=n(d["ap_outstanding"]), cur=cur, overdue=n(d["ap_overdue"])),
     ]
     return "\n".join(lines)

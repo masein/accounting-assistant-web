@@ -23,6 +23,21 @@ class DatesTest {
         assertEquals("10 أكتوبر", Dates.short("2026-10-10", "ar", today = today))
     }
 
+    /** A period as Persian says it: «۱ تا ۳۰ شهریور», not «۱ شهریور – ۳۰ شهریور» (Persian copy review, 2026-10-31). */
+    @Test fun aPeriodInPersianNamesItsMonthOnce() {
+        val today = LocalDate.of(2026, 10, 10)
+        assertEquals("۱ تا ۳۰ شهریور", Dates.range("2026-08-23", "2026-09-21", "fa", today = today))
+        assertEquals("۱ مرداد تا ۳۰ شهریور", Dates.range("2026-07-23", "2026-09-21", "fa", today = today))
+        // a past year once, at the end; across years each end its own
+        assertEquals("۱ تا ۳۰ شهریور ۱۴۰۴", Dates.range("2025-08-23", "2025-09-21", "fa", today = today))
+        assertEquals("۲۰ اسفند ۱۴۰۴ تا ۱۰ فروردین", Dates.range("2026-03-11", "2026-03-30", "fa", today = today))
+        // a Gregorian company read in Persian: its own months
+        assertEquals("۱ تا ۳۰ سپتامبر", Dates.range("2026-09-01", "2026-09-30", "fa", "gregorian", today))
+        // other languages as before
+        assertEquals("\u20681 Sep – 30 Sep\u2069", Dates.range("2026-09-01", "2026-09-30", "en", today = today))
+        assertEquals("\u20681 Shahrivar – 30 Shahrivar\u2069", Dates.range("2026-08-23", "2026-09-21", "en", "jalali", today))
+    }
+
     /** Scenario N38: the books' calendar, written as each language writes it, the same words as the replies. */
     @Test fun theBooksCalendarDecidesNotTheLanguage() {
         val today = LocalDate.of(2026, 10, 10)

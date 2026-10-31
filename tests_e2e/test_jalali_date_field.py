@@ -41,8 +41,9 @@ def test_a_jalali_company_types_and_picks_dates_in_jalali(browser, flow_page):
         wait_until(page, "() => [...document.querySelectorAll('.jdate-text')].some(x => !x.value)")
         empty = page.evaluate("() => [...document.querySelectorAll('.jdate-text')].find(x => !x.value).placeholder")
         assert empty == hint and not any(c.isdigit() for c in empty), empty
-        # a range reads in the calendar, left to right, start first
-        assert page.evaluate("() => formatDateRange('2026-10-01', '2026-10-31')") == "\u2066۱۴۰۵/۰۷/۰۹ → ۱۴۰۵/۰۸/۰۹\u2069"   # Persian digits on a Persian page (#338)
+        # a range reads in the calendar, start first, «… تا …» in the page's direction with each date
+        # isolated (the one left-to-right run with «→» put the end first for a Persian reader)
+        assert page.evaluate("() => formatDateRange('2026-10-01', '2026-10-31')") == "\u2066۱۴۰۵/۰۷/۰۹\u2069 تا \u2066۱۴۰۵/۰۸/۰۹\u2069"   # Persian digits on a Persian page (#338)
         # the Jalali day once printed under the field is not said twice
         assert not page.locator("#date-jalali-hint").is_visible()
 

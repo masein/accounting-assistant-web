@@ -56,7 +56,8 @@ class WidgetTest {
     fun eachCurrencyAsItIs() {
         val t = widgetText(wallets, "fa", words, formatted)
         assertEquals("۷۷٫۵۰۰ ریال عمان", t.amount)
-        assertEquals("۳٬۰۰۰٬۰۰۰ ریال، \$۵۰۰٫۰۰", t.others)
+        // the dollars named after their figure, «۵۰۰ دلار»: «$۵۰۰٫۰۰» put its sign on the right (Persian copy review, 2026-10-31)
+        assertEquals("۳٬۰۰۰٬۰۰۰ ریال، ۵۰۰ دلار", t.others)
         assertEquals("3,000,000 IRR · \$500.00", widgetText(wallets, "en", words, formatted).others)
         assertEquals("بودجهٔ مانده: ۹٬۶۰۰٬۰۰۰", t.line)
         assertNull(widgetText(books, "fa", words, formatted).others)

@@ -84,6 +84,19 @@
       }
     } catch (_) { /* charts still render without it */ }
 
+    // A value axis's figures in the page's digits. Chart.js's own formatter writes zero as a Latin «0»
+    // whatever the locale, so the personal charts' axes ran «0» beside «۲٬۰۰۰٬۰۰۰» (Persian copy review,
+    // 2026-10-31); every linear axis without a callback of its own uses this one.
+    function chartTick(v) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n.toLocaleString(numLocale(), { maximumFractionDigits: 4 }) : String(v);
+    }
+    try {
+      if (typeof Chart !== 'undefined' && Chart.defaults.scales && Chart.defaults.scales.linear) {
+        Chart.defaults.scales.linear.ticks.callback = chartTick;
+      }
+    } catch (_) { /* Chart.js's own figures then */ }
+
     // ─── Display calendar (Gregorian / Jalali) ────────────────────────
     // Stored in AppSetting; loaded once on session start. All dates are
     // persisted as Gregorian (per ISO-8601). Conversion happens only at
@@ -121,19 +134,34 @@
     }
     // What each account is, by the app's own code for it (docs/PLAN_OWN_CODES.md): a company that keeps
     // codes of its own sends each account's class, and the pages read an account's kind from it, never from
-    // its digits. {code: class}, cached a minute.
-    let _accountClasses = null;
-    let _accountClassesAt = 0;
-    async function accountClasses() {
-      if (_accountClasses && Date.now() - _accountClassesAt < 60000) return _accountClasses;
+    // its digits. {code: class}, cached a minute. accountLevels(): each account's tier on the chart
+    // ({code: 'GROUP' | 'GENERAL' | 'SUB' | 'DETAIL'}), from the same list.
+    let _accountIndex = null;
+    let _accountIndexAt = 0;
+    async function _loadAccountIndex() {
+      if (_accountIndex && Date.now() - _accountIndexAt < 60000) return _accountIndex;
+      const classes = {}, levels = {};
       try {
-        const r = await fetch(API + '/accounts?limit=500');
-        const list = r.ok ? await r.json() : [];
-        _accountClasses = Object.fromEntries((Array.isArray(list) ? list : [])
-          .map((a) => [String(a.code), String(a.class_code || a.code)]));
-        _accountClassesAt = Date.now();
-      } catch (_) { _accountClasses = {}; }
-      return _accountClasses;
+        // page by page: a migrated chart holds more than one page of 500
+        for (let skip = 0; skip < 10000; skip += 500) {
+          const r = await fetch(API + '/accounts?include_inactive=true&limit=500&skip=' + skip);
+          const list = r.ok ? await r.json() : [];
+          if (!Array.isArray(list)) break;
+          list.forEach((a) => { classes[String(a.code)] = String(a.class_code || a.code); levels[String(a.code)] = a.level; });
+          if (list.length < 500) break;
+        }
+        _accountIndexAt = Date.now();
+      } catch (_) { /* what came back is used; asked again next time */ }
+      _accountIndex = { classes, levels };
+      return _accountIndex;
+    }
+    async function accountClasses() { return (await _loadAccountIndex()).classes; }
+    async function accountLevels() { return (await _loadAccountIndex()).levels; }
+    // An account's tier by name, «گروه» / «کل» / «معین» / «تفصیلی» as the chart page says it; ''
+    // when the chart didn't say.
+    function accountLevelLabel(levels, code) {
+      const level = levels && code != null ? levels[String(code)] : '';
+      return level ? enumLabel('coaLevel_', level) : '';
     }
 
     function localDigits(s) {
@@ -152,6 +180,28 @@
     }
     // The locale a figure's toLocaleString uses: Persian digits and «٬» in Persian, Latin elsewhere.
     function numLocale() { return _uiIsPersian() ? 'fa-IR' : 'en-US'; }
+    function _uiIsRtl() {
+      const lang = typeof currentLanguage !== 'undefined' ? currentLanguage : 'en';
+      return lang === 'fa' || lang === 'ar';
+    }
+    // Short pieces side by side («امروز، ۱۸ مهر», "Today · 18 Oct"): « · » in left-to-right languages,
+    // «، » in Persian and Arabic — beside Persian digits the middle dot is the size and height of «۰»,
+    // so «امروز · ۱۸ مهر» read «۱۸۰ مهر» (Persian copy review, 2026-10-31). Empty pieces drop out.
+    function partSep() { return _uiIsRtl() ? '، ' : ' · '; }
+    function joinParts(parts) { return (parts || []).filter((p) => p != null && p !== '').join(partSep()); }
+    // A list of names, codes or channels: «علی، سارا» in Persian and Arabic, "Ali, Sara" elsewhere
+    // (a Latin comma between Persian names read wrong, «علی رضایی, سارا محمدی»).
+    function listSep() { return _uiIsRtl() ? '، ' : ', '; }
+    function joinList(items) { return (items || []).filter((p) => p != null && p !== '').join(listSep()); }
+    // A date and time: the date in the company's calendar, the time in the page's digits — the audit
+    // trail showed «۲۰۲۶-۱۰-۳۱ 11:01» (Persian copy review, 2026-10-31). Local time, like the browser's clock.
+    function formatDisplayDateTime(ts) {
+      const d = new Date(ts);
+      if (ts == null || ts === '' || isNaN(d.getTime())) return '';
+      const p = (n) => String(n).padStart(2, '0');
+      return formatDisplayDate(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`)
+        + ' ' + localDigits(p(d.getHours()) + ':' + p(d.getMinutes()));
+    }
     function latinDigits(s) {
       return String(s == null ? '' : s)
         .replace(/[۰-۹]/g, (d) => String(_FA_DIGITS.indexOf(d)))
@@ -183,12 +233,14 @@
       return localDigits(`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
     }
 
-    // A range of dates, in the company's calendar: "1405/07/01 → 1405/07/30" as one
-    // left-to-right run, so after Persian or Arabic words it neither reverses its
-    // dates nor points its arrow back at the start.
+    // A range of dates, in the company's calendar. Left to right: "2026-10-01 → 2026-10-31" as one
+    // left-to-right run. Persian and Arabic: «۱۴۰۵/۰۷/۰۱ تا ۱۴۰۵/۰۷/۳۰» (Arabic «إلى») in the page's
+    // direction, each date isolated — the one left-to-right run put the end date first for a
+    // right-to-left reader and pointed its arrow back at the start (Persian copy review, 2026-10-31).
     function formatDateRange(from, to) {
       const a = formatDisplayDate(from), b = to ? formatDisplayDate(to) : '…';
-      return '\u2066' + a + ' → ' + b + '\u2069';
+      if (_uiIsRtl()) return tf('dateRange', { from: '\u2066' + a + '\u2069', to: '\u2066' + b + '\u2069' });
+      return '\u2066' + tf('dateRange', { from: a, to: b }) + '\u2069';
     }
 
     // A period key from a report: "1405-07" (Jalali, year < 1700) → "مهر ۱۴۰۵" /

@@ -556,7 +556,7 @@ class ChatScreenScreenshotTest {
             ChatItem.User("u1", "دفاتر روی ریال ایران بماند و کیف پول با ریال عمان ثبت شود"),
             walletCard,
             ChatItem.Words("w1", "ثبت موجودی اولیه کیف پول سبز به مبلغ ۷۷٫۵۰۰ ریال عمان برای ۲۴ مهر ۱۴۰۵ آماده است."),
-            ChatItem.User("u2", "مبلغش رو ۸۰ کن", quote = Quote(false, "کیف پول سبز — موجودی اولیه · 77.500 OMR", "t9"))),
+            ChatItem.User("u2", "مبلغش رو ۸۰ کن", quote = Quote(false, "کیف پول سبز — موجودی اولیه، 77.500 OMR", "t9"))),
             replyTo = Quote(false, "ثبت موجودی اولیه کیف پول سبز به مبلغ ۷۷٫۵۰۰ ریال عمان برای ۲۴ مهر ۱۴۰۵ آماده است.")), "en")
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-en-personal-reply.png")
     }

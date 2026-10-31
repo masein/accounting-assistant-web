@@ -39,12 +39,21 @@ def test_only_the_jalali_calendar_dresses():
     assert "jalali ? paintDateField(input) : _undressDateField(input)" in UI
 
 
-def test_a_range_of_dates_is_one_left_to_right_run():
+def test_a_range_of_dates_reads_in_the_pages_direction():
     """"1405/01/17 → 1406/01/16" after Persian words ran backwards, its arrow
-    pointing at the start; the time-billing preview printed raw ISO dates."""
+    pointing at the start; the time-billing preview printed raw ISO dates. A
+    left-to-right page keeps it as one left-to-right run; Persian and Arabic say
+    «a تا b» / «a إلى b» in the page's direction with each date isolated (the
+    forced run put the end date first for a right-to-left reader, Persian copy
+    review 2026-10-31). tests_e2e/test_jalali_date_field.py runs it."""
     core = (JS / "01-core.js").read_text(encoding="utf-8")
     assert "function formatDateRange(from, to)" in core
-    assert "'\\u2066' + a + ' → ' + b + '\\u2069'" in core
+    assert "if (_uiIsRtl()) return tf('dateRange', { from: '\\u2066' + a + '\\u2069', to: '\\u2066' + b + '\\u2069' });" in core
+    assert "return '\\u2066' + tf('dateRange', { from: a, to: b }) + '\\u2069';" in core
+    from tests.i18n_source import pack_values
+    values = pack_values()
+    assert {lang: values[lang]["dateRange"] for lang in values} == {
+        "en": "{from} → {to}", "es": "{from} → {to}", "fa": "{from} تا {to}", "ar": "{from} إلى {to}"}
     reports = (JS / "07-chat-reports.js").read_text(encoding="utf-8")
     payroll = (JS / "11-time-expenses-payroll.js").read_text(encoding="utf-8")
     assert "formatDateRange(from, to)" in reports

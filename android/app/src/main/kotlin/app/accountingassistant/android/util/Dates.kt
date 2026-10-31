@@ -51,16 +51,43 @@ object Dates {
      */
     fun short(iso: String?, lang: String, calendar: String? = null, today: LocalDate = LocalDate.now()): String {
         val d = parse(iso) ?: return ""
+        val p = parts(d, lang, calendar, today)
+        return Numbers.digits("${p.day} ${p.month}" + if (p.year != p.thisYear) " ${p.year}" else "", lang)
+    }
+
+    /**
+     * A period. Persian says it «۱ تا ۳۰ شهریور», the month once when both
+     * ends share it, else «۱ مرداد تا ۳۰ شهریور»: the card read «۱ شهریور –
+     * ۳۰ شهریور» (Persian copy review, 2026-10-31). Other languages as
+     * before, "1 Sep – 30 Sep", kept as one.
+     */
+    fun range(from: String?, to: String?, lang: String, calendar: String? = null, today: LocalDate = LocalDate.now()): String {
+        val a = parse(from)
+        val b = parse(to)
+        if (lang != "fa" || a == null || b == null) return "\u2068${short(from, lang, calendar, today)} – ${short(to, lang, calendar, today)}\u2069"
+        val x = parts(a, lang, calendar, today)
+        val y = parts(b, lang, calendar, today)
+        val start = when {
+            x.year != y.year -> "${x.day} ${x.month} ${x.year}"
+            x.monthNo == y.monthNo -> "${x.day}"
+            else -> "${x.day} ${x.month}"
+        }
+        return Numbers.digits("$start تا ${y.day} ${y.month}" + if (y.year != y.thisYear) " ${y.year}" else "", lang)
+    }
+
+    /** A day in the books' calendar: its number, its month's name and number, its year, and this year. */
+    private data class Parts(val day: Int, val month: String, val monthNo: Int, val year: Int, val thisYear: Int)
+
+    private fun parts(d: LocalDate, lang: String, calendar: String?, today: LocalDate): Parts {
         val jalali = calendar?.let { it == "jalali" } ?: (lang == "fa")
-        val text = if (jalali) {
+        return if (jalali) {
             val (jy, jm, jd) = toJalali(d)
             val months = if (lang == "fa" || lang == "ar") FA_MONTHS else JALALI_LATIN
-            "$jd ${months[jm - 1]}" + if (jy != toJalali(today).first) " $jy" else ""
+            Parts(jd, months[jm - 1], jm, jy, toJalali(today).first)
         } else {
             val months = GREGORIAN[lang] ?: EN_MONTHS
-            "${d.dayOfMonth} ${months[d.monthValue - 1]}" + if (d.year != today.year) " ${d.year}" else ""
+            Parts(d.dayOfMonth, months[d.monthValue - 1], d.monthValue, d.year, today.year)
         }
-        return Numbers.digits(text, lang)
     }
 
     private fun parse(iso: String?): LocalDate? = iso?.let {

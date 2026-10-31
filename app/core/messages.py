@@ -713,13 +713,29 @@ class _Pattern:
         parts = {}
         for name, raw in m.groupdict().items():
             if name in self.nested:
-                said = localize_detail(raw, lang)
+                said = _translated(raw, lang) or raw
                 if said == raw and "; " in raw:      # several messages, joined
-                    said = "; ".join(localize_detail(part, lang) for part in raw.split("; "))
+                    said = "; ".join(_translated(part, lang) or part for part in raw.split("; "))
             else:
                 said = self.values.get(name, {}).get(lang, {}).get(raw, raw)
+                if said == raw and name not in _AS_TYPED:
+                    said = _figure(raw, lang)
             parts[name] = _iso(said, lang)
         return self.text[lang].format(**parts)
+
+
+# A count or an amount inside a Persian sentence reads in Persian digits: «هر بار
+# حداکثر 50 پیامک», «هزینه 2,500,000 از موجودی تنخواه» (Persian copy review,
+# 2026-10-31). An identifier keeps the digits it was typed in (docs/FA_GLOSSARY.md).
+_FIGURE = re.compile(r"^[-−+]?[0-9][0-9,]*(?:\.[0-9]+)?%?$")
+_AS_TYPED = frozenset({"code", "codes", "id", "t", "number", "v", "sayad", "line", "value"})
+
+
+def _figure(value: str, lang: str) -> str:
+    if lang != "fa" or not isinstance(value, str) or not _FIGURE.match(value):
+        return value
+    from app.core.money import persian_figures
+    return persian_figures(value).replace("%", "٪")
 
 
 def _currency_names() -> dict:
@@ -882,7 +898,7 @@ PATTERNS: list[_Pattern] = [
              {"fa": "{name}: در این دوره ساعت قابل پرداختی ثبت نشده است.", "es": "{name}: no hay horas pagables registradas en el periodo.",
               "ar": "{name}: لا ساعات مسجلة قابلة للدفع في هذه الفترة."}),
     _Pattern(r"^That would be (?P<total>[\d.]+) hours on (?P<date>\S+) \((?P<already>[\d.]+) already logged\); a day has 24\.$",
-             {"fa": "با این ثبت، {date} به {total} ساعت می‌رسد ({already} ساعت از قبل ثبت شده است)؛ یک روز ۲۴ ساعت است.",
+             {"fa": "با این ثبت، ساعت‌های کار روز {date} به {total} می‌رسد ({already} ساعت از قبل ثبت شده است)؛ یک روز ۲۴ ساعت است.",
               "es": "Serían {total} horas el {date} ({already} ya registradas); un día tiene 24.",
               "ar": "سيصبح المجموع {total} ساعة في {date} ({already} مسجلة بالفعل)؛ اليوم 24 ساعة."}),
     _Pattern(r"^A (?P<status>\w+) quote can't be edited; set it back to draft first\.$",
@@ -1168,7 +1184,7 @@ PATTERNS: list[_Pattern] = [
              {"fa": "کد تکراری {code} در فایل {kind}", "es": "Código repetido {code} en el archivo de {kind}", "ar": "رمز مكرر {code} في ملف {kind}"},
              values={"kind": _CHART_TIER}),
     _Pattern(r"^(?P<n>\d+) counterparties have no معین link — defaulting to client, flagged for review$",
-             {"fa": "{n} طرف حساب به معین وصل نیستند؛ به‌عنوان مشتری در نظر گرفته و برای بررسی علامت‌گذاری شدند",
+             {"fa": "{n} طرف حساب به معین وصل نیست؛ به‌عنوان مشتری در نظر گرفته و برای بررسی علامت‌گذاری شد",
               "es": "{n} contrapartes no tienen vínculo con un معین: se toman como clientes y quedan marcadas para revisión",
               "ar": "{n} من الأطراف بلا ربط بحساب معين (معین)؛ اعتُبرت عملاء ووُضعت عليها علامة للمراجعة"}),
     _Pattern(r"^Opening balances are out of balance by (?P<d>\S+) — the difference will post to the suspense account (?P<code>\S+) \((?P<name>.*)\)$",
@@ -1224,45 +1240,61 @@ PATTERNS: list[_Pattern] = [
 ]
 
 
-_ISO_DATE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
+_ISO_DATE = re.compile(r"\b([0-9]{4})-([0-9]{2})-([0-9]{2})\b")
 
 
 def has_date(detail) -> bool:
     return isinstance(detail, str) and bool(_ISO_DATE.search(detail))
 
 
-def _jalali_dates(text: str) -> str:
-    """Every ISO date in ``text`` as the Jalali calendar writes it (1405/06/31)."""
+def _jalali_dates(text: str, *, persian: bool = False) -> str:
+    """Every ISO date in ``text`` as the Jalali calendar writes it (1405/06/31);
+    ``persian``: in Persian digits (۱۴۰۵/۰۶/۳۱)."""
     from datetime import date
 
+    from app.core.money import persian_figures
     from app.utils.jalali import format_jalali
 
     def one(m):
         try:
-            return format_jalali(date(int(m.group(1)), int(m.group(2)), int(m.group(3))))
+            said = format_jalali(date(int(m.group(1)), int(m.group(2)), int(m.group(3))))
         except ValueError:
-            return m.group(0)
+            said = m.group(0)
+        return persian_figures(said) if persian else said
     return _ISO_DATE.sub(one, text)
+
+
+def _translated(detail: str, lang: str) -> str | None:
+    """``detail`` said in ``lang``, or None when nothing translates it."""
+    if lang not in LANGS or not isinstance(detail, str):
+        return None
+    hit = EXACT.get(detail)
+    if hit:
+        return hit[lang]
+    for p in PATTERNS:
+        m = p.regex.match(detail)
+        if m:
+            return p.render(m, lang)
+    return None
 
 
 def localize_detail(detail, lang: str, *, jalali: bool = False):
     """``detail`` in ``lang`` when there is a translation; anything else as it was.
     ``jalali``: the company shows the Jalali calendar, so a date in the message
     is written that way too ("the period is closed through 2026-09-22" read
-    Gregorian in a Jalali company: deep browser test, 2026-10-02, finding #31)."""
+    Gregorian in a Jalali company: deep browser test, 2026-10-02, finding #31).
+    A Persian sentence writes its dates in Persian digits, either calendar
+    («دوره تا 1405/06/31 بسته است»: Persian copy review, 2026-10-31)."""
     if not isinstance(detail, str):
         return detail
-    said = detail
-    if lang in LANGS:
-        hit = EXACT.get(detail)
-        if hit:
-            said = hit[lang]
-        else:
-            for p in PATTERNS:
-                m = p.regex.match(detail)
-                if m:
-                    said = p.render(m, lang)
-                    break
+    said = _translated(detail, lang)
+    if detail in EXACT:      # a date in it shows how to type one: «۱۴۰۵/۰۷/۱۸ یا 1405/07/18» in a Jalali company
+        return said or detail
+    if said is None:
+        return _jalali_dates(detail) if jalali else detail
+    if lang == "fa":
+        from app.core.money import persian_figures
+        return _jalali_dates(said, persian=True) if jalali else _ISO_DATE.sub(lambda m: persian_figures(m.group(0)), said)
     return _jalali_dates(said) if jalali else said
 
 

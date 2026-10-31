@@ -527,7 +527,7 @@
           <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.4rem;">
             <h3 style="margin:0;">صورت تغییرات در حقوق مالکانه</h3>
             <span style="font-size:0.82rem; color:var(--text-muted);">
-              ${periodFrom ? `از ${escapeHtml(periodFrom)} تا ${escapeHtml(periodTo)} · ` : ''}${escapeHtml(iranAmountsNote())}
+              ${periodFrom ? `از ${escapeHtml(periodFrom)} تا ${escapeHtml(periodTo)}، ` : ''}${escapeHtml(iranAmountsNote())}
             </span>
           </div>
           <div class="report-preview-wrap" style="overflow-x:auto;">
@@ -707,8 +707,8 @@
           const diff = (bt.assets || 0) - (bt.liabilities_and_equity || 0);
           const ok = diff === 0;
           check = `<div class="report-meta" style="margin-bottom:0.45rem;${ok ? '' : 'color:#b91c1c;'}">
-            ${escapeHtml(t('sectionAssets'))}: ${formatAmount(bt.assets || 0)} · ${escapeHtml(t('bsLiabilitiesAndEquity'))}: ${formatAmount(bt.liabilities_and_equity || 0)} ·
-            ${escapeHtml(ok ? t('bsBalanced') : t('bsNotBalanced').replace('{diff}', formatAmount(diff)))}
+            ${escapeHtml(joinParts([t('sectionAssets') + ': ' + formatAmount(bt.assets || 0), t('bsLiabilitiesAndEquity') + ': ' + formatAmount(bt.liabilities_and_equity || 0),
+              ok ? t('bsBalanced') : tf('bsNotBalanced', { diff: formatAmount(diff) })]))}
           </div>`;
         }
         return (check + cards) || '<p class="empty-state">' + escapeHtml(t('noSectionRows')) + '</p>';
@@ -777,7 +777,7 @@
         if (tot.operating != null) add('fieldOperating', tot.operating);
         if (tot.net_cash_change != null) add('fieldNetChange', tot.net_cash_change);
       }
-      return parts.join(' · ');
+      return joinParts(parts);
     }
     function _reportAnalysisHtml(report) {
       if (!report || !report.analysis) return '';

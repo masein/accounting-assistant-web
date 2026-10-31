@@ -166,7 +166,7 @@
             if (!res.ok) throw new Error(books.detail || t('companiesUpdateFailed'));
           } catch (err) { showAlert(err.message || t('companiesUpdateFailed'), true); return; }
           const tables = books.tables || {};
-          const sep = ['fa', 'ar'].includes(currentLanguage) ? '، ' : ', ';
+          const sep = listSep();
           const list = ['transactions', 'accounts', 'entities', 'bank_statements', 'invoices', 'ai_chat_sessions']
             .filter((k) => tables[k]).map((k) => formatNum(tables[k]) + ' ' + t('booksTbl_' + k)).join(sep);
           const ok = await uiConfirmTyped({
@@ -738,7 +738,7 @@
               ${ccyCell}
               <td>${debitCell}</td>
               <td>${creditCell}</td>
-              <td>${(r.entity_names || []).map(n => escapeHtml(n)).join(', ') || '—'}</td>
+              <td>${escapeHtml(joinList(r.entity_names || [])) || '—'}</td>
             </tr>`;
           }).join('')
         }</tbody></table>`;
@@ -1552,7 +1552,7 @@
       document.getElementById('count-result').textContent = !d ? '' : d.adjusted.length
         ? tf('countDone', { n: formatNum(d.adjusted.length), list: d.adjusted.map((a) =>
             a.name + ' ' + (Number(a.difference) > 0 ? '+' : '−') + formatNum(Math.abs(Number(a.difference)))
-            + ' (' + formatMoney(Math.abs(Number(a.value)), currencyUnit()) + ')').join(' · ') })
+            + ' (' + formatMoney(Math.abs(Number(a.value)), currencyUnit()) + ')').join(partSep()) })
         : t('countNothing');
     }
     function countTyped() {

@@ -31,5 +31,15 @@ def name(code: str | None, lang: str = "en") -> str:
     return row[_LANG.get(lang, 0)] if row else c
 
 
+def after_amount(code: str | None, lang: str = "en") -> str:
+    """The currency after an amount in a sentence: in Persian «ریال» for the
+    rial and the others by name («۹۰۰ دلار آمریکا»; «۹۰۰ USD» ended a Persian
+    sentence in a code: Persian copy review, 2026-10-31); the code elsewhere."""
+    c = (code or "").strip().upper()
+    if lang != "fa":
+        return code or ""
+    return "ریال" if c == "IRR" else name(c, "fa")
+
+
 def options(lang: str = "en") -> list[dict[str, str]]:
     return [{"code": c, "name": name(c, lang)} for c in NAMES]

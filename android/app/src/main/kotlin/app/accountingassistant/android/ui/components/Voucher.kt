@@ -367,3 +367,18 @@ fun priced(value: java.math.BigDecimal, currency: String?, lang: String, compact
 
 fun priced(value: Long, currency: String?, lang: String, compact: Boolean = false): String =
     priced(java.math.BigDecimal.valueOf(value), currency, lang, compact)
+
+/**
+ * An amount among Persian words, its currency named after it: «۵۰۰ دلار», a
+ * whole amount without «٫۰۰». The widget wrote «۳٬۰۰۰٬۰۰۰ ریال، ۵۰۰٫۰۰$», the
+ * sign on the figure's right (Persian copy review, 2026-10-31). Other
+ * languages as [priced].
+ */
+fun pricedInWords(value: java.math.BigDecimal, currency: String?, lang: String): String {
+    if (lang != "fa" || currency.isNullOrBlank()) return priced(value, currency, lang)
+    val places = if (value.stripTrailingZeros().scale() <= 0) 0 else Numbers.places(currency)
+    return Numbers.amount(value, lang, places) + " " + (SAID_FA[currency.uppercase()] ?: currencyName(currency, lang))
+}
+
+/** The currencies a Persian sentence names in a word, as the server's do (cfo_intelligence _MONEY_FA). */
+private val SAID_FA = mapOf("USD" to "دلار", "EUR" to "یورو", "GBP" to "پوند")

@@ -173,6 +173,15 @@ def grouped_fa(value: Any) -> str:
     return persian_figures(grouped(value))
 
 
+def signed_fa(text: str) -> str:
+    """A Persian figure with a minus as one left-to-right run with a true minus
+    sign, «⁦−۵۰٬۰۰۰⁩»: inside a right-to-left sentence a bare «-۵۰٬۰۰۰» shows
+    its minus on the figure's right (Persian copy review, 2026-10-31). Anything
+    else as it is."""
+    text = str(text)
+    return f"⁦−{text[1:]}⁩" if text[:1] in ("-", "−") else text
+
+
 def sheet_format(currency: str | None) -> str:
     """A spreadsheet's number format for ``currency``: «#,##0.00» for pounds
     (Excel showed £7.50 as «8»), «#,##0» for rials as before."""

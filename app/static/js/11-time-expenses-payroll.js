@@ -144,10 +144,10 @@
           return;
         }
         const meter = (used, budget, pct, unit) => {
-          const u = unit === 'h' ? `${formatNum(used)} h` : `${formatAmount(used, unit)} ${escapeHtml(unit)}`;
-          if (budget == null) return `${u} <span class="fx-hint" style="display:inline;">· ${escapeHtml(t('timeBudgetNoLimit'))}</span>`;
+          const u = unit === 'h' ? `${formatNum(used)} ${escapeHtml(t('unitHoursShort'))}` : `${formatAmount(used, unit)} ${escapeHtml(unit)}`;
+          if (budget == null) return `${u}<span class="fx-hint" style="display:inline;">${escapeHtml(partSep() + t('timeBudgetNoLimit'))}</span>`;
           const cls = pct >= 100 ? 'tm-bud-over' : (pct >= 85 ? 'tm-bud-warn' : 'tm-bud-ok');
-          const b = unit === 'h' ? `${formatNum(budget)} h` : formatAmount(budget, unit);
+          const b = unit === 'h' ? `${formatNum(budget)} ${escapeHtml(t('unitHoursShort'))}` : formatAmount(budget, unit);
           return `<span class="${cls}">${u} / ${b} (${pct}%)</span>`
             + `<div class="tm-bud-bar"><span class="${cls}" style="width:${Math.min(100, pct || 0)}%"></span></div>`;
         };
@@ -229,6 +229,15 @@
       } catch (e) { showAlert(t('timeProjectFailed'), true); }
     });
 
+    // Where a billable rate applies, by name (time_billing_service: 'project', 'client', 'default', 'profile',
+    // and 'employee-default (pay profile)' when one is set): the toast read «نرخ ساعتی ذخیره شد
+    // (employee-default (pay profile)).» (Persian copy review, 2026-10-31).
+    function timeRateScopeLabel(scope) {
+      const key = { project: 'project', client: 'client', default: 'default', profile: 'profile',
+                    'employee-default (pay profile)': 'profile' }[String(scope || '')];
+      return key ? t('timeRateScope_' + key) : String(scope || '');
+    }
+
     document.getElementById('tm-set-rate-btn').addEventListener('click', async () => {
       const wid = document.getElementById('tm-worker').value;
       if (!wid) { showAlert(t('timeNoWorkers'), true); return; }
@@ -240,7 +249,7 @@
         const res = await fetch(API + '/time/rates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employee_id: wid, rate: parseFloat(rate), client_id: pid ? null : cid, project_id: pid }) });
         const data = await readJsonSafe(res);
         if (!res.ok) { showAlert((data && data.detail) ? data.detail : t('timeRateFailed'), true); return; }
-        showAlert(tf('timeRateSaved', { scope: data.scope }));
+        showAlert(tf('timeRateSaved', { scope: timeRateScopeLabel(data.scope) }));
         await tmLoadEntries(); await tmLoadReady();
       } catch (e) { showAlert(t('timeRateFailed'), true); }
     });
@@ -324,15 +333,15 @@
     function tmRenderPreview(pv, clientId) {
       tmReadyPreview = { client_id: clientId };
       const cur = pv.currency;
-      let html = `<div><strong>${escapeHtml(pv.client_name)}</strong> · ${escapeHtml(formatDateRange(pv.period_from, pv.period_to))} · ${escapeHtml(cur)}</div>`;
+      let html = `<div><strong>${escapeHtml(pv.client_name)}</strong>${escapeHtml(partSep() + joinParts([formatDateRange(pv.period_from, pv.period_to), cur]))}</div>`;
       pv.groups.forEach(g => {
         html += `<div style="margin-top:0.4rem;font-weight:600;">${escapeHtml(g.project_name)}</div>`;
         g.lines.forEach(ln => {
-          html += `<div style="margin-inline-start:1rem;">${escapeHtml(ln.employee_name)} — ${ln.hours} × ${ln.rate} = ${formatAmount(ln.amount, cur)} ${cur} <span style="color:var(--text-muted);font-size:0.78rem;">(${ln.rate_source})</span></div>`;
+          html += `<div style="margin-inline-start:1rem;">${escapeHtml(ln.employee_name)} — <bdi>${escapeHtml(localDigits(ln.hours))} × ${formatAmount(ln.rate, cur)} = ${formatAmount(ln.amount, cur)}</bdi> ${escapeHtml(cur)} <span style="color:var(--text-muted);font-size:0.78rem;">(${escapeHtml(timeRateScopeLabel(ln.rate_source))})</span></div>`;
         });
         html += `<div style="margin-inline-start:1rem;color:var(--text-muted);">${t('timeSubtotal')}: ${formatAmount(g.subtotal, cur)} ${cur}</div>`;
       });
-      html += `<div style="margin-top:0.5rem;">${t('timeSubtotal')}: ${formatAmount(pv.subtotal, cur)} ${cur} · ${t('timeVat')}: ${formatAmount(pv.tax, cur)} ${cur} · <strong>${t('poTotal')}: ${formatAmount(pv.total, cur)} ${cur}</strong></div>`;
+      html += `<div style="margin-top:0.5rem;">${escapeHtml(joinParts([t('timeSubtotal') + ': ' + formatAmount(pv.subtotal, cur) + ' ' + cur, t('timeVat') + ': ' + formatAmount(pv.tax, cur) + ' ' + cur]))}${partSep()}<strong>${escapeHtml(t('poTotal') + ': ' + formatAmount(pv.total, cur) + ' ' + cur)}</strong></div>`;
       html += `<div style="color:var(--text-muted);font-size:0.8rem;margin-top:0.3rem;">${tf('timeIncludesN', { n: pv.entry_count, hours: pv.total_hours, value: formatAmount(pv.total), currency: cur })}</div>`;
       document.getElementById('tm-preview-body').innerHTML = html;
       document.getElementById('tm-preview').style.display = 'block';
@@ -569,7 +578,7 @@
         const d = await res.json();
         hint.textContent = Object.entries(d.by_currency || {}).map(([ccy, s]) => tf('poPriceHint', {
           last: formatAmount(s.last, ccy) + ' ' + ccy, who: s.last_supplier || '—', date: formatDisplayDate(s.last_date),
-          low: formatAmount(s.lowest, ccy) + ' ' + ccy, lowWho: s.lowest_supplier || '—' })).join(' · ');
+          low: formatAmount(s.lowest, ccy) + ' ' + ccy, lowWho: s.lowest_supplier || '—' })).join(partSep());
       } catch (_) { /* a hint only */ }
     });
     document.getElementById('po-lines-body').addEventListener('click', (e) => {
@@ -664,7 +673,7 @@
         const billsEl = document.getElementById('po-bills');
         billsEl.innerHTML = (po.bills || []).length
           ? escapeHtml(t('poBillsLabel')) + ' ' + po.bills.map(b => `<strong>${escapeHtml(b.number)}</strong> ${formatAmount(b.amount, b.currency)} ${escapeHtml(b.currency)}`
-              + (b.status === 'voided' ? ` (${escapeHtml(t('poBillVoided'))})` : '')).join(' · ')
+              + (b.status === 'voided' ? ` (${escapeHtml(t('poBillVoided'))})` : '')).join(partSep())
           : '';
         // Bills (purchase invoices) for the match dropdown.
         const billRes = await fetch(API + '/invoices?kind=purchase');
@@ -799,9 +808,10 @@
       if (!rs) return `<p style="color:var(--text-muted);">${t('payrollRulesNone')}</p>`;
       const p = rs.params || {};
       const cur = p.currency || prCur();
-      const brackets = (p.tax_brackets || []).map(b =>
-        b.upto == null ? `${t('payrollRulesAbove')} ${Math.round(b.rate * 100)}%` : `${formatAmount(b.upto)}: ${Math.round(b.rate * 100)}%`
-      ).join(' · ');
+      // each bracket says «up to»: «۱,۰۴۸/۰۰: ۰٪» alone was cryptic (Persian copy review, 2026-10-31)
+      const brackets = joinParts((p.tax_brackets || []).map(b => b.upto == null
+        ? `${t('payrollRulesAbove')} ${Math.round(b.rate * 100)}%`
+        : tf('payrollRulesUpto', { amount: formatAmount(b.upto), rate: Math.round(b.rate * 100) + '%' })));
       const shown = (s) => localDigits(s);                  // rates and shares in the page's digits
       const item = (label, val) => `<div><span style="color:var(--text-muted);">${t(label)}:</span> ${val}</div>`;
       // A figure only where the rule set has one: a UK set leaves Iran's
@@ -960,11 +970,11 @@
         }
         rows.forEach(p => {
           const pay = p.pay_type === 'hourly'
-            ? `${formatAmount(p.hourly_rate, prCur())} ${prCur()}/h · ${p.standard_hours}h`
+            ? escapeHtml(joinParts([`${formatAmount(p.hourly_rate, prCur())} ${prCur()}/${t('unitHoursShort')}`, `${localDigits(p.standard_hours)} ${t('unitHoursShort')}`]))
             : `${formatAmount(p.base_salary)} ${prCur()}`;
           const tr = document.createElement('tr');
           const statutory = p.tax_mode === 'statutory';
-          const statutoryCell = `<span title="${t('payrollTaxModeStatutory')}">${t('payrollStatutoryShort')}${p.children ? ` · ${p.children} ${t('payrollChildrenShort')}` : ''}</span>`;
+          const statutoryCell = `<span title="${t('payrollTaxModeStatutory')}">${escapeHtml(joinParts([t('payrollStatutoryShort'), p.children ? localDigits(p.children) + ' ' + t('payrollChildrenShort') : '']))}</span>`;
           const hired = p.hired_on ? `<div style="color:var(--text-muted);font-size:0.78rem;">${escapeHtml(tf('payrollHiredSince', { date: '\u2066' + formatDisplayDate(p.hired_on) + '\u2069' }))}</div>` : '';
           tr.innerHTML = `<td>${escapeHtml(p.employee_name || '')}${hired}</td><td>${t(p.pay_type === 'hourly' ? 'payrollHourly' : 'payrollSalaried')}</td>
             <td>${pay}</td><td>${statutory ? statutoryCell : localDigits((p.income_tax_rate * 100).toFixed(1) + '%')}</td>
@@ -1111,7 +1121,7 @@
         const d = await readJsonSafe(res);
         if (!res.ok) { showAlert((d && d.detail) ? d.detail : t('payrollEmailFailed'), true); return; }
         let msg = tf('payrollEmailResult', { sent: d.sent.length, failed: d.failed.length, skipped: d.skipped.length });
-        if (d.skipped.length) msg += ' ' + tf('payrollEmailNoAddress', { names: d.skipped.map(x => x.name).join(', ') });
+        if (d.skipped.length) msg += ' ' + tf('payrollEmailNoAddress', { names: joinList(d.skipped.map(x => x.name)) });
         showAlert(msg, d.failed.length > 0 && !d.sent.length);
       } catch (e) { showAlert(t('payrollEmailFailed'), true); }
     });
@@ -1157,7 +1167,7 @@
         if (!res.ok) return;
         const s = await res.json();
         const cur = s.currency || prCur();
-        const msg = `${s.employee_name} · ${escapeHtml(formatDisplayDate(s.period_start))} – ${escapeHtml(formatDisplayDate(s.period_end))}\n`
+        const msg = joinParts([s.employee_name, formatDateRange(s.period_start, s.period_end)]) + '\n'
           + `${t('payrollGross')}: ${formatAmount(s.gross, cur)} ${cur}\n`
           + `${t('payrollIncomeTax')}: ${formatAmount(s.income_tax, cur)} ${cur}\n`
           + `${t('payrollSocial')}: ${formatAmount(s.social_security, cur)} ${cur}\n`
@@ -1178,14 +1188,11 @@
       return enumLabel(prefix, value || '');
     }
     function auditWhen(ts) {
-      const d = new Date(ts);
-      if (!ts || isNaN(d.getTime())) return '';
-      const p = (n) => String(n).padStart(2, '0');
-      return formatDisplayDate(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+      return formatDisplayDateTime(ts);
     }
 
     // A detail kept as JSON (a voucher's snapshot, a chat card's link) is read as its values,
-    // «۱۴۰۵/۰۷/۲۱ · X-875 · هزینهٔ هفته», never as the JSON with its Persian escaped (deep test
+    // «۱۴۰۵/۰۷/۲۱، X-875، هزینهٔ هفته», never as the JSON with its Persian escaped (deep test
     // 2026-10-20, finding 6). Ids, lists and empty values stay out; a date is the company's; a
     // reference, a number or a file is a code, kept left to right as written («IMPORT-…-2024-07-29»).
     // null when the detail is the server's own words.
@@ -1209,7 +1216,7 @@
       if (!parts) return '<bdi dir="ltr">' + escapeHtml(String(text || '').substring(0, 120)) + '</bdi>';
       const ltr = (code) => '<bdi dir="ltr">' + escapeHtml(code) + '</bdi>';
       const items = parts.map((p) => (p.code ? ltr(p.text) : escapeHtml(p.text)));
-      return '<bdi dir="auto">' + items.join(' · ') + '</bdi>';
+      return '<bdi dir="auto">' + items.join(partSep()) + '</bdi>';
     }
 
     async function loadAuditLogs() {
@@ -1221,7 +1228,8 @@
         body.innerHTML = '';
         logs.forEach(l => {
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td style="font-size:0.8rem;white-space:nowrap;"><bdi>${escapeHtml(auditWhen(l.timestamp))}</bdi></td>
+          // in the cell's own direction: a left-to-right <bdi> put the time first for a Persian reader
+          tr.innerHTML = `<td style="font-size:0.8rem;white-space:nowrap;">${escapeHtml(auditWhen(l.timestamp))}</td>
             <td>${escapeHtml(auditLabel('auditAct_', l.action))}</td><td>${escapeHtml(auditLabel('auditEnt_', l.entity_type))}</td>
             <td style="font-size:0.8rem;">${escapeHtml((l.entity_id || '').substring(0, 8))}</td>
             <td>${escapeHtml(l.username || '—')}</td>

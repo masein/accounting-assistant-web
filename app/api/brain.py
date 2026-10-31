@@ -473,9 +473,11 @@ def get_audit_report(db: Session = Depends(get_db), user: SessionUser = Depends(
     from app.services.audit_service import run_full_audit
     report = run_full_audit(db)
     lang = _preferred_report_language(db, user)
+    from app.services.locale_service import get_display_calendar
+    calendar = get_display_calendar(db)
     findings = []
     for f in report.findings:
-        title, detail = f.localized(lang)
+        title, detail = f.localized(lang, calendar)
         findings.append(AuditFindingRead(
             severity=f.severity, category=f.category, title=title, detail=detail,
             entity_id=f.entity_id, amount=f.amount, domain=f.domain, key=f.key or None,

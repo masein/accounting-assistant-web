@@ -336,7 +336,10 @@ def detect_low_stock(db: Session, today: date) -> list:
     rows = low_stock(db, as_of=today)
     if not rows:
         return []
-    names = ", ".join(r["name"] for r in rows[:3]) + ("…" if len(rows) > 3 else "")
+    # a list, joined as the reader's language writes one (Insight.localize): «کاغذ A4, خودکار» had a Latin comma
+    names = [r["name"] for r in rows[:3]]
+    if len(rows) > 3:
+        names[-1] += "…"
     return [Insight(
         key=f"low-stock-{today.isoformat()}", kind="low_stock", severity="warning" if len(rows) > 1 else "info",
         page="inventory", params={"count": len(rows), "names": names},

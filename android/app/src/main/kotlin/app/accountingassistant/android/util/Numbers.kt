@@ -81,6 +81,24 @@ object Numbers {
         }
     }
 
+    /**
+     * What goes between the pieces of a line: «، » in Persian and Arabic, « · » otherwise. Beside
+     * Persian digits a middle dot reads as a zero: «امروز · ۱۸ مهر» read «۱۸۰ مهر», «شهریور · ۱۲ ردیف»
+     * «۱۲۰ ردیف» (Persian copy review, 2026-10-31). [rtl]: the line's words are Persian or Arabic.
+     */
+    fun separator(rtl: Boolean): String = if (rtl) "، " else " · "
+
+    /** The same in the user's language [lang]. */
+    fun separator(lang: String): String = separator(lang == "fa" || lang == "ar")
+
+    /** Pieces that come as they were sent, a card's title and its date or amount: joined by their own letters and digits. */
+    fun joined(pieces: List<String>): String = pieces.joinToString(separator(pieces.any { it.any(::rightToLeft) }))
+
+    /** A Persian or Arabic letter, or a Persian digit. */
+    private fun rightToLeft(ch: Char): Boolean = ch in PERSIAN || Character.getDirectionality(ch).let {
+        it == Character.DIRECTIONALITY_RIGHT_TO_LEFT || it == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC
+    }
+
     /** A recording's length, «۰:۰۷» (fa) or "0:07". */
     fun duration(seconds: Long, lang: String): String =
         digits("${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}", lang)

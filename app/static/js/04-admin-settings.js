@@ -256,7 +256,7 @@
         const parts = [p.email, p.phone, p.website].filter(Boolean);
         contactEl.replaceChildren(...parts.flatMap((v, i) => {
           const b = document.createElement('bdi'); b.className = 'nowrap'; b.textContent = v;
-          return i ? [document.createTextNode(' · '), b] : [b];
+          return i ? [document.createTextNode(partSep()), b] : [b];
         }));
         if (!parts.length) contactEl.textContent = '—';
       }
@@ -584,7 +584,7 @@
           <div class="v" dir="ltr">${escapeHtml(aiUsd(d.cost_usd_period))}</div>
           <div style="font-size:0.74rem;color:var(--text-muted);margin-top:0.2rem;">${escapeHtml(t('aiUsageCostNote'))}</div></div>
         <div class="ai-usage-stat"><div class="k">${escapeHtml(t('aiUsageRate'))}</div>
-          <div class="v" dir="ltr">${escapeHtml(String(rpm.user || '∞'))} · ${escapeHtml(String(rpm.company || '∞'))}</div>
+          <div class="v">${escapeHtml(joinParts([rpm.user ? localDigits(rpm.user) : '∞', rpm.company ? localDigits(rpm.company) : '∞']))}</div>
           <div style="font-size:0.74rem;color:var(--text-muted);margin-top:0.2rem;">${escapeHtml(t('aiUsageRateHint'))}</div></div>`;
       const inp = document.getElementById('ai-user-budget');
       if (inp) {
@@ -693,7 +693,7 @@
       document.querySelectorAll('.ai-rev-tab').forEach((b) => {
         const st = b.dataset.status;
         const n = st === 'all' ? counts.total : counts[st];
-        b.textContent = t(labels[st]) + (n != null ? ' (' + n + ')' : '');
+        b.textContent = t(labels[st]) + (n != null ? ' (' + localDigits(n) + ')' : '');
         b.classList.toggle('btn-primary', st === _aiRevStatus);
         b.classList.toggle('btn-secondary', st !== _aiRevStatus);
       });
@@ -703,9 +703,9 @@
         return;
       }
       list.innerHTML = _aiRevItems.map((s) => {
-        const when = s.created_at ? formatDisplayDate(s.created_at.slice(0, 10)) + ' ' + s.created_at.slice(11, 16) : '';
-        const meta = [when, s.username || '—', s.channel, s.model, s.latency_ms != null ? localDigits((s.latency_ms / 1000).toFixed(1)) + ' s' : null]
-          .filter(Boolean).map(escapeHtml).join(' · ');
+        const when = formatDisplayDateTime(s.created_at);
+        const meta = escapeHtml(joinParts([when, s.username || '—', s.channel, s.model,
+          s.latency_ms != null ? localDigits((s.latency_ms / 1000).toFixed(1)) + ' ' + t('unitSecondsShort') : null]));
         const tools = (s.tools || []).length
           ? (s.tools || []).map((x) => '<span class="ai-rev-chip' + (x.ok ? '' : ' ai-rev-chip-bad') + '"'
               + (x.ok ? '' : ' title="' + escapeHtml(t('aiRevToolFailed')) + '"') + '>' + escapeHtml(x.name || '?') + '</span>').join(' ')

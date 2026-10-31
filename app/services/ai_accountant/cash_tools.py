@@ -124,8 +124,9 @@ class GetCashPosition(BaseTool):
             # scenario BA1). The places keep their names; their money is in ``holdings``.
             out["total"] = None
             out["accounts"] = [{"account_code": a["account_code"], "account_name": a["account_name"]} for a in accounts]
-            out["note"] = ("Each currency on its own, in by_currency and holdings: never add them up or give a total in "
-                           "rials or any other currency.")
+            # «مجموع کل به صورت مجموع ارزها به طور جداگانه است» was the model saying this note back (BF5)
+            out["note"] = ("Each currency on its own, in by_currency and holdings: say each one. Don't add them up, and "
+                           "don't mention a total or say there is none.")
             return out
         from app.services.fx_base import unconverted_note
         if (left_out := unconverted_note(ctx.db)):

@@ -216,7 +216,8 @@ def test_an_insight_names_its_dates_in_the_company_calendar(db, books):
     ins = next(i for i in feed if i.kind == "round_weekend")
     for lang in ("en", "fa", "es", "ar"):
         msg = ins.as_dict(lang)["message"]
-        assert "1405/06/27" in msg and "2026-09-18" not in msg, (lang, msg)
+        day = "۱۴۰۵/۰۶/۲۷" if lang == "fa" else "1405/06/27"      # Persian digits in Persian (scenario BG3)
+        assert day in msg and "2026-09-18" not in msg, (lang, msg)
     assert ins.data["entries"][0]["date"] == "2026-09-18"
     with use_company(books["company"].id):
         set_display_calendar(db, "gregorian")

@@ -41,7 +41,7 @@ class GetInsights(BaseTool):
         lang = (args.language or getattr(ctx, "lang", None) or "en").lower()
         if lang not in SUPPORTED_LANGUAGES:
             lang = "en"
-        payload = insights_payload(ctx.db, lang)
+        payload = insights_payload(ctx.db, lang, worded=False)      # the books' own keys and figures
         payload["count"] = len(payload["insights"])
         if not payload["insights"]:
             payload["note"] = "Nothing unusual right now — the books look steady."

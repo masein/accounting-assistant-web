@@ -148,7 +148,7 @@ fun ChatItem.asText(lang: String, sides: Pair<String, String>): String? = when (
     is ChatItem.Words -> boldMarks(text).text
     is ChatItem.Fallback -> text
     is ChatItem.Proposal -> buildList {
-        add(listOfNotNull(title.ifBlank { null }, date).joinToString(" · "))
+        add(Numbers.joined(listOfNotNull(title.ifBlank { null }, date)))
         amount?.let { add(priced(it, currency, lang)) }
         lines.forEach { line ->
             val (side, value) = if (line.debit.signum() > 0) sides.first to line.debit else sides.second to line.credit
@@ -161,7 +161,7 @@ fun ChatItem.asText(lang: String, sides: Pair<String, String>): String? = when (
     }).joinToString("\n")
     is ChatItem.Chart -> title
     is ChatItem.Statement -> listOfNotNull(bank, listOfNotNull(from, to).joinToString(" – ").ifBlank { null })
-        .joinToString(" · ").let { Numbers.digits(it, lang) }
+        .joinToString(Numbers.separator(lang)).let { Numbers.digits(it, lang) }
     is ChatItem.File -> name
     is ChatItem.Review -> fallback
     else -> null
@@ -170,7 +170,7 @@ fun ChatItem.asText(lang: String, sides: Pair<String, String>): String? = when (
 /** What a reply to this item quotes: a card by its title and amount, and its token. */
 fun ChatItem.quote(lang: String, sides: Pair<String, String>): Quote? {
     val words = when (this) {
-        is ChatItem.Proposal -> listOfNotNull(title.ifBlank { null }, amount?.let { priced(it, currency, lang) }).joinToString(" · ")
+        is ChatItem.Proposal -> Numbers.joined(listOfNotNull(title.ifBlank { null }, amount?.let { priced(it, currency, lang) }))
         else -> asText(lang, sides)
     }?.replace(Regex("\\s+"), " ")?.trim()?.take(QUOTE_CHARS)?.takeIf { it.isNotEmpty() } ?: return null
     return Quote(mine = this is ChatItem.User, text = words, token = (this as? ChatItem.Proposal)?.token?.ifBlank { null })

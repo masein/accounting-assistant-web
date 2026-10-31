@@ -99,7 +99,7 @@
     <string name="outbox_discard">لغو ارسال</string>
     <string name="earlier">پیام‌های قبلی</string>
     <string name="error_generic">مشکلی پیش آمد. دوباره امتحان کنید.</string>
-    <string name="voucher_asked_by">منتظر تأیید شما · به درخواست %1$s</string>
+    <string name="voucher_asked_by">منتظر تأیید شما، به درخواست %1$s</string>
     <string name="voucher_approve">تأیید</string>
     <string name="voucher_reject">رد</string>
     <string name="voucher_withdraw">لغو درخواست</string>

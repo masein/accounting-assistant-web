@@ -1663,6 +1663,8 @@
         entStatementEmailNotSent: "The statement wasn't delivered: {reason}",
         mgrStatementsPdf: "All statements (PDF)",
         mgrStatementsXlsx: "All statements (Excel)",
+        mgrJournalXlsx: "Journal (Excel)",
+        mgrJournalXlsxHint: "One row per line with its voucher number and its general ledger and subsidiary accounts: the file a tax office or another service takes",
         closePackTitle: "Monthly close pack",
         closePackHint: "One month's checklist, statements, trial balance, aging, bank reconciliation and budgets — a ZIP to keep or send to your accountant or auditor.",
         closePackMonth: "Month",

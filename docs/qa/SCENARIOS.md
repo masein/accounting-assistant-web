@@ -997,3 +997,17 @@ The owner's choice: on a Persian page every date field is the app's own, in the 
 | BK2 | The month grid | Open the field's grid | Gregorian months named in Persian («اکتبر ۲۰۲۶»), the week from Saturday («ش»), the chosen day pressed; picking a day sets it |
 | BK3 | Other languages | The same company in English; a Jalali company in any language | English: the browser's own field, as before. A Jalali company: the Jalali box, as before |
 | BK4 | The form's message | Persian page; clear the voucher's date and save, then pick a day from the grid | «این خانه را پر کنید.» on the date box; once a day is picked (or typed), the message is gone and the next save goes through the first time |
+
+## BL. The journal as an Excel file for the tax office (2026-11-02)
+
+The owner sends the tax office («دارایی») and other services the journal every three months, as an Excel file their accountant made by hand: one row per voucher line, the voucher's number, the Jalali date, the کل and معین codes and names, the description, and the debit and credit in rials. The journal report could only give a CSV of the page on screen.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BL1 | The file | An Iranian company; Reports → «دفتر روزنامه», 1405/01/01 to 1405/03/31; «خروجی اکسل» | One right-to-left sheet «دفتر روزنامه 1405 …company…»; the header is the owner's file's: ردیف، تاریخ، کد حساب کل، عنوان حساب کل، کد حساب معین، عنوان حساب معین، شرح، مبلغ بدهکار (ریال)، مبلغ بستانکار (ریال); one row per line, in date order; the header row stays in sight and filters |
+| BL2 | Voucher numbers | The same file; then 1405/04/01 to 1405/06/31 | ردیف is the voucher's number in the year from 1 Farvardin, the same on each of its lines; the second quarter goes on from where the first ended (90 vouchers → the next is 91); a range over two years starts again at 1 |
+| BL3 | کل and معین | A line on a معین account (1801 «وام از بانک دی» under 1800 «تسهیلات بانکی»); a line on a کل account (1100) | The first names 1800 «تسهیلات بانکی» and 1801 «وام از بانک دی»; the second 1100 and its name with the معین cells empty. A company's own codes are the ones written |
+| BL4 | The cells | Any line | The date is text «1405/01/05», Latin digits as an upload reads them; codes and amounts are numbers («#,##0»), the empty side 0, shown «-»; شرح is the line's own description, else the voucher's; a description starting with «=» is text, never a formula |
+| BL5 | The totals | The end of the sheet | Beside the last line, the debit and the credit totals, and under them the difference (0), as in the owner's file; numbers, not formulas |
+| BL6 | Currency | «IRR»; «USD»; «همه ارزها» | Rials: «(ریال)» and only the rial vouchers; dollars: the dollar vouchers in dollars, «(دلار آمریکا)», two decimal places; all currencies: every voucher at its value in the base currency, named. A deleted voucher is never in the file |
+| BL7 | The button | Reports page | «خروجی اکسل» shows for «دفتر روزنامه» only, and takes the page's dates and currency without running the report; the whole period is in the file, not the 50 on screen. A Gregorian company's file has «2026/03/25» dates and numbers from 1 January; a UK company's has English headers |

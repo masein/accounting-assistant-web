@@ -503,6 +503,26 @@ def general_journal(
     )
 
 
+@router.get("/books/general-journal/export")
+def general_journal_export(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    currency: str | None = Query(None),
+    lang: str | None = Query(None, pattern="^(fa|en)$"),
+    db: Session = Depends(get_db),
+) -> Response:
+    """The whole period's journal as one Excel sheet, a row per line with its voucher's number, کل and
+    معین — the file the tax office and other services take every three months (scenarios BL1–BL7)."""
+    from app.services.reporting import journal_sheet
+    from app.services.reporting.common import default_period
+
+    period = default_period(from_date, to_date)
+    body = journal_sheet.workbook(db, period.from_date, period.to_date, currency, lang)
+    name = journal_sheet.filename(db, period.from_date, period.to_date, lang)
+    return Response(content=body, media_type=journal_sheet.MEDIA_TYPE,
+                    headers={"Content-Disposition": content_disposition(name)})
+
+
 @router.get("/books/general-ledger", response_model=TrialBalanceResponse)
 def general_ledger(
     from_date: date | None = Query(None),

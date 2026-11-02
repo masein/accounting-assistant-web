@@ -290,6 +290,8 @@
 
     function syncManagerFilterLabels() {
       const type = (mgrReportTypeEl.value || '').trim();
+      const journalXlsx = document.getElementById('mgr-journal-xlsx-btn');
+      if (journalXlsx) journalXlsx.hidden = type !== 'general_journal';
       if (type === 'balance_sheet') {
         if (mgrFromLabelEl) mgrFromLabelEl.textContent = t('comparativeAsOf');
         if (mgrToLabelEl) mgrToLabelEl.textContent = t('asOfDate');
@@ -380,6 +382,21 @@
       if (ccy) q.set('currency', ccy);
       window.location.href = API + '/manager-reports/financial/export?' + q.toString();
     }));
+
+    // The journal as one Excel sheet, a row per line with its voucher's number, کل and معین: the
+    // file the tax office takes every three months (scenarios BL1–BL7). The whole period, not the
+    // page on screen, and no need to run the report first.
+    document.getElementById('mgr-journal-xlsx-btn')?.addEventListener('click', () => {
+      const q = new URLSearchParams();
+      const from = document.getElementById('mgr-from-date').value;
+      const to = document.getElementById('mgr-to-date').value;
+      const ccy = document.getElementById('mgr-currency')?.value;
+      if (from) q.set('from_date', from);
+      if (to) q.set('to_date', to);
+      if (ccy) q.set('currency', ccy);
+      if (currentLanguage === 'fa') q.set('lang', 'fa');      // else the company's: Persian for an Iranian one
+      window.location.href = API + '/manager-reports/books/general-journal/export?' + q.toString();
+    });
 
     // ═══════ The monthly close pack (roadmap §4.9) ═══════
     // The checklist is read in the UI's language (Persian or English); the

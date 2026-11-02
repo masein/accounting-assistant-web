@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.10.31.1"
+CURRENT_RELEASE = "2026.11.02.1"
 
 
 @dataclass(frozen=True)
@@ -2328,6 +2328,29 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "همهٔ صفحه‌ها، پیام‌ها، اسناد چاپی و پاسخ‌های دستیار به فارسی بازبینی شد: برای هر مفهوم یک واژه، مبلغ‌ها به‌صورت «۱,۲۵۰,۰۰۰»، کد حساب‌ها و تاریخ‌ها با رقم فارسی، و کارتی که دستیار آماده می‌کند تا وقتی تأییدش نکرده‌اید «آماده» است، نه «ثبت‌شده».",
                     "es": "Todas las pantallas, mensajes y documentos impresos en persa, y las respuestas del asistente, se revisaron con lectores nativos: un término para cada cosa, importes como «۱,۲۵۰,۰۰۰», códigos de cuenta y fechas en cifras persas, y una tarjeta del asistente está «lista», no «registrada», hasta que la confirmas.",
                     "ar": "رُوجعت كل الشاشات والرسائل والمستندات المطبوعة بالفارسية وردود المساعد مع قرّاء أصليين: مصطلح واحد لكل شيء، والمبالغ تُكتب «۱,۲۵۰,۰۰۰»، ورموز الحسابات والتواريخ بالأرقام الفارسية، والبطاقة التي يعدّها المساعد «جاهزة» لا «مسجّلة» حتى تؤكدها.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.11.02.1",
+        date="2026-11-02",
+        highlights=(
+            Highlight(
+                key="journal-excel",
+                page="manager",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "The journal as an Excel file for the tax office",
+                    "fa": "دفتر روزنامه در اکسل، برای دارایی",
+                    "es": "El libro diario en Excel para la agencia tributaria",
+                    "ar": "دفتر اليومية في ملف إكسل لمصلحة الضرائب",
+                },
+                body={
+                    "en": "Reports → General journal → «Journal (Excel)»: every line of the period's vouchers, each with its voucher number, date, general ledger and subsidiary account, description, debit and credit. The file the tax office and other services take every three months; the next quarter's numbers go on from the last.",
+                    "fa": "گزارش‌های مدیریتی، «دفتر روزنامه»، دکمهٔ «دفتر روزنامه (اکسل)»: همهٔ آرتیکل‌های دوره، هر کدام با شمارهٔ سند، تاریخ، حساب کل و معین، شرح و مبلغ بدهکار و بستانکار. همان فایلی که هر سه ماه به دارایی و سامانه‌های دیگر می‌دهید؛ شمارهٔ اسناد سه‌ماههٔ بعد از همان‌جا ادامه پیدا می‌کند.",
+                    "es": "Informes → Libro diario → «Libro diario (Excel)»: cada línea de los asientos del periodo, con su número de asiento, fecha, cuenta de mayor y auxiliar, descripción, debe y haber. El archivo que la agencia tributaria y otros servicios reciben cada tres meses; los números del trimestre siguiente continúan desde el último.",
+                    "ar": "التقارير ← دفتر اليومية ← «دفتر اليومية (إكسل)»: كل سطر من قيود الفترة، مع رقم القيد والتاريخ والحساب العام والمساعد والبيان والمدين والدائن. الملف الذي تأخذه مصلحة الضرائب والخدمات الأخرى كل ثلاثة أشهر؛ وتستمر أرقام الربع التالي من آخر رقم.",
                 },
             ),
         ),

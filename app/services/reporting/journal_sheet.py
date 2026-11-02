@@ -12,6 +12,7 @@ The owner's accountant made it by hand: one row per voucher line —
   the account itself); the معین is the line's account when it sits below
   that, else empty. Nothing is dropped: a line on a DETAIL account names
   that account as its معین.
+* A voucher's debit lines come before its credit lines, as in the owner's file.
 * Dates are text in the company's calendar with Latin digits («1405/01/05»),
   as an upload reads them; codes and amounts are numbers.
 * The totals sit beside the last line, as in the owner's file (J/K), with
@@ -148,9 +149,11 @@ def rows(db: Session, from_date: date, to_date: date, currency: str | None = Non
                 select(func.count(Transaction.id)).where(*where, Transaction.date >= start, Transaction.date < from_date)
             ).scalar() or 0) if start < from_date else 0
         numbers[start] += 1
-        for ln in v.lines:
+        # debits first, as in the owner's file: a line keeps no order of its own, and Postgres hands
+        # back one an import or a merge rewrote after the others
+        lines = sorted(((ln, *line_dr_cr(ln, currency)) for ln in v.lines), key=lambda x: not x[1])
+        for ln, debit, credit in lines:
             kol, moin = tiers.of(ln.account)
-            debit, credit = line_dr_cr(ln, currency)
             out.append([
                 numbers[start], _day(v.date, jalali),
                 _code(kol.code), kol.name,

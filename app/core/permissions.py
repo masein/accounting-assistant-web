@@ -686,6 +686,7 @@ _MR_READ = [
     "/manager-reports/close-pack", "/manager-reports/close-pack/checklist",   # the monthly close pack (§4.9)
     "/manager-reports/accounts/list",
     "/manager-reports/books/general-journal", "/manager-reports/books/general-ledger",
+    "/manager-reports/books/general-journal/export",   # the journal as the tax office's Excel sheet (BL)
     "/manager-reports/books/account-ledger/{account_code}", "/manager-reports/books/trial-balance",
     "/manager-reports/books/trial-balance-by-currency",
     "/manager-reports/operational/debtor-creditor", "/manager-reports/operational/accounts-payable",

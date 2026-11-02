@@ -1614,6 +1614,8 @@ window.I18N_PACKS.ar = Object.assign({
         entStatementEmailNotSent: "لم يُسلَّم الكشف: {reason}",
         mgrStatementsPdf: "كل القوائم (PDF)",
         mgrStatementsXlsx: "كل القوائم (إكسل)",
+        mgrJournalXlsx: "دفتر اليومية (إكسل)",
+        mgrJournalXlsxHint: "كل سطر في صف، مع رقم القيد والحساب العام والحساب المساعد: الملف الذي تأخذه مصلحة الضرائب أو خدمة أخرى",
         closePackTitle: "حزمة إقفال الشهر",
         closePackHint: "قائمة الإقفال والقوائم المالية وميزان المراجعة وأعمار الذمم والتسوية البنكية والموازنات لشهر واحد — في ملف ZIP للحفظ أو الإرسال إلى محاسبك أو مدققك.",
         closePackMonth: "الشهر",

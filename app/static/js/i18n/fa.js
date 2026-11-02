@@ -1658,6 +1658,8 @@ window.I18N_PACKS.fa = Object.assign({
         entStatementEmailNotSent: "صورت‌حساب تحویل نشد: {reason}",
         mgrStatementsPdf: "همه صورت‌های مالی (PDF)",
         mgrStatementsXlsx: "همه صورت‌های مالی (اکسل)",
+        mgrJournalXlsx: "دفتر روزنامه (اکسل)",
+        mgrJournalXlsxHint: "هر آرتیکل در یک ردیف، با شمارهٔ سند و حساب کل و معین؛ همان فایلی که دارایی و سامانه‌های دیگر می‌گیرند",
         closePackTitle: "بستهٔ پایان ماه",
         closePackHint: "مدارک یک ماه در یک فایل ZIP: چک‌لیست، صورت‌های مالی، تراز آزمایشی، تحلیل سنی حساب‌ها، مغایرت‌گیری بانکی و بودجه — برای بایگانی یا ارسال به حسابدار یا حسابرس.",
         closePackMonth: "ماه",

@@ -1614,6 +1614,8 @@ window.I18N_PACKS.es = Object.assign({
         entStatementEmailNotSent: "El extracto no se entregó: {reason}",
         mgrStatementsPdf: "Todos los estados (PDF)",
         mgrStatementsXlsx: "Todos los estados (Excel)",
+        mgrJournalXlsx: "Libro diario (Excel)",
+        mgrJournalXlsxHint: "Una fila por línea con su número de asiento y sus cuentas de mayor y auxiliar: el archivo que recibe la agencia tributaria u otro servicio",
         closePackTitle: "Paquete de cierre mensual",
         closePackHint: "La lista de cierre, los estados, el balance de comprobación, la antigüedad, la conciliación bancaria y los presupuestos de un mes, en un ZIP para guardar o enviar a tu contable o auditor.",
         closePackMonth: "Mes",

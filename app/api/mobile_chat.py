@@ -143,8 +143,8 @@ async def mobile_chat(payload: MobileChatPayload, db: Session = Depends(get_db),
                               db=db, user=user)
         # the cards in the reply's language: «چقدر پول داریم؟» from a phone in English was
         # answered in Persian under a "Cash and bank" card (scenario Z5)
-        from app.services.ai_accountant.orchestrator import _message_language
-        lang = _message_language(payload.message, _user_language(db, user))
+        from app.services.ai_accountant.orchestrator import turn_language
+        lang = turn_language(db, payload.message, resp.session_id, _user_language(db, user))
         blocks = B.build_blocks(db, text=resp.text, proposals=resp.proposals, tool_calls=resp.tool_calls,
                                 intake=resp.intake, lang=lang, calendar=_calendar(db))
         _store_blocks(db, resp.session_id, blocks)
@@ -503,14 +503,36 @@ async def mobile_edit(token: str, payload: EditPayload, db: Session = Depends(ge
         raise HTTPException(status_code=422, detail=str(e))
     except (ProposalNotFound, ProposalCancelled, PermissionDenied) as e:
         raise _execute_errors(e)
-    block = B.proposal_block(db, result, calendar=_calendar(db), lang=_user_language(db, user))
-    block["replaces"] = token                       # so the thread redraws the old card as changed, not cancelled
     old = db.execute(select(AIProposal).where(AIProposal.confirmation_token == uuid.UUID(token))).scalars().first()
+    # the thread's language, not the profile's: an edited card came back in English, and its English summary
+    # went back to the model as what the assistant had said (production chats, 2026-10-26, scenario BQ3)
+    from app.services.ai_accountant.orchestrator import thread_language
+    lang = thread_language(db, old.session_id if old is not None else None, _user_language(db, user))
+    block = B.proposal_block(db, result, calendar=_calendar(db), lang=lang)
+    block["replaces"] = token                       # so the thread redraws the old card as changed, not cancelled
     if old is not None and old.session_id is not None:
         db.add(AIChatMessage(session_id=uuid.UUID(str(old.session_id)), role="assistant",
-                             content={"role": "assistant", "text": block["fallback_text"], "blocks": [block]}))
+                             content={"role": "assistant", "text": _changed_on_card(block, lang), "blocks": [block]}))
         db.commit()
     return {"replaces": token, "block": block}
+
+
+_CHANGED = {"en": "Changed on the card: {what}.", "fa": "کارت تغییر کرد: {what}.",
+            "es": "Tarjeta cambiada: {what}.", "ar": "تم تعديل البطاقة: {what}."}
+
+
+def _changed_on_card(block: dict, lang: str) -> str:
+    """What the thread keeps for a card changed on the phone, in the thread's language: its title, amount and
+    date — not the English summary, which the model then read as its own words."""
+    from app.services.ai_accountant.fast_paths import _in_currency
+    parts = [str(block.get("title") or "").strip()]
+    amount = block.get("amount") or {}
+    if amount.get("value") is not None and amount.get("currency"):
+        parts.append(_in_currency(amount["value"], amount["currency"], "fa" if lang == "fa" else "en"))
+    if (block.get("date") or {}).get("display"):
+        parts.append(block["date"]["display"])
+    sep = "، " if lang in ("fa", "ar") else ", "
+    return _CHANGED.get(lang, _CHANGED["en"]).format(what=sep.join(p for p in parts if p))
 
 
 def _approval_block(db: Session, p: AIProposal, user: SessionUser, *, calendar: str, lang: str) -> dict:

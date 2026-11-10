@@ -1062,6 +1062,32 @@ From the production chats:
 | BO7 | A longer name finds the shorter one | The books hold «Karimi»; «received 1bn from karimi nia» | «Karimi» is found; «سارا» named beside «سارو» is still someone else (AY5) |
 | BO8 | Money given to family is family spending | «۱۰ ریال دادم به همسرم»; «۱۰ ریال دادم به عمه‌ام» | «خانواده و هدایا» (6195), no «طلب از دیگران» (1150), no person — unless the user says it is a loan or will be paid back |
 
+## BP. Cards that wait, cards set aside, and the amounts checked (chat review 2026-11-10)
+
+From the production chats: a card read an hour or a night later was refused as expired, and the user typed it again; a card the user moved past («خب ولش …») stayed waiting and was counted in what they owed; «۳۹۰ بیسه» was refused as not near 390; an amount changed on the phone's card lost a digit and was recorded so; «سه و چهاردهم» was guessed as 3.14.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BP1 | A card waits a day | A card made at night is confirmed the next morning; another is confirmed after more than a day | The first is recorded. The second says it has expired (in the page's language) |
+| BP2 | A card typed again is recorded once | A card is read late and typed again; the new card is confirmed, then Confirm on the old one | The old one is refused: a later card already recorded it, confirming it too would record it twice. A taxi each way at the same fare, told in two messages, is two entries |
+| BP3 | A card past its time isn't waiting | A card of money from a person, older than a day; «حساب من با امیر؟» | What is owed now only; nothing about a card waiting |
+| BP4 | «ولش» sets the card aside | Right after a card, «خب ولش، الان چقدر پول داریم؟» (or "never mind", «بی‌خیال») | The card of the turn before is cancelled and the question is answered, by the quick answer too. «ولش کن همینجوری ثبتش کن» keeps it; a card of an earlier turn is kept |
+| BP5 | Baisa and cents | «۳۹۰ بیسه نون خریدم» | A card of 0.390 OMR is made; 390 OMR would be refused. «۸۶ ریال و ۱۰۰ بیسه» is 86.100; 50 cents is 0.50 |
+| BP6 | Amounts in words | «ششصد و پنجاه بیسه ویفر خریدم» | Read as 0.650 OMR; «دو تا نون» is not an amount |
+| BP7 | An amount changed far from the card | On the phone's card, 12.580 OMR changed to 1.258 | Refused: «کارت ۱۲٫۵۸۰ ریال عمان بود و ۱٫۲۵۸ خیلی با آن فرق دارد؛ اگر درست است، مبلغ را در گفتگو بنویسید.» A correction near the card's amount (3.140 → 3.400) is made |
+| BP8 | An amount in words that isn't a number | «یه سه و چهاردهم ریال پیتزا خریدم» | The assistant asks which figure, with the likely ones as choices; it does not guess 3.14. «سه و چهارصد» of Omani rials is 3.400 |
+
+## BQ. A Persian conversation answered in Persian (chat review 2026-11-10)
+
+From the production chats, on a phone whose profile language is English: one brand name in Latin letters made a Persian message count as English; a receipt sent alone was answered in English, by the receipt's own printed words; a card changed on the phone came back drawn in English, and its English summary went back to the model as what the assistant had said; receipts were described in English in the books.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BQ1 | Most of the words say the language | A phone in English: «دیشب ۲.۸ ریال KFC خوردیم از کیف پول قشنگم»; «KFC خوردیم»; "we paid 36000 for کارمزد صورتحساب" | The first two are Persian turns (the reply, the cards, the dates); the third, English with a Persian name, is English. A message in Arabic is Arabic |
+| BQ2 | A receipt sent alone | After Persian messages, a receipt photo with no words; then "ok?" | Both are answered in Persian, cards and quick answers too; a statement file sent alone too. A first message with no words takes the interface language |
+| BQ3 | A card changed on the phone | In a Persian thread on an English phone, change a card's description | The new card is drawn in Persian; the thread keeps «کارت تغییر کرد: …» with its title, amount and date, not the English summary |
+| BQ4 | Entries in the conversation's language | A receipt printed in English, sent in a Persian conversation | The card's description is Persian; the shop's name stays as printed |
+
 ## BR. Spending and ledger answers from the books as they are (chat review 2026-11-10)
 
 From the production chats, in a person's books kept in rials whose money is mostly Omani rials: the ledger with no currency asked came back as 0 rials with "add rates" beside it, and an empty answer was filled from the chat as if it were recorded; food asked about missed the meals eaten out; a bank's ledger brought every line of each voucher it was on, the whole opening voucher with it; "the last 5" were five lines, and a day's entries came in random order.

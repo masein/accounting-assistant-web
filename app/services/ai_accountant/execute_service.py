@@ -10,7 +10,7 @@ Guarantees:
 * **Idempotency.** Calling ``execute_proposal`` twice with the same
   ``confirmation_token`` returns the same audit-log entry without
   double-writing the ledger.
-* **Expiry.** Proposals expire after 10 minutes (``PROPOSAL_TTL``);
+* **Expiry.** Proposals expire after a day (``PROPOSAL_TTL``, card_life);
   expired tokens raise ``ProposalExpired``.
 * **Audit.** Every successful execute writes one ``audit_logs`` row
   with ``actor_source='ai-assistant'``, the original ``user_message``,
@@ -48,7 +48,7 @@ from app.schemas.transaction import TransactionCreate, TransactionLineCreate
 from app.services.reporting.ledger_service import LedgerService
 from app.core.money import json_dumps, plain
 
-PROPOSAL_TTL = timedelta(minutes=10)
+from app.services.ai_accountant.card_life import PROPOSAL_TTL, lapsed  # noqa: E402 — a day (BP1)
 # The quick one-click undo window in the chat. Lengthened from 30s to 120s so
 # the countdown doesn't expire while the user is still reading the receipt
 # (AI-7). After it closes the user still has a persistent ``reverse_action``
@@ -121,6 +121,40 @@ def _resolve_proposal(db: Session, token: str) -> AIProposal:
     return row
 
 
+def _entry_print(tool_input: dict | None) -> tuple | None:
+    """What a journal card records, to tell one entry made twice: the date, the currency and the lines."""
+    p = tool_input or {}
+    lines = p.get("lines") or []
+    if not lines:
+        return None
+    try:
+        drawn = sorted((str(ln.get("account_code")), plain(ln.get("debit") or 0), plain(ln.get("credit") or 0))
+                       for ln in lines)
+    except (TypeError, ValueError, ArithmeticError):
+        return None
+    return (str(p.get("date") or ""), str(p.get("currency") or "").upper(), tuple(drawn))
+
+
+def _recorded_by_later_card(db: Session, proposal: AIProposal) -> bool:
+    """A card made later in the same conversation already recorded this very entry.
+
+    Cards wait a day now (card_life); a card read late was typed again and its new card confirmed, so the
+    old one, still showing Confirm, would record it a second time (production chats, 2026-10-22, BP2)."""
+    if proposal.tool_name != "propose_create_transaction" or not proposal.session_id:
+        return False
+    mine = _entry_print(proposal.tool_input)
+    if mine is None:
+        return False
+    later = db.execute(select(AIProposal).where(
+        AIProposal.session_id == proposal.session_id, AIProposal.tool_name == proposal.tool_name,
+        AIProposal.status == "executed", AIProposal.created_at > proposal.created_at,
+        AIProposal.id != proposal.id)).scalars().all()
+    def said(p: AIProposal) -> set[str]:
+        # the same words typed again, or the same description: a taxi each way at the same fare is two entries
+        return {" ".join(str(t or "").split()) for t in (p.user_message, (p.tool_input or {}).get("description"))} - {""}
+    return any(_entry_print(other.tool_input) == mine and said(other) & said(proposal) for other in later)
+
+
 def execute_proposal(
     db: Session,
     *,
@@ -137,7 +171,7 @@ def execute_proposal(
         here, not in the system prompt).
       * Status must be ``pending``. A second call with the same token
         returns the original audit-log entry (idempotent).
-      * Older than 10 minutes → ``ProposalExpired``.
+      * Older than a day → ``ProposalExpired``; recorded already by a later card → ``ProposalCancelled``.
     """
     proposal = _resolve_proposal(db, confirmation_token)
 
@@ -177,17 +211,19 @@ def execute_proposal(
             raise ProposalExpired("The approval request expired; ask the assistant to draft it again.")
         raise ApprovalRequired(guardrails.request_approval(db, proposal))
 
-    # Expiry check (10 min from creation).
-    created = proposal.created_at
-    if created and created.tzinfo is None:
-        created = created.replace(tzinfo=timezone.utc)
-    if created and datetime.now(timezone.utc) - created > PROPOSAL_TTL:
+    # Expiry check (a day from creation, card_life).
+    if lapsed(proposal.created_at):
         proposal.status = "expired"
         db.commit()
         raise ProposalExpired(
-            f"Proposal expired (created {created.isoformat()}, TTL "
+            f"Proposal expired (created {proposal.created_at.isoformat()}, TTL "
             f"{int(PROPOSAL_TTL.total_seconds())}s). Ask the assistant to draft a new one."
         )
+    if _recorded_by_later_card(db, proposal):
+        proposal.status = "cancelled"
+        db.commit()
+        raise ProposalCancelled("A later card in this conversation already recorded this entry; confirming this "
+                                "one too would record it twice.")
 
     if guardrails.needs_approval(db, proposal):
         info = guardrails.request_approval(db, proposal)

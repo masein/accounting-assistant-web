@@ -3123,7 +3123,7 @@
         confirmDeleteEntity: 'Delete entity "{name}"?',
         confirmDeleteTransaction: 'Delete this transaction?',
         openingDeleteTitle: 'Delete the opening balances?',
-        openingDeletePrompt: 'This is the opening balances entry: every account on it loses its opening balance. To delete it, type {word}.',
+        openingDeletePrompt: 'This is the opening balances entry: every account on it loses its opening balance. To delete it, type “{word}”.',
         openingDeleteWord: 'opening',
         openingDeleteMismatch: 'Not deleted: the word typed was not the one asked for.',
         confirmDeleteFxRate: 'Delete this exchange rate?',

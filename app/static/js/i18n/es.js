@@ -3101,7 +3101,7 @@ window.I18N_PACKS.es = Object.assign({
         confirmDeleteEntity: '¿Eliminar la entidad «{name}»?',
         confirmDeleteTransaction: '¿Eliminar esta transacción?',
         openingDeleteTitle: '¿Borrar los saldos de apertura?',
-        openingDeletePrompt: 'Este es el asiento de apertura: todas sus cuentas pierden su saldo de apertura. Para borrarlo, escriba {word}.',
+        openingDeletePrompt: 'Este es el asiento de apertura: todas sus cuentas pierden su saldo de apertura. Para borrarlo, escriba «{word}».',
         openingDeleteWord: 'apertura',
         openingDeleteMismatch: 'No se borró: la palabra escrita no era la pedida.',
         confirmDeleteFxRate: '¿Eliminar este tipo de cambio?',

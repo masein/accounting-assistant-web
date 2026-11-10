@@ -3101,7 +3101,7 @@ window.I18N_PACKS.ar = Object.assign({
         confirmDeleteEntity: 'هل تريد حذف الجهة «{name}»؟',
         confirmDeleteTransaction: 'هل تريد حذف هذه المعاملة؟',
         openingDeleteTitle: 'حذف الأرصدة الافتتاحية؟',
-        openingDeletePrompt: 'هذا قيد الأرصدة الافتتاحية: يفقد كل حساب فيه رصيده الافتتاحي. لحذفه اكتب {word}.',
+        openingDeletePrompt: 'هذا قيد الأرصدة الافتتاحية: يفقد كل حساب فيه رصيده الافتتاحي. لحذفه اكتب «{word}».',
         openingDeleteWord: 'افتتاحي',
         openingDeleteMismatch: 'لم يُحذف: الكلمة المكتوبة ليست المطلوبة.',
         confirmDeleteFxRate: 'هل تريد حذف سعر الصرف هذا؟',

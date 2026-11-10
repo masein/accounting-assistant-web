@@ -3115,7 +3115,7 @@ window.I18N_PACKS.fa = Object.assign({
         confirmDeleteEntity: 'شخص «{name}» حذف شود؟',
         confirmDeleteTransaction: 'این تراکنش حذف شود؟',
         openingDeleteTitle: 'سند افتتاحیه حذف شود؟',
-        openingDeletePrompt: 'این سند افتتاحیه است: ماندهٔ افتتاحیهٔ همهٔ حساب‌های آن پاک می‌شود. برای حذف، بنویسید {word}.',
+        openingDeletePrompt: 'این سند افتتاحیه است: ماندهٔ افتتاحیهٔ همهٔ حساب‌های آن پاک می‌شود. برای حذف، بنویسید «{word}».',
         openingDeleteWord: 'افتتاحیه',
         openingDeleteMismatch: 'حذف نشد: کلمه‌ای که نوشتید آنی نبود که خواسته شد.',
         confirmDeleteFxRate: 'این نرخ ارز حذف شود؟',

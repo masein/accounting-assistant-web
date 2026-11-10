@@ -236,6 +236,13 @@ def tree(db: Session, *, include_inactive: bool = True) -> list[dict[str, Any]]:
 
 # --- opening balances ------------------------------------------------------------------------------------
 
+def is_opening_entry(txn) -> bool:
+    """The opening balances entry (made on the opening page or by a migration): every account's opening balance
+    is on it. One was deleted with the plain "delete this transaction?" (chat review 2026-11-10, scenario BU1)."""
+    from app.services.migration_import import OPENING_REFERENCE as MIGRATION_REFERENCE
+    return (getattr(txn, "reference", None) or "") in (OPENING_REFERENCE, MIGRATION_REFERENCE)
+
+
 def _opening_journals(db: Session):
     from app.models.transaction import Transaction
     from app.services.migration_import import OPENING_REFERENCE as MIGRATION_REFERENCE

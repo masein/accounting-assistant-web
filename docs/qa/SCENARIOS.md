@@ -1087,3 +1087,14 @@ From the production chats, on a phone whose profile language is English: one bra
 | BQ2 | A receipt sent alone | After Persian messages, a receipt photo with no words; then "ok?" | Both are answered in Persian, cards and quick answers too; a statement file sent alone too. A first message with no words takes the interface language |
 | BQ3 | A card changed on the phone | In a Persian thread on an English phone, change a card's description | The new card is drawn in Persian; the thread keeps «کارت تغییر کرد: …» with its title, amount and date, not the English summary |
 | BQ4 | Entries in the conversation's language | A receipt printed in English, sent in a Persian conversation | The card's description is Persian; the shop's name stays as printed |
+
+## BU. The opening entry kept, and a move between categories made once (chat review 2026-11-10)
+
+From production: a company's whole opening voucher went with the plain "delete this transaction?", one of six entries removed within a minute; and three purchases moved from one category to another one day were moved a second time the next, so the books counted the move twice.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BU1 | The opening entry needs its word | On a bank's transactions, delete the opening balances entry (made on the opening page or by a migration) | The page asks to type «افتتاحیه» (opening / apertura / افتتاحي); a wrong word deletes nothing. The server refuses the delete without it (409, in the user's language); any other entry is deleted as before |
+| BU2 | The chat reverses the opening only when named | «همهٔ سندهای امروز رو برگردون» where the opening is the entry found | Refused: the assistant says what the opening holds. «سند افتتاحیه رو برگردون» makes the card |
+| BU3 | A move between categories is made once | Move three purchases (200,000 + 300,000 + 100,000) from one expense to another; the next day ask again for one card of 600,000 | The assistant says the move is already in the books, with the dates, and asks; only when the user says to make it again is the card made. A larger move, or one after the move was taken back, is made |
+| BU4 | The page has the words | Switch the language to each of the four | The title, the prompt with the word, and the "not deleted" note are in that language |

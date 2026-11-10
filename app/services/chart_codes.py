@@ -95,3 +95,15 @@ def code_for_class(db: Session, cls: str) -> str | None:
         return own
     plain = db.execute(select(Account.code).where(Account.code == cls, Account.class_code.is_(None))).scalars().first()
     return plain
+
+
+def codes_clause(codes: str | None):
+    """SQL for one account code or several («6110,6180»: food is groceries and eating out), each with its
+    sub-accounts by class; None when no code is given (chat review 2026-11-10, scenario BR3)."""
+    import re as _re
+
+    from sqlalchemy import or_
+    said = [c for c in _re.split(r"[,\s،]+", (codes or "").strip()) if c]
+    if not said:
+        return None
+    return or_(*[class_expr().like(f"{class_of(c)}%") for c in said])

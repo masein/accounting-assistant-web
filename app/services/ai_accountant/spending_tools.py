@@ -196,7 +196,8 @@ class GetSpendingSummaryInput(BaseModel):
     )
     category_code: str | None = Field(
         None,
-        description="Optional account code or prefix to restrict to one category (e.g. food). Omit for the total.",
+        description=("Optional account code or prefix to restrict to one category, or several comma-separated: food "
+                     "is groceries and eating out together, «6110,6180» in a person's books. Omit for the total."),
     )
     currency: str | None = Field(
         None,
@@ -263,9 +264,9 @@ class GetSpendingSummary(BaseTool):
                 Transaction.date <= period.to_date,
             )
         )
-        if args.category_code:
-            from app.services.chart_codes import class_expr, class_of      # by class (docs/PLAN_OWN_CODES.md)
-            stmt = stmt.where(class_expr().like(f"{class_of(args.category_code.strip())}%"))
+        from app.services.chart_codes import codes_clause      # by class (docs/PLAN_OWN_CODES.md); several: «6110,6180»
+        if (only_codes := codes_clause(args.category_code)) is not None:
+            stmt = stmt.where(only_codes)
 
         base = (get_reporting_currency(ctx.db) or "IRR").strip().upper()
         only = (args.currency or "").strip().upper() or None

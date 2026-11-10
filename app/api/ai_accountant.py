@@ -450,16 +450,19 @@ async def chat(
 
     intake_context = ""
     stmt_handoff = None          # a statement imported from the file, handed to the model with the user's rules
+    # the language this turn is answered in: its words', else the thread's — a receipt or a statement sent
+    # alone took the profile's English mid-way through a Persian conversation (scenario BQ2)
+    from app.services.ai_accountant.orchestrator import turn_language
+    said_lang = turn_language(db, payload.message, payload.session_id, _user_language(db, user))
     if sheet_atts or ocr_ids:
         from app.services.ai_accountant import progress
-        progress.emit("reading_files", lang=_user_language(db, user))
+        progress.emit("reading_files", lang=said_lang)
     if sheet_atts:
         from app.core.permissions import Perm, role_can
 
-        from app.services.ai_accountant.orchestrator import _message_language as _said_in
         intake = build_spreadsheet_intake(
             db, sheet_atts, can_migrate=role_can(user.role, Perm.MIGRATION_WRITE),
-            lang=_said_in(payload.message, _user_language(db, user)),     # «به نظر فهرست سندهاست …» (AF8)
+            lang=said_lang,     # «به نظر فهرست سندهاست …» (AF8)
         )
         if intake is not None and intake.kind in ("chart_export", "journals"):
             # Deterministic detection + confirm card — no LLM call, no silent
@@ -486,7 +489,7 @@ async def chat(
         from app.services.ai_accountant.statement_intake import maybe_statement_intake
         sheet_turn = await maybe_statement_intake(
             db, user_role=user.role, attachments=sheet_atts,
-            message=payload.message, lang=_user_language(db, user),
+            message=payload.message, lang=said_lang,
         )
         if sheet_turn is not None:
             log_audit_event(
@@ -509,9 +512,8 @@ async def chat(
     # Not a reply: «و به دلار؟» under an answer is about that answer, which only the model reads.
     if not payload.attachment_ids and quote is None:
         from app.services.ai_accountant import fast_paths
-        from app.services.ai_accountant.orchestrator import _message_language
         fast = await fast_paths.answer(db, payload.message, user_id=user.user_id, username=user.username,
-                                       lang=_message_language(payload.message, _user_language(db, user)),
+                                       lang=said_lang,
                                        mode="personal" if user.role == Role.PERSONAL else "default")
         if fast is not None:
             return _deterministic_turn(db, user, payload, fast.text, intake=None, tool_calls=fast.tool_calls)
@@ -525,9 +527,7 @@ async def chat(
         if stmt_handoff is None:
             raise
         # the statement is in; the rules wait for the assistant (scenario AF7)
-        from app.services.ai_accountant.orchestrator import _message_language as _said_in
-        lang_ = _said_in(payload.message, _user_language(db, user))
-        return _deterministic_turn(db, user, payload, stmt_handoff.text + "\n\n" + _NO_AI_FOR_RULES.get(lang_, _NO_AI_FOR_RULES["en"]),
+        return _deterministic_turn(db, user, payload, stmt_handoff.text + "\n\n" + _NO_AI_FOR_RULES.get(said_lang, _NO_AI_FOR_RULES["en"]),
                                    intake=stmt_handoff.intake, quote=quote)
 
     ocr_context = ""
@@ -541,7 +541,7 @@ async def chat(
         ocr_atts = [a for a in (db.get(TransactionAttachment, uuid.UUID(str(i))) for i in ocr_ids) if a is not None]
         stmt_turn = await maybe_statement_intake(
             db, user_role=user.role, attachments=ocr_atts,
-            message=payload.message, lang=_user_language(db, user),
+            message=payload.message, lang=said_lang,
         )
         if stmt_turn is not None:
             log_audit_event(
@@ -582,9 +582,7 @@ async def chat(
     except AIAccountantError as e:
         if stmt_handoff is not None:
             # the statement is in; the rules wait for the assistant (scenario AF7)
-            from app.services.ai_accountant.orchestrator import _message_language as _said_in
-            lang_ = _said_in(payload.message, _user_language(db, user))
-            return _deterministic_turn(db, user, payload, stmt_handoff.text + "\n\n" + _NO_AI_FOR_RULES.get(lang_, _NO_AI_FOR_RULES["en"]),
+            return _deterministic_turn(db, user, payload, stmt_handoff.text + "\n\n" + _NO_AI_FOR_RULES.get(said_lang, _NO_AI_FOR_RULES["en"]),
                                        intake=stmt_handoff.intake, quote=quote, user_saved=True)
         # the detail is for whoever configures the AI; the code lets the chat say it plainly.
         # An empty provider account isn't "try again in a moment" (Metis 402 "Insufficient
@@ -630,8 +628,8 @@ async def chat(
                            lang=_user_language(db, user), channel="web",
                            latency_ms=int((time.perf_counter() - turn_started) * 1000),
                            personal=user.role == Role.PERSONAL)
-    from app.services.ai_accountant.orchestrator import _message_language
-    reply_lang = _message_language(payload.message, _user_language(db, user))
+    from app.services.ai_accountant.orchestrator import turn_language
+    reply_lang = turn_language(db, payload.message, result.session_id, _user_language(db, user))
     cards = _voucher_cards(db, result.proposals, lang=reply_lang)
     review_cards = _review_cards(db, result.tool_calls, lang=reply_lang)
     return ChatResponse(

@@ -1077,6 +1077,30 @@ From the production chats: a card read an hour or a night later was refused as e
 | BP7 | An amount changed far from the card | On the phone's card, 12.580 OMR changed to 1.258 | Refused: «کارت ۱۲٫۵۸۰ ریال عمان بود و ۱٫۲۵۸ خیلی با آن فرق دارد؛ اگر درست است، مبلغ را در گفتگو بنویسید.» A correction near the card's amount (3.140 → 3.400) is made |
 | BP8 | An amount in words that isn't a number | «یه سه و چهاردهم ریال پیتزا خریدم» | The assistant asks which figure, with the likely ones as choices; it does not guess 3.14. «سه و چهارصد» of Omani rials is 3.400 |
 
+## BQ. A Persian conversation answered in Persian (chat review 2026-11-10)
+
+From the production chats, on a phone whose profile language is English: one brand name in Latin letters made a Persian message count as English; a receipt sent alone was answered in English, by the receipt's own printed words; a card changed on the phone came back drawn in English, and its English summary went back to the model as what the assistant had said; receipts were described in English in the books.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BQ1 | Most of the words say the language | A phone in English: «دیشب ۲.۸ ریال KFC خوردیم از کیف پول قشنگم»; «KFC خوردیم»; "we paid 36000 for کارمزد صورتحساب" | The first two are Persian turns (the reply, the cards, the dates); the third, English with a Persian name, is English. A message in Arabic is Arabic |
+| BQ2 | A receipt sent alone | After Persian messages, a receipt photo with no words; then "ok?" | Both are answered in Persian, cards and quick answers too; a statement file sent alone too. A first message with no words takes the interface language |
+| BQ3 | A card changed on the phone | In a Persian thread on an English phone, change a card's description | The new card is drawn in Persian; the thread keeps «کارت تغییر کرد: …» with its title, amount and date, not the English summary |
+| BQ4 | Entries in the conversation's language | A receipt printed in English, sent in a Persian conversation | The card's description is Persian; the shop's name stays as printed |
+
+## BR. Spending and ledger answers from the books as they are (chat review 2026-11-10)
+
+From the production chats, in a person's books kept in rials whose money is mostly Omani rials: the ledger with no currency asked came back as 0 rials with "add rates" beside it, and an empty answer was filled from the chat as if it were recorded; food asked about missed the meals eaten out; a bank's ledger brought every line of each voucher it was on, the whole opening voucher with it; "the last 5" were five lines, and a day's entries came in random order.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BR1 | Each currency in its own amounts | Books in rials, spending in Omani rials and rials; «این هفته چقدر خرج کردم؟» through the ledger | Each currency's own total, never added together; no "add rates". One currency only: its total in that currency |
+| BR2 | Nothing found | «خرجای دیروزم رو بگو» when nothing is dated yesterday | It says nothing is recorded for yesterday and offers to look at other days or record it; it never lists what was said in the chat as if it were in the books |
+| BR3 | Food | «چقدر پول غذا دادم؟» | Groceries (6110) and eating out (6180) together, each named, each currency on its own |
+| BR4 | A bank's ledger | «گردش حساب ملت» where the bank is on a voucher with other accounts (an opening) | Only the bank account's lines and their total |
+| BR5 | The latest entries | «۵ تا خرج آخرم» | Five entries (not five lines), newest first; entries of one day in the order they were made |
+| BR6 | Answers from the tools | Any spending or ledger question | The answer is what the tools found |
+
 ## BT. A company's own banks, as the user names them (chat review 2026-11-10)
 
 From the production chats, in a company's books: "paid … from <bank>" was credited to the chart's general «موجودی نقد و بانک»; searching the bank's own name found that general account above the bank's; money moved between two of the company's banks was booked as an expense from one and a receipt into the other; and the payment-direction check knew only English.

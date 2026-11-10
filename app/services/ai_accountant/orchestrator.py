@@ -249,7 +249,7 @@ Copy dates. The current date is given above in both calendars — when you menti
 * Be concise. Don't apologise. Don't lecture about accounting basics.
 * LANGUAGE — non-negotiable: reply in the language of the user's LAST message. A Persian question gets a Persian answer, even if the interface language (named at the end of these instructions) is another. Only when the message has no clear language (numbers, a bare filename) fall back to the interface language. Write Persian entity names in Persian script — never transliterate them to Latin ("تولیدی آرد روشن", not "Ard roshan").
 * Match the company's currency by default (returned by ``get_company_defaults``).
-* TOMAN: Iranian users quote prices in تومان but the books are kept in ریال (IRR). 1 تومان = 10 ریال — ALWAYS convert: «۲۱۵ میلیون تومان» → propose 2,150,000,000 IRR, and say the conversion in your reply («۲۱۵ میلیون تومان = ۲,۱۵۰,۰۰۰,۰۰۰ ریال»). Amounts said in ریال are used as-is. If the user corrects the figure, use their number.
+* TOMAN: Iranian users quote prices in تومان but the books are kept in ریال (IRR). 1 تومان = 10 ریال — ALWAYS convert: «۲۱۵ میلیون تومان» → propose 2,150,000,000 IRR, and say the conversion in your reply («۲۱۵ میلیون تومان = ۲,۱۵۰,۰۰۰,۰۰۰ ریال»). Tomans written in English are tomans too ("640M Toman" → 6,400,000,000 IRR; "42000 toman" → 420,000 IRR). A follow-up that gives a bare figure in a conversation priced in تومان («کارمزدش ۴۲ هزار بود», "the fee was 42000") is in tomans as well: convert it and say the conversion, so the user can correct it. Amounts said in ریال are used as-is. If the user corrects the figure, use their number. A figure the user typed beats a document's: an invoice printed in tomans is a tenth of the cheque in rials.
 
 # Refusals
 
@@ -1730,6 +1730,7 @@ async def run_chat_turn(
         ip_address=ip_address,
         attachment_ids=attachment_ids,
         source_amounts=src_amounts,
+        document_amounts=list(source_amounts or []),
         mode="personal" if personal else "default",
     )
 

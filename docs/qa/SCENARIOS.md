@@ -1076,3 +1076,15 @@ From the production chats: a card read an hour or a night later was refused as e
 | BP6 | Amounts in words | «ششصد و پنجاه بیسه ویفر خریدم» | Read as 0.650 OMR; «دو تا نون» is not an amount |
 | BP7 | An amount changed far from the card | On the phone's card, 12.580 OMR changed to 1.258 | Refused: «کارت ۱۲٫۵۸۰ ریال عمان بود و ۱٫۲۵۸ خیلی با آن فرق دارد؛ اگر درست است، مبلغ را در گفتگو بنویسید.» A correction near the card's amount (3.140 → 3.400) is made |
 | BP8 | An amount in words that isn't a number | «یه سه و چهاردهم ریال پیتزا خریدم» | The assistant asks which figure, with the likely ones as choices; it does not guess 3.14. «سه و چهارصد» of Omani rials is 3.400 |
+
+## BS. Tomans, wherever they are written (chat review 2026-11-10)
+
+From the production chats, in rial books: an invoice in tomans typed in English was carded at a tenth of its rials; a fee in tomans was carded at a thousand times its rials and refused three times with only the rough figure beside it; an invoice printed in tomans was read as rials, and its figure beat the cheque of ten times it that the user typed.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BS1 | Tomans written in English | A rial company: "invoice total 640M Toman"; "180million Toman"; "42000 toman" | Each is read as tomans: a card at 640,000,000 is refused with 6,400,000,000 to propose; the card at 6,400,000,000 is made |
+| BS2 | A refusal says the rial figure | "42000 toman was the transaction fee"; the assistant tries 420,000,000 | Refused, and the refusal says "42,000 tomans, which is 420,000 rials"; the card at 420,000 is made |
+| BS3 | A document printed in tomans | Attach an invoice whose total is printed as 175,000,000 تومان | Read as 1,750,000,000 IRR; the chat is told it was printed in tomans; the invoice and transaction OCR forms get the rial figure too |
+| BS4 | The figure typed beats the document's | With that invoice read as 175,000,000 rials, the user types "cheque: 1,750,000,000" | A card at 175,000,000 is refused with 1,750,000,000 to propose; a tenth of a typed figure with no document behind it («split 1,000,000 between 10») is made |
+| BS5 | A bare follow-up in a toman conversation | After «۱۸۰ میلیون تومان زدیم به حساب دیگرمان», "the fee was 42000" | The fee is carded as 420,000 rials and the reply says «۴۲,۰۰۰ تومان = ۴۲۰,۰۰۰ ریال», so the user can correct it |

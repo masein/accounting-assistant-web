@@ -198,6 +198,9 @@ async def _build_ocr_context(db: Session, attachment_ids: list[str]) -> tuple[st
     Failures degrade gracefully — an unreadable document is reported as such
     rather than raising, so the assistant can ask the user to type the
     details instead of erroring (feature acceptance)."""
+    from decimal import Decimal
+
+    from app.core.money import plain as _plain
     from app.models.transaction import TransactionAttachment
     from app.services.ocr_extract import extract_from_attachment
 
@@ -236,7 +239,9 @@ async def _build_ocr_context(db: Session, attachment_ids: list[str]) -> tuple[st
             if fields.get(_k) is not None:
                 lines.append(f"  {_k}: {fields[_k]}")
         if fields.get("amount") is not None:
-            lines.append(f"  total amount: {fields['amount']} {fields.get('currency') or ''}".rstrip())
+            lines.append(f"  total amount: {fields['amount']} {fields.get('currency') or ''}".rstrip()
+                         + (f" (printed in tomans as {_plain(Decimal(str(fields['amount'])) / 10)}; the books keep rials)"
+                            if fields.get("toman") else ""))
             try:
                 amounts.append(int(fields["amount"]))
             except (TypeError, ValueError):

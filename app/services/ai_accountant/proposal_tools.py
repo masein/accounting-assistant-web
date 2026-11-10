@@ -56,7 +56,7 @@ from app.core.money import Money, grouped
 
 logger = logging.getLogger(__name__)
 
-PROPOSAL_TTL = timedelta(minutes=10)
+from .card_life import PROPOSAL_TTL  # noqa: E402 — one TTL for every card
 
 # Above this a proposed amount is digit garbage, never a real entry (the
 # Asiatech OCR bug proposed 8.45e17). Shared definition with ocr_extract.

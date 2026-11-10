@@ -482,16 +482,12 @@ def _pending_row_ids(db: Session, user_id: str, session_id: str | None) -> set[s
     can't be posted twice anyway (execute refuses), so they don't count."""
     from app.models.ai_accountant import AIProposal
 
-    from datetime import datetime, timedelta, timezone
+    from app.services.ai_accountant.card_life import waiting_clause
 
-    from app.services.ai_accountant.proposal_tools import PROPOSAL_TTL
-
-    q = select(AIProposal).where(AIProposal.status == "pending",
+    q = select(AIProposal).where(waiting_clause(),          # a card past its time can't be confirmed any more
                                  AIProposal.tool_name.in_(("propose_create_transaction",
                                                            "propose_record_invoice_payment")),
-                                 AIProposal.user_id == str(user_id),
-                                 # a card past its TTL can't be confirmed any more
-                                 AIProposal.created_at >= datetime.now(timezone.utc) - PROPOSAL_TTL)
+                                 AIProposal.user_id == str(user_id))
     if session_id:
         q = q.where(AIProposal.session_id == str(session_id))
     out: set[str] = set()

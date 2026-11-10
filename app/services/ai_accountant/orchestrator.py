@@ -287,7 +287,7 @@ The books you manage here belong to ONE PERSON tracking their own daily money �
 * MONEY THE USER ALREADY HAS IN A PLACE («۸۶ ریال توی کیف پولم دارم», «۵۰۰ دلار توی گاوصندوق دارم», «۳ میلیون تو حساب ملت هست», "I have 200 in my bank account") is a STARTING BALANCE: call ``propose_money_place`` with the place as they named it (a wallet, purse, vault, safe or box is ``cash``; a bank account or card is ``bank``), the money's OWN currency and the amount. It makes the place an account of its own the first time and records what is there against Opening net worth. Never ask where the money came from or what to set it against. A place that already has its starting balance is refused: then ask where the extra money came from.
 * SEVERAL CURRENCIES. A person keeps money in several currencies, in several places — rials in a bank at home, Omani rials in a wallet, dollars in a vault — and wants each kept AS IT IS: the books never convert it. Money in another currency than the books' is recorded in that currency (``propose_money_place``, or any entry with its ``currency``); never refuse it, never convert it, never ask for a rate.
 * MONEY THE USER CHANGED from one currency to another («۱۹۰۰ دلار از کیف پول والای چنج کردم شد ۷۰۲.۲ ریال عمان», "I changed 500 dollars into 192 OMR") is a card of its own: ``propose_currency_exchange`` with both amounts as said and the place (the money received stays there unless they say where it went). Never leave it out: then the dollars stay in the wallet and the rials paid from it take it below zero. When they paid with the money in the same message («…که ازش ۲۰۰ ریال دادم»), make the exchange card AND the payment's card. When it is the first money in another currency and the books' currency can still change (said at the end of these instructions), ASK ONCE first, in one short sentence, and offer the two answers with ``ask_with_choices``: count the books in that currency (then ``propose_books_currency``), or keep the books' currency and keep this money in its own (then ``propose_money_place``). Once the books have entries, don't ask: keep it in its own currency.
-* CURRENCY WORDS: «تومان / تومن» is ten Iranian rials. «ریال» alone is the books' currency when that is a rial (IRR, OMR, SAR, QAR) — except money paid from or into a place that holds another rial: «۷.۱ ریال از کیف پول قشنگم», a wallet of Omani rials, is 7.100 OMR, never 7 IRR (each place's currency is in YOUR BOOKS AT A GLANCE). «ریال عمان» is OMR. «بیسه / baisa» is a thousandth of an OMANI rial: 86 rials and 100 baisa is 86.100 OMR. «درهم» is the UAE dirham (AED), «دلار» USD, «یورو» EUR, «پوند» GBP, «لیر» TRY, «دینار» needs its country. Write an amount with its currency's own places (77.500 OMR, never 77.5; «۲٫۰۰۰ ریال عمان», never «۲ ریال عمان»), copying the tool's ``…_fa`` twin when there is one.
+* CURRENCY WORDS: «تومان / تومن» is ten Iranian rials. «ریال» alone is the books' currency when that is a rial (IRR, OMR, SAR, QAR) — except money paid from or into a place that holds another rial: «۷.۱ ریال از کیف پول قشنگم», a wallet of Omani rials, is 7.100 OMR, never 7 IRR (each place's currency is in YOUR BOOKS AT A GLANCE). «ریال عمان» is OMR. «بیسه / baisa» is a thousandth of an OMANI rial: 86 rials and 100 baisa is 86.100 OMR, and «سه و چهارصد» said of Omani rials is 3.400. An amount in words that is not a number («سه و چهاردهم» — «چهاردهم» is fourteenth, a misheard word) is asked about with the likely figures as choices, never guessed. «درهم» is the UAE dirham (AED), «دلار» USD, «یورو» EUR, «پوند» GBP, «لیر» TRY, «دینار» needs its country. Write an amount with its currency's own places (77.500 OMR, never 77.5; «۲٫۰۰۰ ریال عمان», never «۲ ریال عمان»), copying the tool's ``…_fa`` twin when there is one.
 * "How much money do I have?" in several currencies: say each currency on its own («۷۷٫۵۰۰ ریال عمان، ۵۰۰ دلار و ۳,۰۰۰,۰۰۰ ریال»), from ``get_cash_position``'s ``by_currency``; add them up only if the user asks, and only with rates they have.
 * Name the app's places in the reply's language: the phone's account menu «ارز دفاتر» (Your books' currency); the web's «امور مالی من» (My finances). Write plain sentences: no Markdown («**»).
 * Spending questions with a time word ("این ماه چقدر خرج کردم؟", "how much did I spend last month?") → ``get_spending_summary`` with the period keyword, or ``days`` for «۱۰ روز گذشته» / "the past two weeks" (add ``category_code`` when they name a category); answer in one plain sentence with the ``total`` and the period as the tool labels it. Money spent in several currencies comes back in ``by_currency``: say each currency's own total and its categories («۴۱٫۵۰۰ ریال عمان: خوراک ۱۷٫۵۰۰، خواربار ۲۰٫۲۵۰ — و ۳,۰۰۰,۰۰۰ ریال: خواربار»), never add them together, never call it zero or say it can't be told. «ریال عمانش رو بگو» → the same call with ``currency`` OMR. Per-category questions without a time word → ``query_ledger`` on that category.
@@ -808,6 +808,45 @@ _MAG_COMPOUND_RE = re.compile(
 _TOMAN_RE = re.compile(r"تومان|تومن|تومــان|toman", re.IGNORECASE)
 
 
+# A figure's own small unit: «390 بیسه» is 0.390 Omani rials — the check refused the right card, 0.39, for not
+# being near 390 (production chats, 2026-10-26, scenario BP5). Cents are hundredths; fils thousandths in the Gulf
+# dinars and hundredths in the UAE.
+_MINOR_UNITS = (
+    (re.compile(r"^\s*(?:بیسه|بیسة|بیسا|baisa|baiza|بيسة|بيسه)", re.IGNORECASE), (1000,)),
+    (re.compile(r"^\s*(?:سنت|cents?\b|¢|céntimos?\b|سنتات)", re.IGNORECASE), (100,)),
+    (re.compile(r"^\s*(?:فلس|fils\b)", re.IGNORECASE), (1000, 100)),
+)
+# a currency or unit word after an amount said in words: «ششصد و پنجاه بیسه», «هشتاد و شش ریال»
+_UNIT_AFTER_WORDS = re.compile(
+    r"^\s*(?:ریال|تومان|تومن|بیسه|بیسة|دلار|درهم|یورو|پوند|لیر|دینار|سنت|فلس|پنس|rials?\b|tomans?\b|baisa|"
+    r"dollars?\b|dirhams?\b|euros?\b|pounds?\b|cents?\b|pence\b)", re.IGNORECASE)
+
+
+def _in_small_units(value, after: str) -> list:
+    """The figure as the books hold it: in its small unit's fraction when one follows it, else itself."""
+    from decimal import Decimal
+    for unit, parts in _MINOR_UNITS:
+        if unit.match(after):
+            return [Decimal(value) / p for p in parts]
+    return [value]
+
+
+def _amounts_in_words(norm: str) -> list:
+    """Amounts said in Persian words before a currency or unit word: «ششصد و پنجاه بیسه» → 0.650."""
+    from app.utils.persian_numbers import _MULTIPLIERS, _ONES, parse_persian_number
+    words = sorted((w for w in (*_ONES, *_MULTIPLIERS) if w not in ("نیم", "صفر")), key=len, reverse=True)
+    alt = "|".join(map(re.escape, words))
+    out = []
+    for m in re.finditer(rf"(?<![\w\u200c])(?:{alt})(?:\s+(?:و\s+)?(?:{alt}))*(?![\w\u200c])", norm):
+        after = norm[m.end():]
+        if not _UNIT_AFTER_WORDS.match(after):
+            continue
+        value = parse_persian_number(m.group(0))
+        if value:
+            out.extend(_in_small_units(value, after))
+    return out
+
+
 _UUID_RE = re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b")
 
 
@@ -840,7 +879,7 @@ def _numbers_in_text(text: str | None) -> list[int]:
         elif suffix == "m":
             base *= 1_000_000
         if base >= 1:
-            out.append(base)
+            out.extend(_in_small_units(base, norm[m.end():]) if not suffix else [base])
     # magnitude-word terms: «۲۱۵ میلیون» → 215,000,000
     for m in _MAG_TERM_RE.finditer(norm):
         base = coerce_amount(m.group(1))
@@ -855,6 +894,7 @@ def _numbers_in_text(text: str | None) -> list[int]:
                 total += base * _MAGNITUDE_WORDS[term.group(2)]
         if total:
             out.append(total)
+    out.extend(_amounts_in_words(norm))
     # toman pricing: the books are in rial — accept the ×10 conversion too
     if _TOMAN_RE.search(norm):
         out.extend([a * 10 for a in out])
@@ -1241,6 +1281,52 @@ def _true_figures(text: str, tool_call_log: list[dict]) -> str:
     return _FIGURE.sub(fix, text)
 
 
+# «خب ولش، الان کل موجودی ریال عمان مون چقدره؟» — the user moved past the card just made; it stayed waiting and
+# was counted in what they owed (production chats, 2026-11-03, scenario BP4).
+_NEVER_MIND = re.compile(
+    r"^\W*(?:(?:خب|خوب|نه|اوکی|ok(?:ay)?|well|no|bueno|vale|طيب|لا)\W+)?"
+    r"(?:ولش(?:\s*کن)?|ول\s*کن|بی\s*[‌]?\s*خیال(?:ش)?(?:\s*شو)?|never\s*mind|forget\s+(?:it|that|about\s+it)|"
+    r"skip\s+(?:it|that)|olv[ií]dalo|d[ée]jalo|انس(?:ى|ي)?ها?|خلاص\s+انس)(?:\W|$)",
+    re.IGNORECASE)
+_KEEP_WORDS = ("ثبت", "تایید", "تأیید", "confirm", "record", "book it", "registra", "confirma", "سجل", "سجّل", "أكد")
+
+
+def _set_aside_on_never_mind(db: Session, message: str | None, *, user_id: str, session_id) -> list[str]:
+    """A message opening with «ولش» / "never mind" sets aside the cards of the turn before it — this user's,
+    in this conversation, still waiting. «ولش کن همینجوری ثبتش کن» (keep it as it is) does not. The tokens
+    set aside."""
+    text = " ".join((message or "").split())
+    if not session_id or not _NEVER_MIND.match(text) or any(w in text.lower() for w in _KEEP_WORDS):
+        return []
+    from app.core.money import json_dumps
+    from app.models.ai_accountant import AIProposal
+    from app.services.audit_service import log_audit_event
+    from .card_life import waiting_clause
+    try:
+        sid = session_id if isinstance(session_id, uuid.UUID) else uuid.UUID(str(session_id))
+    except ValueError:
+        return []
+    said_before = db.execute(select(AIChatMessage.created_at).where(
+        AIChatMessage.session_id == sid, AIChatMessage.role == "user")
+        .order_by(AIChatMessage.created_at.desc())).scalars().first()
+    q = select(AIProposal).where(AIProposal.user_id == str(user_id), AIProposal.session_id == str(sid),
+                                 waiting_clause())
+    if said_before is not None:
+        q = q.where(AIProposal.created_at >= said_before)
+    out = []
+    for card in db.execute(q).scalars().all():
+        card.status = "cancelled"
+        if card.approval_status == "requested":
+            card.approval_status = "withdrawn"
+        log_audit_event(db, action="update", entity_type="ai_proposal", entity_id=str(card.id),
+                        detail=json_dumps({"tool": card.tool_name, "set_aside": text[:200]}, ensure_ascii=False),
+                        user_id=str(user_id))
+        out.append(str(card.confirmation_token))
+    if out:
+        db.flush()
+    return out
+
+
 def _withdraw_replaced(db: Session, replaces: str | None, *, user_id: str, session_id: str | None,
                        tool_name: str, new_token: str) -> str | None:
     """Withdraw the card a corrected one replaces: this user's, in this
@@ -1415,7 +1501,7 @@ def _cards_as_they_stand(db: Session, history: list[ChatMessage]) -> list[ChatMe
     from datetime import datetime, timezone
 
     from app.models.ai_accountant import AIProposal
-    from .proposal_tools import PROPOSAL_TTL
+    from .card_life import lapsed
     rows = {str(tok): (status, made, approval) for tok, status, made, approval in db.execute(
         select(AIProposal.confirmation_token, AIProposal.status, AIProposal.created_at, AIProposal.approval_status)
         .where(AIProposal.confirmation_token.in_(tokens))).all()}
@@ -1425,9 +1511,7 @@ def _cards_as_they_stand(db: Session, history: list[ChatMessage]) -> list[ChatMe
         if hit is None:
             continue
         state, made, approval = hit
-        if made is not None and made.tzinfo is None:     # SQLite gives them back without their zone
-            made = made.replace(tzinfo=timezone.utc)
-        if state == "pending" and approval != "requested" and made is not None and made + PROPOSAL_TTL < now:
+        if state == "pending" and lapsed(made, approval, now):
             state = "expired"
         if state not in _CARD_STATES:
             continue
@@ -1593,6 +1677,7 @@ async def run_chat_turn(
     chat_session = _get_or_create_session(db, user_id=user_id, session_id=session_id)
     session_uuid_str = str(chat_session.id)
 
+    _set_aside_on_never_mind(db, user_message, user_id=user_id, session_id=chat_session.id)
     history = _replay_history(db, chat_session.id)
 
     # Only the tools and the parts of the instructions this message needs (2026-10-22): the core, and the

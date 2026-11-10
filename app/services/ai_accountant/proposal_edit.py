@@ -23,6 +23,9 @@ from app.services.ai_accountant.execute_service import (
 from app.core.money import json_dumps
 
 EDITABLE = {"propose_create_transaction"}
+# An amount changed on the card corrects the same thing, so it stays near what the card said: a fifth or five
+# times is a slip of a digit, not a correction (scenario BP6).
+_EDIT_FACTOR = 5
 
 
 class EditRefused(Exception):
@@ -79,7 +82,17 @@ async def edit_proposal(db: Session, *, token: str, user, date: str | None = Non
             if allowed == 0:
                 raise EditRefused(f"The amount can't have decimals in {cur}.")
             raise EditRefused(f"The amount can have at most {allowed} decimal places in {cur}.")
-        debits[0]["debit"] = credits[0]["credit"] = changes["amount"] = plain(amount)
+        was = plain(debits[0].get("debit") or 0)
+        now = plain(amount)
+        if was > 0 and max(was, now) > min(was, now) * _EDIT_FACTOR:
+            # 1,258.09 changed to 125.10 on the phone, a digit dropped (production chats, 2026-10-26, BP6)
+            from app.core.currencies import NAMES
+            def said(n) -> str:
+                return f"{n:,.{allowed}f}" if allowed else f"{int(n):,}"
+            name = NAMES.get(cur, (cur,))[0]
+            raise EditRefused(f"The card said {said(was)} {name}; {said(now)} is far from it. If it's right, tell "
+                              f"the assistant the amount in the chat.")
+        debits[0]["debit"] = credits[0]["credit"] = changes["amount"] = now
     if not changes:
         raise EditRefused("Nothing was changed.")
 

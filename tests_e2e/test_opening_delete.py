@@ -1,5 +1,6 @@
-"""The opening balances entry goes only with its word typed (scenarios BU1, BU4): on a bank's transactions, its
-delete asks for «opening» / «افتتاحیه»; a wrong word deletes nothing, the right one deletes it."""
+"""The opening balances entry goes only with its word typed (scenarios BU1, BU4): on a party's transactions, its
+delete asks for «opening» / «افتتاحیه»; a wrong word deletes nothing, the right one deletes it. A client, not a
+bank: a bank made here put an English account name in the Persian pages' bank lists (test_persian_labels)."""
 from __future__ import annotations
 
 import os
@@ -16,12 +17,12 @@ def test_the_opening_entry_needs_its_word(flow_page):
     api = lambda m, p, body=None: page.request.fetch(f"{BASE_URL}{p}", method=m, data=body,  # noqa: E731
                                                      headers={"X-CSRF-Token": csrf, "Content-Type": "application/json"})
     tag = uuid.uuid4().hex[:5]
-    bank = api("POST", "/entities", {"type": "bank", "name": f"Opening Bank {tag}"}).json()
+    party = api("POST", "/entities", {"type": "client", "name": f"Opening client {tag}"}).json()
     tx = api("POST", "/transactions", {
         "date": "2026-03-21", "description": f"Opening balances {tag}", "reference": "OPENING-BALANCES",
-        "lines": [{"account_code": bank["code"], "debit": 5_000_000, "credit": 0},
+        "lines": [{"account_code": "1110", "debit": 5_000_000, "credit": 0},
                   {"account_code": "3110", "debit": 0, "credit": 5_000_000}],
-        "entity_links": [{"role": "bank", "entity_id": bank["id"]}]})
+        "entity_links": [{"role": "client", "entity_id": party["id"]}]})
     assert tx.status == 201, tx.text()
     tx_id = tx.json()["id"]
     os.makedirs(ARTIFACTS, exist_ok=True)
@@ -32,7 +33,7 @@ def test_the_opening_entry_needs_its_word(flow_page):
             page.reload()
             page.evaluate("() => { location.hash = 'entities'; }")
             page.wait_for_load_state("networkidle")
-            page.locator(f".view-entity-txns[data-entity-id='{bank['id']}']").click()
+            page.locator(f".view-entity-txns[data-entity-id='{party['id']}']").click()
             delete = page.locator(f".entity-tx-del[data-tx-id='{tx_id}']")
             delete.wait_for(timeout=15_000)
             delete.click()
@@ -46,7 +47,7 @@ def test_the_opening_entry_needs_its_word(flow_page):
             page.keyboard.press("Escape")
         delete = page.locator(f".entity-tx-del[data-tx-id='{tx_id}']")
         if not delete.is_visible():
-            page.locator(f".view-entity-txns[data-entity-id='{bank['id']}']").click()
+            page.locator(f".view-entity-txns[data-entity-id='{party['id']}']").click()
             delete.wait_for(timeout=15_000)
         delete.click()
         page.wait_for_selector("#ui-prompt-modal", state="visible")

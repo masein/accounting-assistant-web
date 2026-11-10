@@ -7,7 +7,7 @@ AIProposal; nothing posts to the GL until the user clicks Confirm and
 from __future__ import annotations
 
 import uuid
-from datetime import date as _date, datetime, timedelta, timezone
+from datetime import date as _date, datetime, timezone
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -19,7 +19,7 @@ from app.models.entity import Entity
 
 from .base import BaseTool, ToolContext, ToolError
 
-PROPOSAL_TTL = timedelta(minutes=10)
+from .card_life import PROPOSAL_TTL  # one TTL for every card
 _MAX_AMOUNT = 10**15  # digit-garbage guard (minor units)
 
 

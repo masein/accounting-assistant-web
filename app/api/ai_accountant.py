@@ -384,19 +384,20 @@ async def chat(
     quote = replies.quoted(db, user_id=user.user_id, role=reply.role, text=reply.text,
                            token=reply.token) if reply else None
 
+    # «ولش» / "never mind": the cards of the turn before are set aside, before a fast path answers the rest
+    # (scenario BP4)
+    from app.services.ai_accountant.orchestrator import _set_aside_on_never_mind
+    if _set_aside_on_never_mind(db, payload.message, user_id=user.user_id, session_id=payload.session_id):
+        db.commit()
+
     # A bare "confirm" typed into the chat while a card is pending: the model
     # cannot execute proposals and (observed on gpt-4o-mini) re-creates an
     # IDENTICAL new card instead — which the user then also confirms →
     # double-posting. Deterministic reply pointing at the card's button.
     if _is_bare_confirmation(payload.message) and not payload.attachment_ids:
-        from app.services.ai_accountant.proposal_tools import PROPOSAL_TTL
+        from app.services.ai_accountant.card_life import waiting_clause
 
-        cutoff = datetime.now(timezone.utc) - PROPOSAL_TTL
-        pending_q = select(AIProposal).where(
-            AIProposal.user_id == user.user_id,
-            AIProposal.status == "pending",
-            AIProposal.created_at >= cutoff,
-        )
+        pending_q = select(AIProposal).where(AIProposal.user_id == user.user_id, waiting_clause())
         if payload.session_id:
             pending_q = pending_q.where(AIProposal.session_id == payload.session_id)
         pending = db.execute(
@@ -901,7 +902,7 @@ def _history_cards(db: Session, sid: uuid.UUID, user: SessionUser, rows: list[AI
     from app.api.mobile_chat import _stamps
     from app.models.audit_log import AuditLog
     from app.services.ai_accountant import blocks as B
-    from app.services.ai_accountant.proposal_tools import PROPOSAL_TTL
+    from app.services.ai_accountant.card_life import lapsed
     from app.services.locale_service import get_display_calendar
 
     items = [{"confirmation_token": str(p.confirmation_token), "tool_name": p.tool_name, "summary": p.summary or "",
@@ -925,7 +926,7 @@ def _history_cards(db: Session, sid: uuid.UUID, user: SessionUser, rows: list[AI
     for p, item in zip(proposals, items):
         made = utc(p.created_at)
         state = p.status
-        if state == "pending" and p.approval_status != "requested" and made + PROPOSAL_TTL < now:
+        if state == "pending" and lapsed(made, p.approval_status, now):
             state = "expired"
         elif state == "cancelled" and p.approval_status == "rejected":
             state = "rejected"

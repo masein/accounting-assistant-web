@@ -7,7 +7,7 @@ expressible without a live LLM:
 * idempotency  (same token twice → one ledger write)
 * undo within window (compensating entry)
 * undo outside window (rejected)
-* expiry (>10 m old → 410)
+* expiry (>a day old → 410)
 * permission denied (other user's proposal → 403)
 * execute writes an audit_log row with ``actor_source='ai-assistant'``
 """
@@ -188,11 +188,11 @@ class TestExecute:
 
     def test_expired_proposal_rejected(self, db: Session) -> None:
         token = _make_proposal(db)
-        # Force the created_at backwards by 20 minutes.
+        # Force the created_at backwards past a day (card_life).
         prop = db.execute(
             select(AIProposal).where(AIProposal.confirmation_token == uuid.UUID(token))
         ).scalar_one()
-        prop.created_at = datetime.now(timezone.utc) - timedelta(minutes=20)
+        prop.created_at = datetime.now(timezone.utc) - timedelta(hours=25)
         db.commit()
         with pytest.raises(ProposalExpired):
             execute_proposal(db, confirmation_token=token, actor_user_id=USER)

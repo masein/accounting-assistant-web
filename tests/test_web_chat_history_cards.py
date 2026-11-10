@@ -68,7 +68,7 @@ def test_ae2_each_card_as_it_stands(person, model, db):
     waiting = _chat(web, "۳ ریال عمان توی قلک", sid)["proposals"][0]["confirmation_token"]
     with use_company(person["cid"]):
         rows = {str(p.confirmation_token): p for p in db.execute(select(AIProposal)).scalars()}
-        rows[stale].created_at = datetime.now(timezone.utc) - timedelta(minutes=11)
+        rows[stale].created_at = datetime.now(timezone.utc) - timedelta(hours=25)
         rows[waiting].approval_status = "requested"
         db.commit()
 

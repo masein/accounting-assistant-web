@@ -95,6 +95,11 @@ class ProposeMoneyPlace(BaseTool):
         parent, existing = find_place(ctx.db, args.place, parent_code)
         if parent is None:
             raise ToolError(f"These books have no account {parent_code} to keep the place under.", code="no_parent")
+        if existing is not None and not args.amount:
+            # «حذف کن، پولاش دست همسره» came here as a starting balance of 0 (chat review 2026-11-10, BV4)
+            raise ToolError(
+                f"{existing.name} ({existing.code}) is already a place. To close it — or to empty it and close it — "
+                "use propose_empty_place with close=true.", code="close_with_empty_place")
         if existing is not None and _has_entries(ctx.db, existing.id):
             # a second starting balance would count the money twice: say what it holds, ask where the extra came from
             # «دو تا مبدل برق خریدم ۲ ریال عمان از کیف پول سبز» came here as money in the wallet, and the
@@ -149,7 +154,8 @@ def _places(db) -> list:
     parents = db.execute(select(Account.id).where(Account.code.in_((CASH, BANK)))).scalars().all()
     if not parents:
         return []
-    return db.execute(select(Account).where(Account.parent_id.in_(parents)).order_by(Account.code)).scalars().all()
+    return db.execute(select(Account).where(Account.parent_id.in_(parents), Account.is_active.is_(True))
+                      .order_by(Account.code)).scalars().all()
 
 
 def resolve_place(db, said: str):
@@ -214,6 +220,9 @@ class ProposeEmptyPlaceInput(BaseModel):
                                  description="Only for a place that holds several currencies: which one left.")
     description: str | None = Field(None, max_length=255, description="What it was, in the user's words.")
     date: _date | None = Field(None, description="When; defaults to today.")
+    close: bool = Field(False, description="True when the user wants the place gone («حذفش کن», «ببندش», 'close the "
+                                           "wallet'): emptied, then closed — no longer listed or counted. A place that "
+                                           "holds nothing is just closed.")
 
 
 class ProposeEmptyPlace(BaseTool):
@@ -222,8 +231,8 @@ class ProposeEmptyPlace(BaseTool):
     description = (
         "Everything in a place left it: «هرچی توی پاکت توی کشو بود دادم به همسرم، … ۱۵.۳ برگردوند که گذاشتم توی کیف "
         "پول سبز». Reads the place's balance itself and makes ONE card: what came back to where it went, the rest "
-        "under rest_account, the place at zero. Use it instead of working out the rest yourself. Returns a "
-        "confirm card."
+        "under rest_account, the place at zero. Use it instead of working out the rest yourself. With close=true "
+        "the place is closed too (a wallet given up, an account shut). Returns a confirm card."
     )
     InputSchema = ProposeEmptyPlaceInput
 
@@ -235,6 +244,24 @@ class ProposeEmptyPlace(BaseTool):
             known = "; ".join(f"{a.code} {a.name}" for a in _places(ctx.db)) or "none yet"
             raise ToolError(f"No place called {args.place!r}. The places are: {known}. Ask which one.", code="no_place")
         held = _held(ctx.db, src.code)
+        if args.close:
+            if src.code in (CASH, BANK):
+                raise ToolError(f"{src.name} is where the books keep cash or bank money; it can't be closed. Only a "
+                                "place of its own (a wallet, a vault, an account under it) can.", code="main_place")
+            if not held:
+                # «کیف پول گل گلی» could only be emptied, never closed: it stayed in every list and total
+                # (chat review 2026-11-10, BV3)
+                persian = _persian((ctx.user_message or "") + src.name)
+                payload = {"place": src.name, "account_code": src.code, "close": True, "lines": [],
+                           "description": f"{src.name} بسته شد" if persian else f"{src.name} closed",
+                           "date": (args.date or _date.today()).isoformat()}
+                token = _register(ctx, self.name, payload)
+                return {"confirmation_token": str(token), "status": "pending", "preview": payload,
+                        "summary": f"Close {src.code} {src.name}: it holds nothing; it is no longer listed."}
+            others = sorted(set(held) - {(args.currency or "").strip().upper()}) if args.currency else []
+            if len(held) > 1 and (not args.currency or others):
+                raise ToolError(f"{src.name} holds {', '.join(sorted(held))}: empty each currency on a card of its own "
+                                "(close=false) first; the card of the last one closes it.", code="close_several")
         ccy = (args.currency or "").strip().upper() or (next(iter(held)) if len(held) == 1 else None)
         if ccy is None:
             raise ToolError(f"{src.name} holds {', '.join(sorted(held)) or 'nothing'}: say which currency left it.",
@@ -274,10 +301,11 @@ class ProposeEmptyPlace(BaseTool):
         description = args.description or (f"{src.name} خالی شد: " if persian else f"{src.name} emptied: ") + sep.join(parts)
         payload = {"place": src.name, "account_code": src.code, "currency": ccy, "balance": plain(balance),
                    "rest": rest, "amount": plain(balance), "date": (args.date or _date.today()).isoformat(),
-                   "description": description[:255], "lines": lines}
+                   "description": description[:255], "lines": lines, **({"close": True} if args.close else {})}
         token = _register(ctx, self.name, payload)
         return {"confirmation_token": str(token), "status": "pending", "preview": payload,
-                "summary": f"{src.code} {src.name} held {grouped(balance)} {ccy}; all of it leaves: " + "; ".join(parts) + "."}
+                "summary": f"{src.code} {src.name} held {grouped(balance)} {ccy}; all of it leaves: " + "; ".join(parts)
+                + ("; then the place is closed." if args.close else ".")}
 
 
 def _held(db, code: str) -> dict:
@@ -526,15 +554,26 @@ def execute_money_proposal(db, proposal, *, actor_user_id: str, actor_username: 
     if proposal.tool_name == "propose_currency_exchange":
         return _exchange(db, proposal, p, common)
     if proposal.tool_name == "propose_empty_place":
-        txn = create_transaction_from_payload(db, TransactionCreate(
-            date=_date.fromisoformat(p["date"]), description=p["description"], currency=p["currency"],
-            lines=[TransactionLineCreate(account_code=ln["account_code"], debit=plain(ln["debit"]),
-                                         credit=plain(ln["credit"]), line_description=p["description"])
-                   for ln in p["lines"]]))
+        txn = None
+        if p.get("lines"):
+            txn = create_transaction_from_payload(db, TransactionCreate(
+                date=_date.fromisoformat(p["date"]), description=p["description"], currency=p["currency"],
+                lines=[TransactionLineCreate(account_code=ln["account_code"], debit=plain(ln["debit"]),
+                                             credit=plain(ln["credit"]), line_description=p["description"])
+                       for ln in p["lines"]]))
+        if p.get("close"):
+            db.flush()                                    # the entry just made counts in what the place holds
+            _close_place(db, p["account_code"])
+        if txn is None:
+            from app.models.account import Account
+            acc = db.execute(select(Account).where(Account.code == p["account_code"])).scalars().first()
+            return None, _audit(db, proposal, entity_type="account", entity_id=str(acc.id) if acc else p["account_code"],
+                                detail={"closed": p["account_code"]}, **common)
         # a transaction's own audit row: the card's undo takes it back like any entry
         return str(txn.id), _audit(db, proposal, entity_type="transaction", entity_id=str(txn.id),
                                    detail={"emptied": p["account_code"], "currency": p["currency"],
-                                           "balance": p["balance"]}, **common)
+                                           "balance": p["balance"], **({"closed": True} if p.get("close") else {})},
+                                   **common)
     # propose_money_place: the place (made now if it's new), then its starting balance in its own currency
     parent, acc = find_place(db, p["place"], p["parent_code"])
     if acc is None:
@@ -550,6 +589,18 @@ def execute_money_proposal(db, proposal, *, actor_user_id: str, actor_username: 
                       detail={"place": acc.name, "code": acc.code, "currency": p["currency"], "amount": amount,
                               "transaction_id": str(txn.id) if txn else None}, **common)
     return (str(txn.id) if txn else None), audit_id
+
+
+def _close_place(db, code: str) -> None:
+    """A place at nought in every currency is closed: no longer a place, listed or counted. Its entries stay."""
+    from app.models.account import Account
+    acc = db.execute(select(Account).where(Account.code == code)).scalars().first()
+    if acc is None:
+        raise ValueError(f"{code} is no longer in the books.")
+    if _held(db, code):
+        raise ValueError(f"{acc.name} still holds money; it can't be closed.")
+    acc.is_active = False
+    db.flush()
 
 
 def _rename_place(db, proposal, p: dict, common: dict) -> str:

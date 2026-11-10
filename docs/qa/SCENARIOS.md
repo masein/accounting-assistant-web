@@ -1100,3 +1100,15 @@ From the production chats, in a person's books kept in rials whose money is most
 | BR4 | A bank's ledger | «گردش حساب ملت» where the bank is on a voucher with other accounts (an opening) | Only the bank account's lines and their total |
 | BR5 | The latest entries | «۵ تا خرج آخرم» | Five entries (not five lines), newest first; entries of one day in the order they were made |
 | BR6 | Answers from the tools | Any spending or ledger question | The answer is what the tools found |
+
+## BV. A person's places one at a time, closed when given up, and only the tools their books have (chat review 2026-11-10)
+
+From the owner's phone: «چقدر پول داریم تو کیف پول سبز مون» got every place's money; a wallet whose money is now with the user's wife could only be "a starting balance of 0" and stayed in every list and total; asking for "operations" tools in a person's books got "No such group" back.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BV1 | One place asked about | Personal books with «کیف پول سبز», «کیف پول قشنگم», «کیف پول والای»: «چقدر پول داریم تو کیف پول سبز مون؟» | That wallet's money only, in each currency it holds («موجودی کیف پول سبز امروز: …»). «تو کیف پولم» (which one?) goes to the assistant, which asks |
+| BV2 | One currency asked about | «چقدر پول داریم به ریال عمان؟»; "how much money do we have in dollars?" | Only the Omani rials of every place; only the dollars |
+| BV3 | A place given up is closed | «کیف پول والای رو ببند، پولاش دست همسره» | Asked once where the money is now; one card per currency empties it, the last one closes it. Closed, it is in no list, total or card; undoing the card opens it again. A place holding nothing is just closed; the books' own cash and bank accounts can't be |
+| BV4 | Not a starting balance of 0 | The assistant tries a starting balance of 0 for an existing place | Refused, pointing to emptying and closing it |
+| BV5 | Only the tools these books have | In a person's books the assistant asks for "operations" and "dates" | Only a person's groups are offered; the dates tools are added, and "operations" is said to be not in these books — not "No such group" |

@@ -1039,3 +1039,18 @@ From the production chats, a quarterly bank statement reviewed step by step:
 | BN5 | The AI categorizes rows again | A statement on gpt-5.6-luna (or any gpt-5.x / o-series model) | The request carries `max_completion_tokens` and no temperature, so it is answered. The accounts it may choose from are the company's own, the ones in use first |
 | BN6 | A deposit goes to the company's own income | A company whose income is its own «درآمد شهریه» (2000), no category found for a deposit | The card credits 2000, not the app's «فروش» 4110. A company with no income account of its own keeps 4110 |
 | BN7 | «كارمزد» with the Arabic ك is a fee | A Shaparak fee whose narration spells «كارمزد» | It is a bank fee like «کارمزد» |
+
+## BP. Cards that wait, cards set aside, and the amounts checked (chat review 2026-11-10)
+
+From the production chats: a card read an hour or a night later was refused as expired, and the user typed it again; a card the user moved past («خب ولش …») stayed waiting and was counted in what they owed; «۳۹۰ بیسه» was refused as not near 390; an amount changed on the phone's card lost a digit and was recorded so; «سه و چهاردهم» was guessed as 3.14.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BP1 | A card waits a day | A card made at night is confirmed the next morning; another is confirmed after more than a day | The first is recorded. The second says it has expired (in the page's language) |
+| BP2 | A card typed again is recorded once | A card is read late and typed again; the new card is confirmed, then Confirm on the old one | The old one is refused: a later card already recorded it, confirming it too would record it twice. A taxi each way at the same fare, told in two messages, is two entries |
+| BP3 | A card past its time isn't waiting | A card of money from a person, older than a day; «حساب من با امیر؟» | What is owed now only; nothing about a card waiting |
+| BP4 | «ولش» sets the card aside | Right after a card, «خب ولش، الان چقدر پول داریم؟» (or "never mind", «بی‌خیال») | The card of the turn before is cancelled and the question is answered, by the quick answer too. «ولش کن همینجوری ثبتش کن» keeps it; a card of an earlier turn is kept |
+| BP5 | Baisa and cents | «۳۹۰ بیسه نون خریدم» | A card of 0.390 OMR is made; 390 OMR would be refused. «۸۶ ریال و ۱۰۰ بیسه» is 86.100; 50 cents is 0.50 |
+| BP6 | Amounts in words | «ششصد و پنجاه بیسه ویفر خریدم» | Read as 0.650 OMR; «دو تا نون» is not an amount |
+| BP7 | An amount changed far from the card | On the phone's card, 12.580 OMR changed to 1.258 | Refused: «کارت ۱۲٫۵۸۰ ریال عمان بود و ۱٫۲۵۸ خیلی با آن فرق دارد؛ اگر درست است، مبلغ را در گفتگو بنویسید.» A correction near the card's amount (3.140 → 3.400) is made |
+| BP8 | An amount in words that isn't a number | «یه سه و چهاردهم ریال پیتزا خریدم» | The assistant asks which figure, with the likely ones as choices; it does not guess 3.14. «سه و چهارصد» of Omani rials is 3.400 |

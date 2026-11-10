@@ -24,7 +24,7 @@ from app.core.money import json_dumps
 
 EDITABLE = {"propose_create_transaction"}
 # An amount changed on the card corrects the same thing, so it stays near what the card said: a fifth or five
-# times is a slip of a digit, not a correction (scenario BP6).
+# times is a slip of a digit, not a correction (scenario BP7).
 _EDIT_FACTOR = 5
 
 
@@ -85,7 +85,7 @@ async def edit_proposal(db: Session, *, token: str, user, date: str | None = Non
         was = plain(debits[0].get("debit") or 0)
         now = plain(amount)
         if was > 0 and max(was, now) > min(was, now) * _EDIT_FACTOR:
-            # 1,258.09 changed to 125.10 on the phone, a digit dropped (production chats, 2026-10-26, BP6)
+            # an amount changed on the phone lost a digit, and was recorded so (production chats, 2026-10-26, BP7)
             from app.core.currencies import NAMES
             def said(n) -> str:
                 return f"{n:,.{allowed}f}" if allowed else f"{int(n):,}"

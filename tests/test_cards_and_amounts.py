@@ -3,7 +3,7 @@ scenarios BP1–BP8).
 
 From the production chats: a card read an hour or a night later was refused as expired and typed again; a card
 the user moved past («خب ولش …») stayed waiting and was counted in what they owed; «390 بیسه» was refused as not
-near 390; an amount changed on the phone's card lost a digit (1,258.09 → 125.10) with nothing said.
+near 390; an amount changed on the phone's card lost a digit with nothing said.
 """
 from __future__ import annotations
 
@@ -77,11 +77,11 @@ def test_bp1_a_card_waits_a_day(db, books):
 def test_bp2_a_card_typed_again_is_recorded_once(db, books):
     from app.core.messages import localize_detail
     from app.services.ai_accountant.execute_service import ProposalCancelled
-    said = "1.43 تاکسی از دفتر به خونه دادم"
+    said = "2.5 تاکسی از دفتر به خونه دادم"
     with use_company(books.company_id):
         s = _session(db)
-        first = _card(db, said, "1.43", session=s, ago=timedelta(minutes=70))
-        again = _card(db, said, "1.43", session=s)
+        first = _card(db, said, "2.5", session=s, ago=timedelta(minutes=70))
+        again = _card(db, said, "2.5", session=s)
         assert _confirm(db, again).transaction_id
         with pytest.raises(ProposalCancelled) as e:
             _confirm(db, first)                                          # the old card still showed Confirm
@@ -89,8 +89,8 @@ def test_bp2_a_card_typed_again_is_recorded_once(db, books):
         assert "دو بار" in localize_detail(str(e.value), "fa")
         assert _row(db, first).status == "cancelled"
         # a taxi each way at the same fare is two entries
-        there = _card(db, "۱.۴۳ تاکسی از خونه به دفتر", "1.43", session=s, desc="تاکسی رفت", ago=timedelta(hours=9))
-        back = _card(db, "۱.۴۳ تاکسی از دفتر به خونه", "1.43", session=s, desc="تاکسی برگشت")
+        there = _card(db, "۲.۵ تاکسی از خونه به دفتر", "2.5", session=s, desc="تاکسی رفت", ago=timedelta(hours=9))
+        back = _card(db, "۲.۵ تاکسی از دفتر به خونه", "2.5", session=s, desc="تاکسی برگشت")
         assert _confirm(db, back).transaction_id and _confirm(db, there).transaction_id
 
 
@@ -118,7 +118,7 @@ def test_bp4_never_mind_sets_the_last_turns_card_aside(db, books):
         db.add(AIChatMessage(session_id=uuid.UUID(s), role="user", content={"role": "user", "text": "x"},
                              created_at=datetime.now(timezone.utc) - timedelta(minutes=5)))
         db.commit()
-        just = _card(db, "کیف پول گل گلی رو بده به همسر", 2, session=s)
+        just = _card(db, "کیف پول قرمز رو بده به همسر", 2, session=s)
         assert _set_aside_on_never_mind(db, "ولش کن همینجوری ثبتش کن", user_id=USER, session_id=s) == []
         assert _set_aside_on_never_mind(db, "من ولش کردم بعدا", user_id=USER, session_id=s) == []
         assert _set_aside_on_never_mind(db, "خب ولش الان کل موجودی ریال عمان مون چقدره؟", user_id=USER,

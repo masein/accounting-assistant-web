@@ -1124,3 +1124,14 @@ From the production chats, in a company's books: "paid … from <bank>" was cred
 | BT3 | Money between the company's own banks | «۲۰ میلیون تومان از دی شمال زدیم به حساب آینده غرب و ۳۰۰ هزار تومان کارمزد گرفت» (or "moved 50m from bank dey to ayande") | One card: credit «بانک دی شمال», debit «آینده غرب». An expense from one bank, a receipt into the other, or the wrong way round is refused; the fee is a card from the bank the money left |
 | BT4 | A payment said in Persian | «۴ میلیون تومان لوازم اداری خریدیم از بانک دی شمال», and the card came out debiting the bank | The card is turned round: the bank credited. «… به حساب بانک دی شمال واریز شد» is money in and is left as it is |
 | BT5 | The assistant is told | — | The prompt says a named bank is that bank's account, and a transfer between own banks is one card |
+
+## BU. The opening entry kept, and a move between categories made once (chat review 2026-11-10)
+
+From production: a company's whole opening voucher went with the plain "delete this transaction?", one of six entries removed within a minute; and three purchases moved from one category to another one day were moved a second time the next, so the books counted the move twice.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BU1 | The opening entry needs its word | On a bank's transactions, delete the opening balances entry (made on the opening page or by a migration) | The page asks to type «افتتاحیه» (opening / apertura / افتتاحي); a wrong word deletes nothing. The server refuses the delete without it (409, in the user's language); any other entry is deleted as before |
+| BU2 | The chat reverses the opening only when named | «همهٔ سندهای امروز رو برگردون» where the opening is the entry found | Refused: the assistant says what the opening holds. «سند افتتاحیه رو برگردون» makes the card |
+| BU3 | A move between categories is made once | Move three purchases (200,000 + 300,000 + 100,000) from one expense to another; the next day ask again for one card of 600,000 | The assistant says the move is already in the books, with the dates, and asks; only when the user says to make it again is the card made. A larger move, or one after the move was taken back, is made |
+| BU4 | The page has the words | Switch the language to each of the four | The title, the prompt with the word, and the "not deleted" note are in that language |

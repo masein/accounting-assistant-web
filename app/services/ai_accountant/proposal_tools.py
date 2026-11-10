@@ -465,6 +465,52 @@ def _guard_amount(ctx: ToolContext, proposed_total, *, record_amount=None) -> No
     )
 
 
+def _guard_move_made_already(ctx: ToolContext, args) -> None:
+    """A move between two categories that the books already hold is not made again: three purchases moved from
+    «خانواده و هدایا» to «لوازم و تعمیرات خانه» one day were moved a second time the next, and the books counted
+    them twice (chat review 2026-11-10, scenario BU3). Counts the live entries of the last 60 days whose lines are
+    only on the two accounts, net of any moved back."""
+    if getattr(args, "again", False):
+        return
+    deb = [ln for ln in args.lines if ln.debit]
+    cre = [ln for ln in args.lines if ln.credit]
+    if len(deb) != 1 or len(cre) != 1 or deb[0].account_code == cre[0].account_code:
+        return
+    to_code, from_code = deb[0].account_code, cre[0].account_code
+    from app.services.reporting.common import classify_account_code
+    kinds = {classify_account_code(to_code), classify_account_code(from_code)}
+    if len(kinds) != 1 or not kinds & {"EXPENSE", "REVENUE"}:
+        return
+    from app.core.money import plain
+    from app.models.transaction import Transaction, TransactionLine
+    ids = dict(ctx.db.execute(select(Account.code, Account.id).where(Account.code.in_([to_code, from_code]))).all())
+    if len(ids) != 2:
+        return
+    ccy = (args.currency or "").strip().upper()
+    since = datetime.now(timezone.utc) - timedelta(days=60)
+    rows = ctx.db.execute(select(Transaction).where(
+        Transaction.deleted_at.is_(None), Transaction.created_at >= since,
+        Transaction.id.in_(select(TransactionLine.transaction_id).where(TransactionLine.account_id == ids[from_code]))
+    ).order_by(Transaction.date, Transaction.created_at)).scalars().all()
+    done = []
+    for t in rows:
+        if ccy and (t.currency or "").upper() != ccy:
+            continue
+        if any(ln.account_id not in (ids[to_code], ids[from_code]) for ln in t.lines):
+            continue
+        moved = sum(plain(ln.debit or 0) - plain(ln.credit or 0) for ln in t.lines if ln.account_id == ids[to_code])
+        if moved:
+            done.append((t, moved))
+    total = plain(sum(m for _t, m in done))
+    if total <= 0 or total < plain(deb[0].debit):
+        return
+    listed = "; ".join(f"{t.date.isoformat()} {grouped(plain(m))} «{(t.description or '')[:60]}»" for t, m in done[:5])
+    raise ToolError(
+        f"The books already move {grouped(total)} {ccy} from {from_code} to {to_code} ({listed}). This move looks "
+        f"done: tell the user what is there and ask before moving it again — set again=true only when they say to.",
+        code="move_already_made")
+
+
 def _guard_own_transfer(ctx: ToolContext, args) -> None:
     """Money moved between two of the company's own banks is one card, crediting the bank it left and debiting the
     one it went to: «از دی شمال زدیم به حساب آینده غرب» was later booked as an expense from one bank and a
@@ -750,6 +796,14 @@ class ProposeCreateTransactionInput(Replaceable):
         ),
     )
 
+    again: bool = Field(
+        False,
+        description=(
+            "True only when the user, told that the same move between two categories is already in the books, "
+            "says to make it again."
+        ),
+    )
+
     @model_validator(mode="after")
     def _balanced(self) -> "ProposeCreateTransactionInput":
         total_dr = sum(ln.debit for ln in self.lines)
@@ -798,6 +852,7 @@ class ProposeCreateTransaction(BaseTool):
             _guard_people_direction(ctx, args)
             _guard_place_currency(ctx, args)
             _guard_own_transfer(ctx, args)
+            _guard_move_made_already(ctx, args)
 
         # Anchor the entry date to reality. The model is unreliable at "today"
         # (it dated a "…today" expense 2023-10-18 and mid-session copied an
@@ -1402,6 +1457,10 @@ def register_proposal_tools(registry) -> None:
 # ---------------------------------------------------------------------------
 
 
+# the user asking for the opening entry itself
+_OPENING_NAMED = re.compile(r"افتتاحیه|افتتاح|opening|apertura|افتتاحي", re.IGNORECASE)
+
+
 class ProposeReverseTransactionInput(BaseModel):
     transaction_id: str | None = Field(
         None, description="The transaction's id, when known (e.g. from query_ledger).")
@@ -1459,6 +1518,14 @@ class ProposeReverseTransaction(BaseTool):
             raise ToolError(
                 "Transaction to reverse not found — give its id or reference, or "
                 "last=true for the most recent entry.", code="transaction_not_found")
+        from app.services.chart_service import is_opening_entry
+        if is_opening_entry(txn) and not _OPENING_NAMED.search(ctx.user_message or ""):
+            # every account's opening balance is on it: it goes only when the user asks for the opening itself
+            # (chat review 2026-11-10, scenario BU2)
+            raise ToolError(
+                "That is the opening balances entry — every account's opening balance is on it. Don't reverse it "
+                "unless the user asks for the opening entry by name; tell them what it holds instead.",
+                code="opening_journal")
 
         rev_ref = f"REV-{(txn.reference or str(txn.id)[:8])}"[:128]
         already = ctx.db.execute(

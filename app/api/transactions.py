@@ -790,12 +790,18 @@ def _soft_delete_transaction(db: Session, t: Transaction) -> None:
 @router.delete("/{transaction_id}", status_code=204)
 def delete_transaction(
     transaction_id: UUID,
+    opening: str | None = Query(None, description="'confirm' to delete the opening balances entry, once the "
+                                                   "word was typed on the page"),
     db: Session = Depends(get_db),
 ) -> None:
-    from datetime import datetime, timezone
+    from app.services.chart_service import is_opening_entry
     t = db.get(Transaction, transaction_id)
     if not t or t.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Transaction not found")
+    if is_opening_entry(t) and (opening or "").strip().lower() != "confirm":
+        raise HTTPException(status_code=409, detail=(
+            "This is the opening balances entry: deleting it removes the opening balance of every account on it. "
+            "To delete it anyway, type the word the page asks for."))
     _soft_delete_transaction(db, t)
 
 

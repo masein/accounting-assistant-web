@@ -399,10 +399,11 @@ def batch_approve_rows(
                 # Counter leg: the user's choice, else the import's guess, else
                 # the locale's generic expense account (never a hardcoded code —
                 # 6190 is Iran-only and 404s on a UK chart).
+                from app.services.account_resolver import statement_counter_account
                 acc_code = (
                     approval.account_code
                     or row.suggested_account_code
-                    or resolve_account_code(db, "expense")
+                    or statement_counter_account(db, "out" if row.debit > 0 else "in")   # a deposit: income (BN6)
                 )
                 # The statement's own bank account, not the generic chart
                 # bank — the chat card already posts there (QA 2026-09-24).

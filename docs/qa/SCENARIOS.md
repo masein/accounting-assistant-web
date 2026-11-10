@@ -1021,3 +1021,21 @@ From the production chats: every one of the 8 failed messages in the owner's per
 | BM1 | After a review | The phone opens with the weekly review; the user writes «۳ ریال تاکسی دادم» | Answered the first time; the request to the model has no empty message |
 | BM2 | The model knows what the review said | The same thread | The review's words are in the thread the model reads, so «این رو توضیح بده» refers to it |
 | BM3 | Reviews kept before the fix | A thread holding a review saved with no words | Replayed by the review's own words (or left out); never an empty message, for an OpenAI-shaped or an Anthropic model alike |
+
+## BN. A bank statement reconciles row for row (chat review 2026-11-10)
+
+From the production chats, a quarterly bank statement reviewed step by step:
+- Each confirmed card's entry became a match for other rows of the same amount within 14 days, so one entry was "matched" by many deposits.
+- Step by step never offered those rows, and ended with «همهٔ ردیف‌های این صورت‌حساب در دفاتر است» while dozens of deposits were not in the books and the bank account fell short of the statement.
+- Per-cheque fees repeated on one day were set aside as duplicates.
+- Deposits went to the app's own «فروش» and payments to «سایر هزینه‌های عملیاتی», not the company's own accounts. The AI that categorizes rows had failed on every call since the model changed.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BN1 | One entry, one row | A statement with five 300,000,000 deposits on different days; a card for the first is confirmed | The new entry is the first row's alone; the other four stay to be recorded. An entry posted from a row, or a match the user approved, is never offered to another row. The best pairs are taken first, whichever row comes first |
+| BN2 | Rows already linked wrongly are reopened | A statement whose rows were linked to other rows' entries before this fix; its review or Next runs again | Those rows are offered again, one by one |
+| BN3 | Repeated fees are separate charges | Three 18,000 cheque fees on one day, same narration, the running balance moving 18,000 on each | All three are rows to record; none is a duplicate. Two identical rows with the same balance (one row read twice) still are. Fees set aside before this fix are reopened |
+| BN4 | Step by step says what is left | The last row is recorded, but two rows only resemble an entry in the books, or the balance doesn't agree | It does not say every row is in the books. It says how many rows still need a look on the statement page and, when they differ, the statement's closing balance and the books' |
+| BN5 | The AI categorizes rows again | A statement on gpt-5.6-luna (or any gpt-5.x / o-series model) | The request carries `max_completion_tokens` and no temperature, so it is answered. The accounts it may choose from are the company's own, the ones in use first |
+| BN6 | A deposit goes to the company's own income | A company whose income is its own «درآمد شهریه» (2000), no category found for a deposit | The card credits 2000, not the app's «فروش» 4110. A company with no income account of its own keeps 4110 |
+| BN7 | «كارمزد» with the Arabic ك is a fee | A Shaparak fee whose narration spells «كارمزد» | It is a bank fee like «کارمزد» |

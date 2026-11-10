@@ -63,10 +63,19 @@ _SYSTEM = (
 
 
 def _candidates(db: Session, nature: str) -> list[Account]:
+    """The accounts a row may go to: the company's own, those its books use first. The first 80 by code put the
+    app's unused seed accounts before a school's own «درآمد شهریه» (BN5); a heading with accounts under it
+    takes no postings."""
+    from sqlalchemy import func
+
+    from app.models.transaction import TransactionLine
     accounts = db.execute(
-        select(Account).where(Account.level != AccountLevel.GROUP)
+        select(Account).where(Account.level != AccountLevel.GROUP, Account.is_active.is_(True))
     ).scalars().all()
-    picked = [a for a in accounts if classify_account_code(a.code) == nature]
+    parents = {a.parent_id for a in accounts if a.parent_id}
+    used = dict(db.execute(select(TransactionLine.account_id, func.count()).group_by(TransactionLine.account_id)).all())
+    picked = [a for a in accounts if a.id not in parents and classify_account_code(a.code) == nature]
+    picked.sort(key=lambda a: (-used.get(a.id, 0), a.code))
     return picked[:MAX_CANDIDATE_ACCOUNTS]
 
 
@@ -185,14 +194,14 @@ async def _ask(accounts: list[Account], narrations: list[str]) -> dict:
     base, model = _resolve_ai_base_model()
     if not base:
         raise RuntimeError("No AI backend configured")
+    from app.services.ai_accountant.openai_client import plain_request_options
     payload = {
         "model": model,
         "messages": [
             {"role": "system", "content": _SYSTEM},
             {"role": "user", "content": _build_prompt(accounts, narrations)},
         ],
-        "temperature": 0,
-        "max_tokens": 1000,
+        **plain_request_options(model, 1000, temperature=0),
     }
     data = await _post_lm_studio(
         _chat_completions_url(base), payload, base, _resolve_ai_headers(), purpose="categorize"

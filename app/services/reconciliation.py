@@ -184,6 +184,14 @@ def reconcile_row(
     return result
 
 
+def same_charge(a: BankStatementRow, b: BankStatementRow) -> bool:
+    """Two rows are one charge read twice: same day, amount and narration, and the running balance (when the
+    statement has one) didn't move between them. Each of three 18,000 cheque fees on one day moves it (BN3)."""
+    if (a.tx_date, a.debit, a.credit, a.description or "") != (b.tx_date, b.debit, b.credit, b.description or ""):
+        return False
+    return a.balance is None or b.balance is None or a.balance == b.balance
+
+
 def reconcile_statement(
     db: Session,
     rows: list[BankStatementRow],
@@ -218,31 +226,44 @@ def reconcile_statement(
         q = q.where(Transaction.currency == currency.strip().upper())
     txns = db.execute(q).scalars().unique().all()
 
-    already_matched: set[UUID] = set()
-    results: list[ReconciliationResult] = []
-
+    # One entry, one row (chat review 2026-11-10, BN1). Only automatic matches used to claim their entry: a
+    # confirmed card's entry was "matched" by every row of its amount within 14 days — one deposit's entry by
+    # many others — and those rows were never offered again. An entry posted from a row, or one the
+    # user matched to it, is that row's; the rest go to the best pairs first, whichever row comes first.
+    owner: dict[UUID, UUID] = {}
     for row in rows:
-        available_txns = [t for t in txns if t.id not in already_matched]
-        r = reconcile_row(row, available_txns, date_tolerance, auto_threshold, is_cash=is_cash)
+        if getattr(row, "created_transaction_id", None):
+            owner[row.created_transaction_id] = row.id
+        elif (getattr(row, "user_approved", False) and getattr(row, "recon_status", None) == "matched"
+              and getattr(row, "matched_transaction_id", None)):
+            owner.setdefault(row.matched_transaction_id, row.id)
+    results: list[ReconciliationResult] = []
+    for row in rows:
+        if getattr(row, "recon_status", None) in ("duplicate", "skipped") and not getattr(row, "created_transaction_id", None):
+            results.append(ReconciliationResult(row_id=row.id, status="unmatched"))   # set aside: takes no entry
+            continue
+        free = [t for t in txns if owner.get(t.id, row.id) == row.id]
+        results.append(reconcile_row(row, free, date_tolerance, auto_threshold, is_cash=is_cash))
 
-        # Deduplicate: prevent same transaction from matching multiple rows
-        if r.best_match and r.auto_match:
-            already_matched.add(r.best_match.transaction_id)
+    pairs = sorted(((c.score, i, c) for i, r in enumerate(results) for c in r.candidates), key=lambda p: (-p[0], p[1]))
+    chosen: dict[int, MatchCandidate] = {}
+    taken: set[UUID] = set()
+    for _score, i, c in pairs:
+        if i not in chosen and c.transaction_id not in taken:
+            chosen[i] = c
+            taken.add(c.transaction_id)
+    for i, r in enumerate(results):
+        best = chosen.get(i)
+        r.best_match = best
+        r.auto_match = best is not None and best.score >= auto_threshold
+        r.status = ("matched" if r.auto_match else "partial" if best is not None and best.score >= 0.5
+                    else "unmatched")
 
-        results.append(r)
-
-    # Duplicate detection: check if any row matches an already-committed row
-    for i, r1 in enumerate(results):
-        for j, r2 in enumerate(results):
-            if i >= j:
-                continue
-            if (
-                rows[i].tx_date == rows[j].tx_date
-                and rows[i].debit == rows[j].debit
-                and rows[i].credit == rows[j].credit
-                and rows[i].description == rows[j].description
-            ):
-                r2.status = "duplicate"
+    # The same charge read twice: an identical row higher up in this statement. Repeated charges are not —
+    # a fee per cheque deposited, three on one day — and the running balance tells them apart (BN3).
+    for i in range(len(rows)):
+        if any(same_charge(rows[j], rows[i]) for j in range(i)):
+            results[i].status = "duplicate"
 
     return results
 

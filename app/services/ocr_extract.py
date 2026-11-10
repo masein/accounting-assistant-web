@@ -453,6 +453,7 @@ async def _gemini_raw(pages: list[tuple[str, str]], model: str, prompt: str) -> 
 async def _openai_vision_raw(pages: list[tuple[str, str]], model: str, prompt: str) -> str:
     """Raw vision call via the OpenAI-compatible endpoint — returns the
     model's text."""
+    from app.services.ai_accountant.openai_client import plain_request_options
     base, _ = _resolve_ocr_base_model()
     if not base:
         raise OCRExtractError("AI backend URL not configured")
@@ -467,8 +468,7 @@ async def _openai_vision_raw(pages: list[tuple[str, str]], model: str, prompt: s
             {"role": "system", "content": "You extract structured data from financial documents. Output JSON only."},
             {"role": "user", "content": user_content},
         ],
-        "temperature": 0.0,
-        "max_tokens": 4000,
+        **plain_request_options(model, 4000, temperature=0.0),     # a gpt-5.x OCR model too (BN5)
     }
     provider = resolve_active_ai_backend().get("provider") or "openai-compatible"
     async with metered_llm(provider, model, "ocr") as meter, httpx.AsyncClient(timeout=120) as client:

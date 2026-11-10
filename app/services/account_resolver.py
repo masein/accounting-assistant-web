@@ -310,6 +310,39 @@ def resolve_account_code(db: Session, category: str, *, locale: str | None = Non
     )
 
 
+def own_income_account(db: Session) -> str | None:
+    """The income account the company's own books use: the one the owner chose for income, else the one most
+    credited. A school's income is its own «درآمد شهریه»; its statement's deposits went to the app's «فروش»
+    4110, which its books never used (chat review 2026-11-10, BN6). None for books with no income yet."""
+    from sqlalchemy import func, select
+
+    from app.models.account import Account, AccountLevel
+    from app.models.transaction import Transaction, TransactionLine
+    from app.services import posting_roles
+    from app.services.reporting.common import REVENUE, classify_account_code
+
+    chosen = posting_roles.override_code(db, "revenue")
+    if chosen:
+        return chosen
+    used = db.execute(
+        select(Account.code, func.count())
+        .join(TransactionLine, TransactionLine.account_id == Account.id)
+        .join(Transaction, Transaction.id == TransactionLine.transaction_id)
+        .where(Account.is_active.is_(True), Account.level != AccountLevel.GROUP, TransactionLine.credit > 0,
+               Transaction.deleted_at.is_(None))
+        .group_by(Account.code).order_by(func.count().desc(), Account.code)
+    ).all()
+    return next((code for code, _n in used if classify_account_code(code) == REVENUE), None)
+
+
+def statement_counter_account(db: Session, direction: str) -> str:
+    """Where a bank row with no category of its own goes: money in to the company's own income, money out to
+    the general expense account. A deposit approved on the statement page used to credit the expense account."""
+    if direction == "in":
+        return own_income_account(db) or resolve_account_code(db, "revenue")
+    return resolve_account_code(db, "expense")
+
+
 def find_account_code(db: Session, category: str, *, locale: str | None = None, own: bool = True) -> str | None:
     """resolve_account_code for readers: the code a posting of ``category``
     would use (the locale's own, then the other locales'), or None when the

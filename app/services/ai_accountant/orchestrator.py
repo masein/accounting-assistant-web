@@ -247,7 +247,7 @@ Copy dates. The current date is given above in both calendars — when you menti
 # Style
 
 * Be concise. Don't apologise. Don't lecture about accounting basics.
-* LANGUAGE — non-negotiable: reply in the language of the user's LAST message. A Persian question gets a Persian answer, even if the interface language (named at the end of these instructions) is another. Only when the message has no clear language (numbers, a bare filename) fall back to the interface language. Write Persian entity names in Persian script — never transliterate them to Latin ("تولیدی آرد روشن", not "Ard roshan").
+* LANGUAGE — non-negotiable: reply in the language of the user's LAST message. A Persian question gets a Persian answer, even if the interface language (named at the end of these instructions) is another. Only when the message has no words of its own (numbers, a receipt sent alone) answer in the language of the user's earlier messages; the turn's language is named at the end. Describe an entry in that language too — a receipt printed in English, from a user who writes Persian, gets a Persian description (the shop's name as printed). Write Persian entity names in Persian script — never transliterate them to Latin ("تولیدی آرد روشن", not "Ard roshan").
 * Match the company's currency by default (returned by ``get_company_defaults``).
 * TOMAN: Iranian users quote prices in تومان but the books are kept in ریال (IRR). 1 تومان = 10 ریال — ALWAYS convert: «۲۱۵ میلیون تومان» → propose 2,150,000,000 IRR, and say the conversion in your reply («۲۱۵ میلیون تومان = ۲,۱۵۰,۰۰۰,۰۰۰ ریال»). Amounts said in ریال are used as-is. If the user corrects the figure, use their number.
 
@@ -1121,23 +1121,45 @@ _ARABIC_SCRIPT = re.compile(r"[\u0600-\u06FF]")
 _LATIN_WORD = re.compile(r"[A-Za-z]{2,}")
 
 
-def _message_language(message: str | None, lang: str) -> str:
-    """The language to answer in: the reader's, unless the message is plainly
-    in the other script — "What was our biggest expense last month?" from a
-    Persian reader was answered in Persian (AI QA, 2026-10-12)."""
+# A word of the Arabic script, letters only (Persian and Arabic digits aren't words).
+_ARABIC_WORD = re.compile(r"[\u0621-\u063A\u0641-\u064A\u067E\u0686\u0698\u06A9\u06AF\u06C0-\u06D3]{2,}")
+_PERSIAN_LETTERS = re.compile(r"[\u067E\u0686\u0698\u06AF\u06A9\u06CC]")      # پ چ ژ گ ک ی
+_ARABIC_LETTERS = re.compile(r"[\u0629\u064A\u0643\u0623\u0625]")              # ة ي ك أ إ
+
+
+def _words_say(message: str | None) -> str | None:
+    """The script the message's words are mostly in — "arabic", "latin" — or None when they don't say (no words,
+    or a word or two in Latin letters: "ok", a brand). A tie goes to the Arabic script: a Persian writer names
+    brands in Latin letters, an English one rarely writes Persian."""
     text = message or ""
     latin = len(_LATIN_WORD.findall(text))
-    if lang in ("fa", "ar") and latin >= 3 and not _ARABIC_SCRIPT.search(text):
+    arabic = len(_ARABIC_WORD.findall(text))
+    if arabic and arabic >= latin:
+        return "arabic"
+    if latin >= 3 and latin > arabic:
+        return "latin"
+    return None
+
+
+def _message_language(message: str | None, lang: str) -> str:
+    """The language to answer in: the script most of the message's words are in, else the reader's.
+    "What was our biggest expense last month?" from a Persian reader was answered in Persian (AI QA,
+    2026-10-12); «دیشب ۲.۸ ریال KFC خوردیم» from a phone in English counted as English for its one Latin word
+    (production chats, 2026-11-02, scenario BQ1)."""
+    text = message or ""
+    says = _words_say(text)
+    if says == "arabic" and lang not in ("fa", "ar"):
+        return "ar" if _ARABIC_LETTERS.search(text) and not _PERSIAN_LETTERS.search(text) else "fa"
+    if says == "latin" and lang in ("fa", "ar"):
         return "en"
-    if lang in ("en", "es") and _ARABIC_SCRIPT.search(text) and latin == 0:
-        return "fa"
     return lang
 
 
 def thread_language(db, session_id, lang: str) -> str:
-    """The language the person writes in this thread: their last message's, else the interface's. A phone
-    in English whose owner writes Persian got the briefing in English mid-conversation (owner's phone,
-    2026-10-22, scenario AZ5)."""
+    """The language the person writes in this thread: their last message with words of their own, else the
+    interface's. A phone in English whose owner writes Persian got the briefing in English mid-conversation
+    (owner's phone, 2026-10-22, scenario AZ5); a receipt sent alone was read by the receipt's English, and
+    answered in English (production chats, 2026-11-07, scenario BQ2)."""
     if not session_id:
         return lang
     from app.models.ai_accountant import AIChatMessage
@@ -1145,10 +1167,18 @@ def thread_language(db, session_id, lang: str) -> str:
         sid = session_id if isinstance(session_id, uuid.UUID) else uuid.UUID(str(session_id))
     except (ValueError, TypeError):
         return lang
-    last = db.execute(select(AIChatMessage).where(AIChatMessage.session_id == sid, AIChatMessage.role == "user")
-                      .order_by(AIChatMessage.created_at.desc()).limit(1)).scalars().first()
-    said = ((last.content or {}).get("text") if last is not None else None) or ""
-    return _message_language(said, lang) if said.strip() else lang
+    for last in db.execute(select(AIChatMessage).where(AIChatMessage.session_id == sid, AIChatMessage.role == "user")
+                           .order_by(AIChatMessage.created_at.desc()).limit(10)).scalars():
+        content = last.content or {}
+        said = str(content["said"] if "said" in content else (content.get("text") or ""))
+        if _words_say(said):
+            return _message_language(said, lang)
+    return lang
+
+
+def turn_language(db, message: str | None, session_id, lang: str) -> str:
+    """The language of this turn: its own words', else the thread's — a receipt sent alone, or "ok"."""
+    return _message_language(message, lang) if _words_say(message) else thread_language(db, session_id, lang)
 
 
 # Refusals that name their own fix: a reply that ends the turn without the fixed
@@ -1498,7 +1528,7 @@ async def run_chat_turn(
     ``reply_to`` is the message this one answers (``replies.quoted``): the
     model reads it ahead of the user's words, and it is kept beside them.
     """
-    lang = _message_language(user_message, lang if lang in _LANG_NAMES else "en")
+    lang = turn_language(db, user_message, session_id, lang if lang in _LANG_NAMES else "en")
     attachment_ids = list(attachment_ids or [])
     # Source amounts for the proposal sanity guard: OCR'd document totals
     # passed in by the caller, plus any numbers in the user's own message.

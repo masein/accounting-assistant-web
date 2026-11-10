@@ -1039,3 +1039,14 @@ From the production chats, a quarterly bank statement reviewed step by step:
 | BN5 | The AI categorizes rows again | A statement on gpt-5.6-luna (or any gpt-5.x / o-series model) | The request carries `max_completion_tokens` and no temperature, so it is answered. The accounts it may choose from are the company's own, the ones in use first |
 | BN6 | A deposit goes to the company's own income | A company whose income is its own «درآمد شهریه» (2000), no category found for a deposit | The card credits 2000, not the app's «فروش» 4110. A company with no income account of its own keeps 4110 |
 | BN7 | «كارمزد» with the Arabic ك is a fee | A Shaparak fee whose narration spells «كارمزد» | It is a bank fee like «کارمزد» |
+
+## BQ. A Persian conversation answered in Persian (chat review 2026-11-10)
+
+From the production chats, on a phone whose profile language is English: one brand name in Latin letters made a Persian message count as English; a receipt sent alone was answered in English, by the receipt's own printed words; a card changed on the phone came back drawn in English, and its English summary went back to the model as what the assistant had said; receipts were described in English in the books.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BQ1 | Most of the words say the language | A phone in English: «دیشب ۲.۸ ریال KFC خوردیم از کیف پول قشنگم»; «KFC خوردیم»; "we paid 36000 for کارمزد صورتحساب" | The first two are Persian turns (the reply, the cards, the dates); the third, English with a Persian name, is English. A message in Arabic is Arabic |
+| BQ2 | A receipt sent alone | After Persian messages, a receipt photo with no words; then "ok?" | Both are answered in Persian, cards and quick answers too; a statement file sent alone too. A first message with no words takes the interface language |
+| BQ3 | A card changed on the phone | In a Persian thread on an English phone, change a card's description | The new card is drawn in Persian; the thread keeps «کارت تغییر کرد: …» with its title, amount and date, not the English summary |
+| BQ4 | Entries in the conversation's language | A receipt printed in English, sent in a Persian conversation | The card's description is Persian; the shop's name stays as printed |

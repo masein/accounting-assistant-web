@@ -1040,6 +1040,28 @@ From the production chats, a quarterly bank statement reviewed step by step:
 | BN6 | A deposit goes to the company's own income | A company whose income is its own «درآمد شهریه» (2000), no category found for a deposit | The card credits 2000, not the app's «فروش» 4110. A company with no income account of its own keeps 4110 |
 | BN7 | «كارمزد» with the Arabic ك is a fee | A Shaparak fee whose narration spells «كارمزد» | It is a bank fee like «کارمزد» |
 
+## BO. The day it happened, and the people in it (chat review 2026-11-10)
+
+From the production chats:
+- «دیشب» (last night) was dated today.
+- A message with «دیشب … امروز …» put every card on one day, though the model had dated each correctly.
+- A follow-up («proceed», «رقم همینه») lost the date the user had given a message earlier.
+- «4th of Mordad» was not read.
+- «همسر» (wife) was matched to a friend's name by likeness (0.5) and linked to her entries.
+- A longer spelling of a client's name was declared someone new although the shorter one was in the books.
+- Money handed to the wife was carded as a debt she owed, again after the user had corrected it.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BO1 | Last night | «شام دیشب ۱۰ ریال شد» on 5 Nov; «پریشب تاکسی گرفتم» | The dinner is dated 4 Nov; the taxi 3 Nov |
+| BO2 | Several days, one message | «دیشب ۱۲ ریال غذا خریدیم، امروز ۲ ریال تاکسی دادم» | The food card on yesterday, the taxi on today — each the day the model gave it, when the message says that day |
+| BO3 | A follow-up keeps the date | «در تاریخ ۴ مرداد ۵۰ میلیون تومان به حساب دیگرم منتقل کردم», then «رقم همینه» | The card made on the second message keeps 4 Mordad; a follow-up naming no day is never moved to today when the day was said just before |
+| BO4 | A correction keeps its card's date | A card dated 26 Oct; «نه، مبلغش ۱۲ بود» | The correcting card is still dated 26 Oct |
+| BO5 | Jalali months in Latin letters | "transferred 50 million toman on 4th of Mordad"; "Mordad 4" | 4 Mordad of the nearest year |
+| BO6 | A family word is not a name | «۵ ریال دادم به همسرم»; the books hold «رضا» | `find_entity("همسر")` finds no one, says it is a family word; nobody is linked. A person saved under that very word is still found |
+| BO7 | A longer name finds the shorter one | The books hold «Karimi»; «received 1bn from karimi nia» | «Karimi» is found; «سارا» named beside «سارو» is still someone else (AY5) |
+| BO8 | Money given to family is family spending | «۱۰ ریال دادم به همسرم»; «۱۰ ریال دادم به عمه‌ام» | «خانواده و هدایا» (6195), no «طلب از دیگران» (1150), no person — unless the user says it is a loan or will be paid back |
+
 ## BQ. A Persian conversation answered in Persian (chat review 2026-11-10)
 
 From the production chats, on a phone whose profile language is English: one brand name in Latin letters made a Persian message count as English; a receipt sent alone was answered in English, by the receipt's own printed words; a card changed on the phone came back drawn in English, and its English summary went back to the model as what the assistant had said; receipts were described in English in the books.

@@ -137,6 +137,51 @@ def _toman_amounts(message: str | None) -> set:
     return out
 
 
+def _earlier_user_messages(ctx: ToolContext, n: int = 3) -> list[str]:
+    """The user's last few messages of this chat before this one, from the last day: a day said there is the
+    day of a follow-up that names none («proceed», «رقم همینه»: chat review 2026-11-10, BO3)."""
+    from app.models.ai_accountant import AIChatMessage
+    try:
+        sid = uuid.UUID(str(ctx.chat_session_id)) if ctx.chat_session_id else None
+    except (ValueError, TypeError):
+        sid = None
+    if sid is None:
+        return []
+    since = datetime.now(timezone.utc) - timedelta(days=1)
+    rows = ctx.db.execute(
+        select(AIChatMessage.content).where(AIChatMessage.session_id == sid, AIChatMessage.role == "user",
+                                            AIChatMessage.created_at >= since)
+        .order_by(AIChatMessage.created_at.desc(), AIChatMessage.id.desc()).limit(n + 1)).scalars().all()
+    said = [str((c or {}).get("said") or (c or {}).get("text") or "").strip() for c in rows]
+    if said and said[0] == (ctx.user_message or "").strip():
+        said = said[1:]                          # the message being answered, already kept
+    return [s for s in said[:n] if s]
+
+
+def _replaced_card_date(ctx: ToolContext, replaces: str | None, tool_name: str) -> _date | None:
+    """The date of the card a correction replaces (BO4): «نه، مبلغش ۱۲.۵ بود» names no day, and its card fell
+    to today."""
+    if not replaces:
+        return None
+    q = select(AIProposal).where(AIProposal.user_id == str(ctx.user_id))
+    if str(replaces).strip().lower() == "previous":
+        if not ctx.chat_session_id:
+            return None
+        q = q.where(AIProposal.session_id == str(ctx.chat_session_id), AIProposal.tool_name == tool_name) \
+             .order_by(AIProposal.created_at.desc())
+    else:
+        try:
+            q = q.where(AIProposal.confirmation_token == uuid.UUID(str(replaces)))
+        except (ValueError, TypeError):
+            return None
+    card = ctx.db.execute(q.limit(1)).scalars().first()
+    raw = (card.tool_input or {}).get("date") if card is not None else None
+    try:
+        return _date.fromisoformat(str(raw)[:10]) if raw else None
+    except ValueError:
+        return None
+
+
 def _guard_toman(ctx: ToolContext, proposed_total) -> None:
     """A rial book's card for an amount the user gave in tomans must be ten
     times it: «قسط وام ۲۰ میلیون تومان» was carded at 20,000,000 rials (AI QA on
@@ -721,6 +766,8 @@ class ProposeCreateTransaction(BaseTool):
                 ctx.user_message, args.date,
                 has_attachment=bool(getattr(ctx, "attachment_ids", None)),
                 scheduled=scheduled,
+                earlier=_earlier_user_messages(ctx),
+                replaced_date=_replaced_card_date(ctx, getattr(args, "replaces", None), self.name),
             )
 
         # Future-date guard, enforced server-side against the REAL today (the

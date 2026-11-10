@@ -191,7 +191,9 @@ def _waiting_between_people(ctx) -> dict[str, dict[str, dict[str, Any]]]:
     session = getattr(ctx, "chat_session_id", None)
     if not session:
         return {}
-    rows = ctx.db.execute(select(AIProposal).where(AIProposal.session_id == str(session), AIProposal.status == "pending",
+    from app.services.ai_accountant.card_life import waiting_clause
+    # a card past its time can't be confirmed: it isn't waiting (production chats, 2026-11-03, scenario BP3)
+    rows = ctx.db.execute(select(AIProposal).where(AIProposal.session_id == str(session), waiting_clause(),
                                                    AIProposal.tool_name == "propose_create_transaction")).scalars().all()
     out: dict = {}
     for row in rows:

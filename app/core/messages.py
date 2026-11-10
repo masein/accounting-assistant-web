@@ -402,6 +402,7 @@ EXACT: dict[str, dict[str, str]] = {
     'This proposal belongs to a different user. Only the user who created the proposal can execute it.': {"fa": 'این پیشنهاد متعلق به کاربر دیگری است. فقط کسی که آن را ساخته می\u200cتواند ثبتش کند.', "es": 'Esta propuesta pertenece a otro usuario. Solo quien la creó puede ejecutarla.', "ar": 'هذا الاقتراح يخص مستخدماً آخر. فقط من أنشأه يمكنه تنفيذه.'},
     'This proposal was cancelled — cannot execute.': {"fa": 'این پیشنهاد لغو شده و ثبت نمی\u200cشود.', "es": 'Esta propuesta se canceló: no se puede ejecutar.', "ar": 'أُلغي هذا الاقتراح ولا يمكن تنفيذه.'},
     'This proposal was cancelled — cannot execute. It was rejected by an approver.': {"fa": 'این پیشنهاد لغو شده و ثبت نمی\u200cشود؛ تأییدکننده آن را رد کرد.', "es": 'Esta propuesta se canceló: no se puede ejecutar. La rechazó un aprobador.', "ar": 'أُلغي هذا الاقتراح ولا يمكن تنفيذه؛ رفضه أحد المعتمدين.'},
+    'A later card in this conversation already recorded this entry; confirming this one too would record it twice.': {"fa": 'کارتِ بعدیِ همین گفتگو این را قبلاً ثبت کرده است؛ تأیید این کارت آن را دو بار ثبت می\u200cکند.', "es": 'Una tarjeta posterior de esta conversación ya registró este asiento; confirmar también esta lo registraría dos veces.', "ar": 'سجّلت بطاقة لاحقة في هذه المحادثة هذا القيد بالفعل؛ تأكيد هذه أيضًا سيسجله مرتين.'},
     'This proposal was already confirmed — undo or reverse it instead.': {"fa": 'این پیشنهاد قبلاً ثبت شده است؛ به\u200cجای آن، ثبت را واگرد کنید یا سند آن را برگردانید.', "es": 'Esta propuesta ya se confirmó: deshazla o revírtela.', "ar": 'تم تأكيد هذا الاقتراح بالفعل؛ تراجع عنه أو اعكسه بدلاً من ذلك.'},
     'Session not found': {"fa": 'گفتگو پیدا نشد', "es": 'Conversación no encontrada', "ar": 'المحادثة غير موجودة'},
     'This proposal belongs to a different user': {"fa": 'این پیشنهاد متعلق به کاربر دیگری است', "es": 'Esta propuesta pertenece a otro usuario', "ar": 'هذا الاقتراح يخص مستخدماً آخر'},
@@ -827,6 +828,14 @@ PATTERNS: list[_Pattern] = [
               "es": "El importe puede tener como máximo {n} decimales en {cur}.",
               "ar": "يمكن أن يحتوي المبلغ بـ {cur} على {n} منازل عشرية كحد أقصى."},
              example="The amount can have at most 2 decimal places in GBP."),
+    _Pattern(r"^The card said (?P<was>[0-9][0-9,.]*) (?P<cur>.+); (?P<now>[0-9][0-9,.]*) is far from it\. "
+             r"If it's right, tell the assistant the amount in the chat\.$",
+             {"fa": "کارت {was} {cur} بود و {now} خیلی با آن فرق دارد؛ اگر درست است، مبلغ را در گفتگو بنویسید.",
+              "es": "La tarjeta decía {was} {cur}; {now} se aleja mucho. Si es correcto, dile el importe al asistente en el chat.",
+              "ar": "كانت البطاقة {was} {cur}، و{now} بعيد عنه كثيرًا. إن كان صحيحًا فاكتب المبلغ للمساعد في المحادثة."},
+             values={"cur": _CURRENCY_NAMES},
+             example="The card said 1,258.09 US dollar; 125.10 is far from it. If it's right, tell the assistant "
+                     "the amount in the chat."),
     _Pattern(r"^The amount can't have decimals in (?P<cur>.+)\.$",
              {"fa": "مبلغ به {cur} نمی‌تواند اعشار داشته باشد.", "es": "El importe no puede tener decimales en {cur}.",
               "ar": "لا يمكن أن يحتوي المبلغ بـ {cur} على كسور عشرية."}),

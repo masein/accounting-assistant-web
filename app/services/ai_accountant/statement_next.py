@@ -25,6 +25,20 @@ LINES = {
              "fa": "همهٔ ردیف‌های این صورت‌حساب در دفاتر است، یا روی کارتی بالاتر منتظر شماست.",
              "es": "Todas las filas de este extracto están en los libros, o en una tarjeta arriba esperándote.",
              "ar": "كل أسطر هذا الكشف في الدفاتر، أو على بطاقة أعلاه بانتظارك."},
+    # the last word when not everything is in the books (BN4): «همهٔ ردیف‌ها در دفاتر است» was said of a school's
+    # statement with 47 deposits missing and the bank 12.97bn short of it (chat review 2026-11-10)
+    "look": {"en": lambda n: f"{n} rows still need a look: each resembles an entry already in the books, but its date "
+                             f"or narration differs. Confirm or record them on the bank statement page.",
+             "fa": lambda n: f"{n} ردیف هنوز نیاز به بررسی دارد: هر کدام شبیه سندی در دفاتر است، ولی تاریخ یا شرحش فرق "
+                             f"دارد. آن‌ها را در صفحهٔ صورت‌حساب بانکی تأیید یا ثبت کنید.",
+             "es": lambda n: f"Quedan {n} filas por revisar: cada una se parece a un asiento ya en los libros, pero su fecha "
+                             f"o concepto difiere. Confírmalas o regístralas en la página del extracto.",
+             "ar": lambda n: f"يبقى {n} من الأسطر للمراجعة: كلٌّ منها يشبه قيدًا في الدفاتر لكن تاريخه أو بيانه مختلف. "
+                             f"أكّدها أو سجّلها في صفحة كشف الحساب."},
+    "gap": {"en": "The statement closes at {closing}; the books show {book} on {code} {name}.",
+            "fa": "ماندهٔ پایانی صورت‌حساب {closing} است و دفاتر برای {code} {name} مانده {book} را نشان می‌دهند.",
+            "es": "El extracto cierra en {closing}; los libros muestran {book} en {code} {name}.",
+            "ar": "يُقفل الكشف عند {closing}، والدفاتر تُظهر {book} في {code} {name}."},
     "choose": {"en": "Which of your bank accounts is this statement's? It was compared with {code} {name}, the chart's "
                      "own bank account, because none of your banks matched it. Choose its account before any row is recorded.",
                "fa": "این صورت‌حساب مربوط به کدام حساب بانکی شماست؟ هیچ‌کدام از بانک‌های دفاتر با آن جور نشد و با {code} {name}، "
@@ -77,7 +91,7 @@ async def next_difference(db: Session, *, stmt, session, user_id: str, username:
         db, user_id=user_id, username=username, session_id=str(session.id), user_message="next",
         tool_calls=[{"name": "review_bank_statement", "input": {"statement_id": str(stmt.id)}}])
     if result is None:
-        return NextDifference(**base, text=said("done", lang))
+        return NextDifference(**base, text=_last_word(db, stmt, user_id, str(session.id), lang))
     try:
         result.update(guardrails.review(db, result))
     except guardrails.ProposalRefused as e:
@@ -87,3 +101,25 @@ async def next_difference(db: Session, *, stmt, session, user_id: str, username:
     left = sum(1 for f in build_statement_review(db, stmt).findings
                if f.kind == "unrecorded" and f.suggested_fix == "post_row" and f.row_id and str(f.row_id) not in pending)
     return NextDifference(**base, text=said("left", lang, left), proposal=result, left=left)
+
+
+def _last_word(db: Session, stmt, user_id: str, session_id: str, lang: str) -> str:
+    """Nothing left to card: «every row is in the books» only when it is so (BN4) — rows that merely resemble
+    an entry, and a closing balance the books don't reach, are said instead."""
+    from app.core.money import grouped
+    from app.services.ai_accountant.statement_intake import _pending_row_ids
+    from app.services.statement_review import build_statement_review
+
+    review = build_statement_review(db, stmt)
+    pending = _pending_row_ids(db, user_id, session_id)
+    if any(f.kind == "unrecorded" and f.row_id and str(f.row_id) in pending for f in review.findings):
+        return said("done", lang)                       # cards above are waiting: the gap is theirs until then
+    parts = []
+    look = sum(1 for f in review.findings if f.kind in ("needs_confirmation", "amount_mismatch"))
+    if look:
+        parts.append(said("look", lang, look))
+    bal = review.balance
+    if bal is not None and bal.gap:
+        parts.append(said("gap", lang, closing=grouped(bal.statement_closing), book=grouped(bal.book_balance),
+                          code=bal.bank_account_code or "", name=review.bank_account_name or ""))
+    return " ".join(parts) if parts else said("done", lang)

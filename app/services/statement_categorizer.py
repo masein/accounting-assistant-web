@@ -145,7 +145,7 @@ def normalize_narration(text: str | None) -> str:
     """Lowercase, fold Persian digits, drop punctuation and reference numbers."""
     if not text:
         return ""
-    s = str(text).translate(_DIGITS).lower()
+    s = str(text).translate(_DIGITS).replace("ك", "ک").replace("ي", "ی").replace("ى", "ی").lower()   # ك/ي: BN7
     s = _PUNCT_RE.sub(" ", s)
     tokens = [
         t for t in s.split()

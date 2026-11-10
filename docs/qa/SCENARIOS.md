@@ -1011,3 +1011,21 @@ The owner sends the tax office («دارایی») and other services the journal
 | BL5 | The totals | The end of the sheet | Beside the last line, the debit and the credit totals, and under them the difference (0), as in the owner's file; numbers, not formulas |
 | BL6 | Currency | «IRR»; «USD»; «همه ارزها» | Rials: «(ریال)» and only the rial vouchers; dollars: the dollar vouchers in dollars, «(دلار آمریکا)», two decimal places; all currencies: every voucher at its value in the base currency, named. A deleted voucher is never in the file |
 | BL7 | The button | Reports page | «خروجی اکسل» shows for «دفتر روزنامه» only, and takes the page's dates and currency without running the report; the whole period is in the file, not the 50 on screen. A Gregorian company's file has «2026/03/25» dates and numbers from 1 January; a UK company's has English headers |
+
+## BN. A bank statement reconciles row for row (chat review 2026-11-10)
+
+From the production chats, school «فرهنگ نو», Day bank, Q2 1405 (205 rows), on 2 November:
+- Each confirmed card's entry became a match for other rows of the same amount within 14 days. One 300,000,000 entry was "matched" by 16 deposits.
+- Step by step never offered those rows, and ended with «همهٔ ردیف‌های این صورت‌حساب در دفاتر است». In fact 47 deposits (12.72bn rials) were not in the books, and the bank account was 12.97bn short of the statement.
+- 18 per-cheque fees, repeated on the same day, were set aside as duplicates.
+- Deposits went to the app's own «فروش» and payments to «سایر هزینه‌های عملیاتی», not the school's own accounts. The AI that categorizes rows had failed on every call since the model changed.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BN1 | One entry, one row | A statement with five 300,000,000 deposits on different days; a card for the first is confirmed | The new entry is the first row's alone; the other four stay to be recorded. An entry posted from a row, or a match the user approved, is never offered to another row. The best pairs are taken first, whichever row comes first |
+| BN2 | Rows already linked wrongly are reopened | A statement whose rows were linked to other rows' entries before this fix; its review or Next runs again | Those rows are offered again, one by one |
+| BN3 | Repeated fees are separate charges | Three 18,000 cheque fees on one day, same narration, the running balance moving 18,000 on each | All three are rows to record; none is a duplicate. Two identical rows with the same balance (one row read twice) still are. Fees set aside before this fix are reopened |
+| BN4 | Step by step says what is left | The last row is recorded, but two rows only resemble an entry in the books, or the balance doesn't agree | It does not say every row is in the books. It says how many rows still need a look on the statement page and, when they differ, the statement's closing balance and the books' |
+| BN5 | The AI categorizes rows again | A statement on gpt-5.6-luna (or any gpt-5.x / o-series model) | The request carries `max_completion_tokens` and no temperature, so it is answered. The accounts it may choose from are the company's own, the ones in use first |
+| BN6 | A deposit goes to the company's own income | A company whose income is its own «درآمد شهریه» (2000), no category found for a deposit | The card credits 2000, not the app's «فروش» 4110. A company with no income account of its own keeps 4110 |
+| BN7 | «كارمزد» with the Arabic ك is a fee | A Shaparak fee whose narration spells «كارمزد» | It is a bank fee like «کارمزد» |

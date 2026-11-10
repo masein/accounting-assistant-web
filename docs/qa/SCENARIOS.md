@@ -1076,3 +1076,15 @@ From the production chats: a card read an hour or a night later was refused as e
 | BP6 | Amounts in words | «ششصد و پنجاه بیسه ویفر خریدم» | Read as 0.650 OMR; «دو تا نون» is not an amount |
 | BP7 | An amount changed far from the card | On the phone's card, 12.580 OMR changed to 1.258 | Refused: «کارت ۱۲٫۵۸۰ ریال عمان بود و ۱٫۲۵۸ خیلی با آن فرق دارد؛ اگر درست است، مبلغ را در گفتگو بنویسید.» A correction near the card's amount (3.140 → 3.400) is made |
 | BP8 | An amount in words that isn't a number | «یه سه و چهاردهم ریال پیتزا خریدم» | The assistant asks which figure, with the likely ones as choices; it does not guess 3.14. «سه و چهارصد» of Omani rials is 3.400 |
+
+## BT. A company's own banks, as the user names them (chat review 2026-11-10)
+
+From the production chats, in a company's books: "paid … from <bank>" was credited to the chart's general «موجودی نقد و بانک»; searching the bank's own name found that general account above the bank's; money moved between two of the company's banks was booked as an expense from one and a receipt into the other; and the payment-direction check knew only English.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BT1 | The card goes to the bank named | A company with banks «بانک دی شمال» and «آینده غرب»: "we paid 4,000,000 for office supplies from bank dey"; «۴ میلیون لوازم اداری از حساب اینده غرب دادیم» | Each card credits the bank named, not 1110, on the card shown and the one confirmed. «برای آینده نگه دار» and «دی ماه» name no bank; with no bank named the card stays as made |
+| BT2 | Search finds the bank named | Ask the assistant for «بانک دی شمال», "bank dey", «حساب آینده غرب» | The bank's own account comes first; «بانک» alone is still the general cash-and-bank account |
+| BT3 | Money between the company's own banks | «۲۰ میلیون تومان از دی شمال زدیم به حساب آینده غرب و ۳۰۰ هزار تومان کارمزد گرفت» (or "moved 50m from bank dey to ayande") | One card: credit «بانک دی شمال», debit «آینده غرب». An expense from one bank, a receipt into the other, or the wrong way round is refused; the fee is a card from the bank the money left |
+| BT4 | A payment said in Persian | «۴ میلیون تومان لوازم اداری خریدیم از بانک دی شمال», and the card came out debiting the bank | The card is turned round: the bank credited. «… به حساب بانک دی شمال واریز شد» is money in and is left as it is |
+| BT5 | The assistant is told | — | The prompt says a named bank is that bank's account, and a transfer between own banks is one card |

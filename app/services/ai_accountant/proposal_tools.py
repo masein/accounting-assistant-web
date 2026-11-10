@@ -122,18 +122,31 @@ def _anchor_bank_leg(db, row, lines) -> None:
     )
 
 
-_TOMAN_AMOUNT = re.compile(r"([\d۰-۹٬,\.]+)\s*(هزار|میلیون|ملیون|میلیارد)?\s*(?:تومان|تومن)")
-_MAGNITUDE = {"هزار": 1_000, "میلیون": 1_000_000, "ملیون": 1_000_000, "میلیارد": 1_000_000_000}
+_MAGNITUDE = {"هزار": 1_000, "thousand": 1_000, "k": 1_000,
+              "میلیون": 1_000_000, "ملیون": 1_000_000, "ميليون": 1_000_000, "million": 1_000_000, "mn": 1_000_000,
+              "m": 1_000_000,
+              "میلیارد": 1_000_000_000, "ميليارد": 1_000_000_000, "billion": 1_000_000_000, "bn": 1_000_000_000}
+_MAG = "|".join(sorted(map(re.escape, _MAGNITUDE), key=len, reverse=True))
+_TOMAN_TERM = re.compile(rf"(\d[\d,٬\.]*)\s*({_MAG})?", re.IGNORECASE)
+# «۲۰ میلیون تومان», «۳ میلیارد و ۴۰۰ میلیون تومان», and in English: "640M Toman", "180million Toman", "42000 toman"
+# (chat review 2026-11-10, scenario BS1: the English ones were never read as tomans)
+_TOMAN_AMOUNT = re.compile(
+    rf"((?:\d[\d,٬\.]*\s*(?:{_MAG})\s*(?:و|and)\s*)*\d[\d,٬\.]*\s*(?:{_MAG})?)\s*(?:تومان|تومن|تومــان|tomans?)(?![a-z])",
+    re.IGNORECASE)
 
 
 def _toman_amounts(message: str | None) -> set:
-    """The amounts the user wrote in tomans («۲۰ میلیون تومان» → 20,000,000)."""
-    from app.services.ocr_extract import coerce_amount
+    """The amounts the user wrote in tomans («۲۰ میلیون تومان» → 20,000,000; "640M Toman" → 640,000,000)."""
+    from app.services.ocr_extract import coerce_amount, normalize_digits
     out = set()
-    for m in _TOMAN_AMOUNT.finditer(message or ""):
-        n = coerce_amount(m.group(1))
-        if n:
-            out.add(n * _MAGNITUDE.get(m.group(2) or "", 1))
+    for m in _TOMAN_AMOUNT.finditer(normalize_digits(message or "")):
+        total = 0
+        for term in _TOMAN_TERM.finditer(m.group(1)):
+            n = coerce_amount(term.group(1))
+            if n:
+                total += n * _MAGNITUDE.get((term.group(2) or "").lower(), 1)
+        if total:
+            out.add(total)
     return out
 
 
@@ -440,22 +453,129 @@ def _guard_amount(ctx: ToolContext, proposed_total, *, record_amount=None) -> No
         if hi <= lo * _AMOUNT_DIVERGENCE_FACTOR:
             return
     closest = min(sources, key=lambda s: abs(s - proposed_total))
+    tomans = sorted(_toman_amounts(getattr(ctx, "user_message", None)))
+    # The user said tomans and the card is far off: say the rial figure (a fee in tomans was carded at a thousand
+    # times its rials and refused three times with only the rough figure beside it, chat review 2026-11-10, BS2)
+    said = "".join(f" The user said {grouped(t)} tomans, which is {grouped(plain(t * 10))} rials." for t in tomans[:3])
     raise ToolError(
         f"Proposed total {grouped(proposed_total)} does not match the amount found in "
-        f"the source (~{grouped(closest)}). Don't propose this figure — confirm the "
+        f"the source (~{grouped(closest)}).{said} Don't propose this figure — confirm the "
         f"correct amount with the user, or use the document's labelled total.",
         code="amount_mismatch",
     )
 
 
+def _guard_move_made_already(ctx: ToolContext, args) -> None:
+    """A move between two categories that the books already hold is not made again: three purchases moved from
+    «خانواده و هدایا» to «لوازم و تعمیرات خانه» one day were moved a second time the next, and the books counted
+    them twice (chat review 2026-11-10, scenario BU3). Counts the live entries of the last 60 days whose lines are
+    only on the two accounts, net of any moved back."""
+    if getattr(args, "again", False):
+        return
+    deb = [ln for ln in args.lines if ln.debit]
+    cre = [ln for ln in args.lines if ln.credit]
+    if len(deb) != 1 or len(cre) != 1 or deb[0].account_code == cre[0].account_code:
+        return
+    to_code, from_code = deb[0].account_code, cre[0].account_code
+    from app.services.reporting.common import classify_account_code
+    kinds = {classify_account_code(to_code), classify_account_code(from_code)}
+    if len(kinds) != 1 or not kinds & {"EXPENSE", "REVENUE"}:
+        return
+    from app.core.money import plain
+    from app.models.transaction import Transaction, TransactionLine
+    ids = dict(ctx.db.execute(select(Account.code, Account.id).where(Account.code.in_([to_code, from_code]))).all())
+    if len(ids) != 2:
+        return
+    ccy = (args.currency or "").strip().upper()
+    since = datetime.now(timezone.utc) - timedelta(days=60)
+    rows = ctx.db.execute(select(Transaction).where(
+        Transaction.deleted_at.is_(None), Transaction.created_at >= since,
+        Transaction.id.in_(select(TransactionLine.transaction_id).where(TransactionLine.account_id == ids[from_code]))
+    ).order_by(Transaction.date, Transaction.created_at)).scalars().all()
+    done = []
+    for t in rows:
+        if ccy and (t.currency or "").upper() != ccy:
+            continue
+        if any(ln.account_id not in (ids[to_code], ids[from_code]) for ln in t.lines):
+            continue
+        moved = sum(plain(ln.debit or 0) - plain(ln.credit or 0) for ln in t.lines if ln.account_id == ids[to_code])
+        if moved:
+            done.append((t, moved))
+    total = plain(sum(m for _t, m in done))
+    if total <= 0 or total < plain(deb[0].debit):
+        return
+    listed = "; ".join(f"{t.date.isoformat()} {grouped(plain(m))} «{(t.description or '')[:60]}»" for t, m in done[:5])
+    raise ToolError(
+        f"The books already move {grouped(total)} {ccy} from {from_code} to {to_code} ({listed}). This move looks "
+        f"done: tell the user what is there and ask before moving it again — set again=true only when they say to.",
+        code="move_already_made")
+
+
+def _guard_own_transfer(ctx: ToolContext, args) -> None:
+    """Money moved between two of the company's own banks is one card, crediting the bank it left and debiting the
+    one it went to: «از دی شمال زدیم به حساب آینده غرب» was later booked as an expense from one bank and a
+    receipt into the other (chat review 2026-11-10, scenario BT3). A fee taken with it (a smaller card from the
+    bank it left) is let through."""
+    if getattr(ctx, "mode", "default") == "personal":
+        return
+    from app.services.ai_accountant.named_banks import own_transfer
+    from app.services.ai_accountant.orchestrator import _numbers_in_text
+    moved = own_transfer(ctx.db, ctx.user_message)
+    if moved is None:
+        return
+    src, dst = moved
+    debit = {ln.account_code: ln.debit for ln in args.lines if ln.debit}
+    credit = {ln.account_code: ln.credit for ln in args.lines if ln.credit}
+    if credit.get(src) and debit.get(dst):
+        return
+    names = dict(ctx.db.execute(select(Account.code, Account.name).where(Account.code.in_([src, dst]))).all())
+    shape = (f"credit {src} {names.get(src, '')} (the bank it left) and debit {dst} {names.get(dst, '')} (the bank "
+             f"it went to) with the same amount")
+    if debit.get(src) and credit.get(dst):
+        raise ToolError(f"The money left {names.get(src, src)} for {names.get(dst, dst)}: {shape}.",
+                        code="own_bank_transfer")
+    total = sum(ln.debit for ln in args.lines)
+    stated = [a for a in _numbers_in_text(ctx.user_message) if a]
+    if stated and credit.get(src) and not debit.get(dst) and total * 2 < max(stated):
+        return                                            # the fee of the transfer, from the bank it left
+    raise ToolError(
+        f"The user moved money between two of the company's own banks. That is one card: {shape} — not an expense "
+        f"and a receipt. A fee taken with it is a debit to bank charges, credited to {src}.",
+        code="own_bank_transfer")
+
+
+def _guard_typed_over_document(ctx: ToolContext, proposed_total) -> None:
+    """The figure the user typed beats a document's that is a tenth of it: an invoice printed in tomans was read
+    as rials and carded so, while the user's own message gave the cheque, ten times it (chat review 2026-11-10,
+    scenario BS4)."""
+    from app.core.money import plain
+    from app.services.ai_accountant.orchestrator import _numbers_in_text
+    documents = {plain(a) for a in (getattr(ctx, "document_amounts", None) or []) if a}
+    total = plain(proposed_total)
+    if total not in documents:
+        return
+    typed = {plain(a) for a in _numbers_in_text(getattr(ctx, "user_message", None))}
+    if total in typed or plain(total * 10) not in typed:
+        return
+    raise ToolError(
+        f"The user typed {grouped(plain(total * 10))}; the document's {grouped(total)} is a tenth of it, so the "
+        f"document is likely priced in tomans. Propose {grouped(plain(total * 10))}, the user's figure.",
+        code="toman_not_converted")
+
+
 # Money-out / money-in cues for the direction guard. An outflow that wrongly
 # debits the cash/bank account (a receipt) is the bug we correct.
 _OUTFLOW_TERMS = ("paid", "pay ", "paying", "spent", "spend", "withdrew", "withdrawn",
-                  "i pay", "we pay", "settle", "settled")
+                  "i pay", "we pay", "settle", "settled",
+                  # …and in Persian, the user's own payments (chat review 2026-11-10, scenario BT4)
+                  "پرداخت کردیم", "پرداخت کردم", "پرداختیم", "پرداخت شد از", "دادیم", "دادم", "خریدیم", "خریدم",
+                  "برداشت کردیم", "برداشت کردم", "خرج کردیم", "خرج کردم", "هزینه کردیم")
 _INFLOW_TERMS = ("received", "receive", "refund", "deposit", "deposited", "paid us",
                  "paid me", "paid into", "into the bank", "into our", "from a client",
                  "from client", "from a customer", "from customer", "reimbursed us",
-                 "credited to")
+                 "credited to",
+                 "دریافت", "گرفتیم", "گرفتم", "واریز", "ریخت", "برگشت", "پس داد", "فروختیم", "فروختم",
+                 "به حساب ما", "به حسابم", "به حساب شرکت")
 
 
 def _cash_predicate_for(ctx: ToolContext):
@@ -468,6 +588,11 @@ def _cash_predicate_for(ctx: ToolContext):
         bank_code = resolve_account_code(ctx.db, "bank")
     except Exception:
         pass
+    if getattr(ctx, "mode", "default") != "personal":
+        # each bank's own account is the company's money too: Mellat on 1111 beside the chart's 1110 (BT4)
+        from app.services.cash_service import company_cash_predicate
+        company = company_cash_predicate(ctx.db)
+        return lambda c: bool(base(c or "")) or (bank_code is not None and c == bank_code) or company(c or "")
     return lambda c: bool(base(c or "")) or (bank_code is not None and c == bank_code)
 
 
@@ -671,6 +796,14 @@ class ProposeCreateTransactionInput(Replaceable):
         ),
     )
 
+    again: bool = Field(
+        False,
+        description=(
+            "True only when the user, told that the same move between two categories is already in the books, "
+            "says to make it again."
+        ),
+    )
+
     @model_validator(mode="after")
     def _balanced(self) -> "ProposeCreateTransactionInput":
         total_dr = sum(ln.debit for ln in self.lines)
@@ -713,10 +846,13 @@ class ProposeCreateTransaction(BaseTool):
         if not args.bank_statement_row_id:
             _guard_amount(ctx, total)
             _guard_toman(ctx, total)
+            _guard_typed_over_document(ctx, total)
             _guard_seed_accounts(ctx, args.lines)
             _guard_stated_currency(ctx, args)
             _guard_people_direction(ctx, args)
             _guard_place_currency(ctx, args)
+            _guard_own_transfer(ctx, args)
+            _guard_move_made_already(ctx, args)
 
         # Anchor the entry date to reality. The model is unreliable at "today"
         # (it dated a "…today" expense 2023-10-18 and mid-session copied an
@@ -1321,6 +1457,10 @@ def register_proposal_tools(registry) -> None:
 # ---------------------------------------------------------------------------
 
 
+# the user asking for the opening entry itself
+_OPENING_NAMED = re.compile(r"افتتاحیه|افتتاح|opening|apertura|افتتاحي", re.IGNORECASE)
+
+
 class ProposeReverseTransactionInput(BaseModel):
     transaction_id: str | None = Field(
         None, description="The transaction's id, when known (e.g. from query_ledger).")
@@ -1378,6 +1518,14 @@ class ProposeReverseTransaction(BaseTool):
             raise ToolError(
                 "Transaction to reverse not found — give its id or reference, or "
                 "last=true for the most recent entry.", code="transaction_not_found")
+        from app.services.chart_service import is_opening_entry
+        if is_opening_entry(txn) and not _OPENING_NAMED.search(ctx.user_message or ""):
+            # every account's opening balance is on it: it goes only when the user asks for the opening itself
+            # (chat review 2026-11-10, scenario BU2)
+            raise ToolError(
+                "That is the opening balances entry — every account's opening balance is on it. Don't reverse it "
+                "unless the user asks for the opening entry by name; tell them what it holds instead.",
+                code="opening_journal")
 
         rev_ref = f"REV-{(txn.reference or str(txn.id)[:8])}"[:128]
         already = ctx.db.execute(

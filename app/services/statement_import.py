@@ -116,10 +116,10 @@ _BANK_NAMES = (
     ("saderat", "Saderat"), ("صادرات", "Saderat"), ("pasargad", "Pasargad"), ("پاسارگاد", "Pasargad"),
     ("parsian", "Parsian"), ("پارسیان", "Parsian"), ("sepah", "Sepah"), ("سپه", "Sepah"),
     ("refah", "Refah"), ("رفاه", "Refah"), ("keshavarzi", "Keshavarzi"), ("کشاورزی", "Keshavarzi"),
-    ("maskan", "Maskan"), ("مسکن", "Maskan"), ("ayandeh", "Ayandeh"), ("آینده", "Ayandeh"),
+    ("maskan", "Maskan"), ("مسکن", "Maskan"), ("ayandeh", "Ayandeh"), ("ayande", "Ayandeh"), ("آینده", "Ayandeh"),
     ("shahr", "Shahr"), ("شهر", "Shahr"), ("sina", "Sina"), ("سینا", "Sina"),
     ("resalat", "Resalat"), ("رسالت", "Resalat"), ("blu", "Blu"), ("بلو", "Blu"),
-    ("day bank", "Day"), ("بانک دی", "Day"), ("dey bank", "Day"),          # never «دی» alone: a month
+    ("day bank", "Day"), ("بانک دی", "Day"), ("dey bank", "Day"), ("bank dey", "Day"),   # never «دی» alone: a month
     ("hsbc", "HSBC"), ("barclays", "Barclays"), ("lloyds", "Lloyds"), ("natwest", "NatWest"),
     ("monzo", "Monzo"), ("revolut", "Revolut"),
 )

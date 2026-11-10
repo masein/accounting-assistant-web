@@ -137,6 +137,8 @@ Worked example — "I paid Dan (a supplier/contractor) 500 GBP from the bank": l
 Which account on the OTHER side of cash:
 * **Customer receipt** (money in from a client — "received from X", "X paid us", payment "for invoice …"): credit **trade debtors / accounts receivable** to clear the receivable — ``search_accounts("trade debtors")`` (UK 1100). If there was no prior invoice and you're recognising new income, credit **sales/revenue** (4000) instead. NEVER credit **sales returns** (a contra-revenue account, e.g. 4100) for a receipt — sales returns is ONLY for a refund/return TO a customer (money out). Worked example — "received 800 from client Acme for invoice INV-9": lines [Dr 1200 Bank 800, Cr 1100 Trade debtors 800].
 * **Supplier payment**: debit the expense (or trade creditors 2100 to clear a bill), as above.
+* **Which bank**: the bank the user names is that bank's own account («از بانک ملت», "from Saman", "dey", "ayande") — never the chart's general cash-and-bank account. ``search_accounts`` with the bank's name returns it first.
+* **Between the company's own banks** («از دی زدیم به آینده», "moved 50m from Mellat to Saman") is ONE card: credit the bank the money left, debit the bank it went to, the same amount — never an expense from one and a receipt into the other. A fee taken with it is a debit to bank charges, credited to the bank it left (on the same card or its own).
 
 # Invoices, cheques and installments
 
@@ -249,7 +251,7 @@ Copy dates. The current date is given above in both calendars — when you menti
 * Be concise. Don't apologise. Don't lecture about accounting basics.
 * LANGUAGE — non-negotiable: reply in the language of the user's LAST message. A Persian question gets a Persian answer, even if the interface language (named at the end of these instructions) is another. Only when the message has no words of its own (numbers, a receipt sent alone) answer in the language of the user's earlier messages; the turn's language is named at the end. Describe an entry in that language too — a receipt printed in English, from a user who writes Persian, gets a Persian description (the shop's name as printed). Write Persian entity names in Persian script — never transliterate them to Latin ("تولیدی آرد روشن", not "Ard roshan").
 * Match the company's currency by default (returned by ``get_company_defaults``).
-* TOMAN: Iranian users quote prices in تومان but the books are kept in ریال (IRR). 1 تومان = 10 ریال — ALWAYS convert: «۲۱۵ میلیون تومان» → propose 2,150,000,000 IRR, and say the conversion in your reply («۲۱۵ میلیون تومان = ۲,۱۵۰,۰۰۰,۰۰۰ ریال»). Amounts said in ریال are used as-is. If the user corrects the figure, use their number.
+* TOMAN: Iranian users quote prices in تومان but the books are kept in ریال (IRR). 1 تومان = 10 ریال — ALWAYS convert: «۲۱۵ میلیون تومان» → propose 2,150,000,000 IRR, and say the conversion in your reply («۲۱۵ میلیون تومان = ۲,۱۵۰,۰۰۰,۰۰۰ ریال»). Tomans written in English are tomans too ("640M Toman" → 6,400,000,000 IRR; "42000 toman" → 420,000 IRR). A follow-up that gives a bare figure in a conversation priced in تومان («کارمزدش ۴۲ هزار بود», "the fee was 42000") is in tomans as well: convert it and say the conversion, so the user can correct it. Amounts said in ریال are used as-is. If the user corrects the figure, use their number. A figure the user typed beats a document's: an invoice printed in tomans is a tenth of the cheque in rials.
 
 # Refusals
 
@@ -607,27 +609,16 @@ def _said_amounts(text: str | None) -> set:
     return {a for a in (_said_amount(m.group(0).replace("٫", ".")) for m in _AMOUNT.finditer(plain)) if a}
 
 
-def _named_place_on_cards(db, proposals: list, *, personal: bool, user_message: str | None) -> None:
-    """A person's money goes to the place they named (2026-10-21): the answer «کیف پول قشنگم» to «where is
-    Amir's cash?» gave a card whose cash line was 112001 «کیف پول سبز». When the message names exactly one of
-    the person's places — by its account's name or a name they taught the assistant for it — a card with one
-    cash or bank line at another place is moved to the named one: its stored line and the card shown."""
-    if not personal or not (user_message or "").strip():
-        return
-    txns = [p for p in proposals if p.get("tool_name") == "propose_create_transaction"]
-    if not txns:
-        return
-    from uuid import UUID
-
+def _personal_place_named(db, user_message: str) -> tuple[set, str | None]:
+    """(a person's money places, the one the message names by its account's name or a name they taught)."""
     from app.models.account import Account
-    from app.models.ai_accountant import AIProposal
     from app.models.learned_preference import LearnedPreference
     from app.services.ai_accountant.cash_tools import cash_account_codes
     from app.services.ai_accountant.money_places import _fold
     from app.services.locale_service import get_reporting_locale
     codes = set(cash_account_codes(db, locale=get_reporting_locale(db), mode="personal"))
     if not codes:
-        return
+        return codes, None
     names: dict[str, str] = {}                                    # a name the person uses → the place's code
     for acc in db.execute(select(Account).where(Account.code.in_(codes))).scalars():
         names.setdefault(_fold(acc.name), acc.code)
@@ -638,12 +629,40 @@ def _named_place_on_cards(db, proposals: list, *, personal: bool, user_message: 
     # the fullest name said: «کیف پول قشنگم», not a place called «کیف» inside it
     hits = {n: c for n, c in hits.items() if not any(o != n and f" {n} " in f" {o} " for o in hits)}
     if len(set(hits.values())) != 1:
-        return                                                    # none named, or two (a transfer between them)
-    place = next(iter(hits.values()))
+        return codes, None                                        # none named, or two (a transfer between them)
+    return codes, next(iter(hits.values()))
+
+
+def _named_place_on_cards(db, proposals: list, *, personal: bool, user_message: str | None) -> None:
+    """A person's money goes to the place they named (2026-10-21): the answer «کیف پول قشنگم» to «where is
+    Amir's cash?» gave a card whose cash line was 112001 «کیف پول سبز». When the message names exactly one of
+    the person's places — by its account's name or a name they taught the assistant for it — a card with one
+    cash or bank line at another place is moved to the named one: its stored line and the card shown."""
+    if not (user_message or "").strip():
+        return
+    txns = [p for p in proposals if p.get("tool_name") == "propose_create_transaction"
+            and not ((p.get("preview") or {}).get("bank_statement_row_id"))]
+    if not txns:
+        return
+    from uuid import UUID
+
+    from app.models.ai_accountant import AIProposal
+    if personal:
+        codes, place = _personal_place_named(db, user_message)
+    else:
+        # a company's money goes to the bank the user named too: "paid … from <bank>" was credited to the chart's
+        # general 1110 (chat review 2026-11-10, scenario BT1)
+        from app.services.ai_accountant.named_banks import banks_named, money_codes
+        codes = money_codes(db)
+        named = {n.code for n in banks_named(db, user_message, codes=codes)}
+        place = next(iter(named)) if len(named) == 1 else None    # none named, or two (a transfer between them)
+    if not codes or not place:
+        return
     # a message that states amounts moves only the cards of those amounts: «هرچی توی پاکت توی کشو بود … ۱۵.۳
     # ریال آورد» moved the dinner (13.7) and Lulu (33) of earlier messages onto the envelope, while the reply
     # said «کیف پول قشنگم» (owner's phone, 2026-10-25, scenario BB1). A bare answer («کیف پول قشنگم») moves any.
-    stated = _said_amounts(user_message)
+    # «۴ میلیون» is 4,000,000 (and «تومان» ten times it), not 4
+    stated = _said_amounts(user_message) | {_said_amount(a) for a in _numbers_in_text(user_message)}
     for t in txns:
         lines = (t.get("preview") or {}).get("lines") or []
         at = [i for i, ln in enumerate(lines) if ln.get("account_code") in codes]
@@ -1225,7 +1244,7 @@ def turn_language(db, message: str | None, session_id, lang: str) -> str:
 # Refusals that name their own fix: a reply that ends the turn without the fixed
 # card gets the refusal once more. A closed period or a future date is final.
 _CORRECTABLE_REFUSALS = {"toman_not_converted", "unused_seed_account", "place_currency", "stated_currency",
-                         "people_direction", "money_from_person"}
+                         "people_direction", "money_from_person", "own_bank_transfer"}
 
 
 _FIGURE = re.compile(r"[0-9۰-۹]{1,3}(?:[,٬،][0-9۰-۹]{3}){2,}")
@@ -1762,6 +1781,7 @@ async def run_chat_turn(
         ip_address=ip_address,
         attachment_ids=attachment_ids,
         source_amounts=src_amounts,
+        document_amounts=list(source_amounts or []),
         mode="personal" if personal else "default",
     )
 

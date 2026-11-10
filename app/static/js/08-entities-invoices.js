@@ -2009,9 +2009,21 @@
       }
       const delBtn = e.target.closest('.entity-tx-del');
       if (!delBtn) return;
-      if (!(await uiConfirm({ message: t('confirmDeleteTransaction'), confirmLabel: t('btnDelete'), danger: true }))) return;
+      // The opening balances entry holds every account's opening balance: it goes only with its word typed
+      // (chat review 2026-11-10, scenario BU1 — one went with the plain confirm below).
+      const delTx = entityTransactionsCache.find(x => String(x.id) === String(delBtn.dataset.txId));
+      const opening = !!delTx && ['OPENING-BALANCES', 'MIGRATION-OPENING'].includes(String(delTx.reference || ''));
+      let delUrl = API + '/transactions/' + encodeURIComponent(delBtn.dataset.txId);
+      if (opening) {
+        const word = t('openingDeleteWord');
+        const typed = await uiPrompt({ title: t('openingDeleteTitle'), message: tf('openingDeletePrompt', { word }), value: '' });
+        if (typed === null) return;
+        const fold = (v) => String(v || '').trim().toLowerCase().replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/\u200c/g, '');
+        if (fold(typed) !== fold(word)) { showAlert(t('openingDeleteMismatch'), true); return; }
+        delUrl += '?opening=confirm';
+      } else if (!(await uiConfirm({ message: t('confirmDeleteTransaction'), confirmLabel: t('btnDelete'), danger: true }))) return;
       try {
-        const res = await fetch(API + '/transactions/' + encodeURIComponent(delBtn.dataset.txId), { method: 'DELETE' });
+        const res = await fetch(delUrl, { method: 'DELETE' });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           showAlert(data.detail || t('msgTxnDeleteError'), true);

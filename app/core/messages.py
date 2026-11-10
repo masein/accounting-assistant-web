@@ -28,6 +28,15 @@ def _iso(value: str, lang: str) -> str:
 
 
 EXACT: dict[str, dict[str, str]] = {
+    # the opening balances entry is deleted only with its word typed (chat review 2026-11-10, scenario BU1)
+    ("This is the opening balances entry: deleting it removes the opening balance of every account on it. "
+     "To delete it anyway, type the word the page asks for."): {
+        "fa": "این سند افتتاحیه است: با حذفش ماندهٔ افتتاحیهٔ همهٔ حساب‌های آن پاک می‌شود. "
+              "اگر باز هم می‌خواهید حذفش کنید، کلمه‌ای را که صفحه می‌خواهد بنویسید.",
+        "es": "Este es el asiento de apertura: borrarlo quita el saldo de apertura de todas sus cuentas. "
+              "Para borrarlo de todos modos, escriba la palabra que pide la página.",
+        "ar": "هذا قيد الأرصدة الافتتاحية: حذفه يزيل الرصيد الافتتاحي لكل حساب فيه. "
+              "لحذفه رغم ذلك، اكتب الكلمة التي تطلبها الصفحة."},
     # a company switched to its own account codes (docs/PLAN_OWN_CODES.md, scenarios AN3–AN7)
     "These books already use their own codes.": {
         "fa": "این دفاتر از قبل کدهای خودشان را دارند.",

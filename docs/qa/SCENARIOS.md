@@ -1112,3 +1112,15 @@ From the production chats, in rial books: an invoice in tomans typed in English 
 | BS3 | A document printed in tomans | Attach an invoice whose total is printed as 175,000,000 تومان | Read as 1,750,000,000 IRR; the chat is told it was printed in tomans; the invoice and transaction OCR forms get the rial figure too |
 | BS4 | The figure typed beats the document's | With that invoice read as 175,000,000 rials, the user types "cheque: 1,750,000,000" | A card at 175,000,000 is refused with 1,750,000,000 to propose; a tenth of a typed figure with no document behind it («split 1,000,000 between 10») is made |
 | BS5 | A bare follow-up in a toman conversation | After «۱۸۰ میلیون تومان زدیم به حساب دیگرمان», "the fee was 42000" | The fee is carded as 420,000 rials and the reply says «۴۲,۰۰۰ تومان = ۴۲۰,۰۰۰ ریال», so the user can correct it |
+
+## BT. A company's own banks, as the user names them (chat review 2026-11-10)
+
+From the production chats, in a company's books: "paid … from <bank>" was credited to the chart's general «موجودی نقد و بانک»; searching the bank's own name found that general account above the bank's; money moved between two of the company's banks was booked as an expense from one and a receipt into the other; and the payment-direction check knew only English.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BT1 | The card goes to the bank named | A company with banks «بانک دی شمال» and «آینده غرب»: "we paid 4,000,000 for office supplies from bank dey"; «۴ میلیون لوازم اداری از حساب اینده غرب دادیم» | Each card credits the bank named, not 1110, on the card shown and the one confirmed. «برای آینده نگه دار» and «دی ماه» name no bank; with no bank named the card stays as made |
+| BT2 | Search finds the bank named | Ask the assistant for «بانک دی شمال», "bank dey", «حساب آینده غرب» | The bank's own account comes first; «بانک» alone is still the general cash-and-bank account |
+| BT3 | Money between the company's own banks | «۲۰ میلیون تومان از دی شمال زدیم به حساب آینده غرب و ۳۰۰ هزار تومان کارمزد گرفت» (or "moved 50m from bank dey to ayande") | One card: credit «بانک دی شمال», debit «آینده غرب». An expense from one bank, a receipt into the other, or the wrong way round is refused; the fee is a card from the bank the money left |
+| BT4 | A payment said in Persian | «۴ میلیون تومان لوازم اداری خریدیم از بانک دی شمال», and the card came out debiting the bank | The card is turned round: the bank credited. «… به حساب بانک دی شمال واریز شد» is money in and is left as it is |
+| BT5 | The assistant is told | — | The prompt says a named bank is that bank's account, and a transfer between own banks is one card |

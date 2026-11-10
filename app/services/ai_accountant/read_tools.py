@@ -865,6 +865,13 @@ class SearchAccounts(BaseTool):
             return out
 
         q_codes = set(re.findall(r"\d+", q))
+        # A bank the query names is that bank's own account, above the chart's general «موجودی نقد و بانک» that the
+        # word «بانک» points to: «بانک دی شمال» found 1110 at 0.97 over the bank's account (chat review
+        # 2026-11-10, scenario BT2). "bank dey", "ayande" name it too.
+        named_banks: set[str] = set()
+        if alias_key != "personal":
+            from app.services.ai_accountant.named_banks import banks_named
+            named_banks = {n.code for n in banks_named(ctx.db, args.query)}
         headings: list[tuple[float, Account]] = []
         scored: list[tuple[float, Account, str]] = []
         for acc in rows:
@@ -902,6 +909,8 @@ class SearchAccounts(BaseTool):
                 score = min(0.99, score + 0.05)
             elif established:
                 score = min(score, 0.84)            # an exact name the books never use («فروش» 4110) stays below one they do
+            if (acc.code or "") in named_banks:
+                score, by_name = max(score, 0.995), True
             if score >= 0.45:
                 scored.append((score, acc, acc_type, by_name))
 

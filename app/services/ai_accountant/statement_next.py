@@ -25,8 +25,8 @@ LINES = {
              "fa": "همهٔ ردیف‌های این صورت‌حساب در دفاتر است، یا روی کارتی بالاتر منتظر شماست.",
              "es": "Todas las filas de este extracto están en los libros, o en una tarjeta arriba esperándote.",
              "ar": "كل أسطر هذا الكشف في الدفاتر، أو على بطاقة أعلاه بانتظارك."},
-    # the last word when not everything is in the books (BN4): «همهٔ ردیف‌ها در دفاتر است» was said of a school's
-    # statement with 47 deposits missing and the bank 12.97bn short of it (chat review 2026-11-10)
+    # the last word when not everything is in the books (BN4): «همهٔ ردیف‌ها در دفاتر است» was said of a
+    # statement with dozens of deposits missing and the bank short of it (chat review 2026-11-10)
     "look": {"en": lambda n: f"{n} rows still need a look: each resembles an entry already in the books, but its date "
                              f"or narration differs. Confirm or record them on the bank statement page.",
              "fa": lambda n: f"{n} ردیف هنوز نیاز به بررسی دارد: هر کدام شبیه سندی در دفاتر است، ولی تاریخ یا شرحش فرق "

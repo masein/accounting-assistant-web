@@ -312,8 +312,8 @@ def resolve_account_code(db: Session, category: str, *, locale: str | None = Non
 
 def own_income_account(db: Session) -> str | None:
     """The income account the company's own books use: the one the owner chose for income, else the one most
-    credited. A school's income is its own 2000 «درآمد شهریه»; its statement's 82 deposits went to the app's
-    «فروش» 4110, which its books never used (chat review 2026-11-10, BN6). None for books with no income yet."""
+    credited. A school's income is its own «درآمد شهریه»; its statement's deposits went to the app's «فروش»
+    4110, which its books never used (chat review 2026-11-10, BN6). None for books with no income yet."""
     from sqlalchemy import func, select
 
     from app.models.account import Account, AccountLevel

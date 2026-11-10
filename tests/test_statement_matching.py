@@ -1,10 +1,10 @@
 """A bank statement reconciles row for row (chat review 2026-11-10, scenarios BN1–BN7).
 
-A school's Q2 statement (Day bank, 205 rows): each confirmed card's entry became a "match" for every row of
-its amount within 14 days — one 300,000,000 entry for 16 deposits — and step by step, which only walks rows
-with nothing in the books, ended with «همهٔ ردیف‌ها در دفاتر است» while 47 deposits (12.72bn) were missing.
-18 per-cheque fees repeated on one day were set aside as duplicates; deposits went to the app's «فروش» and
-not the school's own «درآمد شهریه»; and the model that categorizes rows refused every request.
+A quarterly statement in production: each confirmed card's entry became a "match" for every row of its amount
+within 14 days — one entry for many deposits — and step by step, which only walks rows with nothing in the
+books, ended with «همهٔ ردیف‌ها در دفاتر است» while dozens of deposits were missing. Per-cheque fees repeated
+on one day were set aside as duplicates; deposits went to the app's «فروش» and not the company's own income
+account; and the model that categorizes rows refused every request.
 """
 from __future__ import annotations
 

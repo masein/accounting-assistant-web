@@ -1014,11 +1014,11 @@ The owner sends the tax office («دارایی») and other services the journal
 
 ## BN. A bank statement reconciles row for row (chat review 2026-11-10)
 
-From the production chats, school «فرهنگ نو», Day bank, Q2 1405 (205 rows), on 2 November:
-- Each confirmed card's entry became a match for other rows of the same amount within 14 days. One 300,000,000 entry was "matched" by 16 deposits.
-- Step by step never offered those rows, and ended with «همهٔ ردیف‌های این صورت‌حساب در دفاتر است». In fact 47 deposits (12.72bn rials) were not in the books, and the bank account was 12.97bn short of the statement.
-- 18 per-cheque fees, repeated on the same day, were set aside as duplicates.
-- Deposits went to the app's own «فروش» and payments to «سایر هزینه‌های عملیاتی», not the school's own accounts. The AI that categorizes rows had failed on every call since the model changed.
+From the production chats, a quarterly bank statement reviewed step by step:
+- Each confirmed card's entry became a match for other rows of the same amount within 14 days, so one entry was "matched" by many deposits.
+- Step by step never offered those rows, and ended with «همهٔ ردیف‌های این صورت‌حساب در دفاتر است» while dozens of deposits were not in the books and the bank account fell short of the statement.
+- Per-cheque fees repeated on one day were set aside as duplicates.
+- Deposits went to the app's own «فروش» and payments to «سایر هزینه‌های عملیاتی», not the company's own accounts. The AI that categorizes rows had failed on every call since the model changed.
 
 | ID | Scenario | Steps | Expected |
 |----|----------|-------|----------|

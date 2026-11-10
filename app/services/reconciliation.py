@@ -227,8 +227,8 @@ def reconcile_statement(
     txns = db.execute(q).scalars().unique().all()
 
     # One entry, one row (chat review 2026-11-10, BN1). Only automatic matches used to claim their entry: a
-    # confirmed card's entry was "matched" by every row of its amount within 14 days — a school's 300,000,000
-    # deposit by 16 others — and those rows were never offered again. An entry posted from a row, or one the
+    # confirmed card's entry was "matched" by every row of its amount within 14 days — one deposit's entry by
+    # many others — and those rows were never offered again. An entry posted from a row, or one the
     # user matched to it, is that row's; the rest go to the best pairs first, whichever row comes first.
     owner: dict[UUID, UUID] = {}
     for row in rows:

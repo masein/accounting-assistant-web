@@ -1113,6 +1113,29 @@ From the production chats, in rial books: an invoice in tomans typed in English 
 | BS4 | The figure typed beats the document's | With that invoice read as 175,000,000 rials, the user types "cheque: 1,750,000,000" | A card at 175,000,000 is refused with 1,750,000,000 to propose; a tenth of a typed figure with no document behind it («split 1,000,000 between 10») is made |
 | BS5 | A bare follow-up in a toman conversation | After «۱۸۰ میلیون تومان زدیم به حساب دیگرمان», "the fee was 42000" | The fee is carded as 420,000 rials and the reply says «۴۲,۰۰۰ تومان = ۴۲۰,۰۰۰ ریال», so the user can correct it |
 
+## BT. A company's own banks, as the user names them (chat review 2026-11-10)
+
+From the production chats, in a company's books: "paid … from <bank>" was credited to the chart's general «موجودی نقد و بانک»; searching the bank's own name found that general account above the bank's; money moved between two of the company's banks was booked as an expense from one and a receipt into the other; and the payment-direction check knew only English.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BT1 | The card goes to the bank named | A company with banks «بانک دی شمال» and «آینده غرب»: "we paid 4,000,000 for office supplies from bank dey"; «۴ میلیون لوازم اداری از حساب اینده غرب دادیم» | Each card credits the bank named, not 1110, on the card shown and the one confirmed. «برای آینده نگه دار» and «دی ماه» name no bank; with no bank named the card stays as made |
+| BT2 | Search finds the bank named | Ask the assistant for «بانک دی شمال», "bank dey", «حساب آینده غرب» | The bank's own account comes first; «بانک» alone is still the general cash-and-bank account |
+| BT3 | Money between the company's own banks | «۲۰ میلیون تومان از دی شمال زدیم به حساب آینده غرب و ۳۰۰ هزار تومان کارمزد گرفت» (or "moved 50m from bank dey to ayande") | One card: credit «بانک دی شمال», debit «آینده غرب». An expense from one bank, a receipt into the other, or the wrong way round is refused; the fee is a card from the bank the money left |
+| BT4 | A payment said in Persian | «۴ میلیون تومان لوازم اداری خریدیم از بانک دی شمال», and the card came out debiting the bank | The card is turned round: the bank credited. «… به حساب بانک دی شمال واریز شد» is money in and is left as it is |
+| BT5 | The assistant is told | — | The prompt says a named bank is that bank's account, and a transfer between own banks is one card |
+
+## BU. The opening entry kept, and a move between categories made once (chat review 2026-11-10)
+
+From production: a company's whole opening voucher went with the plain "delete this transaction?", one of six entries removed within a minute; and three purchases moved from one category to another one day were moved a second time the next, so the books counted the move twice.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BU1 | The opening entry needs its word | On a bank's transactions, delete the opening balances entry (made on the opening page or by a migration) | The page asks to type «افتتاحیه» (opening / apertura / افتتاحي); a wrong word deletes nothing. The server refuses the delete without it (409, in the user's language); any other entry is deleted as before |
+| BU2 | The chat reverses the opening only when named | «همهٔ سندهای امروز رو برگردون» where the opening is the entry found | Refused: the assistant says what the opening holds. «سند افتتاحیه رو برگردون» makes the card |
+| BU3 | A move between categories is made once | Move three purchases (200,000 + 300,000 + 100,000) from one expense to another; the next day ask again for one card of 600,000 | The assistant says the move is already in the books, with the dates, and asks; only when the user says to make it again is the card made. A larger move, or one after the move was taken back, is made |
+| BU4 | The page has the words | Switch the language to each of the four | The title, the prompt with the word, and the "not deleted" note are in that language |
+
 ## BW. The reviews' figures (chat review 2026-11-10)
 
 From production: a person's monthly review said net worth rose in a month of spending — the starting balances recorded that month and money changed from dollars counted as gains; a company's review said cash lasts 1.7 months beside an insight's 0.4 on the same day; and the review said the runway twice.

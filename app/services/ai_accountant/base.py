@@ -74,6 +74,9 @@ class ToolContext:
     # cross-checks the proposed total against these so a mis-scaled or garbled
     # amount can't be silently proposed for one-click confirmation.
     source_amounts: list[int] = field(default_factory=list)
+    # The attached documents' own totals (the OCR'd ones alone): a card that takes one of them while the user
+    # typed ten times it is refused (BS4).
+    document_amounts: list[int] = field(default_factory=list)
     # "personal" for personal-finance tenants: tools adapt their category
     # aliases (cash → موجودی نقد 1120, card/bank → حساب بانکی 1110) and wording.
     mode: str = "default"

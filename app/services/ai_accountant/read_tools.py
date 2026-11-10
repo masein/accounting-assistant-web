@@ -295,11 +295,13 @@ class QueryLedgerInput(BaseModel):
         None,
         description=(
             "Account code (or code prefix — e.g. '11' for all current assets, '61' "
-            "for all SG&A). Omit to query every account."
+            "for all SG&A), or several comma-separated: food is groceries and eating out, '6110,6180' in a "
+            "person's books (group_by 'account' names each). Omit to query every account."
         ),
     )
     entity_id: str | None = Field(
-        None, description="Restrict to transactions linked to this entity."
+        None, description=("Restrict to transactions linked to this entity; for a bank, only its own account's "
+                           "lines (not the rest of each voucher).")
     )
     description_contains: str | None = Field(
         None,
@@ -316,8 +318,8 @@ class QueryLedgerInput(BaseModel):
     group_by: Literal["none", "month", "account"] = Field(
         "none",
         description=(
-            "Aggregation. 'none' returns up to 50 individual transactions; 'month' "
-            "returns sums per calendar month; 'account' returns sums per account."
+            "Aggregation. 'none' returns the latest ``limit`` entries, newest first, with their lines; "
+            "'month' returns sums per calendar month; 'account' returns sums per account."
         ),
     )
     limit: int = Field(50, ge=1, le=200)
@@ -349,22 +351,31 @@ class QueryLedger(BaseTool):
                 Transaction.date >= from_d,
                 Transaction.date <= to_d,
             )
-            .order_by(Transaction.date.desc(), Transaction.id)
+            # newest first, an entry's lines together: by the day, then the order they were made — the id
+            # alone ordered a day's entries at random, and "the last 5" weren't (chat review 2026-11-10, BR5)
+            .order_by(Transaction.date.desc(), Transaction.created_at.desc(), Transaction.id)
         )
 
-        if args.account_code:
-            # its sub-accounts by class: a company's own 3000 is its class's 6132… (docs/PLAN_OWN_CODES.md)
-            from app.services.chart_codes import class_expr, class_of
-            stmt = stmt.where(class_expr().like(f"{class_of(args.account_code.strip())}%"))
+        # its sub-accounts by class: a company's own 3000 is its class's 6132… (docs/PLAN_OWN_CODES.md); several
+        # codes too
+        from app.services.chart_codes import codes_clause
+        if (only_codes := codes_clause(args.account_code)) is not None:
+            stmt = stmt.where(only_codes)
         ccy = (args.currency or "").strip().upper() or None
         if ccy:
             stmt = stmt.where(Transaction.currency == ccy)
 
         if args.entity_id:
+            import uuid as _uuid
+            try:
+                party = _uuid.UUID(str(args.entity_id).strip())
+            except ValueError:
+                raise ToolError(f"{args.entity_id!r} isn't an entity id: take entity_id from find_entity.",
+                                code="bad_entity_id")
             stmt = stmt.where(
                 Transaction.id.in_(
                     select(TransactionEntity.transaction_id).where(
-                        TransactionEntity.entity_id == args.entity_id
+                        TransactionEntity.entity_id == party
                     )
                 )
             )
@@ -384,6 +395,13 @@ class QueryLedger(BaseTool):
             hits = {t.id: sum(w in fold_fa((t.description or "").lower()) for w in words) for (t, _l, _a) in rows}
             best = max(hits.values(), default=0)
             rows = [r for r in rows if hits[r[0].id] == best]
+        own_lines = None
+        if args.entity_id and only_codes is None:
+            # a bank's ledger is its own account's lines: every line of each linked voucher came back, the whole
+            # opening voucher with it (chat review 2026-11-10, scenario BR4)
+            own_lines = _entity_lines(ctx.db, args.entity_id, rows)
+            if own_lines:
+                rows = [r for r in rows if r[2].code in own_lines]
 
         from app.services.fx_base import base_currency, unconverted_note
         from app.services.reporting.repository import line_dr_cr
@@ -394,24 +412,61 @@ class QueryLedger(BaseTool):
         # Net by account-nature: for a single asset/expense query this is
         # the natural "amount spent / paid"; for revenue / liability it's
         # the natural "amount received / owed".
-        signed_net = 0
-        if args.account_code:
-            sample = classify_account_code(args.account_code)
-            if sample in (ASSET, EXPENSE):
-                signed_net = total_debit - total_credit
-            elif sample in (LIABILITY, EQUITY, REVENUE):
-                signed_net = total_credit - total_debit
+        import re as _re
+        first = next(iter(c for c in _re.split(r"[,\s،]+", (args.account_code or "").strip()) if c), None)
+        nature = classify_account_code(first) if first else None
 
+        def net(d, c):
+            return d - c if nature in (ASSET, EXPENSE) else c - d if nature in (LIABILITY, EQUITY, REVENUE) else 0
+
+        signed_net = net(total_debit, total_credit)
+
+        base = (base_currency(ctx.db) or "IRR").upper()
         result: dict[str, Any] = {
             "period": {"from": from_d.isoformat(), "to": to_d.isoformat()},
-            "currency": ccy or base_currency(ctx.db),
+            "currency": ccy or base,
             "total_debit": total_debit,
             "total_credit": total_credit,
             "signed_net": signed_net,
             "row_count": len(rows),
+            "entry_count": len({t.id for (t, _l, _a) in rows}),
         }
-        if not ccy and (left_out := unconverted_note(ctx.db)):
-            result["unconverted"] = left_out
+        if own_lines:
+            result["lines_on_accounts"] = sorted(own_lines)
+        # Each currency in its own amounts: with no currency asked, an Omani-rial week in rial books summed to
+        # 0 with "add rates" beside it (chat review 2026-11-10, scenario BR1)
+        split = False
+        if not ccy:
+            per: dict[str, dict[str, Any]] = {}
+            for (t, line, _a) in rows:
+                slot = per.setdefault((t.currency or base).upper(), {"debit": 0, "credit": 0, "entries": set()})
+                slot["debit"] = plain(slot["debit"] + plain(line.debit or 0))
+                slot["credit"] = plain(slot["credit"] + plain(line.credit or 0))
+                slot["entries"].add(t.id)
+            split = bool(per) and set(per) != {base}
+            if split:
+                result["totals_by_currency"] = {
+                    c: {"debit": v["debit"], "credit": v["credit"], "signed_net": plain(net(v["debit"], v["credit"])),
+                        "entries": len(v["entries"])} for c, v in sorted(per.items())}
+                if len(per) == 1:
+                    (only,) = per
+                    result.update(currency=only, total_debit=per[only]["debit"], total_credit=per[only]["credit"],
+                                  signed_net=plain(net(per[only]["debit"], per[only]["credit"])))
+                    result.pop("unconverted", None)
+                else:
+                    if getattr(ctx, "mode", "default") == "personal":      # never exchanged in a person's books
+                        for k in ("total_debit", "total_credit", "signed_net"):
+                            result.pop(k)
+                    elif left_out := unconverted_note(ctx.db):
+                        result["unconverted"] = left_out
+                    result["note"] = ("Each currency on its own, in totals_by_currency: say each one in its own "
+                                      "amounts. Don't add them up.")
+            elif (left_out := unconverted_note(ctx.db)) and getattr(ctx, "mode", "default") != "personal":
+                result["unconverted"] = left_out
+        if not rows:
+            result["note"] = ("Nothing in the books matches (this period, these accounts and words). Say so — never "
+                              "answer from the conversation: what the user told you may not be recorded yet, or is "
+                              "on another date. Offer to look at other days, or to record it.")
 
         if args.group_by == "month":
             # the company's months: Jalali for an Iranian company (§3.5)
@@ -419,31 +474,31 @@ class QueryLedger(BaseTool):
             cal = company_calendar(ctx.db)
             buckets: dict[str, dict[str, int]] = {}
             for txn, line, _acc in rows:
-                key = month_key(txn.date, cal)
+                key = (month_key(txn.date, cal), (txn.currency or base).upper() if split else None)
                 slot = buckets.setdefault(key, {"debit": 0, "credit": 0, "count": 0})
-                d, c = line_dr_cr(line, ccy)
+                d, c = (plain(line.debit or 0), plain(line.credit or 0)) if split else line_dr_cr(line, ccy)
                 slot["debit"] += d
                 slot["credit"] += c
                 slot["count"] += 1
             result["by_month"] = [
-                {"month": m, "label": month_label(m), **buckets[m]}
-                for m in sorted(buckets)
+                {"month": m, "label": month_label(m), **({"currency": cur} if cur else {}), **buckets[(m, cur)]}
+                for (m, cur) in sorted(buckets, key=lambda k: (k[0], k[1] or ""))
             ]
         elif args.group_by == "account":
             buckets = {}
-            for _txn, line, acc in rows:
-                key = acc.code
+            for txn, line, acc in rows:
+                key = (acc.code, (txn.currency or base).upper() if split else None)
                 slot = buckets.setdefault(
                     key,
                     {"name": acc.name, "debit": 0, "credit": 0, "count": 0},
                 )
-                d, c = line_dr_cr(line, ccy)
+                d, c = (plain(line.debit or 0), plain(line.credit or 0)) if split else line_dr_cr(line, ccy)
                 slot["debit"] += d
                 slot["credit"] += c
                 slot["count"] += 1
             result["by_account"] = [
-                {"account_code": code, **buckets[code]}
-                for code in sorted(buckets)
+                {"account_code": code, **({"currency": cur} if cur else {}), **buckets[(code, cur)]}
+                for (code, cur) in sorted(buckets, key=lambda k: (k[0], k[1] or ""))
             ]
         else:
             result["sample"] = [
@@ -460,9 +515,42 @@ class QueryLedger(BaseTool):
                     "base_credit": line.base_credit,
                     "description": txn.description,
                 }
-                for (txn, line, acc) in rows[: args.limit]
+                for (txn, line, acc) in _latest_entries(rows, args.limit)
             ]
         return result
+
+
+def _latest_entries(rows, entries: int, *, most_lines: int = 200):
+    """The lines of the first ``entries`` entries (rows come newest first, an entry's lines together): "the
+    last 10" counted lines, so five two-line entries came back (chat review 2026-11-10, scenario BR5)."""
+    seen: set = set()
+    out = []
+    for row in rows:
+        if row[0].id not in seen:
+            if len(seen) >= entries:
+                break
+            seen.add(row[0].id)
+        if len(out) >= most_lines:
+            break
+        out.append(row)
+    return out
+
+
+def _entity_lines(db, entity_id, rows) -> set[str] | None:
+    """The account codes that are this party's own among the rows: a bank's account, a client's debtors… None
+    when none of the rows is on one (the whole entry is the party's, as before)."""
+    import uuid as _uuid
+
+    from app.services.entity_statement import control_spec_for
+    try:
+        ent = db.get(Entity, _uuid.UUID(str(entity_id)))
+    except (ValueError, TypeError):
+        return None
+    if ent is None:
+        return None
+    spec = control_spec_for(db, ent)
+    codes = {acc.code for (_t, _l, acc) in rows if spec.matches(acc.code)}
+    return codes or None
 
 
 # ---------------------------------------------------------------------------

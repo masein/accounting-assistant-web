@@ -1087,3 +1087,16 @@ From the production chats, on a phone whose profile language is English: one bra
 | BQ2 | A receipt sent alone | After Persian messages, a receipt photo with no words; then "ok?" | Both are answered in Persian, cards and quick answers too; a statement file sent alone too. A first message with no words takes the interface language |
 | BQ3 | A card changed on the phone | In a Persian thread on an English phone, change a card's description | The new card is drawn in Persian; the thread keeps «کارت تغییر کرد: …» with its title, amount and date, not the English summary |
 | BQ4 | Entries in the conversation's language | A receipt printed in English, sent in a Persian conversation | The card's description is Persian; the shop's name stays as printed |
+
+## BR. Spending and ledger answers from the books as they are (chat review 2026-11-10)
+
+From the production chats, in a person's books kept in rials whose money is mostly Omani rials: the ledger with no currency asked came back as 0 rials with "add rates" beside it, and an empty answer was filled from the chat as if it were recorded; food asked about missed the meals eaten out; a bank's ledger brought every line of each voucher it was on, the whole opening voucher with it; "the last 5" were five lines, and a day's entries came in random order.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BR1 | Each currency in its own amounts | Books in rials, spending in Omani rials and rials; «این هفته چقدر خرج کردم؟» through the ledger | Each currency's own total, never added together; no "add rates". One currency only: its total in that currency |
+| BR2 | Nothing found | «خرجای دیروزم رو بگو» when nothing is dated yesterday | It says nothing is recorded for yesterday and offers to look at other days or record it; it never lists what was said in the chat as if it were in the books |
+| BR3 | Food | «چقدر پول غذا دادم؟» | Groceries (6110) and eating out (6180) together, each named, each currency on its own |
+| BR4 | A bank's ledger | «گردش حساب ملت» where the bank is on a voucher with other accounts (an opening) | Only the bank account's lines and their total |
+| BR5 | The latest entries | «۵ تا خرج آخرم» | Five entries (not five lines), newest first; entries of one day in the order they were made |
+| BR6 | Answers from the tools | Any spending or ledger question | The answer is what the tools found |

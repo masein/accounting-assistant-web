@@ -379,14 +379,13 @@ def _series(db: Session, y: int, m: int, only: str | None) -> list[dict]:
 def _month(db: Session, key: str, prev_key: str, ccy: str) -> dict[str, Any]:
     """Another currency's month in a person's books, in its own amounts."""
     from app.services.calendar_periods import key_bounds
-    from app.services.net_worth_service import compute_net_worth
     from app.services.report_card import _rate
     start, end = key_bounds(key)
     income, spent, cats = _flows(db, start, end, ccy)
     p_income, p_spent, _p = _flows(db, *key_bounds(prev_key), ccy)
     from app.services.budget_service import budget_utilization
-    worth = (compute_net_worth(db, as_of=end, with_trend=False, currency=ccy).net_worth
-             - compute_net_worth(db, as_of=start - timedelta(days=1), with_trend=False, currency=ccy).net_worth)
+    from app.services.report_card import net_worth_change
+    worth = net_worth_change(db, start, end, ccy)["change"]       # starting balances and exchanges aren't gains
     budgets = budget_utilization(db, key, ccy)
     over = [b["label"] for b in budgets if b["actual_amount"] > b["limit_amount"]]
     return {"currency": ccy, "income": plain(income), "spent": plain(spent), "saved": plain(income - spent),
@@ -917,7 +916,7 @@ def _render_one(review: ProactiveReview, f: dict, lang: str, *, first: bool, ide
             if usual and abs((spent - usual) / usual * 100) >= 5:
                 change = (spent - usual) / usual * 100
                 lines.append(_say(W, "co_vs", lang, pct=_pct(change, lang), dir=W["above" if change > 0 else "below"][lang]))
-            lines.extend(_company_lines(f, lang, m))
+            lines.extend(_company_lines(f, lang, m, ideas=ideas))
         for c in f.get("top") or []:
             sub = _against(c, lang, monthly=False)
             rows.append({"label": c["name"], "sub": sub, "value": c["amount"], "currency": ccy})
@@ -959,7 +958,7 @@ def _render_one(review: ProactiveReview, f: dict, lang: str, *, first: bool, ide
                               result=_say(W, "loss" if f["profit"] < 0 else "profit", lang, amount=m(abs(f["profit"]))),
                               prev=_say(W, "loss", lang, amount=m(-prev)) if prev < 0 else m(prev)))
             headline = lines[0]
-            lines.extend(_company_lines(f, lang, m))
+            lines.extend(_company_lines(f, lang, m, ideas=ideas))
         for c in f.get("top") or []:
             rows.append({"label": c["name"], "sub": _against(c, lang, monthly=True), "value": c["amount"], "currency": ccy})
 
@@ -1114,12 +1113,14 @@ def _against(c: dict, lang: str, *, monthly: bool) -> str:
     return _say(W, key, lang, pct=_pct(change, lang))
 
 
-def _company_lines(f: dict, lang: str, m) -> list[str]:
+def _company_lines(f: dict, lang: str, m, *, ideas: bool = True) -> list[str]:
     out = []
     if f.get("cash") is not None:
         runway = f.get("runway")
+        # said once: when the review's suggestion says how long cash lasts, the cash line doesn't say it again (BW2)
+        told = ideas and any(x.get("key") == "runway" for x in f.get("suggestions") or [])
         out.append(_say(W, "cash_runway", lang, cash=m(f["cash"]), months=_digits(f"{round(float(runway), 1):g}", lang))
-                   if runway is not None and runway >= 0 else _say(W, "cash", lang, cash=m(f["cash"])))
+                   if runway is not None and runway >= 0 and not told else _say(W, "cash", lang, cash=m(f["cash"])))
     if f.get("overdue"):
         o = f["overdue"]
         out.append(_say(W, "overdue", lang, count=_digits(str(o["count"]), lang), total=m(o["total"]), oldest=o["oldest"],

@@ -1112,3 +1112,13 @@ From the production chats, in rial books: an invoice in tomans typed in English 
 | BS3 | A document printed in tomans | Attach an invoice whose total is printed as 175,000,000 تومان | Read as 1,750,000,000 IRR; the chat is told it was printed in tomans; the invoice and transaction OCR forms get the rial figure too |
 | BS4 | The figure typed beats the document's | With that invoice read as 175,000,000 rials, the user types "cheque: 1,750,000,000" | A card at 175,000,000 is refused with 1,750,000,000 to propose; a tenth of a typed figure with no document behind it («split 1,000,000 between 10») is made |
 | BS5 | A bare follow-up in a toman conversation | After «۱۸۰ میلیون تومان زدیم به حساب دیگرمان», "the fee was 42000" | The fee is carded as 420,000 rials and the reply says «۴۲,۰۰۰ تومان = ۴۲۰,۰۰۰ ریال», so the user can correct it |
+
+## BW. The reviews' figures (chat review 2026-11-10)
+
+From production: a person's monthly review said net worth rose in a month of spending — the starting balances recorded that month and money changed from dollars counted as gains; a company's review said cash lasts 1.7 months beside an insight's 0.4 on the same day; and the review said the runway twice.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BW1 | Starting balances are not gains | A person records two wallets' starting balances and spends in the same month, in Omani rials | The monthly review and the report card say net worth fell by what was spent; the starting balances (and money changed from another currency) are not counted as a rise |
+| BW2 | One runway | A company with three complete months of costs and sales and a few days of the month under way | The dashboard, the review and the insight all say the same months of cash: cash ÷ (costs − sales) a month over the three complete months |
+| BW3 | The runway said once | A company review whose suggestion says how long cash lasts | The cash line gives the cash only; with suggestions switched off, the cash line gives the months |

@@ -1294,7 +1294,15 @@ def _replay_history(db: Session, session_id: uuid.UUID) -> list[ChatMessage]:
         # under a "content" key; if we encounter one of those, do a
         # best-effort conversion so old sessions don't break entirely.
         if "role" in content:
-            history.append(ChatMessage.from_dict(content))
+            msg = ChatMessage.from_dict(content)
+            if msg.role == "assistant" and not (msg.text or "").strip() and not msg.tool_calls:
+                # a review the phone kept before BM1 had no words: its blocks say them; with none it is left out
+                said = "\n\n".join(str(b.get("fallback_text") or b.get("text") or "").strip()
+                                    for b in content.get("blocks") or [] if isinstance(b, dict))
+                if not said.strip():
+                    continue
+                msg = ChatMessage(role="assistant", text=said.strip())
+            history.append(msg)
         elif row.role == "user" and "content" in content and isinstance(content["content"], str):
             # Legacy: {"content": "user text"}
             history.append(ChatMessage(role="user", text=content["content"]))

@@ -86,6 +86,8 @@ def _chat_messages_to_openai_wire(messages: list[ChatMessage]) -> list[dict[str,
                 "content": m.text or "",
             })
         elif m.role == "assistant":
+            if not m.text and not m.tool_calls:
+                continue        # "content": null with no tool_calls is refused, and the whole turn with it (BM3)
             entry: dict[str, Any] = {"role": "assistant"}
             # OpenAI allows null content when tool_calls is present.
             entry["content"] = m.text if m.text else None
@@ -208,6 +210,20 @@ def reasoning_effort_param(model: str) -> str | None:
     if m.startswith(("gpt-5", "o1", "o3", "o4")):
         return "low"
     return None
+
+
+def plain_request_options(model: str, max_tokens: int, *, temperature: float | None = None) -> dict[str, Any]:
+    """The output cap, sampling and reasoning a request without tools carries for ``model``. gpt-5.x and the
+    o-series refuse ``max_tokens`` and any temperature but their own: the statement categorizer sent both and
+    failed on every call once the platform moved to gpt-5.6-luna (chat review 2026-11-10, BN5)."""
+    param = output_limit_param(model)
+    out: dict[str, Any] = {param: max_tokens}
+    if param == "max_tokens" and temperature is not None:
+        out["temperature"] = temperature
+    effort = reasoning_effort_param(model)
+    if effort:
+        out["reasoning_effort"] = effort
+    return out
 
 
 def _chat_completions_url(base_url: str) -> str:

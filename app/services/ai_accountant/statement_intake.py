@@ -656,9 +656,8 @@ async def ensure_statement_row_proposal(
             logger.info("statement row payment proposal skipped: %s", e)
     try:
         bank_code = review.bank_account_code or resolve_account_code(db, "bank")
-        counter = finding.suggested_account_code or resolve_account_code(
-            db, "expense" if finding.direction == "out" else "revenue"
-        )
+        from app.services.account_resolver import statement_counter_account
+        counter = finding.suggested_account_code or statement_counter_account(db, finding.direction)
     except Exception:
         return None
     amount = plain(finding.amount or 0)

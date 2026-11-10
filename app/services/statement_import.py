@@ -865,8 +865,17 @@ def reconcile_statement_rows(db: Session, stmt: BankStatement) -> ReconcileRespo
         .order_by(BankStatementRow.row_index)
     ).scalars().all()
 
-    from app.services.reconciliation import detect_missing_entries
+    from app.services.reconciliation import detect_missing_entries, same_charge
     from app.services.reconciliation import reconcile_statement as _reconcile
+
+    # A fee set aside before BN3 as a twin of the row above it, though the running balance moved on each:
+    # a charge of its own, back among the rows to record. One from an earlier statement has no twin here.
+    for i, row in enumerate(rows):
+        if row.recon_status == "duplicate" and row.created_transaction_id is None:
+            twins = [r for r in rows[:i] if (r.tx_date, r.debit, r.credit, r.description or "")
+                     == (row.tx_date, row.debit, row.credit, row.description or "")]
+            if twins and not any(same_charge(t, row) for t in twins):
+                row.recon_status = "unmatched"
 
     _bank_code, match_pred, missing_pred = statement_predicates(db, stmt)
     results = _reconcile(db, rows, is_cash=match_pred, currency=stmt.currency)
@@ -884,8 +893,8 @@ def reconcile_statement_rows(db: Session, stmt: BankStatement) -> ReconcileRespo
                 matched += 1
             continue
         row.recon_status = result.status
-        if result.best_match:
-            row.matched_transaction_id = result.best_match.transaction_id
+        # cleared when nothing matches any more: a row linked to another row's entry before BN1 kept the link
+        row.matched_transaction_id = result.best_match.transaction_id if result.best_match else None
         if result.auto_match:
             auto_matched += 1
         if result.status == "matched":
@@ -984,7 +993,8 @@ def classify_fee_row(row: BankStatementRow) -> str | None:
         return "bank_fee"
     if cat == "interest":
         return "interest_income"
-    low = (row.description or "").lower()
+    # «كارمزد» with the Arabic ك is a fee too: two Shaparak fees went to the expense account (BN7)
+    low = (row.description or "").replace("ك", "ک").replace("ي", "ی").replace("ى", "ی").lower()
     if any(k in low for k in _INTEREST_KEYWORDS):
         # A money-in interest line; a debit "interest" is loan interest paid,
         # which is an expense, not interest income — skip it here.

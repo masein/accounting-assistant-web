@@ -945,9 +945,11 @@ def mobile_briefing(payload: BriefingPayload, db: Session = Depends(get_db),
             blocks.append(card)
     if _said_today(db, session.id, blocks):
         return {"thread_id": str(session.id), "blocks": []}
+    # a review's words are kept with it, as the web keeps them: one saved with none went back to the model
+    # as an empty message, and the provider refused the next two messages (chat review 2026-11-10, BM1)
+    said = [r["text"] for r in reviews if r.get("text")] + [b["text"] for b in blocks if b["type"] == "text"]
     db.add(AIChatMessage(id=mid, session_id=session.id, role="assistant",
-                         content={"role": "assistant", "text": "\n".join(b["text"] for b in blocks if b["type"] == "text"),
-                                  "briefing": True, "blocks": blocks}))
+                         content={"role": "assistant", "text": "\n\n".join(said), "briefing": True, "blocks": blocks}))
     db.commit()
     return {"thread_id": str(session.id), "blocks": blocks}
 

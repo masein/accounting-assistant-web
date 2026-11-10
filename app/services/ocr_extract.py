@@ -269,10 +269,14 @@ def _extract_fields_from_text(text: str) -> dict[str, Any]:
 
     currency = "IRR"
     low = t.lower()
+    toman = False
     if "rial" in low or "irr" in low or "ریال" in t:
         currency = "IRR"
-    elif "toman" in low or "تومان" in t:
-        currency = "IRR"
+    elif "toman" in low or "تومان" in t or "تومن" in t:
+        # a page priced in tomans: the books keep rials, ten to the toman (chat review 2026-11-10, BS3)
+        currency, toman = "IRR", True
+        if amount:
+            amount *= 10
 
     vendor = None
     m_vendor = re.search(
@@ -297,6 +301,7 @@ def _extract_fields_from_text(text: str) -> dict[str, Any]:
         "date": dt,
         "amount": amount,
         "currency": currency,
+        "toman": toman,
         "confidence": round(min(0.9, confidence), 2),
         "raw_text": t[:6000],
     }
@@ -379,7 +384,8 @@ _VISION_PROMPT = (
     "  invoice_or_receipt_no (string or null)\n"
     "  date (string or null) — the document/invoice date EXACTLY as printed "
     "(keep Jalali like 1404/10/15 if that is what is shown)\n"
-    "  currency (string) — ISO code, e.g. IRR for Rial/ریال\n"
+    "  currency (string) — ISO code, e.g. IRR for Rial/ریال. When the amounts are printed in تومان / "
+    "Toman, say IRT and report the figures as printed, in tomans\n"
     "  subtotal (number or null), tax (number or null)\n"
     "  total (number or null) — the GRAND TOTAL the customer pays, i.e. the "
     "amount next to a label like 'جمع کل', 'مبلغ کل', 'مبلغ کل بعلاوه مالیات', "
@@ -676,6 +682,10 @@ async def extract_statement_rows(path: str, content_type: str) -> list[dict[str,
     return (await extract_statement_pages(path, content_type))["rows"]
 
 
+# what a reader calls a toman: "IRT" is the usual unofficial code
+_TOMAN_CODES = frozenset({"IRT", "TOMAN", "TOMANS", "TMN", "تومان", "تومن"})
+
+
 def _normalize_extracted(out: dict[str, Any]) -> dict[str, Any]:
     """Coerce the model's JSON into our stable, validated shape: integer
     amounts (Persian-aware, sanity-capped), an ISO/Gregorian date, and the
@@ -688,6 +698,16 @@ def _normalize_extracted(out: dict[str, Any]) -> dict[str, Any]:
     best = total or amount
     if best is None and subtotal is not None:
         best = subtotal + (tax or 0)
+    currency = str(out.get("currency") or "IRR").upper().strip() or "IRR"
+    items = out.get("line_items") if isinstance(out.get("line_items"), list) else []
+    toman = currency in _TOMAN_CODES
+    if toman:
+        # A document priced in tomans: the books keep rials, ten to the toman. It was carded at the printed
+        # figure, a tenth of the cheque the user typed (chat review 2026-11-10, scenario BS3).
+        currency = "IRR"
+        total, best, subtotal, tax = (None if v is None else v * 10 for v in (total, best, subtotal, tax))
+        items = [dict(it, amount=a * 10) if isinstance(it, dict) and (a := coerce_amount(it.get("amount"))) is not None
+                 else it for it in items]
     return {
         "vendor_name": (out.get("vendor_name") or None),
         "invoice_or_receipt_no": (out.get("invoice_or_receipt_no") or None),
@@ -696,8 +716,9 @@ def _normalize_extracted(out: dict[str, Any]) -> dict[str, Any]:
         "subtotal": subtotal,
         "tax": tax,
         "total": total or best,
-        "currency": (str(out.get("currency") or "IRR").upper() or "IRR"),
-        "line_items": out.get("line_items") if isinstance(out.get("line_items"), list) else [],
+        "currency": currency,
+        "toman": toman,
+        "line_items": items,
         "confidence": out.get("confidence") if isinstance(out.get("confidence"), (int, float)) else 0.6,
         "raw_text": str(out.get("raw_text") or "")[:6000],
     }

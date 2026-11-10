@@ -122,18 +122,31 @@ def _anchor_bank_leg(db, row, lines) -> None:
     )
 
 
-_TOMAN_AMOUNT = re.compile(r"([\d۰-۹٬,\.]+)\s*(هزار|میلیون|ملیون|میلیارد)?\s*(?:تومان|تومن)")
-_MAGNITUDE = {"هزار": 1_000, "میلیون": 1_000_000, "ملیون": 1_000_000, "میلیارد": 1_000_000_000}
+_MAGNITUDE = {"هزار": 1_000, "thousand": 1_000, "k": 1_000,
+              "میلیون": 1_000_000, "ملیون": 1_000_000, "ميليون": 1_000_000, "million": 1_000_000, "mn": 1_000_000,
+              "m": 1_000_000,
+              "میلیارد": 1_000_000_000, "ميليارد": 1_000_000_000, "billion": 1_000_000_000, "bn": 1_000_000_000}
+_MAG = "|".join(sorted(map(re.escape, _MAGNITUDE), key=len, reverse=True))
+_TOMAN_TERM = re.compile(rf"(\d[\d,٬\.]*)\s*({_MAG})?", re.IGNORECASE)
+# «۲۰ میلیون تومان», «۳ میلیارد و ۴۰۰ میلیون تومان», and in English: "640M Toman", "180million Toman", "42000 toman"
+# (chat review 2026-11-10, scenario BS1: the English ones were never read as tomans)
+_TOMAN_AMOUNT = re.compile(
+    rf"((?:\d[\d,٬\.]*\s*(?:{_MAG})\s*(?:و|and)\s*)*\d[\d,٬\.]*\s*(?:{_MAG})?)\s*(?:تومان|تومن|تومــان|tomans?)(?![a-z])",
+    re.IGNORECASE)
 
 
 def _toman_amounts(message: str | None) -> set:
-    """The amounts the user wrote in tomans («۲۰ میلیون تومان» → 20,000,000)."""
-    from app.services.ocr_extract import coerce_amount
+    """The amounts the user wrote in tomans («۲۰ میلیون تومان» → 20,000,000; "640M Toman" → 640,000,000)."""
+    from app.services.ocr_extract import coerce_amount, normalize_digits
     out = set()
-    for m in _TOMAN_AMOUNT.finditer(message or ""):
-        n = coerce_amount(m.group(1))
-        if n:
-            out.add(n * _MAGNITUDE.get(m.group(2) or "", 1))
+    for m in _TOMAN_AMOUNT.finditer(normalize_digits(message or "")):
+        total = 0
+        for term in _TOMAN_TERM.finditer(m.group(1)):
+            n = coerce_amount(term.group(1))
+            if n:
+                total += n * _MAGNITUDE.get((term.group(2) or "").lower(), 1)
+        if total:
+            out.add(total)
     return out
 
 
@@ -440,9 +453,13 @@ def _guard_amount(ctx: ToolContext, proposed_total, *, record_amount=None) -> No
         if hi <= lo * _AMOUNT_DIVERGENCE_FACTOR:
             return
     closest = min(sources, key=lambda s: abs(s - proposed_total))
+    tomans = sorted(_toman_amounts(getattr(ctx, "user_message", None)))
+    # The user said tomans and the card is far off: say the rial figure (a fee in tomans was carded at a thousand
+    # times its rials and refused three times with only the rough figure beside it, chat review 2026-11-10, BS2)
+    said = "".join(f" The user said {grouped(t)} tomans, which is {grouped(plain(t * 10))} rials." for t in tomans[:3])
     raise ToolError(
         f"Proposed total {grouped(proposed_total)} does not match the amount found in "
-        f"the source (~{grouped(closest)}). Don't propose this figure — confirm the "
+        f"the source (~{grouped(closest)}).{said} Don't propose this figure — confirm the "
         f"correct amount with the user, or use the document's labelled total.",
         code="amount_mismatch",
     )
@@ -479,6 +496,25 @@ def _guard_own_transfer(ctx: ToolContext, args) -> None:
         f"The user moved money between two of the company's own banks. That is one card: {shape} — not an expense "
         f"and a receipt. A fee taken with it is a debit to bank charges, credited to {src}.",
         code="own_bank_transfer")
+
+
+def _guard_typed_over_document(ctx: ToolContext, proposed_total) -> None:
+    """The figure the user typed beats a document's that is a tenth of it: an invoice printed in tomans was read
+    as rials and carded so, while the user's own message gave the cheque, ten times it (chat review 2026-11-10,
+    scenario BS4)."""
+    from app.core.money import plain
+    from app.services.ai_accountant.orchestrator import _numbers_in_text
+    documents = {plain(a) for a in (getattr(ctx, "document_amounts", None) or []) if a}
+    total = plain(proposed_total)
+    if total not in documents:
+        return
+    typed = {plain(a) for a in _numbers_in_text(getattr(ctx, "user_message", None))}
+    if total in typed or plain(total * 10) not in typed:
+        return
+    raise ToolError(
+        f"The user typed {grouped(plain(total * 10))}; the document's {grouped(total)} is a tenth of it, so the "
+        f"document is likely priced in tomans. Propose {grouped(plain(total * 10))}, the user's figure.",
+        code="toman_not_converted")
 
 
 # Money-out / money-in cues for the direction guard. An outflow that wrongly
@@ -756,6 +792,7 @@ class ProposeCreateTransaction(BaseTool):
         if not args.bank_statement_row_id:
             _guard_amount(ctx, total)
             _guard_toman(ctx, total)
+            _guard_typed_over_document(ctx, total)
             _guard_seed_accounts(ctx, args.lines)
             _guard_stated_currency(ctx, args)
             _guard_people_direction(ctx, args)

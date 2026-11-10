@@ -432,3 +432,67 @@ def test_switches_are_the_persons_own(kinds):
     assert switched_off(user) == {"weekly", "suggestions", "nudge"}
     with pytest.raises(ValueError):
         set_switch(user, "everything", False)
+
+
+# --- BM1–BM3: a message after the phone's review is answered (chat review 2026-11-10) ---------------------------
+
+def _refused(messages) -> list[str]:
+    """What a provider would refuse in this request: an assistant message with nothing in it."""
+    from app.services.ai_accountant.anthropic_client import _chat_messages_to_anthropic_wire
+    from app.services.ai_accountant.openai_client import _chat_messages_to_openai_wire
+    bad = [f"openai {m}" for m in _chat_messages_to_openai_wire(messages)
+           if m["role"] == "assistant" and not m.get("content") and not m.get("tool_calls")]
+    return bad + [f"anthropic {m}" for m in _chat_messages_to_anthropic_wire(messages)
+                  if m["role"] == "assistant" and not m.get("content")]
+
+
+def test_bm1_bm2_the_message_after_the_phones_review_is_answered(person, db, monkeypatch):
+    """Every failed message in the owner's books was one of the first two after a review on the phone: kept with
+    no words, it went back to the model as an empty assistant message, which the provider refuses."""
+    from functools import partial
+
+    from app.api import ai_accountant as api_mod
+    from tests.test_ai_guardrails import _FakeClient, _text
+    from app.services import insight_service
+    cid, client = person["cid"], person["client"]
+    _weeks(db, cid)
+    _make(db, cid)
+    monkeypatch.setattr(insight_service, "briefing_text", lambda *a, **k: "")   # the review alone, as on the owner's phone
+    phone = person["phone"]()
+    out = client.post(f"{API}/briefing", headers=phone, json={}).json()
+    assert [b["type"] for b in out["blocks"] if str(b["id"]).startswith("review")] == ["review"]
+    fake = _FakeClient([_text("Noted.")])
+    monkeypatch.setattr(api_mod, "run_chat_turn", partial(api_mod.run_chat_turn, client=fake))
+    r = client.post(f"{API}/chat", headers=phone, json={"message": "I paid 3 for a taxi", "thread_id": out["thread_id"]})
+    assert r.status_code == 200, r.text
+    [sent] = fake.sent
+    assert _refused(sent) == []                                                         # BM1
+    said = [m.text for m in sent if m.role == "assistant"]
+    assert any((t or "").startswith("**Your week") for t in said), said                 # BM2: its words are there
+
+
+def test_bm3_a_review_kept_with_no_words_goes_back_by_its_words_or_not_at_all(person, db):
+    from app.models.ai_accountant import AIChatMessage, AIChatSession
+    from app.services.ai_accountant.llm_protocol import ChatMessage
+    from app.services.ai_accountant.orchestrator import _replay_history
+    cid = person["cid"]
+    user = _user(db, cid)
+    with _in(cid):
+        s = AIChatSession(id=uuid.uuid4(), user_id=str(user.id), title="t")
+        db.add(s)
+        db.flush()
+        at = datetime.now(timezone.utc)
+        rows = [("assistant", {"role": "assistant", "text": "", "briefing": True,
+                               "blocks": [{"type": "review", "id": "review:1", "fallback_text": "You spent 50 this week."}]}),
+                ("assistant", {"role": "assistant", "text": "", "briefing": True, "blocks": [{"type": "review", "id": "r2"}]}),
+                ("user", {"role": "user", "text": "taxi 3"})]
+        for i, (role, content) in enumerate(rows):
+            db.add(AIChatMessage(id=uuid.uuid4(), session_id=s.id, role=role, content=content,
+                                 created_at=at + timedelta(seconds=i)))
+        db.flush()
+        history = _replay_history(db, s.id)
+        db.rollback()
+    assert [(m.role, m.text) for m in history] == [("assistant", "You spent 50 this week."), ("user", "taxi 3")]
+    # and neither provider is ever sent an empty assistant message, whatever the history holds
+    assert _refused([ChatMessage(role="user", text="hi"), ChatMessage(role="assistant", text=""),
+                     ChatMessage(role="assistant", text=None), ChatMessage(role="user", text="taxi")]) == []

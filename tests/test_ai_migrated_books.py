@@ -60,8 +60,9 @@ def test_r6_who_owes_us_reads_the_books_not_only_invoices(ir, db):
     debtors report listed six (2,191,898,610 rials)."""
     api, _ = ir
     aria = api.post("/entities", json={"type": "client", "name": "آریا"}).json()
-    r = api.post("/transactions", json={
-        "date": "2026-08-10", "description": "مانده افتتاحیه آریا", "currency": "IRR",
+    from datetime import date, timedelta
+    r = api.post("/transactions", json={       # recent, so none of it is over 90 days (2026-08-10 was, from 11-09)
+        "date": (date.today() - timedelta(days=10)).isoformat(), "description": "مانده افتتاحیه آریا", "currency": "IRR",
         "lines": [{"account_code": "1112", "debit": 4_200_000, "credit": 0},
                   {"account_code": "3110", "debit": 0, "credit": 4_200_000}],
         "entity_links": [{"role": "client", "entity_id": aria["id"]}]})

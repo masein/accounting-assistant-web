@@ -297,6 +297,8 @@ def _chat_messages_to_anthropic_wire(messages: list[ChatMessage]) -> list[dict[s
             if pending_tool_results:
                 out.append({"role": "user", "content": pending_tool_results})
                 pending_tool_results = []
+            if not m.text and not m.tool_calls:
+                continue        # an empty assistant turn is refused, and the whole request with it (BM3)
             content_blocks: list[dict[str, Any]] = []
             if m.text:
                 content_blocks.append({"type": "text", "text": m.text})

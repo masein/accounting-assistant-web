@@ -86,6 +86,8 @@ def _chat_messages_to_openai_wire(messages: list[ChatMessage]) -> list[dict[str,
                 "content": m.text or "",
             })
         elif m.role == "assistant":
+            if not m.text and not m.tool_calls:
+                continue        # "content": null with no tool_calls is refused, and the whole turn with it (BM3)
             entry: dict[str, Any] = {"role": "assistant"}
             # OpenAI allows null content when tool_calls is present.
             entry["content"] = m.text if m.text else None

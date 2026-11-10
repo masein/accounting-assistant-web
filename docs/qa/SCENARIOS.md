@@ -1011,3 +1011,25 @@ The owner sends the tax office («دارایی») and other services the journal
 | BL5 | The totals | The end of the sheet | Beside the last line, the debit and the credit totals, and under them the difference (0), as in the owner's file; numbers, not formulas |
 | BL6 | Currency | «IRR»; «USD»; «همه ارزها» | Rials: «(ریال)» and only the rial vouchers; dollars: the dollar vouchers in dollars, «(دلار آمریکا)», two decimal places; all currencies: every voucher at its value in the base currency, named. A deleted voucher is never in the file |
 | BL7 | The button | Reports page | «خروجی اکسل» shows for «دفتر روزنامه» only, and takes the page's dates and currency without running the report; the whole period is in the file, not the 50 on screen. A Gregorian company's file has «2026/03/25» dates and numbers from 1 January; a UK company's has English headers |
+
+## BO. The day it happened, and the people in it (chat review 2026-11-10)
+
+From the production chats:
+- «دیشب» (last night) was dated today.
+- A message with «دیشب … امروز …» put every card on one day, though the model had dated each correctly.
+- A follow-up («proceed», «رقم همینه») lost the date the user had given a message earlier.
+- «4th of Mordad» was not read.
+- «همسر» (wife) was matched to a friend's name by likeness (0.5) and linked to her entries.
+- A longer spelling of a client's name was declared someone new although the shorter one was in the books.
+- Money handed to the wife was carded as a debt she owed, again after the user had corrected it.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BO1 | Last night | «شام دیشب ۱۰ ریال شد» on 5 Nov; «پریشب تاکسی گرفتم» | The dinner is dated 4 Nov; the taxi 3 Nov |
+| BO2 | Several days, one message | «دیشب ۱۲ ریال غذا خریدیم، امروز ۲ ریال تاکسی دادم» | The food card on yesterday, the taxi on today — each the day the model gave it, when the message says that day |
+| BO3 | A follow-up keeps the date | «در تاریخ ۴ مرداد ۵۰ میلیون تومان به حساب دیگرم منتقل کردم», then «رقم همینه» | The card made on the second message keeps 4 Mordad; a follow-up naming no day is never moved to today when the day was said just before |
+| BO4 | A correction keeps its card's date | A card dated 26 Oct; «نه، مبلغش ۱۲ بود» | The correcting card is still dated 26 Oct |
+| BO5 | Jalali months in Latin letters | "transferred 50 million toman on 4th of Mordad"; "Mordad 4" | 4 Mordad of the nearest year |
+| BO6 | A family word is not a name | «۵ ریال دادم به همسرم»; the books hold «رضا» | `find_entity("همسر")` finds no one, says it is a family word; nobody is linked. A person saved under that very word is still found |
+| BO7 | A longer name finds the shorter one | The books hold «Karimi»; «received 1bn from karimi nia» | «Karimi» is found; «سارا» named beside «سارو» is still someone else (AY5) |
+| BO8 | Money given to family is family spending | «۱۰ ریال دادم به همسرم»; «۱۰ ریال دادم به عمه‌ام» | «خانواده و هدایا» (6195), no «طلب از دیگران» (1150), no person — unless the user says it is a loan or will be paid back |

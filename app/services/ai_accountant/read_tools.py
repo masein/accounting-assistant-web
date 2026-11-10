@@ -107,6 +107,23 @@ def _party_words(text: str) -> set[str]:
     return {w for w in words if w and w not in _GENERIC_PARTY_WORDS}
 
 
+# How a person calls their family is not a name: «همسر» was matched to a friend's name by likeness (exactly
+# 0.5) and linked to the wife's entries (chat review 2026-11-10, BO6). Only someone saved under that very word is found.
+_FAMILY_WORDS = frozenset({
+    "همسر", "همسرم", "خانم", "خانمم", "زنم", "شوهر", "شوهرم", "مادر", "مادرم", "مامان", "مامانم", "پدر", "پدرم",
+    "بابا", "بابام", "پسر", "پسرم", "دختر", "دخترم", "بچه", "بچهها", "بچههام", "برادر", "برادرم", "داداش",
+    "داداشم", "خواهر", "خواهرم", "عمه", "عمهام", "عمم", "عمو", "عموم", "خاله", "خالهام", "خالم", "دایی", "داییم",
+    "مادربزرگ", "مادربزرگم", "پدربزرگ", "پدربزرگم", "wife", "husband", "mom", "mum", "mother", "dad", "father",
+    "son", "daughter", "kids", "brother", "sister", "aunt", "uncle", "grandma", "grandpa",
+})
+
+
+def _family_word(text: str) -> bool:
+    from app.utils.text import fold_fa
+    t = fold_fa(text.lower()).replace("\u200c", "").replace(" ", "")
+    return t.removeprefix("my") in _FAMILY_WORDS
+
+
 class FindEntity(BaseTool):
     name = "find_entity"
     category = "read"
@@ -115,7 +132,7 @@ class FindEntity(BaseTool):
         "of candidates with a confidence score in [0, 1]. Call this ONCE per name, "
         "then converge: if the top result has confidence ≥ 0.80 (or is the only "
         "match) use it; if several are plausible, list 2–3 and ask the user to pick; "
-        "if the best is < 0.50, propose with NO entity link (entity links are "
+        "if the best is 0.50 or less, propose with NO entity link (entity links are "
         "optional). Do NOT call this tool again for the same name — re-searching "
         "wastes the turn budget and dead-ends the request."
     )
@@ -135,6 +152,14 @@ class FindEntity(BaseTool):
         scored: list[tuple[float, Entity]] = []
         from app.utils.text import fold_fa
         q_lower = fold_fa(q.lower())
+        if _family_word(q):
+            same = [e for e in all_rows if fold_fa(e.name.lower()).replace("\u200c", "") == q_lower.replace("\u200c", "")]
+            out = {"query": q, "matches": [{"entity_id": str(e.id), "name": e.name, "type": e.type, "code": e.code,
+                                             "confidence": 1.0, **_entity_details(e)} for e in same]}
+            if not same:
+                out["note"] = (f"«{q}» is how the user calls a family member, not a name in the books: link no one. "
+                               f"Money given to family is family spending, not a debt, unless the user says it is a loan.")
+            return out
         q_words = _party_words(q_lower)
         # «یکیش رو امیر بهم داده، بقیه رو امین»: a party named beside the one asked for is someone else, however
         # alike the names (امین / امیر are one letter apart, 0.75) — the model stopped to ask whether Amin was
@@ -157,7 +182,9 @@ class FindEntity(BaseTool):
             n_words = _party_words(name)
             if q_words and n_words and q_words <= n_words:
                 ratio = max(ratio, 0.9 + 0.1 * len(q_words) / len(n_words))
-            elif asked_said and n_words and n_words <= said:
+            elif asked_said and n_words and n_words <= said and not n_words <= q_words:
+                # another person named beside the one asked for — not a shorter form of the very name asked for
+                # («karimi nia» finds «Karimi»; BO7)
                 ratio = min(ratio, 0.2)
                 apart.append(row.name)
             scored.append((ratio, row))

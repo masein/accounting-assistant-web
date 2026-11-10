@@ -29,9 +29,10 @@ _DIGIT_TABLE = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "012345
 
 # Phrase → day offset from today. Lowercased substring match.
 _TODAY_TERMS = ("today", "tonight", "right now", "امروز", "الان", "امشب", "hoy", "ahora", "اليوم", "الآن")
-_YESTERDAY_TERMS = ("yesterday", "دیروز", "ayer", "أمس", "امس", "البارحة")
+# «دیشب» is last night: «شام دیشب» was dated today (chat review 2026-11-10, BO1)
+_YESTERDAY_TERMS = ("yesterday", "last night", "دیروز", "دیشب", "ayer", "anoche", "أمس", "امس", "البارحة")
 _TOMORROW_TERMS = ("tomorrow", "فردا", "mañana", "manana", "غدا", "غدًا", "بكرة")
-_DAY_BEFORE_YESTERDAY = ("day before yesterday", "پریروز", "anteayer", "أول أمس", "اول امس")
+_DAY_BEFORE_YESTERDAY = ("day before yesterday", "پریروز", "پریشب", "anteayer", "أول أمس", "اول امس")
 
 _WEEKDAYS = {
     "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
@@ -147,25 +148,26 @@ _JALALI_MONTHS = {
 _JALALI_DAY_MONTH_RE = re.compile(
     r"(?<![\d/])(\d{1,2})(?:ام|م)?\s*(" + "|".join(_JALALI_MONTHS) + r")(?:\s*ماه)?(?:\s*(1[34]\d{2}))?"
 )
+# …and in Latin letters, «4th of Mordad», "Mordad 4" (BO5). «Dey» only: "day" is an English word.
+_JALALI_LATIN = {
+    "farvardin": 1, "ordibehesht": 2, "khordad": 3, "tir": 4, "mordad": 5, "amordad": 5, "shahrivar": 6,
+    "mehr": 7, "aban": 8, "azar": 9, "dey": 10, "bahman": 11, "esfand": 12,
+}
+_LATIN_NAMES = "|".join(sorted(_JALALI_LATIN, key=len, reverse=True))
+_JALALI_LATIN_RES = (
+    re.compile(rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\s+(?:of\s+)?({_LATIN_NAMES})\b(?:\s*,?\s*(1[34]\d{{2}}))?", re.IGNORECASE),
+    re.compile(rf"\b({_LATIN_NAMES})\s+(\d{{1,2}})(?:st|nd|rd|th)?\b(?:\s*,?\s*(1[34]\d{{2}}))?", re.IGNORECASE),
+)
 
 
-def jalali_named_date(message: str | None, today: date) -> date | None:
-    """«۴ مرداد [ماه] [۱۴۰۵]» → the Gregorian date, resolved server-side (the
-    model reliably ignores Jalali dates and stamps today instead). Year
-    defaults to the current Jalali year."""
-    t = (message or "").translate(_DIGIT_TABLE)
-    m = _JALALI_DAY_MONTH_RE.search(t)
-    if not m:
-        return None
-    day = int(m.group(1))
-    month = _JALALI_MONTHS[m.group(2)]
+def _jalali(day: int, month: int, year: str | None, today: date) -> date | None:
     if not 1 <= day <= 31:
         return None
     try:
-        from app.utils.jalali import gregorian_to_jalali, jalali_to_gregorian
+        from app.utils.jalali import jalali_to_gregorian
 
-        if m.group(3):
-            return jalali_to_gregorian(int(m.group(3)), month, day)
+        if year:
+            return jalali_to_gregorian(int(year), month, day)
         # No year: the nearest one to today (around Nowruz the current Jalali
         # year is often the wrong one; see nearest_jalali_date).
         import jdatetime
@@ -175,6 +177,49 @@ def jalali_named_date(message: str | None, today: date) -> date | None:
         return None
 
 
+def jalali_named_dates(message: str | None, today: date) -> list[date]:
+    """Every «۴ مرداد [ماه] [۱۴۰۵]» (or «4th of Mordad») in the message, in its order, as Gregorian dates."""
+    t = (message or "").translate(_DIGIT_TABLE)
+    found: list[tuple[int, date]] = []
+    for m in _JALALI_DAY_MONTH_RE.finditer(t):
+        d = _jalali(int(m.group(1)), _JALALI_MONTHS[m.group(2)], m.group(3), today)
+        if d:
+            found.append((m.start(), d))
+    for i, rx in enumerate(_JALALI_LATIN_RES):
+        for m in rx.finditer(t):
+            day, name = (m.group(1), m.group(2)) if i == 0 else (m.group(2), m.group(1))
+            d = _jalali(int(day), _JALALI_LATIN[name.lower()], m.group(3), today)
+            if d:
+                found.append((m.start(), d))
+    return [d for _at, d in sorted(found, key=lambda x: x[0])]
+
+
+def jalali_named_date(message: str | None, today: date) -> date | None:
+    """The first «۴ مرداد [ماه] [۱۴۰۵]» → the Gregorian date, resolved server-side (the
+    model reliably ignores Jalali dates and stamps today instead). Year
+    defaults to the nearest Jalali year."""
+    found = jalali_named_dates(message, today)
+    return found[0] if found else None
+
+
+def mentioned_dates(message: str | None, today: date) -> set[date]:
+    """Every day the message names: each relative word and each Jalali date. «دیشب … امروز …» names two (BO2)."""
+    t = _norm(message)
+    if not t:
+        return set()
+    out: set[date] = set(jalali_named_dates(message, today))
+    for terms, offset in ((_TODAY_TERMS, 0), (_YESTERDAY_TERMS, -1), (_DAY_BEFORE_YESTERDAY, -2), (_TOMORROW_TERMS, 1)):
+        if any(term in t for term in terms):
+            out.add(today + timedelta(days=offset))
+    for rx in _DAYS_AGO_RES:
+        out |= {today - timedelta(days=int(m.group(1))) for m in rx.finditer(t)}
+    out |= {today - timedelta(weeks=int(m.group(1))) for m in _WEEKS_AGO_RE.finditer(t)}
+    rel = relative_offset_date(message, today)
+    if rel is not None:
+        out.add(rel)
+    return out
+
+
 def resolve_entry_date(
     message: str | None,
     model_date: date,
@@ -182,6 +227,8 @@ def resolve_entry_date(
     today: date | None = None,
     has_attachment: bool = False,
     scheduled: bool = False,
+    earlier: list[str] | tuple[str, ...] = (),
+    replaced_date: date | None = None,
 ) -> date:
     """Anchor a chat proposal's entry date to reality (see module docstring).
 
@@ -191,9 +238,18 @@ def resolve_entry_date(
     future date when the user explicitly intends a scheduled entry (e.g.
     "schedule it for next month"), which our relative parser doesn't pin to a
     specific day.
+
+    ``earlier`` are the user's messages just before this one: a follow-up that
+    names no day («proceed», «رقم همینه») keeps a day said there (BO3).
+    ``replaced_date`` is the date of the card this one corrects (BO4).
     """
     today = today or date.today()
     if has_attachment:
+        return model_date
+
+    # Several days in one message («دیشب … امروز …»): each card keeps the one of them the model gave it (BO2).
+    said_now = mentioned_dates(message, today)
+    if model_date in said_now:
         return model_date
 
     rel = relative_offset_date(message, today)
@@ -214,6 +270,13 @@ def resolve_entry_date(
     # Explicitly-scheduled future entry with only a vague term ("next month")
     # → keep the model's future date rather than collapsing it to today.
     if scheduled and model_date > today:
+        return model_date
+
+    # No day in this message: a correction keeps the day of the card it corrects (BO4), and a follow-up
+    # the day the user gave just before (BO3).
+    if replaced_date is not None:
+        return replaced_date
+    if any(model_date in mentioned_dates(m, today) for m in earlier):
         return model_date
 
     # No date stated at all → today (don't trust the model's guess). The same

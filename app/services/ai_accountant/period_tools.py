@@ -118,8 +118,9 @@ class GetCloseChecklist(BaseTool):
     description = (
         "What a month-end close still needs: debits equal credits, bank lines matched, draft invoices, the pay run "
         "posted, depreciation run, entries waiting for an exchange rate, the books locked — each done, needs "
-        "attention or for information. Use for 'can we close August?', 'what's left for month end?'. The full close "
-        "pack (PDF + Excel + journal) downloads from Manager reports → Monthly close pack. Pure read."
+        "attention or for information. Use for 'can we close August?', 'what's left for month end?' — not for a "
+        "request for the journal or another file (see # The app's own pages). The full close pack downloads where "
+        "``pack`` says, in the user's language. Pure read."
     )
     InputSchema = GetCloseChecklistInput
 
@@ -133,7 +134,13 @@ class GetCloseChecklist(BaseTool):
         return {"month": m.key, "label": m.label, "from_date": m.start.isoformat(), "to_date": m.end.isoformat(),
                 "items": [{"key": i["key"], "state": i["state"], "item": i["item"], "detail": i["detail"]} for i in items],
                 "open": sum(1 for i in items if i["state"] == "warn"), "summary": summary(items, m.lang),
-                "pack": "Manager reports → Monthly close pack"}
+                "pack": _CLOSE_PACK}
+
+
+# where the close pack is, in each language's own words (the reply named it in English to a Persian user,
+# chat review 2026-11-10, scenario BX1)
+_CLOSE_PACK = {"en": "Manager reports → Monthly close pack", "fa": "گزارش‌های مدیریتی ← بستهٔ پایان ماه",
+               "es": "Reportes gerenciales → Paquete de cierre mensual", "ar": "تقارير الإدارة ← حزمة إقفال الشهر"}
 
 
 # ---------------------------------------------------------------------------

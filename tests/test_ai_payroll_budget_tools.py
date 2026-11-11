@@ -247,7 +247,7 @@ def test_the_close_checklist_from_the_chat(staff, db):
     out = _tool(cid, db, GetCloseChecklist(), GetCloseChecklistInput(month="1405-03"))
     assert (out["month"], out["from_date"], out["to_date"]) == ("1405-03", "2026-05-22", "2026-06-21")
     states = {i["key"]: i["state"] for i in out["items"]}
-    assert states["payroll"] == "warn" and out["open"] >= 1 and "Monthly close pack" in out["pack"]
+    assert states["payroll"] == "warn" and out["open"] >= 1 and "Monthly close pack" in out["pack"]["en"]
     assert next(i for i in out["items"] if i["key"] == "payroll")["item"] == "ثبت حقوق"     # an Iranian company
     api.post(f"/payroll/runs/{run['id']}/post")
     out = _tool(cid, db, GetCloseChecklist(), GetCloseChecklistInput(month="1405-03"))

@@ -1135,3 +1135,11 @@ From production: a company's whole opening voucher went with the plain "delete t
 | BU2 | The chat reverses the opening only when named | «همهٔ سندهای امروز رو برگردون» where the opening is the entry found | Refused: the assistant says what the opening holds. «سند افتتاحیه رو برگردون» makes the card |
 | BU3 | A move between categories is made once | Move three purchases (200,000 + 300,000 + 100,000) from one expense to another; the next day ask again for one card of 600,000 | The assistant says the move is already in the books, with the dates, and asks; only when the user says to make it again is the card made. A larger move, or one after the move was taken back, is made |
 | BU4 | The page has the words | Switch the language to each of the four | The title, the prompt with the word, and the "not deleted" note are in that language |
+
+## BX. The chat knows where the app's own files are (chat review 2026-11-10)
+
+From production: asked for the journal as Excel, the assistant ran the month-end checklist for the month under way, said it had no tool, and pointed to "Manager reports → Monthly close pack" in English, the wrong report.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BX1 | The journal as Excel | «دفتر روزنامه سه ماه اول رو اکسل می‌خوام برای دارایی» (or "I need the journal in Excel") | The reply says «گزارش‌های مدیریتی ← گزارش «دفتر روزنامه» ← «دفتر روزنامه (اکسل)»», in the user's language, with no checklist run. «کارهای پایان ماه چی مونده؟» still gets the checklist, and the close pack's place in the user's language |

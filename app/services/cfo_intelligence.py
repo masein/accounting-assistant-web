@@ -60,8 +60,8 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "narr_overview": "Over the past 12 months, total revenue was {revenue:,} {money} with total expenses of {expenses:,} {money}.",
         "narr_profitable": "The business is profitable with a net margin of {margin:.1f}%.",
         "narr_loss": "The business is running at a loss of {loss:,} {money}.",
-        "narr_cash_no_burn": "Cash on hand is {cash:,} {money}; the last three months brought in at least what they cost, so there is no burn rate to measure a runway against.",
-        "qa_runway_no_burn": "Cash on hand is {cash:,} {money}, and the last three months brought in at least what they cost, so there is no burn rate to measure a runway against.",
+        "narr_cash_no_burn": "Cash on hand is {cash:,} {money}; nothing was spent in the last three months, so there is no burn rate to measure a runway against.",
+        "qa_runway_no_burn": "Cash on hand is {cash:,} {money}, and nothing was spent in the last three months, so there is no burn rate to measure a runway against.",
         "narr_cash": "Cash on hand is {cash:,} {money}, providing approximately {runway:.1f} months of runway at the current burn rate of {burn:,}/month.",
         "narr_key_concern": "Key concern: {title}.",
         "narr_grade": "Overall financial health grade: {grade}.",
@@ -102,8 +102,8 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "narr_overview": "در ۱۲ ماه گذشته، درآمد کل {revenue:,} {money} و هزینه کل {expenses:,} {money} بود.",
         "narr_profitable": "کسب‌وکار سودآور است و حاشیه سود خالص {margin:.1f}٪ دارد.",
         "narr_loss": "کسب‌وکار با زیان {loss:,} {money} مواجه است.",
-        "narr_cash_no_burn": "موجودی نقد {cash:,} {money} است؛ درآمد سه ماه اخیر دست‌کم به اندازهٔ هزینه‌هایش بوده، پس نرخ مصرفی برای سنجش دوام نقدینگی وجود ندارد.",
-        "qa_runway_no_burn": "موجودی نقد {cash:,} {money} است و درآمد سه ماه اخیر دست‌کم به اندازهٔ هزینه‌هایش بوده؛ پس نرخ مصرفی برای سنجش دوام نقدینگی وجود ندارد.",
+        "narr_cash_no_burn": "موجودی نقد {cash:,} {money} است؛ در سه ماه اخیر هزینه‌ای ثبت نشده، پس نرخ مصرفی برای سنجش دوام نقدینگی وجود ندارد.",
+        "qa_runway_no_burn": "موجودی نقد {cash:,} {money} است و در سه ماه اخیر هزینه‌ای ثبت نشده؛ پس نرخ مصرفی برای سنجش دوام نقدینگی وجود ندارد.",
         "narr_cash": "موجودی نقد {cash:,} {money} است که با نرخ مصرف نقدینگی فعلی {burn:,} در ماه، حدود {runway:.1f} ماه دوام می‌آورد.",
         "narr_key_concern": "نگرانی اصلی: {title}.",
         "narr_grade": "نمره کلی سلامت مالی: {grade}.",
@@ -144,8 +144,8 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "narr_overview": "En los últimos 12 meses, los ingresos totales fueron {revenue:,} {money} con gastos totales de {expenses:,} {money}.",
         "narr_profitable": "El negocio es rentable con un margen neto del {margin:.1f}%.",
         "narr_loss": "El negocio opera con una pérdida de {loss:,} {money}.",
-        "narr_cash_no_burn": "El efectivo disponible es {cash:,} {money}; los últimos tres meses ingresaron al menos lo que costaron, así que no hay ritmo de gasto con el que medir el margen.",
-        "qa_runway_no_burn": "El efectivo disponible es {cash:,} {money} y los últimos tres meses ingresaron al menos lo que costaron, así que no hay ritmo de gasto con el que medir el margen.",
+        "narr_cash_no_burn": "El efectivo disponible es {cash:,} {money}; no hubo gastos en los últimos tres meses, así que no hay ritmo de gasto con el que medir el margen.",
+        "qa_runway_no_burn": "El efectivo disponible es {cash:,} {money} y no hubo gastos en los últimos tres meses, así que no hay ritmo de gasto con el que medir el margen.",
         "narr_cash": "El efectivo disponible es {cash:,} {money}, lo que da aproximadamente {runway:.1f} meses de margen al ritmo de gasto actual de {burn:,}/mes.",
         "narr_key_concern": "Principal preocupación: {title}.",
         "narr_grade": "Calificación general de salud financiera: {grade}.",
@@ -186,8 +186,8 @@ _CFO_STRINGS: dict[str, dict[str, str]] = {
         "narr_overview": "خلال الـ 12 شهراً الماضية، بلغ إجمالي الإيرادات {revenue:,} {money} وإجمالي المصروفات {expenses:,} {money}.",
         "narr_profitable": "النشاط التجاري مربح بهامش صافٍ قدره {margin:.1f}٪.",
         "narr_loss": "النشاط التجاري يعمل بخسارة قدرها {loss:,} {money}.",
-        "narr_cash_no_burn": "النقد المتاح {cash:,} {money}؛ جلبت الأشهر الثلاثة الأخيرة ما لا يقل عن تكلفتها، فلا معدل إنفاق تُقاس به مدة كفاية النقد.",
-        "qa_runway_no_burn": "النقد المتاح {cash:,} {money} وجلبت الأشهر الثلاثة الأخيرة ما لا يقل عن تكلفتها، فلا معدل إنفاق تُقاس به مدة كفاية النقد.",
+        "narr_cash_no_burn": "النقد المتاح {cash:,} {money}؛ لم تُسجَّل مصروفات في الأشهر الثلاثة الأخيرة، فلا معدل إنفاق تُقاس به مدة كفاية النقد.",
+        "qa_runway_no_burn": "النقد المتاح {cash:,} {money} ولم تُسجَّل مصروفات في الأشهر الثلاثة الأخيرة، فلا معدل إنفاق تُقاس به مدة كفاية النقد.",
         "narr_cash": "النقد المتاح هو {cash:,} {money}، أي ما يعادل {runway:.1f} شهراً تقريباً بمعدل الإنفاق الحالي {burn:,} شهرياً.",
         "narr_key_concern": "أهم مصدر قلق: {title}.",
         "narr_grade": "التقييم العام للصحة المالية: {grade}.",
@@ -289,7 +289,6 @@ class CFOReport:
     risk_score: int = 0  # 0-100 (0=no risk, 100=extreme risk)
     runway_months: float = 0.0
     burn_rate: int = 0
-    net_burn: int = 0          # costs less revenue a month, the last three complete months: what runway divides by
     health_grade: str = "A"  # A, B, C, D, F
 
 
@@ -547,38 +546,28 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
         unit=money, risk_level="danger" if data["total_cash"] < 0 else "caution" if data["total_cash"] < avg_rev else "normal",
     ))
 
-    # KPI: Burn Rate — the latest three COMPLETE months: the month under way, a few days old, counted as a month
-    # of almost no spending, halved the burn and doubled the runway — 1.7 months in the review beside 0.4 in the
-    # insight on the same day (chat review 2026-11-10, scenario BW2)
-    last3 = [prev_month]
-    for _ in range(2):
-        py_, pm_ = (int(x) for x in last3[-1].split("-"))
-        qy, qm = shift(py_, pm_, -1)
-        last3.append(f"{qy:04d}-{qm:02d}")
-    recent_exp = [data["monthly_expense"].get(k, 0) for k in last3]
+    # KPI: Burn Rate
+    recent_exp = [data["monthly_expense"].get(k, 0) for k in span[-3:]]      # the latest three months
     burn_rate = average(recent_exp, money)
     report.burn_rate = burn_rate
     report.kpis.append(KPI(key="burn_rate", label="Monthly Burn Rate", value=burn_rate, unit=money))
-    # what the money goes down by each month: costs less revenue, as the runway insight counts it
-    net_burn = average([data["monthly_expense"].get(k, 0) - data["monthly_revenue"].get(k, 0) for k in last3], money)
-    report.net_burn = net_burn
 
     # KPI: Runway
     # Negative cash is not "-0.6 months of runway" — it is no runway at all
     # (QA 2026-09-24 6.2): report 0 and say overdrawn. Exactly zero is no runway
     # too, but not overdrawn: usually no bank balance has been recorded yet.
-    no_cash = data["total_cash"] <= 0 and net_burn > 0
+    no_cash = data["total_cash"] <= 0 and burn_rate > 0
     cash_state = "overdrawn" if data["total_cash"] < 0 else "empty"
-    # Nothing spent in the last three months, or more coming in than going out: no burn to measure a runway
-    # against. It was 999 and read «حدود 999.0 ماه» (scenario V2); now -1, as the dashboard writes "not
-    # applicable", and never a risk.
-    no_burn = net_burn <= 0
+    # Nothing spent in the last three months: no burn to measure a runway against.
+    # It was 999 and read «حدود 999.0 ماه» (scenario V2); now -1, as the dashboard
+    # writes "not applicable", and never a risk.
+    no_burn = burn_rate <= 0
     if no_burn:
         runway = -1.0
     elif no_cash:
         runway = 0.0
     else:
-        runway = float(data["total_cash"] / net_burn)
+        runway = float(data["total_cash"] / burn_rate)
     short = not no_burn and runway < 3
     limited = not no_burn and runway < 6
     report.runway_months = round(runway, 1)
@@ -618,7 +607,7 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
             priority=priority, category="cash", severity="critical",
             title=_s(lang, f"ins_runway_{cash_state}_title"),
             body=_s(lang, f"ins_runway_{cash_state}_body").format(
-                burn=net_burn, cash=data["total_cash"], money=money),
+                burn=burn_rate, cash=data["total_cash"], money=money),
         ))
         priority += 1
     elif short:
@@ -626,7 +615,7 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
             priority=priority, category="cash", severity="critical",
             title=_s(lang, "ins_runway_critical_title").format(runway=runway),
             body=_s(lang, "ins_runway_critical_body").format(
-                burn=net_burn, cash=data["total_cash"], runway=runway),
+                burn=burn_rate, cash=data["total_cash"], runway=runway),
         ))
         priority += 1
     elif limited:
@@ -711,7 +700,7 @@ def build_cfo_report(db: Session, currency: str | None = None, lang: str = "en",
         parts.append(_s(lang, "narr_loss").format(loss=abs(net_profit), money=money))
     narr_cash = "narr_cash_no_burn" if no_burn else f"narr_cash_{cash_state}" if no_cash else "narr_cash"
     parts.append(_s(lang, narr_cash).format(
-        cash=data["total_cash"], money=money, runway=runway, burn=net_burn))
+        cash=data["total_cash"], money=money, runway=runway, burn=burn_rate))
     if report.insights:
         top = report.insights[0]
         parts.append(_s(lang, "narr_key_concern").format(title=top.title))
@@ -739,11 +728,11 @@ def answer_cfo_question(db: Session, question: str, currency: str | None = None,
 
     if any(w in low for w in ("survive", "runway", "last", "بقا", "دوام", "sobrevivir", "aguantar", "البقاء", "الاستمرار")):
         cash_value = kpi_map.get("cash_on_hand", KPI(key="", label="", value=0)).value
-        key = ("qa_runway_no_burn" if report.net_burn <= 0
+        key = ("qa_runway_no_burn" if report.burn_rate <= 0
                else ("qa_runway_overdrawn" if cash_value < 0 else "qa_runway_empty") if cash_value <= 0
                else "qa_runway")
         return _s(lang, key).format(
-            burn=report.net_burn, money=money, cash=cash_value, runway=report.runway_months)
+            burn=report.burn_rate, money=money, cash=cash_value, runway=report.runway_months)
 
     if any(w in low for w in ("profit drop", "profit fell", "profit declin", "سود کاهش", "چرا سود", "bajó la ganancia", "cayó el beneficio", "انخفاض الربح")):
         exp_trend = kpi_map.get("expense_trend")

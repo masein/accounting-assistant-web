@@ -1164,3 +1164,13 @@ From production: asked for the journal as Excel, the assistant ran the month-end
 | ID | Scenario | Steps | Expected |
 |----|----------|-------|----------|
 | BX1 | The journal as Excel | «دفتر روزنامه سه ماه اول رو اکسل می‌خوام برای دارایی» (or "I need the journal in Excel") | The reply says «گزارش‌های مدیریتی ← گزارش «دفتر روزنامه» ← «دفتر روزنامه (اکسل)»», in the user's language, with no checklist run. «کارهای پایان ماه چی مونده؟» still gets the checklist, and the close pack's place in the user's language |
+
+## BY. One runway (chat review 2026-11-10; the owner chose the usual definition, 2026-11-14)
+
+From production: a company's review said cash lasts 1.7 months while the insight said 0.4 on the same day. The owner dashboard, the CFO report and the reviews averaged the gross costs of the last three months with the month just begun; the insight divided cash by the net burn of the last three complete months.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BY1 | One runway everywhere | A company with three complete months of 400 costs and 100 sales a month, about 300 of cash, and a few days of the month under way | The owner dashboard, the CFO report, the monthly review and the insight all say about 1 month: cash ÷ (costs − sales) a month over the three complete months. The burn rate shown is the costs of those months (400); the month under way counts in neither |
+| BY2 | Earning more than it spends | A company whose sales cover its costs | No runway ("not applicable"), and the CFO report says the last three months brought in at least what they cost |
+| BY3 | The short-runway alert | Two months of costs, the second the month under way, and cash overdrawn | The dashboard still raises "Cash runway is short" |

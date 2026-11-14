@@ -232,6 +232,14 @@ _T = {
                              "ar": "صافي ثروتك اليوم، كل عملة كما هي: {list}."},
     "net_worth_gain": {"en": " Gold and currency at today's rates add {gain_p}.", "fa": " طلا و ارز به نرخ امروز {gain} بیشتر می‌ارزند.",
                        "es": " El oro y las divisas a precio de hoy suman {gain_p}.", "ar": " الذهب والعملات بسعر اليوم تضيف {gain_p}."},
+    "place_one": {"en": "{name} today: {list}.", "fa": "موجودی {name} امروز: {list}.",
+                  "es": "{name} hoy: {list}.", "ar": "{name} اليوم: {list}."},
+    "place_nothing": {"en": "{name} holds nothing today.", "fa": "در {name} امروز پولی نیست.",
+                      "es": "{name} no tiene nada hoy.", "ar": "لا شيء في {name} اليوم."},
+    "cash_in_currency": {"en": "Cash and bank today in that currency: {amount}.",
+                         "fa": "موجودی نقد و بانک امروز به این ارز: {amount}.",
+                         "es": "Efectivo y bancos hoy en esa moneda: {amount}.",
+                         "ar": "النقد والبنوك اليوم بهذه العملة: {amount}."},
     "bank_one": {"en": "{name} today: {amount_p}.", "fa": "موجودی {name} امروز: {amount} {cur}.",
                  "es": "{name} hoy: {amount_p}.", "ar": "{name} اليوم: {amount_p}."},
     "receivables_parties": {"en": "By the books, {who} {verb} us {total_p} in all; the most: {top}.",
@@ -294,6 +302,42 @@ def _named_bank(message: str) -> str | None:
             if word and word not in _NOT_A_NAME:
                 return word
     return None
+
+
+# a place in a question about money: one the books can't tell apart is the model's to ask about
+_PLACE_WORD = re.compile(r"کیف|گاوصندوق|پاکت|کشو|جیب|\b(wallet|purse|vault|safe|envelope|drawer)\b", re.IGNORECASE)
+
+
+def _fold_words(text: str | None) -> str:
+    from app.utils.text import fold_fa
+    t = re.sub(r"[^\w\s]", " ", fold_fa((text or "").lower()).replace("\u200c", " "))
+    return " " + " ".join(t.split()) + " "
+
+
+def _places_named(db, message: str) -> list[str]:
+    """The codes of a person's places a question names — by its name or one they taught — the fullest name
+    said: «کیف پول سبز», not «کیف» (chat review 2026-11-10, scenario BV1)."""
+    from sqlalchemy import select as _select
+
+    from app.models.learned_preference import LearnedPreference
+    from app.services.ai_accountant.money_places import _places
+    places = _places(db)
+    names: dict[str, str] = {}
+    for acc in places:
+        names.setdefault(_fold_words(acc.name).strip(), acc.code)
+    for pref in db.execute(_select(LearnedPreference).where(
+            LearnedPreference.account_code.in_([a.code for a in places]))).scalars():
+        names.setdefault(_fold_words(pref.label or pref.pattern).strip(), pref.account_code)
+    said = _fold_words(message)
+    hits = {n: c for n, c in names.items() if n and f" {n} " in said}
+    hits = {n: c for n, c in hits.items() if not any(o != n and f" {n} " in f" {o} " for o in hits)}
+    return sorted(set(hits.values()))
+
+
+def _currencies_named(message: str) -> list[str]:
+    """The currencies a question names («ریال عمان», "dollars"); «ریال» alone is the books' own."""
+    from app.services.ai_accountant.proposal_tools import _STATED_CURRENCY
+    return [code for code, pattern in _STATED_CURRENCY if pattern.search(message or "")]
 
 
 def _liabilities(db) -> tuple[Any, list[tuple[str, str, Any]]]:
@@ -379,6 +423,27 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
                         amount_p=_priced(b["balance"], b.get("currency"), lang))
             return FastAnswer(intent=intent, text=text, tool_calls=calls)
         r = await run(GetCashPosition(), GetCashPositionInput())
+        # one place or one currency asked about is that one, not all the money: «چقدر پول داریم تو کیف پول سبز
+        # مون» got every place's total (chat review 2026-11-10, scenarios BV1, BV2)
+        ccys = _currencies_named(message)
+        places = _places_named(db, message) if mode == "personal" else []
+        if len(ccys) > 1 or len(places) > 1:
+            return None
+        sep = "، " if lang in ("fa", "ar") else " · "
+        if places:
+            code = places[0]
+            name = next((a["account_name"] for a in r["accounts"] if a["account_code"] == code), code)
+            held = [h for h in r.get("holdings") or [] if h["account_code"] == code and (not ccys or h["currency"] == ccys[0])]
+            text = (_say("place_one", lang, name=name, list=sep.join(_in_currency(h["balance"], h["currency"], lang)
+                                                                      for h in held))
+                    if held else _say("place_nothing", lang, name=name))
+            return FastAnswer(intent=intent, text=text, tool_calls=calls)
+        if _PLACE_WORD.search(message or ""):
+            return None                         # a place it can't tell: the model asks which, or says so
+        if ccys:
+            total = next((h["total"] for h in r.get("by_currency") or [] if h["currency"] == ccys[0]), 0)
+            text = _say("cash_in_currency", lang, amount=_in_currency(total, ccys[0], lang))
+            return FastAnswer(intent=intent, text=text, tool_calls=calls)
         held = r.get("by_currency") or []
         if len(held) > 1 or (len(held) == 1 and held[0]["currency"] != r.get("currency")):
             # each currency on its own, nothing exchanged (scenario AB5)

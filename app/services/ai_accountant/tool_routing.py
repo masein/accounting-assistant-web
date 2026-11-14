@@ -144,17 +144,28 @@ def tool_names(groups: Iterable[str], available: set[str]) -> list[str]:
     return out
 
 
-def more_tools_spec() -> dict[str, Any]:
-    """The tool the model calls to add a group, each group in one line. The same on every call: it is the
-    last tool, and a description that changed would change what a prompt cache serves."""
-    lines = "\n".join(f"- {g}: {desc}" for g, (desc, _t) in GROUPS.items())
+def available_groups(available: Iterable[str] | None = None) -> list[str]:
+    """The groups with a tool these books have: a person's books have no invoices, payroll or fixed assets, and
+    offering them got "No such group" back (chat review 2026-11-10, scenario BV5)."""
+    if available is None:
+        return list(GROUPS)
+    have = set(available)
+    return [g for g, (_desc, tools) in GROUPS.items() if have.intersection(tools)]
+
+
+def more_tools_spec(available: Iterable[str] | None = None) -> dict[str, Any]:
+    """The tool the model calls to add a group, each group in one line — only the groups these books have. The
+    same on every call of the same books: it is the last tool, and a description that changed would change what
+    a prompt cache serves."""
+    groups = available_groups(available)
+    lines = "\n".join(f"- {g}: {GROUPS[g][0]}" for g in groups)
     return {
         "name": "more_tools",
         "description": ("Add tools for this message. Only the core tools and those this conversation is about are "
                         "offered; when you need one you don't have — to read a budget, list invoices, check a "
                         "statement — call this with the groups you need, then use them. Groups:\n" + lines),
         "input_schema": {"type": "object", "properties": {
-            "groups": {"type": "array", "items": {"type": "string", "enum": list(GROUPS)},
+            "groups": {"type": "array", "items": {"type": "string", "enum": groups},
                        "description": "The groups to add."}}, "required": ["groups"]},
     }
 

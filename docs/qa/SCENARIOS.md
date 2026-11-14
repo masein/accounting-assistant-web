@@ -1147,3 +1147,12 @@ From the owner's phone: «چقدر پول داریم تو کیف پول سبز �
 | BV3 | A place given up is closed | «کیف پول والای رو ببند، پولاش دست همسره» | Asked once where the money is now; one card per currency empties it, the last one closes it. Closed, it is in no list, total or card; undoing the card opens it again. A place holding nothing is just closed; the books' own cash and bank accounts can't be |
 | BV4 | Not a starting balance of 0 | The assistant tries a starting balance of 0 for an existing place | Refused, pointing to emptying and closing it |
 | BV5 | Only the tools these books have | In a person's books the assistant asks for "operations" and "dates" | Only a person's groups are offered; the dates tools are added, and "operations" is said to be not in these books — not "No such group" |
+
+## BW. The reviews' figures (chat review 2026-11-10)
+
+From production: a person's monthly review said net worth rose in a month of spending — the starting balances recorded that month and money changed from dollars counted as gains; a company's review said cash lasts 1.7 months beside an insight's 0.4 on the same day (two formulas: the owner chooses one, so it isn't here yet); and the review said the runway twice.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BW1 | Starting balances are not gains | A person records two wallets' starting balances and spends in the same month, in Omani rials | The monthly review and the report card say net worth fell by what was spent; the starting balances (and money changed from another currency) are not counted as a rise |
+| BW3 | The runway said once | A company review whose suggestion says how long cash lasts | The cash line gives the cash only; with suggestions switched off, the cash line gives the months |

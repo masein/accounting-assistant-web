@@ -96,9 +96,9 @@ def test_ar5_each_cards_net_worth_in_its_own_currency(person, db):
     from app.services.report_card import report_card
     with _in(cid):
         rc = report_card(db, "2026-10", lang="en", today=date(2026, 11, 2))
-    assert rc["net_worth"] == {"start": 0, "end": 20_000_000, "change": 20_000_000, "currency": "IRR"}
+    assert rc["net_worth"] == {"start": 0, "end": 20_000_000, "change": 20_000_000, "recorded": 0, "currency": "IRR"}
     [omr] = rc["others"]
-    assert omr["net_worth"] == {"start": 0, "end": 358.5, "change": 358.5, "currency": "OMR"}
+    assert omr["net_worth"] == {"start": 0, "end": 358.5, "change": 358.5, "recorded": 0, "currency": "OMR"}
     from tests.test_proactive_reviews import _make, _reviews
     _make(db, cid, date(2026, 11, 2))
     [review] = _reviews(db, cid, "monthly")

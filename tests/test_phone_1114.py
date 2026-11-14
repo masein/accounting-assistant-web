@@ -1,8 +1,8 @@
 """The owner's phone, 2026-11-14 (scenarios CC1–CC4).
 
-Asked «چقدر توی پاکت پول هست؟», the assistant read the envelope as one figure in rials — the dollars at a rate,
-the Omani rials (no rate) left out — and said «۸۰۰ ریال عمان و ۸۰۰ دلار». Told it was wrong, it made a
-"correction" card of the two receipts just confirmed, credited to «متفرقه»; the 629 a company paid back for a
+Asked «چقدر توی کیفم پول هست؟», the assistant read the wallet as one figure in rials — the dollars at a rate,
+the Omani rials (no rate) left out — and read its dollars as Omani rials too. Told it was wrong, it made a
+"correction" card of the two receipts just confirmed, credited to «متفرقه»; money a company paid back for a
 purchase went to «طلب از دیگران»; replies ended in stray words («તારીખ», «kartaa»). Figures made up.
 """
 from __future__ import annotations
@@ -56,14 +56,14 @@ def _card(db, books, lines, message="", currency="OMR"):
 
 def test_cc2_money_back_only_from_where_it_went(db, books):
     with pytest.raises(ToolError) as e:                                   # a "correction" credited to a category
-        _card(db, books, [(GREEN_WALLET, Decimal("1179"), 0), ("6110", 0, Decimal("1179"))],
-              "اشتباه میکنی یه ۶۲۹ و یه ۵۵۰ همین الان اضافه کردیم")
+        _card(db, books, [(GREEN_WALLET, Decimal("730"), 0), ("6110", 0, Decimal("730"))],
+              "اشتباه میکنی یه ۴۱۲ و یه ۳۲۰ همین الان اضافه کردیم")
     assert e.value.code == "more_back_than_spent" and "20.25" in e.value.message
     assert _card(db, books, [(GREEN_WALLET, Decimal("10"), 0), ("6110", 0, Decimal("10"))],
                  "۱۰ ریال از لولو پس گرفتم")["confirmation_token"]           # a refund of what was spent there
     with pytest.raises(ToolError) as e:                                   # nobody owed it
-        _card(db, books, [(GREEN_WALLET, Decimal("629"), 0), ("1150", 0, Decimal("629"))],
-              "اون ۶۲۹ ریال رو از شرکت گرفتم")
+        _card(db, books, [(GREEN_WALLET, Decimal("412"), 0), ("1150", 0, Decimal("412"))],
+              "اون ۴۱۲ ریال رو از شرکت گرفتم")
     assert e.value.code == "more_back_than_owed" and "category" in e.value.message
     # a move between two categories is not money back
     assert _card(db, books, [("6180", Decimal("5"), 0), ("6110", 0, Decimal("5"))], "۵ ریال از خوراک ببر به رستوران")
@@ -83,6 +83,6 @@ def test_cc4_stray_words_go():
     assert _no_foreign_words("کارت هزینه آماده است. તારીખ") == "کارت هزینه آماده است."
     assert _no_foreign_words("هزینه‌ها 大小规律 ثبت شد") == "هزینه‌ها ثبت شد"
     assert _no_foreign_words("ok, пока") == "ok,"
-    assert _no_foreign_words("این پاکت را با کدام محل یکی بگیرم؟") == "این پاکت را با کدام محل یکی بگیرم؟"
-    assert _no_stray_tail("این پاکت را با کدام محل یکی بگیرم؟ kartaa") == "این پاکت را با کدام محل یکی بگیرم؟"
-    assert _no_foreign_words("iSTYLE MUSCAT LLC ۶۲۹ ریال") == "iSTYLE MUSCAT LLC ۶۲۹ ریال"
+    assert _no_foreign_words("این پول را با کدام کیف یکی بگیرم؟") == "این پول را با کدام کیف یکی بگیرم؟"
+    assert _no_stray_tail("این پول را با کدام کیف یکی بگیرم؟ kartaa") == "این پول را با کدام کیف یکی بگیرم؟"
+    assert _no_foreign_words("SHOP LLC ۴۱۲ ریال") == "SHOP LLC ۴۱۲ ریال"

@@ -628,9 +628,9 @@ class GetAccountBalance(BaseTool):
         }
         if ccy:
             return out
-        # Each currency the account holds, in its own amounts: «پاکت توی کیفم» with Omani rials and dollars came back
-        # as 800,000,000 rials — the dollars at a rate, the Omani rials (no rate) left out — and was read as «۸۰۰
-        # ریال عمان و ۸۰۰ دلار» (owner's phone, 2026-11-14, scenario CC1)
+        # Each currency the account holds, in its own amounts: a wallet with Omani rials and dollars came back
+        # as one figure in rials — the dollars at a rate, the Omani rials (no rate) left out — and was read as Omani
+        # rials and dollars of the same amount (owner's phone, 2026-11-14, scenario CC1)
         base = base_currency(ctx.db)
         own = ctx.db.execute(
             select(Transaction.currency, func.coalesce(func.sum(TransactionLine.debit), 0),

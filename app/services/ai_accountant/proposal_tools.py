@@ -565,8 +565,8 @@ def _guard_typed_over_document(ctx: ToolContext, proposed_total) -> None:
 
 def _guard_money_back(ctx: ToolContext, args) -> None:
     """In a person's books, money comes back only from where it went (owner's phone, 2026-11-14, scenario CC2):
-    a «correction» of 1,179 Omani rials into the envelope was credited to «متفرقه», where 20 had been spent —
-    the two receipts it «corrected» were already in the envelope; and 629 a company paid back for a purchase was
+    a «correction» into a wallet was credited to «متفرقه», where far less had been spent —
+    the two amounts it «corrected» were already in the wallet; and money a company paid back for a purchase was
     credited to «طلب از دیگران», which nobody owed. A category is credited at most what was spent on it in the
     last year, in the card's currency; «طلب از دیگران» at most what is owed."""
     if getattr(ctx, "mode", "default") != "personal":

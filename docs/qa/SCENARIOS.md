@@ -1174,3 +1174,12 @@ From production: a company's review said cash lasts 1.7 months while the insight
 | BY1 | One runway everywhere | A company with three complete months of 400 costs and 100 sales a month, about 300 of cash, and a few days of the month under way | The owner dashboard, the CFO report, the monthly review and the insight all say about 1 month: cash ÷ (costs − sales) a month over the three complete months. The burn rate shown is the costs of those months (400); the month under way counts in neither |
 | BY2 | Earning more than it spends | A company whose sales cover its costs | No runway ("not applicable"), and the CFO report says the last three months brought in at least what they cost |
 | BY3 | The short-runway alert | Two months of costs, the second the month under way, and cash overdrawn | The dashboard still raises "Cash runway is short" |
+
+## BZ. The own-codes choice kept (chat review 2026-11-10; the owner chose this, 2026-11-14)
+
+From production: a school's books were reset six times and imported again; each time the accounts came back on the app's codes and the school switched to its own by hand.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BZ1 | Kept across a reset | A school switched to its own codes; the console clears its books; its journal is imported again (on the page or in the chat) | The accounts are on the school's codes again by themselves, the same codes as before, and the import's message says so («حساب‌ها دوباره با کدهای خودتان شماره‌گذاری شد»). Books that never chose their own codes import as before |
+| BZ2 | When codes need a choice | As BZ1, but the new file gives one code to two different accounts | Nothing is switched; the import's message says how many codes need a choice and where: «کدینگ حساب‌ها» ← «کدهای حساب خودتان» |

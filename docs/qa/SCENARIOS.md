@@ -1147,3 +1147,13 @@ From the owner's phone: «چقدر پول داریم تو کیف پول سبز �
 | BV3 | A place given up is closed | «کیف پول والای رو ببند، پولاش دست همسره» | Asked once where the money is now; one card per currency empties it, the last one closes it. Closed, it is in no list, total or card; undoing the card opens it again. A place holding nothing is just closed; the books' own cash and bank accounts can't be |
 | BV4 | Not a starting balance of 0 | The assistant tries a starting balance of 0 for an existing place | Refused, pointing to emptying and closing it |
 | BV5 | Only the tools these books have | In a person's books the assistant asks for "operations" and "dates" | Only a person's groups are offered; the dates tools are added, and "operations" is said to be not in these books — not "No such group" |
+
+## BY. One runway (chat review 2026-11-10; the owner chose the usual definition, 2026-11-14)
+
+From production: a company's review said cash lasts 1.7 months while the insight said 0.4 on the same day. The owner dashboard, the CFO report and the reviews averaged the gross costs of the last three months with the month just begun; the insight divided cash by the net burn of the last three complete months.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BY1 | One runway everywhere | A company with three complete months of 400 costs and 100 sales a month, about 300 of cash, and a few days of the month under way | The owner dashboard, the CFO report, the monthly review and the insight all say about 1 month: cash ÷ (costs − sales) a month over the three complete months. The burn rate shown is the costs of those months (400); the month under way counts in neither |
+| BY2 | Earning more than it spends | A company whose sales cover its costs | No runway ("not applicable"), and the CFO report says the last three months brought in at least what they cost |
+| BY3 | The short-runway alert | Two months of costs, the second the month under way, and cash overdrawn | The dashboard still raises "Cash runway is short" |

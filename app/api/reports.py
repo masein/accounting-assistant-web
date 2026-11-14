@@ -440,12 +440,17 @@ def get_owner_dashboard(
     current_month = month_key(today, cal)
     monthly_net = monthly_revenue.get(current_month, 0) - monthly_expense.get(current_month, 0)
 
-    # this month and the two before it, in the company's calendar (§3.5)
-    recent_months = [p.key for p in last_n_months(today, 3, cal)][::-1]
+    # the three complete months before this one, in the company's calendar (§3.5): the month under way, a few
+    # days old, counted as a month of almost no spending (chat review 2026-11-10, BW2)
+    recent_months = [p.key for p in last_n_months(today, 4, cal)][::-1][1:]
     burn_values = [monthly_expense.get(m, 0) for m in recent_months]
     from app.services.fx_base import base_currency
-    burn_rate = average(burn_values, base_currency(db) if base_view else currency)
-    runway_months = round(float(cash_on_hand / burn_rate), 1) if burn_rate > 0 else None
+    unit = base_currency(db) if base_view else currency
+    burn_rate = average(burn_values, unit)
+    # the runway is cash over what the money goes down by a month — costs less revenue — as the CFO report and the
+    # runway insight count it; a business taking in at least what it spends has none to measure
+    net_burn = average([monthly_expense.get(m, 0) - monthly_revenue.get(m, 0) for m in recent_months], unit)
+    runway_months = round(float(cash_on_hand / net_burn), 1) if net_burn > 0 else None
 
     # The 13 weeks come from the forecast service (roadmap §5.3): open invoices
     # on each customer's learned payment habit, cheques, payroll, recurring
@@ -516,7 +521,8 @@ def get_owner_dashboard(
     # vouchers is empty, not "at risk" (QA 2026-09-24 6.1). Runway / spike need
     # two months of expenses and a real sample of entries; the quality score
     # needs a sample to be a score at all.
-    months_with_expenses = sum(1 for m in recent_months if monthly_expense.get(m, 0) > 0)
+    # this month counts here, as it did: two months of expenses, the one under way among them (BW2 kept the gate)
+    months_with_expenses = sum(1 for m in (current_month, *recent_months[:2]) if monthly_expense.get(m, 0) > 0)
     enough_history = folds.txn_count >= MIN_TXNS_FOR_ALERTS and months_with_expenses >= 2
     if runway_months is not None and runway_months < 3 and enough_history:
         alerts.append(AlertItem(level="high", title="Cash runway is short", message=f"Estimated runway is {runway_months} months based on recent burn rate."))

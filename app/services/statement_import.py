@@ -955,7 +955,10 @@ def reconcile_statement_rows(db: Session, stmt: BankStatement) -> ReconcileRespo
             kind=kind, account_code=code, account_name=name or code,
         ))
 
-    stmt.status = "reviewing"
+    # every row in the books, a duplicate or set aside: the statement is done — a reconcile used to set it back
+    # to "reviewing" each time step by step asked for the next row (chat review 2026-11-10, scenario CA2)
+    stmt.status = "approved" if rows and all(r.recon_status in ("matched", "duplicate", "skipped") for r in rows) \
+        else "reviewing"
     stmt.matched_rows = matched
     stmt.new_rows = unmatched
     db.commit()

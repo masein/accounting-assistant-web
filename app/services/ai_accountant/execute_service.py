@@ -533,6 +533,15 @@ def _execute_create_transaction(
         statement_row.created_transaction_id = transaction.id
         statement_row.recon_status = "matched"
         statement_row.user_approved = True
+        # the last row posted from its card closes the statement, as the batch approval does: it stayed
+        # "reviewing" after every row was in the books (chat review 2026-11-10, scenario CA2)
+        from app.models.bank_statement import BankStatement, BankStatementRow
+        from app.services.ai_accountant.statement_posting import _CLOSED_STATUSES
+        db.flush()
+        stmt = db.get(BankStatement, statement_row.statement_id)
+        if stmt is not None and all(r.recon_status in _CLOSED_STATUSES for r in db.execute(
+                select(BankStatementRow).where(BankStatementRow.statement_id == stmt.id)).scalars()):
+            stmt.status = "approved"
 
     # Create any new entities folded into this proposal, then link them to the
     # transaction by role. Master-data writes only happen here (post-Confirm).

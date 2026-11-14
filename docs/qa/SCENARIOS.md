@@ -1202,3 +1202,14 @@ From the owner's phone: two shops' receipts sent together became one entry of th
 |----|----------|-------|----------|
 | CB1 | Two receipts | Send two receipts from two shops in one message | Two cards, each with its own total, date, shop and number as the reference, and its own file; a card of their sum is refused and made again as two |
 | CB2 | What was bought | A receipt that shows only a hypermarket's total | The assistant asks what it was (with choices) before choosing a category; with line items, it takes the category from them |
+
+## CC. The owner's phone, 2026-11-14
+
+Asked «چقدر توی کیفم پول هست؟», the assistant read the wallet as one figure in rials — the dollars at a rate, the Omani rials left out — and read its dollars as Omani rials too. Told it was wrong, it made a "correction" card of the two amounts just confirmed, credited to «متفرقه»; the money a company paid back for a purchase went to «طلب از دیگران»; replies ended in stray words («તારીખ», «kartaa»).
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CC1 | A place in each currency | A wallet holding Omani rials and dollars; «چقدر توی کیفم پول هست؟» | Each currency's own amount, never one figure in rials; no "add rates" note in a person's books |
+| CC2 | Money back only from where it went | After confirming two amounts into the wallet: «اشتباه میکنی یه ۴۱۲ و یه ۳۲۰ همین الان اضافه کردیم» | No correction card: the assistant reads the wallet again and names the two entries. A card crediting a category more than was spent there, or «طلب از دیگران» more than is owed, is refused; a refund of what was spent is made |
+| CC3 | Money back for a purchase | «اون ۴۱۲ ریال رو از شرکت گرفتم» after a 412 purchase recorded as household spending | The card credits the purchase's category, not «طلب از دیگران»; «۳۲۰ نبود دقیقش کمتر بود» gets the card's own 318.250, not a question |
+| CC4 | No stray words | A reply the model ends with «તારીખ», or a question with buttons ending «kartaa» | The reply ends at its last sentence; names in Latin letters (SHOP LLC) stay |

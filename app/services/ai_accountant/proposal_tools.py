@@ -35,7 +35,7 @@ from datetime import date as _date, datetime, timedelta, timezone
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.account import Account
@@ -591,6 +591,57 @@ def _guard_typed_over_document(ctx: ToolContext, proposed_total) -> None:
         code="toman_not_converted")
 
 
+def _guard_money_back(ctx: ToolContext, args) -> None:
+    """In a person's books, money comes back only from where it went (owner's phone, 2026-11-14, scenario CC2):
+    a «correction» into a wallet was credited to «متفرقه», where far less had been spent —
+    the two amounts it «corrected» were already in the wallet; and money a company paid back for a purchase was
+    credited to «طلب از دیگران», which nobody owed. A category is credited at most what was spent on it in the
+    last year, in the card's currency; «طلب از دیگران» at most what is owed."""
+    if getattr(ctx, "mode", "default") != "personal":
+        return
+    from app.core.money import plain
+    from app.models.transaction import Transaction, TransactionLine
+    from app.services.fx_base import base_currency
+    from app.services.reporting.common import EXPENSE, classify_account_code
+    base = (base_currency(ctx.db) or "IRR").upper()
+    ccy = (args.currency or base).strip().upper()
+    credited: dict[str, Any] = {}
+    for ln in args.lines:
+        if ln.credit:
+            credited[ln.account_code] = plain(credited.get(ln.account_code, 0) + plain(ln.credit))
+    debited = {ln.account_code for ln in args.lines if ln.debit}
+    since = _date.today() - timedelta(days=365)
+    for code, amount in credited.items():
+        is_expense = classify_account_code(code) == EXPENSE
+        if not is_expense and code != "1150":
+            continue
+        if is_expense and any(classify_account_code(c) == EXPENSE for c in debited):
+            continue                                  # a move between categories: guarded on its own
+        acc = ctx.db.execute(select(Account).where(Account.code == code)).scalars().first()
+        if acc is None:
+            continue
+        q = (select(func.coalesce(func.sum(TransactionLine.debit), 0) - func.coalesce(func.sum(TransactionLine.credit), 0))
+             .join(Transaction, Transaction.id == TransactionLine.transaction_id)
+             .where(TransactionLine.account_id == acc.id, Transaction.deleted_at.is_(None),
+                    func.upper(func.coalesce(Transaction.currency, base)) == ccy))
+        if is_expense:
+            q = q.where(Transaction.date >= since)
+        there = plain(ctx.db.execute(q).scalar() or 0)
+        if amount <= there:
+            continue
+        if is_expense:
+            raise ToolError(
+                f"{grouped(amount)} {ccy} back on «{acc.name}» ({code}), where {grouped(max(there, 0))} {ccy} was spent "
+                f"in the last year. Money back is only for spending recorded there. Money that came in is income, from "
+                f"a person, or from another place; a balance the user thinks is wrong is read again with "
+                f"get_account_balance (each currency) — what they just recorded is already in it. Never a correction "
+                f"card to reach the figure they expect.", code="more_back_than_spent")
+        raise ToolError(
+            f"«{acc.name}» holds {grouped(max(there, 0))} {ccy} owed to the user: {grouped(amount)} can't come back from "
+            f"it. Money back for a purchase recorded as their spending (a company or a shop paying it back) is credited "
+            f"to that purchase's category.", code="more_back_than_owed")
+
+
 # Money-out / money-in cues for the direction guard. An outflow that wrongly
 # debits the cash/bank account (a receipt) is the bug we correct.
 _OUTFLOW_TERMS = ("paid", "pay ", "paying", "spent", "spend", "withdrew", "withdrawn",
@@ -880,6 +931,7 @@ class ProposeCreateTransaction(BaseTool):
             _guard_stated_currency(ctx, args)
             _guard_people_direction(ctx, args)
             _guard_place_currency(ctx, args)
+            _guard_money_back(ctx, args)
             _guard_own_transfer(ctx, args)
             _guard_move_made_already(ctx, args)
 

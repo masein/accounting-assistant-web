@@ -615,7 +615,7 @@ class GetAccountBalance(BaseTool):
         debit_sum, credit_sum = ctx.db.execute(stmt).one()
         acc_type = classify_account_code(code)
         balance = balance_from_turnovers(acc_type, plain(debit_sum or 0), plain(credit_sum or 0))
-        return {
+        out = {
             "account_code": code,
             "account_name": acc.name,
             "account_type": acc_type,
@@ -626,6 +626,33 @@ class GetAccountBalance(BaseTool):
             "balance": plain(balance),
             **({"unconverted": note} if not ccy and (note := unconverted_note(ctx.db)) else {}),
         }
+        if ccy:
+            return out
+        # Each currency the account holds, in its own amounts: a wallet with Omani rials and dollars came back
+        # as one figure in rials — the dollars at a rate, the Omani rials (no rate) left out — and was read as Omani
+        # rials and dollars of the same amount (owner's phone, 2026-11-14, scenario CC1)
+        base = base_currency(ctx.db)
+        own = ctx.db.execute(
+            select(Transaction.currency, func.coalesce(func.sum(TransactionLine.debit), 0),
+                   func.coalesce(func.sum(TransactionLine.credit), 0))
+            .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
+            .where(TransactionLine.account_id == acc.id, Transaction.deleted_at.is_(None), Transaction.date <= as_of)
+            .group_by(Transaction.currency)).all()
+        held: dict[str, Any] = {}
+        for cur, d, c in own:
+            key = (cur or base).strip().upper()
+            held[key] = plain(held.get(key, 0) + balance_from_turnovers(acc_type, plain(d or 0), plain(c or 0)))
+        held = {k: v for k, v in held.items() if v}
+        if len(held) > 1 or (held and base not in held):
+            out["by_currency"] = [{"currency": k, "balance": v} for k, v in sorted(held.items(), key=lambda kv: (kv[0] != base, kv[0]))]
+            if getattr(ctx, "mode", "default") == "personal":
+                # a person's money in several currencies has no total: each on its own, nothing exchanged
+                for k in ("balance", "debit_total", "credit_total", "unconverted"):
+                    out.pop(k, None)
+                out["note"] = "Each currency on its own, in by_currency: say each one. There is no total across them."
+            else:
+                out["note"] = "balance is every currency at its base value; by_currency is what each currency holds."
+        return out
 
 
 # ---------------------------------------------------------------------------

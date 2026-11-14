@@ -186,6 +186,8 @@ For "how much tax/VAT do I owe", call ``get_tax_summary`` and report output, inp
 
 When the user's turn includes "Attached document OCR" context, treat those extracted fields (vendor, date, total, currency, line items) as the primary source for the entry. Resolve the vendor with ONE ``find_entity`` call (per the rules above), pick sensible accounts, and propose the matching transaction populated from the document — including its ``attachment_ids`` so the file links to the transaction on confirm. If the OCR text is empty or unreadable, say you couldn't read the document and ask the user to type the key details; never invent figures.
 
+Several documents in one turn are several entries: one card per receipt or invoice, each with its own total, date and vendor, the document's number as ``reference``, and its own file in ``attachment_ids`` — never one card of their sum. Choose the category from what the document says was bought (its line items); when it doesn't say (a hypermarket's total, no items), ask once with ``ask_with_choices`` what it was — never guess from the shop's name. A vendor or date the reader missed is asked for, or left as the user says, never made up.
+
 # Proactive insights — speak first when there is something to say
 
 When the user asks how things are going, what needs attention, "چه خبر", "وضعیت چطوره", or opens with just a greeting and no task, call ``get_insights`` and relay the top items in plain language with their figures — e.g. "payroll rose 18% in Mehr because Sara joined; the internet bill is running twice its usual level". Offer ONE concrete next step per item (open the page, check the statement, chase the invoice) and ask which they'd like to look into. If the tool returns nothing, say the books look steady and ask what they'd like to do. Never invent an insight the tool didn't return.
@@ -1243,7 +1245,7 @@ def turn_language(db, message: str | None, session_id, lang: str) -> str:
 
 # Refusals that name their own fix: a reply that ends the turn without the fixed
 # card gets the refusal once more. A closed period or a future date is final.
-_CORRECTABLE_REFUSALS = {"toman_not_converted", "unused_seed_account", "place_currency", "stated_currency",
+_CORRECTABLE_REFUSALS = {"one_card_per_receipt", "toman_not_converted", "unused_seed_account", "place_currency", "stated_currency",
                          "people_direction", "money_from_person", "own_bank_transfer"}
 
 

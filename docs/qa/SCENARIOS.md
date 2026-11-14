@@ -1156,3 +1156,12 @@ From production: a person's monthly review said net worth rose in a month of spe
 |----|----------|-------|----------|
 | BW1 | Starting balances are not gains | A person records two wallets' starting balances and spends in the same month, in Omani rials | The monthly review and the report card say net worth fell by what was spent; the starting balances (and money changed from another currency) are not counted as a rise |
 | BW3 | The runway said once | A company review whose suggestion says how long cash lasts | The cash line gives the cash only; with suggestions switched off, the cash line gives the months |
+
+## CB. Receipts, one entry each (chat review 2026-11-10)
+
+From the owner's phone: two shops' receipts sent together became one entry of their sum, with no reference, both under one guessed category; a hypermarket's receipt was guessed as groceries when it was a vacuum cleaner.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CB1 | Two receipts | Send two receipts from two shops in one message | Two cards, each with its own total, date, shop and number as the reference, and its own file; a card of their sum is refused and made again as two |
+| CB2 | What was bought | A receipt that shows only a hypermarket's total | The assistant asks what it was (with choices) before choosing a category; with line items, it takes the category from them |

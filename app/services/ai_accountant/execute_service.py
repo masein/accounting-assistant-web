@@ -1004,19 +1004,37 @@ def undo_action(
         return undo_change_date(db, audit, actor_user_id=actor_user_id, actor_username=actor_username,
                                 ip_address=ip_address, tool_name="undo_action")
     if _entry_in_closed_period(db, audit):
-        return _perform_reversal(
+        result = _perform_reversal(
             db, audit,
             actor_user_id=actor_user_id,
             actor_username=actor_username,
             ip_address=ip_address,
             tool_name="undo_action",
         )
-    return _perform_delete(
-        db, audit,
-        actor_user_id=actor_user_id,
-        actor_username=actor_username,
-        ip_address=ip_address,
-    )
+    else:
+        result = _perform_delete(
+            db, audit,
+            actor_user_id=actor_user_id,
+            actor_username=actor_username,
+            ip_address=ip_address,
+        )
+    _reopen_closed_place(db, audit)
+    return result
+
+
+def _reopen_closed_place(db: Session, audit: AuditLog) -> None:
+    """A place emptied and closed by the card is open again once its money is back (scenario BV3)."""
+    try:
+        detail = json.loads(audit.detail or "{}") if isinstance(audit.detail, str) else (audit.detail or {})
+    except ValueError:
+        return
+    if not detail.get("closed") or not detail.get("emptied"):
+        return
+    from app.models.account import Account
+    acc = db.execute(select(Account).where(Account.code == detail["emptied"])).scalars().first()
+    if acc is not None and not acc.is_active:
+        acc.is_active = True
+        db.commit()
 
 
 def _entry_in_closed_period(db: Session, audit: AuditLog) -> bool:
@@ -1064,13 +1082,15 @@ def reverse_action(
         from app.services.ai_accountant.date_tools import undo_change_date
         return undo_change_date(db, audit, actor_user_id=actor_user_id, actor_username=actor_username,
                                 ip_address=ip_address, tool_name="reverse_action")
-    return _perform_reversal(
+    result = _perform_reversal(
         db, audit,
         actor_user_id=actor_user_id,
         actor_username=actor_username,
         ip_address=ip_address,
         tool_name="reverse_action",
     )
+    _reopen_closed_place(db, audit)
+    return result
 
 
 def _perform_payment_undo(

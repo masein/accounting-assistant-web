@@ -282,6 +282,7 @@ The books you manage here belong to ONE PERSON tracking their own daily money �
 * A LIST in one message («$333.77 - Muscat Airbnb», one thing per line) is one card per line, each with its own amount and description, in the currency written. Stays, hotels, flights and trip tickets go under «سفر» (Travel).
 * AN ANSWER NEVER DROPS THE LIST. When you asked about a list (who paid it, where the cash is) and the user answers («یکیش رو امیر بهم نقدی داده، بقیه از حساب امین پرداخت شده»: one Amir gave in cash, the rest Amin paid), make a card for EVERY item of that list in that turn: Amir's cash into the place they name (Dr the place / Cr «بدهی به دیگران», Amir on it) AND one card per remaining line, each Dr its category (Airbnb, hotel and tickets under «سفر») / Cr «بدهی به دیگران» in its own currency, with the person who paid it (Amin) on each — never only the item the question was about. Asked what they owe someone whose items they told you in this conversation but no card of theirs was confirmed («چقدر به امین بدهکارم؟»), say what they told you (the items and each currency's total) and that it isn't recorded yet, and make the cards — never answer only "nothing recorded".
 * EVERYTHING IN A PLACE, or what is left in it («هرچی توی پاکت توی کشو بود دادم به همسرم»، «باقی‌مانده پاکت»، "all the money in the envelope"): ``propose_empty_place`` with the place, what came back and where it went (``back``), and the category the rest was spent on (``rest_account``, a code from YOUR BOOKS AT A GLANCE). It reads the balance and works out the rest itself — never subtract it yourself. Purchases they name with their amounts («۳۳ ریال لولو») are their own cards first; then the place's rest. When they don't say what the rest was spent on, ask once with ``ask_with_choices``.
+* CLOSING A PLACE («کیف پول گل گلی رو حذف کن», «ببندش»، "close the blue wallet"): ``propose_empty_place`` with close=true. A place that holds nothing is just closed. When it still holds money, ask once with ``ask_with_choices`` where that money is now — given to someone (to a spouse or family: the family category as ``rest_account``), moved to another of their places (``back``), or spent — then ONE card that empties it and closes it. Never ``propose_money_place`` with 0 for this.
 * A WRONG DATE on entries already in the books («اون نه تا سفر مال شهریور بود نه این هفته»، "the Airbnb was on 15 August"): find them (``query_ledger`` gives each entry's ``transaction_id``) and call ``propose_change_date`` with each one's real date — one card for all of them. Nothing else about them changes. An entry without a date the user knows: ask once for the day or the month.
 * MOVING ENTRIES TO ANOTHER CATEGORY («این سه تا خرید رو اشتباه زیر «خانواده و هدایا» ثبت کردی، ببرشون زیر «لوازم و تعمیرات خانه»», 'move these to Travel'): ONE correcting card with ``propose_create_transaction``: Dr the new category / Cr the old one, in the entries' own currency, for their total (2 + 3 + 1 = 6.000 OMR), described with what they were. No entry ids, no reversals, no wallet on it — the money already left the wallet; only its category changes. Never answer with a reminder for next time instead.
 * THINGS FOR THE HOME — a power adapter, light bulbs, cleaning things, stationery, a key cut, a small repair — go under «لوازم و تعمیرات خانه» (Home supplies & repairs). «خانواده و هدایا» (Family & gifts) is only a gift, or money given to family.
@@ -1736,7 +1737,8 @@ async def run_chat_turn(
     groups: set[str] = set()
 
     def _offer(chosen: set[str]) -> list[dict[str, Any]]:
-        return ([all_defs[n] for n in _routing.tool_names(chosen, set(all_defs))] + [_routing.more_tools_spec()])
+        return ([all_defs[n] for n in _routing.tool_names(chosen, set(all_defs))]
+                + [_routing.more_tools_spec(set(all_defs))])
 
     if routed:
         recent = [tc.name for m in history if m.role == "assistant" for tc in m.tool_calls]
@@ -1899,13 +1901,20 @@ async def run_chat_turn(
         for call in assistant_msg.tool_calls:
             if call.name == "more_tools":
                 # the model asked for a group it wasn't offered: it has it from the next call on
-                asked = {g for g in (call.input or {}).get("groups") or [] if g in _routing.GROUPS}
+                said = [g for g in (call.input or {}).get("groups") or [] if isinstance(g, str)]
+                here = set(_routing.available_groups(all_defs))
+                asked = {g for g in said if g in here}
                 groups |= asked
                 tool_defs = _offer(groups)
                 added = [n for g in asked for n in _routing.GROUPS[g][1] if n in all_defs]
+                # a group these books don't have is said so, with what to do instead: a person's books asked for
+                # "operations" and got "No such group" (chat review 2026-11-10, BV5)
+                missing = [g for g in said if g not in here]
+                not_here = (f" Not in these books: {', '.join(missing)}. The groups here: {', '.join(sorted(here))}; a "
+                            "correcting entry is propose_create_transaction, which you have." if missing else "")
                 tool_result_messages.append(ChatMessage(role="tool", tool_call_id=call.id, text=(
-                    f"Added: {', '.join(added) or 'nothing new'}. Use them now." if added else
-                    "No such group; the groups are listed in this tool's description.")))
+                    (f"Added: {', '.join(added)}. Use them now." if added else
+                     "Nothing new added." if asked else "Nothing added.") + not_here)))
                 continue
             log_entry = {"tool_use_id": call.id, "name": call.name, "input": call.input}
             tool_call_log.append(log_entry)

@@ -1136,6 +1136,18 @@ From production: a company's whole opening voucher went with the plain "delete t
 | BU3 | A move between categories is made once | Move three purchases (200,000 + 300,000 + 100,000) from one expense to another; the next day ask again for one card of 600,000 | The assistant says the move is already in the books, with the dates, and asks; only when the user says to make it again is the card made. A larger move, or one after the move was taken back, is made |
 | BU4 | The page has the words | Switch the language to each of the four | The title, the prompt with the word, and the "not deleted" note are in that language |
 
+## BV. A person's places one at a time, closed when given up, and only the tools their books have (chat review 2026-11-10)
+
+From the owner's phone: «چقدر پول داریم تو کیف پول سبز مون» got every place's money; a wallet whose money is now with the user's wife could only be "a starting balance of 0" and stayed in every list and total; asking for "operations" tools in a person's books got "No such group" back.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BV1 | One place asked about | Personal books with «کیف پول سبز», «کیف پول قشنگم», «کیف پول والای»: «چقدر پول داریم تو کیف پول سبز مون؟» | That wallet's money only, in each currency it holds («موجودی کیف پول سبز امروز: …»). «تو کیف پولم» (which one?) goes to the assistant, which asks |
+| BV2 | One currency asked about | «چقدر پول داریم به ریال عمان؟»; "how much money do we have in dollars?" | Only the Omani rials of every place; only the dollars |
+| BV3 | A place given up is closed | «کیف پول والای رو ببند، پولاش دست همسره» | Asked once where the money is now; one card per currency empties it, the last one closes it. Closed, it is in no list, total or card; undoing the card opens it again. A place holding nothing is just closed; the books' own cash and bank accounts can't be |
+| BV4 | Not a starting balance of 0 | The assistant tries a starting balance of 0 for an existing place | Refused, pointing to emptying and closing it |
+| BV5 | Only the tools these books have | In a person's books the assistant asks for "operations" and "dates" | Only a person's groups are offered; the dates tools are added, and "operations" is said to be not in these books — not "No such group" |
+
 ## BW. The reviews' figures (chat review 2026-11-10)
 
 From production: a person's monthly review said net worth rose in a month of spending — the starting balances recorded that month and money changed from dollars counted as gains; a company's review said cash lasts 1.7 months beside an insight's 0.4 on the same day (two formulas: the owner chooses one, so it isn't here yet); and the review said the runway twice.

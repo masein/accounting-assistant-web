@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from datetime import date
 from uuid import UUID
 
@@ -27,6 +28,8 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import SessionUser, get_current_user
 from app.core.messages import localize_detail, request_language, said, say_all
+
+logger = logging.getLogger(__name__)
 from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.migration import MigrationBatch, MigrationPendingRecord
@@ -286,6 +289,18 @@ _JOURNAL_SAID = {
                 "es": "No se importó nada de {file}.", "ar": "لم يُستورد شيء من {file}."},
     "held": {"en": " Held back: {list}.", "fa": " کنار گذاشته شد: {list}.", "es": " Retenidos: {list}.",
              "ar": " حُجز: {list}."},
+    "own_codes": {"en": " The accounts are on your own codes again ({n} accounts).",
+                  "fa": " حساب‌ها دوباره با کدهای خودتان شماره‌گذاری شد ({n} حساب).",
+                  "es": " Las cuentas vuelven a tener sus propios códigos ({n} cuentas).",
+                  "ar": " عادت الحسابات إلى رموزك الخاصة ({n} حسابًا)."},
+    "own_codes_ask": {"en": " To put the accounts back on your own codes, {n} codes need your choice: Chart of "
+                            "accounts → Your own account codes.",
+                      "fa": " برای برگشتن حساب‌ها به کدهای خودتان، {n} کد باید انتخاب شود: «کدینگ حساب‌ها» ← «کدهای "
+                            "حساب خودتان».",
+                      "es": " Para volver a sus propios códigos, {n} códigos necesitan su elección: Plan de cuentas → "
+                            "Tus propios códigos de cuenta.",
+                      "ar": " لإعادة الحسابات إلى رموزك الخاصة، يلزم اختيارك لـ {n} رموز: دليل الحسابات ← رموز حساباتك "
+                            "الخاصة."},
 }
 def _journal_said(db: Session, lang: str, out: dict, parsed: dict, file_name: str) -> str:
     from app.services import journal_import as ji
@@ -313,6 +328,10 @@ def _journal_said(db: Session, lang: str, out: dict, parsed: dict, file_name: st
     held = [f"{n(count)} {(ji.HELD_FOR.get(why) or {}).get(lang) or why}" for why, count in (out.get("skipped") or {}).items()]
     if held:
         text += _JOURNAL_SAID["held"][lang].format(list=("، " if lang in ("fa", "ar") else ", ").join(held))
+    again = out.get("own_codes")
+    if again:
+        text += (_JOURNAL_SAID["own_codes"][lang].format(n=n(again["recoded"])) if again["applied"]
+                 else _JOURNAL_SAID["own_codes_ask"][lang].format(n=n(again["clashes"])))
     return text
 
 
@@ -384,6 +403,15 @@ def journal_import_apply(body: JournalApplyIn, request: Request, db: Session = D
     parsed = ji.settle_years(db, parsed, body.years)
     out = ji.apply(db, parsed, account_map=body.account_map,
                    currency=body.currency, link_parties=body.link_parties)
+    from app.services import own_codes
+    try:
+        with db.begin_nested():                      # books that chose their own codes keep them (BZ1)
+            again = own_codes.reapply(db)
+    except Exception:  # noqa: BLE001 — the import stands; the switch can still be made by hand
+        logger.warning("own codes not made again after the import", exc_info=True)
+        again = None
+    if again is not None:
+        out["own_codes"] = again
     log_audit_event(db, "journal_import", "migration", entity_id=body.token,
                     detail=json_dumps({"preset": parsed["preset"], **out}, ensure_ascii=False))
     drop_upload(db, _JOURNAL_KIND, body.token)

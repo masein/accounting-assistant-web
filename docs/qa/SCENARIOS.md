@@ -1147,3 +1147,12 @@ From the owner's phone: «چقدر پول داریم تو کیف پول سبز �
 | BV3 | A place given up is closed | «کیف پول والای رو ببند، پولاش دست همسره» | Asked once where the money is now; one card per currency empties it, the last one closes it. Closed, it is in no list, total or card; undoing the card opens it again. A place holding nothing is just closed; the books' own cash and bank accounts can't be |
 | BV4 | Not a starting balance of 0 | The assistant tries a starting balance of 0 for an existing place | Refused, pointing to emptying and closing it |
 | BV5 | Only the tools these books have | In a person's books the assistant asks for "operations" and "dates" | Only a person's groups are offered; the dates tools are added, and "operations" is said to be not in these books — not "No such group" |
+
+## BZ. The own-codes choice kept (chat review 2026-11-10; the owner chose this, 2026-11-14)
+
+From production: a school's books were reset six times and imported again; each time the accounts came back on the app's codes and the school switched to its own by hand.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BZ1 | Kept across a reset | A school switched to its own codes; the console clears its books; its journal is imported again (on the page or in the chat) | The accounts are on the school's codes again by themselves, the same codes as before, and the import's message says so («حساب‌ها دوباره با کدهای خودتان شماره‌گذاری شد»). Books that never chose their own codes import as before |
+| BZ2 | When codes need a choice | As BZ1, but the new file gives one code to two different accounts | Nothing is switched; the import's message says how many codes need a choice and where: «کدینگ حساب‌ها» ← «کدهای حساب خودتان» |

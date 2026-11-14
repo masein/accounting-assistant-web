@@ -122,7 +122,7 @@ def test_q11a_an_insight_writes_the_base_currency_places():
 
 def test_q11b_the_burn_rate_is_to_the_penny(uk):
     api, _ = uk
-    first, second, third = _month_starts(3)
+    first, second, third = _month_starts(4)[:3]                       # three complete months (BW2)
     _post(api, first, "Capital", "1200", "3000", 24_000)
     for when, amount in ((first, "1000.10"), (second, "999.95"), (third, "1000.00")):
         _post(api, when, "Supplies", "8000", "1200", amount)

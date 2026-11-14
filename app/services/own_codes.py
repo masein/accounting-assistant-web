@@ -217,10 +217,55 @@ def apply(db: Session, *, codes: dict[str, str], merges: list[dict]) -> dict[str
                                                                     "merged": [old_code[m] for m in g["merge"]]}
                                                                    for g in merges]}, ensure_ascii=False)[:60000])
     db.flush()
+    remember(db)
     _forget_caches()
     return {"recoded": len(moved), "merged": len(gone), "lines_moved": moved_lines, "cards_cancelled": stale,
             "moved": moved}
 
+
+# The company chose its own codes: a setting, so a reset (which keeps the settings that don't name accounts) keeps
+# the choice and the next import makes it again — the school reset six times and switched by hand each time
+# (chat review 2026-11-10, scenario BZ1; the owner chose this, 2026-11-14).
+CHOICE_KEY = "own_codes"
+
+
+def remember(db: Session) -> None:
+    from app.models.app_setting import AppSetting
+    row = db.execute(select(AppSetting).where(AppSetting.key == CHOICE_KEY)).scalars().first()
+    if row is None:
+        db.add(AppSetting(key=CHOICE_KEY, value='{"on": true}'))
+    else:
+        row.value = '{"on": true}'
+    db.flush()
+
+
+def chosen(db: Session) -> bool:
+    import json
+    from app.models.app_setting import AppSetting
+    value = db.execute(select(AppSetting.value).where(AppSetting.key == CHOICE_KEY)).scalar()
+    try:
+        return bool(value) and bool((json.loads(value) or {}).get("on"))
+    except ValueError:
+        return False
+
+
+def reapply(db: Session) -> dict[str, Any] | None:
+    """After an import into books that chose their own codes and are back on the app's (a reset seeds them):
+    switch again — at once when nothing needs the user's choice, else say how many codes need one. None when
+    there is nothing to do."""
+    if not chosen(db):
+        return None
+    accounts = db.execute(select(Account)).scalars().all()
+    if any(a.class_code for a in accounts) or not any(_codes(a) for a in accounts):
+        return None                                  # already on its own codes, or nothing came with codes
+    view = preview(db)
+    if not view["ready"]:
+        return {"applied": False, "clashes": view["counts"]["clashes"]}
+    codes = {r["id"]: r["proposed"] for r in view["accounts"] if r["proposed"] and not r["merged_into"]}
+    codes.update({a["id"]: a["new_code"] for a in view["aside"]})
+    merges = [{"keep": g["keep"], "merge": g["merge"]} for g in view["merges"]]
+    out = apply(db, codes=codes, merges=merges)
+    return {"applied": True, "recoded": out["recoded"], "merged": out["merged"]}
 
 def _follow(db: Session, moved: dict[str, str], merged: dict[str, str]) -> None:
     """Every stored code of an account moves with it: statements, commitments, parties, fixed assets,

@@ -105,6 +105,35 @@ def _flows(db: Session, start: date, end: date, currency: str | None = None) -> 
     return plain(income), plain(spending), cats
 
 
+def recorded(db: Session, start: date, end: date, currency: str | None = None):
+    """Net worth that came from recording, not from the month: starting balances (against 3110) and money changed
+    from one currency into another (3120) are entries against equity. The review said «دارایی خالص ۱۵۲٫۷۳۰ ریال
+    عمان بیشتر شد» in a month of spending, from starting balances and an exchange (chat review 2026-11-10, BW1)."""
+    from app.services.reporting.common import EQUITY
+    dr, cr = ((TransactionLine.debit, TransactionLine.credit) if currency
+              else (TransactionLine.base_debit, TransactionLine.base_credit))
+    q = (select(Account.code, func.coalesce(func.sum(cr), 0) - func.coalesce(func.sum(dr), 0))
+         .join(TransactionLine, TransactionLine.account_id == Account.id)
+         .join(Transaction, Transaction.id == TransactionLine.transaction_id)
+         .where(Transaction.date >= start, Transaction.date <= end, Transaction.deleted_at.is_(None)))
+    if currency:
+        q = q.where(func.upper(Transaction.currency) == currency.upper())
+    return plain(sum((plain(v) for code, v in db.execute(q.group_by(Account.code)).all()
+                      if classify_account_code(code) == EQUITY), 0))
+
+
+def net_worth_change(db: Session, start: date, upto: date, currency: str | None = None) -> dict:
+    """{start, end, change, recorded, currency}: ``change`` is what the period made or lost — the difference less
+    what was only recorded (starting balances, exchanges), which is ``recorded``."""
+    from app.services.net_worth_service import compute_net_worth
+    nw_end = compute_net_worth(db, as_of=upto, with_trend=False, currency=currency)
+    nw_start = compute_net_worth(db, as_of=start - timedelta(days=1), with_trend=False, currency=currency)
+    moved = recorded(db, start, upto, currency)
+    return {"start": plain(nw_start.net_worth), "end": plain(nw_end.net_worth),
+            "change": plain(plain(nw_end.net_worth) - plain(nw_start.net_worth) - moved), "recorded": moved,
+            "currency": nw_end.currency}
+
+
 def currencies_moved(db: Session, start: date, end: date) -> list[str]:
     """The currencies that had income or spending between two dates: the books' own first, then the
     busiest. Money in Omani rials in books that count in rials is its own review, never exchanged."""
@@ -139,7 +168,6 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
     when it did). The others that moved come in ``others`` with their income, spending and categories."""
     from app.services.budget_service import budget_utilization
     from app.services.calendar_periods import company_calendar, key_bounds, month_label, previous_month_key, shift
-    from app.services.net_worth_service import compute_net_worth
     from app.services.personal_goals import list_goals
 
     today = today or date.today()
@@ -172,8 +200,7 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
     budgets = budget_utilization(db, key, currency)            # the card's currency's own budgets
     over = [b["label"] for b in budgets if b["actual_amount"] > b["limit_amount"]]
 
-    nw_end = compute_net_worth(db, as_of=upto, with_trend=False, currency=currency)       # the card's currency's own
-    nw_start = compute_net_worth(db, as_of=start - timedelta(days=1), with_trend=False, currency=currency)
+    worth = net_worth_change(db, start, upto, currency)        # the card's currency's own
 
     rate = _rate(income, spending)
     checks = [
@@ -198,8 +225,7 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
         "average_spending_3m": avg3,
         "categories": categories, "biggest_rise": biggest_rise,
         "budgets": {"set": len(budgets), "kept": len(budgets) - len(over), "over": over},
-        "net_worth": {"start": plain(nw_start.net_worth), "end": plain(nw_end.net_worth),
-                      "change": plain(nw_end.net_worth) - plain(nw_start.net_worth), "currency": nw_end.currency},
+        "net_worth": worth,
         "others": [_other(db, c, start, upto, keys[0], key) for c in moved if c != currency],
         "goals": [{"name": g["name"], "percent": g["percent"], "on_track": g["on_track"], "reached": g["reached"]}
                   for g in list_goals(db, today=upto)],
@@ -212,16 +238,12 @@ def _other(db: Session, currency: str, start: date, upto: date, previous_key: st
     """Another currency's month, in its own amounts."""
     from app.services.calendar_periods import key_bounds
     from app.services.budget_service import budget_utilization
-    from app.services.net_worth_service import compute_net_worth
     income, spending, cats = _flows(db, start, upto, currency)
     p_income, p_spending, p_cats = _flows(db, *key_bounds(previous_key), currency)
     budgets = budget_utilization(db, month_key, currency)
     over = [b["label"] for b in budgets if b["actual_amount"] > b["limit_amount"]]
-    nw_end = compute_net_worth(db, as_of=upto, with_trend=False, currency=currency).net_worth
-    nw_start = compute_net_worth(db, as_of=start - timedelta(days=1), with_trend=False, currency=currency).net_worth
     return {"currency": currency, "income": income, "spending": spending, "saved": plain(income - spending),
-            "net_worth": {"start": plain(nw_start), "end": plain(nw_end), "change": plain(nw_end - nw_start),
-                          "currency": currency},
+            "net_worth": {**net_worth_change(db, start, upto, currency), "currency": currency},
             "budgets": {"set": len(budgets), "kept": len(budgets) - len(over), "over": over},
             "savings_rate": _rate(income, spending),
             "previous": {"income": p_income, "spending": p_spending, "saved": plain(p_income - p_spending)},

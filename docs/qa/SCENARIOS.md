@@ -1156,3 +1156,11 @@ From production: a person's monthly review said net worth rose in a month of spe
 |----|----------|-------|----------|
 | BW1 | Starting balances are not gains | A person records two wallets' starting balances and spends in the same month, in Omani rials | The monthly review and the report card say net worth fell by what was spent; the starting balances (and money changed from another currency) are not counted as a rise |
 | BW3 | The runway said once | A company review whose suggestion says how long cash lasts | The cash line gives the cash only; with suggestions switched off, the cash line gives the months |
+
+## BX. The chat knows where the app's own files are (chat review 2026-11-10)
+
+From production: asked for the journal as Excel, the assistant ran the month-end checklist for the month under way, said it had no tool, and pointed to "Manager reports → Monthly close pack" in English, the wrong report.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BX1 | The journal as Excel | «دفتر روزنامه سه ماه اول رو اکسل می‌خوام برای دارایی» (or "I need the journal in Excel") | The reply says «گزارش‌های مدیریتی ← گزارش «دفتر روزنامه» ← «دفتر روزنامه (اکسل)»», in the user's language, with no checklist run. «کارهای پایان ماه چی مونده؟» still gets the checklist, and the close pack's place in the user's language |

@@ -1183,3 +1183,13 @@ From production: a school's books were reset six times and imported again; each 
 |----|----------|-------|----------|
 | BZ1 | Kept across a reset | A school switched to its own codes; the console clears its books; its journal is imported again (on the page or in the chat) | The accounts are on the school's codes again by themselves, the same codes as before, and the import's message says so («حساب‌ها دوباره با کدهای خودتان شماره‌گذاری شد»). Books that never chose their own codes import as before |
 | BZ2 | When codes need a choice | As BZ1, but the new file gives one code to two different accounts | Nothing is switched; the import's message says how many codes need a choice and where: «کدینگ حساب‌ها» ← «کدهای حساب خودتان» |
+
+## CA. Step by step, one card at a time (chat review 2026-11-10)
+
+From production: a school's statement of 205 rows was walked step by step. Next was pressed twice, so two cards stood open; confirming the upper one moved on past the other, and its row was never posted. The statement stayed "reviewing" after every row was in the books, and rows the reader couldn't read became entries described «EMPTY».
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CA1 | One card at a time | Step by step (web «رفع قدم‌به‌قدم» or the phone's Next); press Next again before confirming the card | No second card: «کارت ردیف ۲ بالاتر هنوز منتظر است: تأییدش کنید یا لغوش کنید، بعد ادامه دهید.» Once it is confirmed or cancelled, Next gives the following row; no row is passed over |
+| CA2 | The statement done | Confirm the last row's card, then Next | «همهٔ ردیف‌های این صورت‌حساب در دفاتر است» and the statement is approved, not "reviewing" — also after another check against the books |
+| CA3 | A reader's placeholder | A scanned row whose narration came back «EMPTY» (or «-», or digits only) | Its card takes the description the assistant gave, not «EMPTY» |

@@ -288,6 +288,9 @@ The books you manage here belong to ONE PERSON tracking their own daily money �
 * A LIST in one message («$333.77 - Muscat Airbnb», one thing per line) is one card per line, each with its own amount and description, in the currency written. Stays, hotels, flights and trip tickets go under «سفر» (Travel).
 * AN ANSWER NEVER DROPS THE LIST. When you asked about a list (who paid it, where the cash is) and the user answers («یکیش رو امیر بهم نقدی داده، بقیه از حساب امین پرداخت شده»: one Amir gave in cash, the rest Amin paid), make a card for EVERY item of that list in that turn: Amir's cash into the place they name (Dr the place / Cr «بدهی به دیگران», Amir on it) AND one card per remaining line, each Dr its category (Airbnb, hotel and tickets under «سفر») / Cr «بدهی به دیگران» in its own currency, with the person who paid it (Amin) on each — never only the item the question was about. Asked what they owe someone whose items they told you in this conversation but no card of theirs was confirmed («چقدر به امین بدهکارم؟»), say what they told you (the items and each currency's total) and that it isn't recorded yet, and make the cards — never answer only "nothing recorded".
 * EVERYTHING IN A PLACE, or what is left in it («هرچی توی پاکت توی کشو بود دادم به همسرم»، «باقی‌مانده پاکت»، "all the money in the envelope"): ``propose_empty_place`` with the place, what came back and where it went (``back``), and the category the rest was spent on (``rest_account``, a code from YOUR BOOKS AT A GLANCE). It reads the balance and works out the rest itself — never subtract it yourself. Purchases they name with their amounts («۳۳ ریال لولو») are their own cards first; then the place's rest. When they don't say what the rest was spent on, ask once with ``ask_with_choices``.
+* A BALANCE THE USER SAYS IS WRONG («اشتباه میکنی، یه ۶۲۹ و یه ۵۵۰ همین الان اضافه کردیم»): read it again — ``get_account_balance`` gives each currency's own (``by_currency``) — and name the entries just recorded into it; the cards they confirmed are already in it. Never make a "correction" card to bring a balance to what they expect: money that is really missing is recorded as what it was (income, a person, another place), asked once if unclear.
+* A FIGURE THE USER CORRECTS («۵۵۰ نبود دقیقش کمتر بود»): look at the card already made (549.350) and say what it holds — don't ask for a figure you have. Change a card only for a figure they give.
+* MONEY BACK for something already recorded as their spending (the company paid back a purchase, a shop's refund): credit that purchase's category (the iSTYLE purchase's «لوازم و تعمیرات خانه»), not «طلب از دیگران» — nobody owed it to them before.
 * CLOSING A PLACE («کیف پول گل گلی رو حذف کن», «ببندش»، "close the blue wallet"): ``propose_empty_place`` with close=true. A place that holds nothing is just closed. When it still holds money, ask once with ``ask_with_choices`` where that money is now — given to someone (to a spouse or family: the family category as ``rest_account``), moved to another of their places (``back``), or spent — then ONE card that empties it and closes it. Never ``propose_money_place`` with 0 for this.
 * A WRONG DATE on entries already in the books («اون نه تا سفر مال شهریور بود نه این هفته»، "the Airbnb was on 15 August"): find them (``query_ledger`` gives each entry's ``transaction_id``) and call ``propose_change_date`` with each one's real date — one card for all of them. Nothing else about them changes. An entry without a date the user knows: ask once for the day or the month.
 * MOVING ENTRIES TO ANOTHER CATEGORY («این سه تا خرید رو اشتباه زیر «خانواده و هدایا» ثبت کردی، ببرشون زیر «لوازم و تعمیرات خانه»», 'move these to Travel'): ONE correcting card with ``propose_create_transaction``: Dr the new category / Cr the old one, in the entries' own currency, for their total (2 + 3 + 1 = 6.000 OMR), described with what they were. No entry ids, no reversals, no wallet on it — the money already left the wallet; only its category changes. Never answer with a reminder for next time instead.
@@ -1249,7 +1252,7 @@ def turn_language(db, message: str | None, session_id, lang: str) -> str:
 
 # Refusals that name their own fix: a reply that ends the turn without the fixed
 # card gets the refusal once more. A closed period or a future date is final.
-_CORRECTABLE_REFUSALS = {"toman_not_converted", "unused_seed_account", "place_currency", "stated_currency",
+_CORRECTABLE_REFUSALS = {"more_back_than_spent", "more_back_than_owed", "toman_not_converted", "unused_seed_account", "place_currency", "stated_currency",
                          "people_direction", "money_from_person", "own_bank_transfer"}
 
 
@@ -1271,6 +1274,20 @@ def _tool_figures(value, out: set[int]) -> set[int]:
 
 
 _STRAY_TAIL = re.compile(r"([.!؟?])\s*[A-Za-z]{3,24}\s*$")
+# letters of scripts no reply of this app is in — Greek, Cyrillic, Hebrew, the Indic scripts, Thai…, Hangul, kana,
+# CJK: the model's stray tokens («તારીખ» after a Persian card, «大小规律», «пока»; owner's phone, 2026-11-12,
+# chat review 2026-11-10 item 25, scenario CC4)
+_FOREIGN = "\u0370-\u03FF\u0400-\u052F\u0590-\u05FF\u0900-\u0DFF\u0E00-\u0FFF\u1100-\u11FF\u3040-\u30FF" \
+           "\u3400-\u4DBF\u4E00-\u9FFF\uAC00-\uD7AF"
+_FOREIGN_RUN = re.compile(rf"[ \t]*[{_FOREIGN}][{_FOREIGN}\u200c\u200d]*")
+
+
+def _no_foreign_words(text: str) -> str:
+    """Words in a script no reply here is written in are the model's stray tokens: they go."""
+    if not text or not _FOREIGN_RUN.search(text):
+        return text
+    out = _FOREIGN_RUN.sub("", text)
+    return "\n".join(line.rstrip() for line in out.split("\n")).strip()
 
 
 def _no_stray_tail(text: str) -> str:
@@ -1883,8 +1900,10 @@ async def run_chat_turn(
             )
 
         if stop_reason == "end_turn" or not assistant_msg.tool_calls:
-            final_text = _persian_separators(_no_stray_tail(_true_figures(assistant_msg.text or "", tool_call_log)))
-            final_text = _choices_as_chips(final_text, tool_call_log)
+            final_text = _persian_separators(_no_stray_tail(_no_foreign_words(
+                _true_figures(assistant_msg.text or "", tool_call_log))))
+            # the choices taken out of the text can leave the model's stray word last («…بگیرم؟ kartaa»): CC4
+            final_text = _no_stray_tail(_choices_as_chips(final_text, tool_call_log))
             # Final one-card pass over EVERY proposal raised this chat turn (the
             # standalone create and the transaction/time action are often in
             # different LLM turns), so a redundant standalone create is dropped.

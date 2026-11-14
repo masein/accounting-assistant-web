@@ -2,7 +2,7 @@
 
 The owner, 2026-10-21: «رفع قدم‌به‌قدم» gave the first difference as a card and, once it was confirmed,
 nothing came next. Now the button takes the next row without the model, as the phone's Next does, and a
-confirmed card brings the next one by itself; «بعدی» skips one. The browser suite has no AI provider, so
+confirmed card brings the next one by itself; «بعدی» with a card still open names it instead of passing it (CA1). The browser suite has no AI provider, so
 this runs as the owner's server would without credit."""
 from __future__ import annotations
 
@@ -40,8 +40,12 @@ def test_aj13_step_by_step_carries_on_after_each_card(flow_page):
         expect(cards).to_have_count(2, timeout=15_000)                                        # the next one by itself
         expect(page.locator("#ai-acct-messages")).to_contain_text("پس از این، ۲ ردیف دیگر مانده.")
         expect(cards.first).to_contain_text("سند")                                            # the receipt, in Persian
-        page.locator(".ai-stmt-next button").click()                                          # «بعدی» skips one
-        expect(cards).to_have_count(3)
+        # «بعدی» with the second card still open: no third card, the open one is named (CA1)
+        page.locator(".ai-stmt-next button").last.click()
+        expect(page.locator("#ai-acct-messages")).to_contain_text("کارت ردیف ۲ بالاتر هنوز منتظر است")
+        expect(cards).to_have_count(2)
+        cards.nth(1).locator(".ai-card-actions button.btn-primary").click()                   # confirm it
+        expect(cards).to_have_count(3, timeout=15_000)                                        # then the next comes
         os.makedirs(ARTIFACTS, exist_ok=True)
         page.locator("#ai-acct-messages").screenshot(path=os.path.join(ARTIFACTS, "statement-step-by-step-fa.png"))
         assert watch.problems() == [], watch.problems()

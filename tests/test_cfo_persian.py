@@ -48,7 +48,7 @@ def test_v1_v2_the_persian_report_writes_persian_figures_and_no_runway(co, db):
     assert fa.runway_months == -1 and en.runway_months == -1              # V2: not «999»
     assert "۹۹۹" not in fa.narrative and "999" not in en.narrative
     assert "سه ماه اخیر" in fa.narrative and "سه ماه اخیر" in runway_fa
-    assert "nothing was spent in the last three months" in en.narrative
+    assert "the last three months brought in at least what they cost" in en.narrative
     kpi = {k.key: k for k in en.kpis}["runway_months"]
     assert kpi.value == -1 and kpi.risk_level == "normal"
     assert not any("runway" in (i.title or "").lower() for i in en.insights)

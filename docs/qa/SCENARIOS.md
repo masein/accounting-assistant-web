@@ -1148,6 +1148,33 @@ From the owner's phone: «چقدر پول داریم تو کیف پول سبز �
 | BV4 | Not a starting balance of 0 | The assistant tries a starting balance of 0 for an existing place | Refused, pointing to emptying and closing it |
 | BV5 | Only the tools these books have | In a person's books the assistant asks for "operations" and "dates" | Only a person's groups are offered; the dates tools are added, and "operations" is said to be not in these books — not "No such group" |
 
+## BW. The reviews' figures (chat review 2026-11-10)
+
+From production: a person's monthly review said net worth rose in a month of spending — the starting balances recorded that month and money changed from dollars counted as gains; a company's review said cash lasts 1.7 months beside an insight's 0.4 on the same day (two formulas: the owner chooses one, so it isn't here yet); and the review said the runway twice.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BW1 | Starting balances are not gains | A person records two wallets' starting balances and spends in the same month, in Omani rials | The monthly review and the report card say net worth fell by what was spent; the starting balances (and money changed from another currency) are not counted as a rise |
+| BW3 | The runway said once | A company review whose suggestion says how long cash lasts | The cash line gives the cash only; with suggestions switched off, the cash line gives the months |
+
+## BX. The chat knows where the app's own files are (chat review 2026-11-10)
+
+From production: asked for the journal as Excel, the assistant ran the month-end checklist for the month under way, said it had no tool, and pointed to "Manager reports → Monthly close pack" in English, the wrong report.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BX1 | The journal as Excel | «دفتر روزنامه سه ماه اول رو اکسل می‌خوام برای دارایی» (or "I need the journal in Excel") | The reply says «گزارش‌های مدیریتی ← گزارش «دفتر روزنامه» ← «دفتر روزنامه (اکسل)»», in the user's language, with no checklist run. «کارهای پایان ماه چی مونده؟» still gets the checklist, and the close pack's place in the user's language |
+
+## BY. One runway (chat review 2026-11-10; the owner chose the usual definition, 2026-11-14)
+
+From production: a company's review said cash lasts 1.7 months while the insight said 0.4 on the same day. The owner dashboard, the CFO report and the reviews averaged the gross costs of the last three months with the month just begun; the insight divided cash by the net burn of the last three complete months.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BY1 | One runway everywhere | A company with three complete months of 400 costs and 100 sales a month, about 300 of cash, and a few days of the month under way | The owner dashboard, the CFO report, the monthly review and the insight all say about 1 month: cash ÷ (costs − sales) a month over the three complete months. The burn rate shown is the costs of those months (400); the month under way counts in neither |
+| BY2 | Earning more than it spends | A company whose sales cover its costs | No runway ("not applicable"), and the CFO report says the last three months brought in at least what they cost |
+| BY3 | The short-runway alert | Two months of costs, the second the month under way, and cash overdrawn | The dashboard still raises "Cash runway is short" |
+
 ## BZ. The own-codes choice kept (chat review 2026-11-10; the owner chose this, 2026-11-14)
 
 From production: a school's books were reset six times and imported again; each time the accounts came back on the app's codes and the school switched to its own by hand.

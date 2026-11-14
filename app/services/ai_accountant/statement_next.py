@@ -39,6 +39,12 @@ LINES = {
             "fa": "ماندهٔ پایانی صورت‌حساب {closing} است و دفاتر برای {code} {name} مانده {book} را نشان می‌دهند.",
             "es": "El extracto cierra en {closing}; los libros muestran {book} en {code} {name}.",
             "ar": "يُقفل الكشف عند {closing}، والدفاتر تُظهر {book} في {code} {name}."},
+    # Next pressed again before the card above was confirmed: a second card was made, confirming the first moved on
+    # past it, and its row was never posted (chat review 2026-11-10, scenario CA1)
+    "waiting": {"en": "The card above for row {row} is still waiting: confirm or cancel it, then go on.",
+                "fa": "کارت ردیف {row} بالاتر هنوز منتظر است: تأییدش کنید یا لغوش کنید، بعد ادامه دهید.",
+                "es": "La tarjeta de la fila {row}, arriba, sigue esperando: confírmala o cancélala y luego sigue.",
+                "ar": "بطاقة السطر {row} أعلاه ما زالت بانتظارك: أكّدها أو ألغها ثم تابع."},
     "choose": {"en": "Which of your bank accounts is this statement's? It was compared with {code} {name}, the chart's "
                      "own bank account, because none of your banks matched it. Choose its account before any row is recorded.",
                "fa": "این صورت‌حساب مربوط به کدام حساب بانکی شماست؟ هیچ‌کدام از بانک‌های دفاتر با آن جور نشد و با {code} {name}، "
@@ -87,6 +93,9 @@ async def next_difference(db: Session, *, stmt, session, user_id: str, username:
         name = db.execute(select(Account.name).where(Account.code == code)).scalar() if code else ""
         return NextDifference(**base, text=said("choose", lang, code=code or "", name=name or ""), choose=True,
                               choices=bank_account_choices(db))
+    waiting = _waiting_row(db, stmt, user_id, str(session.id))
+    if waiting is not None:
+        return NextDifference(**base, text=said("waiting", lang, row=waiting))
     result = await ensure_statement_row_proposal(
         db, user_id=user_id, username=username, session_id=str(session.id), user_message="next",
         tool_calls=[{"name": "review_bank_statement", "input": {"statement_id": str(stmt.id)}}])
@@ -101,6 +110,27 @@ async def next_difference(db: Session, *, stmt, session, user_id: str, username:
     left = sum(1 for f in build_statement_review(db, stmt).findings
                if f.kind == "unrecorded" and f.suggested_fix == "post_row" and f.row_id and str(f.row_id) not in pending)
     return NextDifference(**base, text=said("left", lang, left), proposal=result, left=left)
+
+
+def _waiting_row(db: Session, stmt, user_id: str, session_id: str) -> int | None:
+    """The row number of this statement's card still waiting in this conversation, if any."""
+    import uuid as _uuid
+
+    from sqlalchemy import select
+
+    from app.models.bank_statement import BankStatementRow
+    from app.services.ai_accountant.statement_intake import _pending_row_ids
+    ids = []
+    for rid in _pending_row_ids(db, user_id, session_id):
+        try:
+            ids.append(_uuid.UUID(rid))
+        except ValueError:
+            continue
+    if not ids:
+        return None
+    return db.execute(select(BankStatementRow.row_index).where(
+        BankStatementRow.statement_id == stmt.id, BankStatementRow.id.in_(ids),
+        BankStatementRow.created_transaction_id.is_(None)).order_by(BankStatementRow.row_index).limit(1)).scalar()
 
 
 def _last_word(db: Session, stmt, user_id: str, session_id: str, lang: str) -> str:

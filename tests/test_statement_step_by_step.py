@@ -128,14 +128,25 @@ def test_aj13_one_card_at_a_time_and_the_next_after_confirming(client, db, co, p
     assert done.status_code == 200, done.text
     second = client.post(f"/ai-accountant/statements/{sid}/next", headers=phone, json={"session_id": session}).json()
     assert second["left"] == 1 and second["proposals"][0]["card"]["date"]["iso"] == "2026-07-24"
+    # Next again with row 2's card still open: no second card — it skipped row 2 when the first was confirmed (CA1)
+    waiting = client.post(f"/ai-accountant/statements/{sid}/next", headers=phone, json={"session_id": session}).json()
+    assert waiting["proposals"] == [] and "کارت ردیف ۲ بالاتر هنوز منتظر است" in waiting["text"]
+    done = client.post("/ai-accountant/execute", headers=phone,
+                       json={"confirmation_token": second["proposals"][0]["confirmation_token"]})
+    assert done.status_code == 200, done.text
     third = client.post(f"/ai-accountant/statements/{sid}/next", headers=phone, json={"session_id": session}).json()
-    assert third["left"] == 0 and len(third["proposals"]) == 1                  # «بعدی» skips the pending one
+    assert third["left"] == 0 and third["proposals"][0]["card"]["date"]["iso"] == "2026-07-25"
+    done = client.post("/ai-accountant/execute", headers=phone,
+                       json={"confirmation_token": third["proposals"][0]["confirmation_token"]})
+    assert done.status_code == 200, done.text
     last = client.post(f"/ai-accountant/statements/{sid}/next", headers=phone, json={"session_id": session}).json()
     assert last["proposals"] == [] and "همهٔ ردیف‌های این صورت‌حساب" in last["text"]
+    with use_company(co["cid"]):
+        assert db.get(BankStatement, uuid.UUID(sid)).status == "approved"       # every row in: closed (CA2)
     # the conversation keeps each card with its words, and where step by step stands
     msgs = client.get(f"/ai-accountant/sessions/{session}/messages", headers=phone).json()
     steps = [m["content"]["statement_next"] for m in msgs if m["content"].get("statement_next")]
-    assert [s["left"] for s in steps] == [2, 1, 0, 0] and all(s["statement_id"] == sid for s in steps)
+    assert [s["left"] for s in steps] == [2, 1, 0, 0, 0] and all(s["statement_id"] == sid for s in steps)
     assert sum(len(m["cards"]) for m in msgs) == 3
 
 
@@ -165,3 +176,9 @@ def test_aj12_the_phone_asks_for_the_account_too(client, db, co, phone):
     sid = _statement(db, co, bank="Parsian")
     blocks = client.post(f"/api/mobile/v1/statements/{sid}/next", headers=phone, json={}).json()["blocks"]
     assert [b["type"] for b in blocks] == ["text"] and "kind" not in blocks[0]
+
+
+def test_ca3_a_readers_placeholder_is_not_the_entrys_description():
+    from app.services.ai_accountant.proposal_tools import _usable_narration
+    assert not _usable_narration("EMPTY") and not _usable_narration(" - ") and not _usable_narration("123456")
+    assert _usable_narration("تعیین وضعیت چک عادی") and _usable_narration("POS SNAPP TEHRAN")

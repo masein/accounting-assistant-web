@@ -1165,6 +1165,44 @@ From production: asked for the journal as Excel, the assistant ran the month-end
 |----|----------|-------|----------|
 | BX1 | The journal as Excel | «دفتر روزنامه سه ماه اول رو اکسل می‌خوام برای دارایی» (or "I need the journal in Excel") | The reply says «گزارش‌های مدیریتی ← گزارش «دفتر روزنامه» ← «دفتر روزنامه (اکسل)»», in the user's language, with no checklist run. «کارهای پایان ماه چی مونده؟» still gets the checklist, and the close pack's place in the user's language |
 
+## BY. One runway (chat review 2026-11-10; the owner chose the usual definition, 2026-11-14)
+
+From production: a company's review said cash lasts 1.7 months while the insight said 0.4 on the same day. The owner dashboard, the CFO report and the reviews averaged the gross costs of the last three months with the month just begun; the insight divided cash by the net burn of the last three complete months.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BY1 | One runway everywhere | A company with three complete months of 400 costs and 100 sales a month, about 300 of cash, and a few days of the month under way | The owner dashboard, the CFO report, the monthly review and the insight all say about 1 month: cash ÷ (costs − sales) a month over the three complete months. The burn rate shown is the costs of those months (400); the month under way counts in neither |
+| BY2 | Earning more than it spends | A company whose sales cover its costs | No runway ("not applicable"), and the CFO report says the last three months brought in at least what they cost |
+| BY3 | The short-runway alert | Two months of costs, the second the month under way, and cash overdrawn | The dashboard still raises "Cash runway is short" |
+
+## BZ. The own-codes choice kept (chat review 2026-11-10; the owner chose this, 2026-11-14)
+
+From production: a school's books were reset six times and imported again; each time the accounts came back on the app's codes and the school switched to its own by hand.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| BZ1 | Kept across a reset | A school switched to its own codes; the console clears its books; its journal is imported again (on the page or in the chat) | The accounts are on the school's codes again by themselves, the same codes as before, and the import's message says so («حساب‌ها دوباره با کدهای خودتان شماره‌گذاری شد»). Books that never chose their own codes import as before |
+| BZ2 | When codes need a choice | As BZ1, but the new file gives one code to two different accounts | Nothing is switched; the import's message says how many codes need a choice and where: «کدینگ حساب‌ها» ← «کدهای حساب خودتان» |
+
+## CA. Step by step, one card at a time (chat review 2026-11-10)
+
+From production: a school's statement of 205 rows was walked step by step. Next was pressed twice, so two cards stood open; confirming the upper one moved on past the other, and its row was never posted. The statement stayed "reviewing" after every row was in the books, and rows the reader couldn't read became entries described «EMPTY».
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CA1 | One card at a time | Step by step (web «رفع قدم‌به‌قدم» or the phone's Next); press Next again before confirming the card | No second card: «کارت ردیف ۲ بالاتر هنوز منتظر است: تأییدش کنید یا لغوش کنید، بعد ادامه دهید.» Once it is confirmed or cancelled, Next gives the following row; no row is passed over |
+| CA2 | The statement done | Confirm the last row's card, then Next | «همهٔ ردیف‌های این صورت‌حساب در دفاتر است» and the statement is approved, not "reviewing" — also after another check against the books |
+| CA3 | A reader's placeholder | A scanned row whose narration came back «EMPTY» (or «-», or digits only) | Its card takes the description the assistant gave, not «EMPTY» |
+
+## CB. Receipts, one entry each (chat review 2026-11-10)
+
+From the owner's phone: two shops' receipts sent together became one entry of their sum, with no reference, both under one guessed category; a hypermarket's receipt was guessed as groceries when it was a vacuum cleaner.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CB1 | Two receipts | Send two receipts from two shops in one message | Two cards, each with its own total, date, shop and number as the reference, and its own file; a card of their sum is refused and made again as two |
+| CB2 | What was bought | A receipt that shows only a hypermarket's total | The assistant asks what it was (with choices) before choosing a category; with line items, it takes the category from them |
+
 ## CC. The owner's phone, 2026-11-14
 
 Asked «چقدر توی کیفم پول هست؟», the assistant read the wallet as one figure in rials — the dollars at a rate, the Omani rials left out — and read its dollars as Omani rials too. Told it was wrong, it made a "correction" card of the two amounts just confirmed, credited to «متفرقه»; the money a company paid back for a purchase went to «طلب از دیگران»; replies ended in stray words («તારીખ», «kartaa»).

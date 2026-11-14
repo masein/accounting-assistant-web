@@ -130,6 +130,16 @@ _MAG = "|".join(sorted(map(re.escape, _MAGNITUDE), key=len, reverse=True))
 _TOMAN_TERM = re.compile(rf"(\d[\d,٬\.]*)\s*({_MAG})?", re.IGNORECASE)
 # «۲۰ میلیون تومان», «۳ میلیارد و ۴۰۰ میلیون تومان», and in English: "640M Toman", "180million Toman", "42000 toman"
 # (chat review 2026-11-10, scenario BS1: the English ones were never read as tomans)
+# what a scanned statement's reader puts where it read no narration: «EMPTY», «-» (chat review 2026-11-10, CA3)
+_NO_NARRATION = {"empty", "null", "none", "n/a", "na", "-", "—", "nan"}
+
+
+def _usable_narration(text: str | None) -> bool:
+    """A bank's narration worth keeping as the entry's description: words, not a reader's placeholder."""
+    t = (text or "").strip()
+    return bool(t) and t.lower() not in _NO_NARRATION and sum(ch.isalpha() for ch in t) >= 3
+
+
 _TOMAN_AMOUNT = re.compile(
     rf"((?:\d[\d,٬\.]*\s*(?:{_MAG})\s*(?:و|and)\s*)*\d[\d,٬\.]*\s*(?:{_MAG})?)\s*(?:تومان|تومن|تومــان|tomans?)(?![a-z])",
     re.IGNORECASE)
@@ -544,6 +554,24 @@ def _guard_own_transfer(ctx: ToolContext, args) -> None:
         code="own_bank_transfer")
 
 
+def _guard_one_card_per_receipt(ctx: ToolContext, proposed_total) -> None:
+    """Two receipts are two entries: two shops' receipts sent together became one card of their sum, with no
+    reference (chat review 2026-11-10, scenario CB1)."""
+    from itertools import combinations
+
+    from app.core.money import plain
+    docs = [plain(a) for a in (getattr(ctx, "document_amounts", None) or []) if a]
+    total = plain(proposed_total)
+    if len(docs) < 2 or total in docs:
+        return
+    for n in range(2, min(len(docs), 6) + 1):
+        if any(plain(sum(c)) == total for c in combinations(docs, n)):
+            raise ToolError(
+                f"{grouped(total)} is the sum of {n} receipts. Each receipt is its own entry: one card per receipt, "
+                "with its own total, date, vendor and its number as the reference, and its file in attachment_ids.",
+                code="one_card_per_receipt")
+
+
 def _guard_typed_over_document(ctx: ToolContext, proposed_total) -> None:
     """The figure the user typed beats a document's that is a tenth of it: an invoice printed in tomans was read
     as rials and carded so, while the user's own message gave the cheque, ten times it (chat review 2026-11-10,
@@ -898,6 +926,7 @@ class ProposeCreateTransaction(BaseTool):
             _guard_amount(ctx, total)
             _guard_toman(ctx, total)
             _guard_typed_over_document(ctx, total)
+            _guard_one_card_per_receipt(ctx, total)
             _guard_seed_accounts(ctx, args.lines)
             _guard_stated_currency(ctx, args)
             _guard_people_direction(ctx, args)
@@ -945,7 +974,7 @@ class ProposeCreateTransaction(BaseTool):
             args.date = statement_row.tx_date
             # …and so is the bank's narration: weaker models paraphrase or
             # garble Persian text when copying it into the proposal.
-            if (statement_row.description or "").strip():
+            if _usable_narration(statement_row.description):
                 args.description = statement_row.description.strip()[:1024]
             # …and so is the bank account: the statement's own, not the chart's generic one.
             _anchor_bank_leg(ctx.db, statement_row, args.lines)
@@ -1080,7 +1109,10 @@ class ProposeCreateTransaction(BaseTool):
         # them with whatever the model put in attachment_ids. This makes the
         # file follow the entry even if a weaker model forgets to echo the
         # UUID into the proposal (chat-attachment feature).
-        merged_attachments = list(
+        # …but a card the model gave one of the turn's files is that file's: two receipts, two cards, each with its
+        # own receipt (chat review 2026-11-10, scenario CB1)
+        named = [a for a in payload.get("attachment_ids", []) if a in (ctx.attachment_ids or [])]
+        merged_attachments = named if named and len(ctx.attachment_ids or []) > 1 else list(
             dict.fromkeys([*payload.get("attachment_ids", []), *(ctx.attachment_ids or [])])
         )
         payload["attachment_ids"] = merged_attachments

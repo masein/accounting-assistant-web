@@ -249,7 +249,8 @@ class TestCFOReportWithData:
     def test_runway_is_reasonable(self, auth_client):
         resp = auth_client.get("/brain/cfo/report")
         runway = resp.json()["runway_months"]
-        assert runway > 0, "Runway should be positive when cash is positive"
+        # a business that takes in more than it spends burns nothing: no runway to measure, "not applicable" (BW2)
+        assert runway == -1, "A profitable business has no burn to measure a runway against"
 
 
 # ---------------------------------------------------------------------------

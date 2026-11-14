@@ -45,11 +45,9 @@ def test_n31_next_gives_each_unrecorded_row_as_a_voucher_then_says_done(client, 
     assert card["title"] == "کارمزد بانکی" and card["date"]["iso"] == "2026-09-01"     # the bank's date and words
     assert words["kind"] == "statement_next" and words["statement_id"] == sid and words["text"] == "پس از این، ۱ ردیف دیگر مانده."
     thread = first["thread_id"]
-    second = client.post(f"{API}/statements/{sid}/next", headers=fa, json={"thread_id": thread}).json()
-    card2, last = second["blocks"]
-    assert card2["amount"]["value"] == 4_500_000 and "kind" not in last                 # the last: no "next" offered
-    done = client.post(f"{API}/statements/{sid}/next", headers=fa, json={"thread_id": thread}).json()["blocks"]
-    assert [b["type"] for b in done] == ["text"] and "همهٔ ردیف‌های این صورت‌حساب" in done[0]["text"]
+    # one card at a time: Next with the card still open says so, and makes no second card (CA1)
+    wait = client.post(f"{API}/statements/{sid}/next", headers=fa, json={"thread_id": thread}).json()["blocks"]
+    assert [b["type"] for b in wait] == ["text"] and "کارت ردیف ۱ بالاتر هنوز منتظر است" in wait[0]["text"]
     # confirming posts the row, from the statement
     posted = client.post(f"{API}/proposals/{card['token']}/confirm", headers=phone).json()
     assert posted["state"] == "posted"
@@ -58,13 +56,19 @@ def test_n31_next_gives_each_unrecorded_row_as_a_voucher_then_says_done(client, 
         row = db.query(BankStatementRow).filter(BankStatementRow.statement_id == uuid.UUID(sid),
                                                 BankStatementRow.row_index == 1).one()
         assert row.created_transaction_id is not None
+    second = client.post(f"{API}/statements/{sid}/next", headers=fa, json={"thread_id": thread}).json()
+    card2, last = second["blocks"]
+    assert card2["amount"]["value"] == 4_500_000 and "kind" not in last                 # the last: no "next" offered
+    assert client.post(f"{API}/proposals/{card2['token']}/confirm", headers=phone).json()["state"] == "posted"
+    done = client.post(f"{API}/statements/{sid}/next", headers=fa, json={"thread_id": thread}).json()["blocks"]
+    assert [b["type"] for b in done] == ["text"] and "همهٔ ردیف‌های این صورت‌حساب" in done[0]["text"]
     # every block is one the clients know (docs/contracts)
     from tests.test_mobile_contract import contract_errors
-    for b in first["blocks"] + second["blocks"] + done:
+    for b in first["blocks"] + wait + second["blocks"] + done:
         assert contract_errors(b) == [], b
     # the thread keeps the cards and the words, for the history to redraw
     msgs = client.get(f"{API}/threads/{thread}/messages", headers=phone).json()
-    assert [b["type"] for m in msgs for b in m["blocks"]] == ["proposal", "text", "proposal", "text", "text"]
+    assert [b["type"] for m in msgs for b in m["blocks"]] == ["proposal", "text", "text", "proposal", "text", "text"]
 
 
 def test_n31_someone_elses_or_no_statement(client, db, co, phone):
@@ -123,15 +127,17 @@ def test_n41_money_against_an_open_invoice_is_a_payment_on_it(client, db, co, ph
         ar, ap = resolve_account_code(db, "ar"), resolve_account_code(db, "ap")
     assert [(ln["account"], ln["debit"], ln["credit"]) for ln in card["lines"]][1] == (ar, 0, 600_000)   # not Sales
     thread = first["thread_id"]
-    second = client.post(f"{API}/statements/{sid}/next", headers=phone, json={"thread_id": thread}).json()["blocks"][0]
-    assert second["tool"] == "propose_record_invoice_payment"                      # by the supplier's name
-    assert [(ln["account"], ln["debit"]) for ln in second["lines"]][0] == (ap, 300_000)
-    third = client.post(f"{API}/statements/{sid}/next", headers=phone, json={"thread_id": thread}).json()["blocks"][0]
-    assert third["tool"] == "propose_create_transaction"                             # no invoice: a voucher, as before
     from tests.test_mobile_contract import contract_errors
     assert contract_errors(card) == [], card
     posted = client.post(f"{API}/proposals/{card['token']}/confirm", headers=phone).json()
     assert posted["state"] == "posted" and posted["block"]["undo_seconds"] > 0
+    # one card at a time (CA1): each is confirmed before the next comes
+    second = client.post(f"{API}/statements/{sid}/next", headers=phone, json={"thread_id": thread}).json()["blocks"][0]
+    assert second["tool"] == "propose_record_invoice_payment"                      # by the supplier's name
+    assert [(ln["account"], ln["debit"]) for ln in second["lines"]][0] == (ap, 300_000)
+    assert client.post(f"{API}/proposals/{second['token']}/confirm", headers=phone).json()["state"] == "posted"
+    third = client.post(f"{API}/statements/{sid}/next", headers=phone, json={"thread_id": thread}).json()["blocks"][0]
+    assert third["tool"] == "propose_create_transaction"                             # no invoice: a voucher, as before
     # Undo under the card: the entry goes, the invoice reopens, the row is offered again
     undone = client.post(f"{API}/postings/{posted['block']['audit_log_id']}/undo", headers=phone)
     assert undone.status_code == 200 and undone.json() == {"state": "undone", "mode": "deleted"}, undone.text

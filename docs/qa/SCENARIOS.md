@@ -1193,3 +1193,12 @@ From production: a school's statement of 205 rows was walked step by step. Next 
 | CA1 | One card at a time | Step by step (web «رفع قدم‌به‌قدم» or the phone's Next); press Next again before confirming the card | No second card: «کارت ردیف ۲ بالاتر هنوز منتظر است: تأییدش کنید یا لغوش کنید، بعد ادامه دهید.» Once it is confirmed or cancelled, Next gives the following row; no row is passed over |
 | CA2 | The statement done | Confirm the last row's card, then Next | «همهٔ ردیف‌های این صورت‌حساب در دفاتر است» and the statement is approved, not "reviewing" — also after another check against the books |
 | CA3 | A reader's placeholder | A scanned row whose narration came back «EMPTY» (or «-», or digits only) | Its card takes the description the assistant gave, not «EMPTY» |
+
+## CB. Receipts, one entry each (chat review 2026-11-10)
+
+From the owner's phone: two shops' receipts sent together became one entry of their sum, with no reference, both under one guessed category; a hypermarket's receipt was guessed as groceries when it was a vacuum cleaner.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CB1 | Two receipts | Send two receipts from two shops in one message | Two cards, each with its own total, date, shop and number as the reference, and its own file; a card of their sum is refused and made again as two |
+| CB2 | What was bought | A receipt that shows only a hypermarket's total | The assistant asks what it was (with choices) before choosing a category; with line items, it takes the category from them |

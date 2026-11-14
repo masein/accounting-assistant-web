@@ -130,6 +130,16 @@ _MAG = "|".join(sorted(map(re.escape, _MAGNITUDE), key=len, reverse=True))
 _TOMAN_TERM = re.compile(rf"(\d[\d,٬\.]*)\s*({_MAG})?", re.IGNORECASE)
 # «۲۰ میلیون تومان», «۳ میلیارد و ۴۰۰ میلیون تومان», and in English: "640M Toman", "180million Toman", "42000 toman"
 # (chat review 2026-11-10, scenario BS1: the English ones were never read as tomans)
+# what a scanned statement's reader puts where it read no narration: «EMPTY», «-» (chat review 2026-11-10, CA3)
+_NO_NARRATION = {"empty", "null", "none", "n/a", "na", "-", "—", "nan"}
+
+
+def _usable_narration(text: str | None) -> bool:
+    """A bank's narration worth keeping as the entry's description: words, not a reader's placeholder."""
+    t = (text or "").strip()
+    return bool(t) and t.lower() not in _NO_NARRATION and sum(ch.isalpha() for ch in t) >= 3
+
+
 _TOMAN_AMOUNT = re.compile(
     rf"((?:\d[\d,٬\.]*\s*(?:{_MAG})\s*(?:و|and)\s*)*\d[\d,٬\.]*\s*(?:{_MAG})?)\s*(?:تومان|تومن|تومــان|tomans?)(?![a-z])",
     re.IGNORECASE)
@@ -893,7 +903,7 @@ class ProposeCreateTransaction(BaseTool):
             args.date = statement_row.tx_date
             # …and so is the bank's narration: weaker models paraphrase or
             # garble Persian text when copying it into the proposal.
-            if (statement_row.description or "").strip():
+            if _usable_narration(statement_row.description):
                 args.description = statement_row.description.strip()[:1024]
             # …and so is the bank account: the statement's own, not the chart's generic one.
             _anchor_bank_leg(ctx.db, statement_row, args.lines)

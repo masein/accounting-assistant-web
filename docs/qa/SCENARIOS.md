@@ -1147,3 +1147,13 @@ From the owner's phone: «چقدر پول داریم تو کیف پول سبز �
 | BV3 | A place given up is closed | «کیف پول والای رو ببند، پولاش دست همسره» | Asked once where the money is now; one card per currency empties it, the last one closes it. Closed, it is in no list, total or card; undoing the card opens it again. A place holding nothing is just closed; the books' own cash and bank accounts can't be |
 | BV4 | Not a starting balance of 0 | The assistant tries a starting balance of 0 for an existing place | Refused, pointing to emptying and closing it |
 | BV5 | Only the tools these books have | In a person's books the assistant asks for "operations" and "dates" | Only a person's groups are offered; the dates tools are added, and "operations" is said to be not in these books — not "No such group" |
+
+## CA. Step by step, one card at a time (chat review 2026-11-10)
+
+From production: a school's statement of 205 rows was walked step by step. Next was pressed twice, so two cards stood open; confirming the upper one moved on past the other, and its row was never posted. The statement stayed "reviewing" after every row was in the books, and rows the reader couldn't read became entries described «EMPTY».
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CA1 | One card at a time | Step by step (web «رفع قدم‌به‌قدم» or the phone's Next); press Next again before confirming the card | No second card: «کارت ردیف ۲ بالاتر هنوز منتظر است: تأییدش کنید یا لغوش کنید، بعد ادامه دهید.» Once it is confirmed or cancelled, Next gives the following row; no row is passed over |
+| CA2 | The statement done | Confirm the last row's card, then Next | «همهٔ ردیف‌های این صورت‌حساب در دفاتر است» and the statement is approved, not "reviewing" — also after another check against the books |
+| CA3 | A reader's placeholder | A scanned row whose narration came back «EMPTY» (or «-», or digits only) | Its card takes the description the assistant gave, not «EMPTY» |

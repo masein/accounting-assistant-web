@@ -1268,3 +1268,15 @@ From production: Omani rials in replies as «۱٫۷» or «۶۲۹» where the ap
 | CI2 | Names as the books spell them | A balance reply with «آینه نیلوفر» for the account «بانک آینده نیلوفر», or a branch with one letter moved | The name as the tool gave it. «بانک ملی» beside «بانک ملت» and «کیف پولم» stay as written |
 | CI3 | English on the Persian layout | Type «یثغ ذشممشدزث» | The assistant reads it as "dey ballance" and answers it (the balance of بانک دی); the conversation shows what was typed. Persian messages are never read this way |
 | CI4 | Each entry's history | Confirm a card, undo it; confirm another and reverse it | `GET /audit/versions/{id}` for the entry: «create» by the user who confirmed it, then «delete» for the undo; the reversing entry has its own «create»; a cancelled card leaves none |
+
+## CJ. Deploys from two registries (2026-11-16)
+
+The server pulled the api only from docker.netixsystem.com through Watchtower; the mirror answered 502 for days and production stayed thirteen merges behind while GHCR had every image. Now the `deployer` service (`scripts/deploy.sh`, DEPLOY.md §5) takes each new image from whichever registry answers. Checked by hand against a throwaway registry and a registry that doesn't exist.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CJ1 | The first registry is down | DEPLOY_REGISTRIES lists one that doesn't answer, then one that does; publish an image | The check logs the first as not answering (and skips it for DEPLOY_RETRY_AFTER), pulls from the second and deploys; `.deploy/status` names where it came from |
+| CJ2 | A new image | Publish a new `latest` | Within DEPLOY_INTERVAL the api is recreated on it (only the api); the image it ran is kept as `:previous`; `docker compose run --rm deployer once` does it at once |
+| CJ3 | Nothing new | A check with the same image | No restart; status «up to date» with the commit |
+| CJ4 | A broken image | Publish an image whose health check fails | After DEPLOY_HEALTH_TIMEOUT the previous image is back and healthy; the broken one isn't tried again; the next good image deploys |
+| CJ5 | Mounted elsewhere | Run the deployer with DEPLOY_DIR not the stack's folder | It refuses, naming the folder to set; no second stack is started |

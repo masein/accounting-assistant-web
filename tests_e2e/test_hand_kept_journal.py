@@ -62,9 +62,11 @@ def test_the_next_file_sees_the_accounts_an_import_created(flow_page):
     page.wait_for_load_state("networkidle")
     loads = []
     page.on("request", lambda r: loads.append(r.url) if "/accounts?limit=500" in r.url else None)
-    page.route("**/migration/journals/apply", lambda route: route.fulfill(
-        status=200, content_type="application/json",
-        body='{"posted": 2, "skipped": {}, "accounts_created": 1}'))
+    apply = "**/migration/journals/apply"
+
+    def answered(route):
+        route.fulfill(status=200, content_type="application/json",
+                      body='{"posted": 2, "skipped": {}, "accounts_created": 1}')
 
     def preview():
         page.set_input_files("#ji-file", BOOK)
@@ -75,9 +77,13 @@ def test_the_next_file_sees_the_accounts_an_import_created(flow_page):
     preview()
     before = len(loads)
     assert before >= 1
+    # the apply answered here only while it's clicked: with a route in place the browser never finished the
+    # file upload of the preview, which timed out after 30s (CI and locally, 2026-11-16)
+    page.route(apply, answered)
     page.click("#ji-apply")
     page.click("#ui-confirm-ok")
     wait_until(page, "() => !document.getElementById('ji-apply')")
+    page.unroute(apply, answered)
     preview()
     assert len(loads) == before + 1, loads                                  # the chart is read again
     assert watch.problems() == [], watch.problems()

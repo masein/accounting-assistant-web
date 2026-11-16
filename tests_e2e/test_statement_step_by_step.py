@@ -7,6 +7,7 @@ this runs as the owner's server would without credit."""
 from __future__ import annotations
 
 import os
+import uuid
 
 from playwright.sync_api import expect
 
@@ -53,6 +54,10 @@ def test_aj13_step_by_step_carries_on_after_each_card(flow_page):
         switch_language(page, "en")
 
 
+POST = r"""async ([path, body]) => { const r = await fetch(path, { method: 'POST',
+  headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return [r.status, await r.json()]; }"""
+PUT = POST.replace("'POST'", "'PUT'")
+
 # Days and amounts of its own: the suite's shared books hold other tests' entries in early August, and a row near
 # one of them is a row to look at, rightly kept out of a group (CI, 2026-11-16)
 GROUP_CSV = ("Date,Description,Debit,Credit,Balance\n"
@@ -75,6 +80,13 @@ def test_cd1_rows_alike_come_as_one_card(flow_page):
         with page.expect_response(lambda r: r.url.endswith("/ai-accountant/chat")) as res:
             page.click("#ai-acct-send")
         assert res.value.status == 200, res.value.text()
+        # a bank account of its own: in the suite's shared books other tests put accounts under 1110, and a group
+        # posts only to an account that takes entries (the row cards of AJ13 still go to 1110)
+        sid = res.value.json()["intake"]["statement_id"]
+        status, bank = page.evaluate(POST, ["/entities", {"type": "bank", "name": f"CD1 Bank {uuid.uuid4().hex[:6]}"}])
+        assert status in (200, 201), bank
+        status, out = page.evaluate(PUT, [f"/brain/bank-statements/{sid}/bank-account", {"code": bank["code"]}])
+        assert status == 200, out
         cards = page.locator(".ai-card[data-statement-id]")
         before = cards.count()                                  # the conversation may hold an earlier test's cards
         page.get_by_role("button", name="رفع قدم‌به‌قدم").last.click()
@@ -86,8 +98,8 @@ def test_cd1_rows_alike_come_as_one_card(flow_page):
         os.makedirs(ARTIFACTS, exist_ok=True)
         page.locator("#ai-acct-messages").screenshot(path=os.path.join(ARTIFACTS, "statement-group-fa.png"))
         cards.nth(before + 1).locator(".ai-card-actions button.btn-primary").click()          # confirm the group
-        # every row in: the last word, here the closing balance the shared books don't reach (BN4)
-        expect(page.locator("#ai-acct-messages")).to_contain_text("ماندهٔ پایانی صورت‌حساب ۱۷,۱۱۱,۱۲۸", timeout=15_000)
+        # every row in, on its own account the books now reach the statement's closing balance: the last word (BN4)
+        expect(page.locator("#ai-acct-messages")).to_contain_text("همهٔ ردیف‌های این صورت‌حساب در دفاتر است", timeout=15_000)
         assert watch.problems() == [], watch.problems()
     finally:
         switch_language(page, "en")

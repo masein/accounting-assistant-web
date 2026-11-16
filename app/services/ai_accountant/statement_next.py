@@ -11,10 +11,13 @@ found no «بانک دی» and was compared with 1110), nothing is proposed: the
 row is posted to a guess (scenario AJ12)."""
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 LINES = {
     "left": {"en": lambda n: f"{n} more to record after this one." if n else "This is the last one to record.",
@@ -174,12 +177,14 @@ async def _group_card(db: Session, stmt, *, session_id: str, user_id: str, usern
     last = next((c for c in cards if c.tool_name == "propose_create_transaction" and c.status == "executed"
                  and str((c.tool_input or {}).get("bank_statement_row_id")) in rows), None)
     if last is None:
+        logger.info("no group: no confirmed row card in this conversation")
         return None
     row = rows[str(last.tool_input["bank_statement_row_id"])]
     pattern = narration_pattern(row.description)
     bank = bank_account_for_statement(db, stmt)
     others = [ln.get("account_code") for ln in (last.tool_input or {}).get("lines") or [] if ln.get("account_code") != bank]
     if not pattern or not bank or len(set(others)) != 1:
+        logger.info("no group: pattern %r, bank %r, other accounts %r", pattern, bank, others)
         return None
     account = others[0]
     incoming = (row.credit or 0) > 0
@@ -189,6 +194,8 @@ async def _group_card(db: Session, stmt, *, session_id: str, user_id: str, usern
     alike = [r for rid, r in rows.items() if rid in open_ids and rid not in pending and rid not in declined
              and rid != str(row.id) and ((r.credit or 0) > 0) == incoming and narration_pattern(r.description) == pattern]
     if len(alike) < GROUP_MIN:
+        logger.info("no group: %d alike (open %d, pending %d, declined %d)", len(alike), len(open_ids), len(pending),
+                    len(declined))
         return None
     alike.sort(key=lambda r: (r.tx_date, -r.row_index))
     ctx = ToolContext(db=db, user_id=user_id, username=username, chat_session_id=session_id,
@@ -198,7 +205,8 @@ async def _group_card(db: Session, stmt, *, session_id: str, user_id: str, usern
             statement_id=str(stmt.id), bank_account_code=bank, per="day", row_ids=[str(r.id) for r in alike],
             **({"money_in_account_code": account} if incoming else {"money_out_account_code": account})))
         result.update(guardrails.review(db, result))
-    except (ToolError, guardrails.ProposalRefused, ValueError):
+    except (ToolError, guardrails.ProposalRefused, ValueError) as e:
+        logger.info("no group: %s %s", type(e).__name__, getattr(e, "code", "") or str(e)[:200])
         return None
     name = db.execute(select(Account.name).where(Account.code == account)).scalar() or account
     pending = _pending_row_ids(db, user_id, session_id)

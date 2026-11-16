@@ -25,7 +25,7 @@ from typing import Any
 
 LANGUAGES = ("en", "fa", "es", "ar")
 
-CURRENT_RELEASE = "2026.11.02.1"
+CURRENT_RELEASE = "2026.11.16.1"
 
 
 @dataclass(frozen=True)
@@ -2351,6 +2351,80 @@ RELEASES: tuple[Release, ...] = (
                     "fa": "گزارش‌های مدیریتی، «دفتر روزنامه»، دکمهٔ «دفتر روزنامه (اکسل)»: همهٔ آرتیکل‌های دوره، هر کدام با شمارهٔ سند، تاریخ، حساب کل و معین، شرح و مبلغ بدهکار و بستانکار. همان فایلی که هر سه ماه به دارایی و سامانه‌های دیگر می‌دهید؛ شمارهٔ اسناد سه‌ماههٔ بعد از همان‌جا ادامه پیدا می‌کند.",
                     "es": "Informes → Libro diario → «Libro diario (Excel)»: cada línea de los asientos del periodo, con su número de asiento, fecha, cuenta de mayor y auxiliar, descripción, debe y haber. El archivo que la agencia tributaria y otros servicios reciben cada tres meses; los números del trimestre siguiente continúan desde el último.",
                     "ar": "التقارير ← دفتر اليومية ← «دفتر اليومية (إكسل)»: كل سطر من قيود الفترة، مع رقم القيد والتاريخ والحساب العام والمساعد والبيان والمدين والدائن. الملف الذي تأخذه مصلحة الضرائب والخدمات الأخرى كل ثلاثة أشهر؛ وتستمر أرقام الربع التالي من آخر رقم.",
+                },
+            ),
+        ),
+    ),
+    Release(
+        version="2026.11.16.1",
+        date="2026-11-16",
+        highlights=(
+            Highlight(
+                key="statement-groups",
+                page="ai-accountant",
+                roles=_SME_BOOKS,
+                title={
+                    "en": "Bank statements: rows alike on one card",
+                    "fa": "صورت‌حساب بانکی: ردیف‌های مشابه در یک کارت",
+                    "es": "Extractos bancarios: filas parecidas en una sola tarjeta",
+                    "ar": "كشوف الحساب البنكية: الصفوف المتشابهة في بطاقة واحدة",
+                },
+                body={
+                    "en": "Step by step on a bank statement: once you confirm a row's card, the rows like it — the same direction and the same first words — come on one card with the account you chose, a voucher per day. If one is different, cancel the card and they come one at a time. The bank statements list also shows the rows posted from each statement apart from those already in the books.",
+                    "fa": "در «رفع قدم‌به‌قدم» صورت‌حساب بانکی، وقتی کارت یک ردیف را تأیید کنید، ردیف‌های مشابه آن (همان جهت و همان کلمه‌های اول شرح) با همان حسابی که انتخاب کردید در یک کارت می‌آیند، یک سند برای هر روز. اگر یکی فرق دارد، کارت را لغو کنید تا ردیف‌ها تک‌تک بیایند. فهرست صورت‌حساب‌های بانکی هم ردیف‌هایی را که از هر صورت‌حساب ثبت شده جدا از ردیف‌هایی نشان می‌دهد که از قبل در دفاتر بوده‌اند.",
+                    "es": "Paso a paso en un extracto bancario: cuando confirmas la tarjeta de una fila, las filas parecidas —la misma dirección y las mismas primeras palabras— llegan en una sola tarjeta con la cuenta que elegiste, un asiento por día. Si alguna es distinta, cancela la tarjeta y llegarán una a una. La lista de extractos también muestra las filas registradas desde cada extracto aparte de las que ya estaban en los libros.",
+                    "ar": "خطوة بخطوة في كشف الحساب البنكي: عندما تؤكد بطاقة صف، تأتي الصفوف المشابهة له —الاتجاه نفسه والكلمات الأولى نفسها— في بطاقة واحدة بالحساب الذي اخترته، قيد لكل يوم. إذا كان أحدها مختلفًا فألغِ البطاقة لتأتي الصفوف واحدًا واحدًا. وتعرض قائمة كشوف الحساب أيضًا الصفوف المسجّلة من كل كشف منفصلة عن الموجودة في الدفاتر من قبل.",
+                },
+            ),
+            Highlight(
+                key="receipts-one-card-each",
+                page="ai-accountant",
+                roles=_BOOKS,
+                title={
+                    "en": "Each receipt on its own card",
+                    "fa": "هر رسید، یک کارت",
+                    "es": "Cada recibo en su propia tarjeta",
+                    "ar": "كل إيصال في بطاقته الخاصة",
+                },
+                body={
+                    "en": "Send two receipts in one message and you get two cards, each with its own total, date, shop, receipt number and file. When a receipt shows only a total, the assistant asks what you bought before it chooses a category.",
+                    "fa": "اگر دو رسید را در یک پیام بفرستید، دو کارت می‌گیرید که هر کدام مبلغ کل، تاریخ، فروشگاه، شمارهٔ رسید و فایل خودش را دارد. وقتی روی رسید فقط مبلغ کل آمده، دستیار پیش از انتخاب دسته‌بندی می‌پرسد چه خریده‌اید.",
+                    "es": "Envía dos recibos en un mensaje y obtendrás dos tarjetas, cada una con su total, fecha, tienda, número de recibo y archivo. Cuando un recibo solo muestra el total, el asistente te pregunta qué compraste antes de elegir una categoría.",
+                    "ar": "أرسل إيصالين في رسالة واحدة وستحصل على بطاقتين، لكل منهما إجماليها وتاريخها ومتجرها ورقم إيصالها وملفها. وعندما لا يُظهر الإيصال سوى الإجمالي، يسألك المساعد عمّا اشتريته قبل أن يختار فئة.",
+                },
+            ),
+            Highlight(
+                key="places-each-currency",
+                page="ai-accountant",
+                roles=("personal",),
+                title={
+                    "en": "Your wallets and accounts, in each currency",
+                    "fa": "کیف پول‌ها و حساب‌ها، به تفکیک ارز",
+                    "es": "Tus carteras y cuentas, en cada moneda",
+                    "ar": "محافظك وحساباتك، بكل عملة",
+                },
+                body={
+                    "en": "Ask what's in a wallet or an account and the answer gives each currency's own amount, never one figure converted at a rate; Omani rials always to three places. A place you no longer use can be closed from the chat: its history stays, and undo opens it again. Money you get back for a purchase goes back to the category you spent it on.",
+                    "fa": "وقتی بپرسید در یک کیف پول یا حساب چقدر پول هست، پاسخ مبلغ هر ارز را جدا می‌گوید، نه یک عدد تبدیل‌شده با نرخ؛ ریال عمان همیشه با سه رقم اعشار. جایی را که دیگر استفاده نمی‌کنید می‌توانید در چت ببندید؛ سابقه‌اش می‌ماند و با واگرد دوباره باز می‌شود. پولی که بابت یک خرید پس می‌گیرید به همان دسته‌بندی برمی‌گردد که خرجش کرده بودید.",
+                    "es": "Pregunta qué hay en una cartera o una cuenta y la respuesta da el importe de cada moneda por separado, nunca una cifra convertida a un tipo de cambio; los riales omaníes siempre con tres decimales. Un lugar que ya no usas se puede cerrar desde el chat: su historial se conserva y deshacer lo vuelve a abrir. El dinero que te devuelven por una compra vuelve a la categoría en la que lo gastaste.",
+                    "ar": "اسأل عمّا في محفظة أو حساب، فيعطيك الرد مبلغ كل عملة على حدة، لا رقمًا واحدًا محوّلًا بسعر صرف؛ والريال العماني دائمًا بثلاث خانات عشرية. ويمكنك إغلاق مكان لم تعد تستخدمه من الدردشة: يبقى سجله، والتراجع يعيد فتحه. والمال الذي تستردّه عن مشتريات يعود إلى الفئة التي أنفقته فيها.",
+                },
+            ),
+            Highlight(
+                key="assistant-understands",
+                page="ai-accountant",
+                roles=_BOOKS,
+                title={
+                    "en": "The assistant understands you better",
+                    "fa": "دستیار منظور شما را بهتر می‌فهمد",
+                    "es": "El asistente te entiende mejor",
+                    "ar": "المساعد يفهمك أفضل",
+                },
+                body={
+                    "en": "«Last night» and the other dates in a message stay on the card, also after a correction. English typed with the Persian keyboard layout on («ذشمشدزث») is read as English. Account and bank names are written as your books spell them, and nothing is called recorded until you confirm its card.",
+                    "fa": "تاریخ‌هایی مثل «دیشب» روی کارت می‌ماند، حتی بعد از اصلاح. متن انگلیسی‌ای که با صفحه‌کلید فارسی تایپ شده («ذشمشدزث») انگلیسی خوانده می‌شود. نام حساب‌ها و بانک‌ها همان‌طور نوشته می‌شود که در دفاتر شماست، و تا کارتی را تأیید نکنید، دستیار نمی‌گوید ثبت شد.",
+                    "es": "«Anoche» y las demás fechas de un mensaje se quedan en la tarjeta, también después de una corrección. El inglés escrito con el teclado persa activado («ذشمشدزث») se lee como inglés. Los nombres de cuentas y bancos se escriben como en tus libros, y nada se da por registrado hasta que confirmas su tarjeta.",
+                    "ar": "«الليلة الماضية» وغيرها من التواريخ في الرسالة تبقى على البطاقة، حتى بعد التصحيح. والإنجليزية المكتوبة بلوحة المفاتيح الفارسية («ذشمشدزث») تُقرأ إنجليزية. وتُكتب أسماء الحسابات والبنوك كما هي في دفاترك، ولا يُقال إن شيئًا سُجّل حتى تؤكد بطاقته.",
                 },
             ),
         ),

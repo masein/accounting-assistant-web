@@ -269,3 +269,15 @@ def test_the_2026_10_14_notes_reach_the_people_who_can_use_them():
     assert keys("accountant") == {"voice-recording", "parties-from-accounts"}
     assert keys("personal") == {"voice-recording"}
     assert keys("manager") == keys("employee") == keys("viewer") == set()
+
+
+def test_the_2026_11_16_notes_reach_the_people_who_can_use_them():
+    """The chat review's fixes (2026-11-10 to 11-16): grouped statement rows for company books, a receipt per
+    card and a better-reading assistant for every book, each currency of a place for personal books."""
+    def keys(role):
+        out = rn.whats_new_for(role, "2026.11.02.1")
+        return {h["key"] for r in out["releases"] for h in r["highlights"]}
+    assert {"statement-groups", "receipts-one-card-each", "assistant-understands"} <= keys("owner")
+    assert "places-each-currency" not in keys("owner")
+    assert {"receipts-one-card-each", "places-each-currency", "assistant-understands"} <= keys("personal")
+    assert "statement-groups" not in keys("personal")

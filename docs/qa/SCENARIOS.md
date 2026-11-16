@@ -1229,3 +1229,12 @@ From production: a school's statement showed 140 rows "matched" when 138 of them
 | CG1 | The integrity history | Run the audit with a duplicate payment and two back-dated entries in the books | The history records "Duplicate payments" and "Backdated entries" as warnings with their findings — they were "pass" always; a check that fails to run is recorded so |
 | CG2 | A bank in Persian words | A Day Bank statement summarised in Persian | «بانک دی», never «Day», in the Persian sentence |
 | CG3 | Not recorded until confirmed | The assistant's reply to a card says «… ثبت شد» or "has been recorded" | It reads «… آماده شد» / "is ready to confirm"; words about entries already in the books («ثبت‌شده») stay |
+
+## CE. The mirror catches up (ops, 2026-11-16)
+
+The production server pulls from the legacy mirror. From 2026-11-14 it answered 502 for days; every publish skipped it and production stayed on an older image with nothing saying so.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CE1 | The mirror back after an outage | Publishes run while the mirror is down; the mirror comes back | Within the hour the "Mirror sync" workflow copies GHCR's latest to the mirror (its run summary says which digest), and the server's Watchtower deploys it; while the mirror is down, each hourly run ends with a warning, not a failure |
+| CE2 | Nothing to do | The mirror already has GHCR's latest | The run says «The mirror is current» and copies nothing |

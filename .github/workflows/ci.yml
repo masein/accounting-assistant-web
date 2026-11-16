@@ -196,6 +196,11 @@ jobs:
       # 120 a minute the smoke checks were reading pages whose data got a 429
       # (the watcher now fails on any 429, so a test that runs out says so)
       API_RATE_LIMIT_PER_MINUTE: "1000"
+      # No AI in the browser suite, as in a local run: a closed local port fails
+      # at once, where the real provider without a key answered 401 over the
+      # internet, slowly enough to time a chat turn out (2026-11-16)
+      AI_PROVIDER: lmstudio
+      LM_STUDIO_BASE_URL: http://127.0.0.1:9
     steps:
       - name: Check out code
         uses: actions/checkout@v4

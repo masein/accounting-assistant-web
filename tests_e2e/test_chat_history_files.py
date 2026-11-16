@@ -20,7 +20,9 @@ def test_a_receipt_sent_alone_comes_back_as_its_chip_not_the_models_prompt(flow_
     page.wait_for_load_state("networkidle")
     with page.expect_response(lambda r: "/transactions/attachments" in r.url and r.request.method == "POST"):
         page.set_input_files("#ai-acct-file", files=[{"name": "bakery-receipt.png", "mimeType": "image/png", "buffer": PNG}])
-    with page.expect_response(lambda r: r.url.endswith("/ai-accountant/chat")):
+    # the turn tries the receipt's reading and the model, each failing without an AI: more than 30s on a slow
+    # runner (CI, 2026-11-16)
+    with page.expect_response(lambda r: r.url.endswith("/ai-accountant/chat"), timeout=120_000):
         page.click("#ai-acct-send")                       # no words: the receipt alone; no AI here, so it fails
     page.reload()
     page.evaluate("() => { location.hash = 'ai-accountant'; }")

@@ -140,6 +140,8 @@ def plan(db: Session, stmt: BankStatement, *, bank: str, money_in: str | None, m
     from app.services.period_service import get_closed_period
     locked = get_closed_period(db)
     rows = db.execute(select(BankStatementRow).where(BankStatementRow.statement_id == stmt.id)).scalars().all()
+    from app.services.statement_checks import in_time_order
+    when = {r.id: i for i, r in enumerate(in_time_order(rows))}      # the whole statement says its order (CK2)
     if row_ids is not None:
         wanted = set(row_ids)
         rows = [r for r in rows if str(r.id) in wanted]
@@ -163,14 +165,14 @@ def plan(db: Session, stmt: BankStatement, *, bank: str, money_in: str | None, m
             left["no_rule"] += 1
             continue
         picked.append((r, other))
-    # oldest first; within a day in the bank's own order (a statement lists the newest first)
-    picked.sort(key=lambda x: (x[0].tx_date, -x[0].row_index))
+    # oldest first; within a day in the order they happened, whichever way the statement lists them
+    picked.sort(key=lambda x: when[x[0].id])
     groups: dict[Any, list] = defaultdict(list)
     for r, other in picked:
         groups[r.tx_date if per == "day" else r.id].append((r, other))
     vouchers = []
     totals: dict[tuple[str, str], int] = defaultdict(int)
-    for key in sorted(groups, key=lambda k: (groups[k][0][0].tx_date, -groups[k][0][0].row_index)):
+    for key in sorted(groups, key=lambda k: when[groups[k][0][0].id]):
         lines = []
         for r, other in groups[key]:
             amount = plain(r.credit if (r.credit or 0) > 0 else r.debit)

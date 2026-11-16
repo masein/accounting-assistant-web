@@ -194,7 +194,8 @@ def build_statement_review(db: Session, stmt: BankStatement) -> StatementReviewR
     balance: StatementBalanceCheck | None = None
     closing_rows = [r for r in rows if r.balance is not None]
     if closing_rows and bank_code:
-        last = max(closing_rows, key=lambda r: (r.tx_date, r.row_index))
+        from app.services.statement_checks import in_time_order
+        last = in_time_order(closing_rows)[-1]           # a newest-first statement's last row is its first (CK1)
         as_of = stmt.to_date or last.tx_date
         book = book_balance_as_of(db, bank_code, as_of, currency=stmt.currency)
         gap = plain(last.balance) - book

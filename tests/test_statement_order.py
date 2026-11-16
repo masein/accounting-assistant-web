@@ -1,8 +1,8 @@
 """A statement's rows in the order they happened, whichever way it lists them (scenarios CK1, CK2).
 
-From production (2026-11-16): a bank's PDF statement lists the newest row first. The review took the row with the
-highest number on the last date as the closing one — on such a statement the *earliest* of that day — and reported
-a gap of hundreds of millions that wasn't there. The running balances say the order; without them, the dates.
+A bank's PDF statement lists the newest row first. The review took the row with the highest number on the last
+date as the closing one — on such a statement the *earliest* of that day — and reported a gap that wasn't there.
+The running balances say the order; without them, the dates.
 Figures made up.
 """
 from __future__ import annotations

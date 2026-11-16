@@ -1284,7 +1284,7 @@ The server pulled the api only from docker.netixsystem.com through Watchtower; t
 
 ## CK. A statement's rows in the order they happened (2026-11-16)
 
-From production: a bank's PDF statement lists the newest row first. With eight rows on its last day, the review read the closing balance from the earliest of them and showed a gap of about 800 million that didn't exist. The running balances now say which way a statement runs (the dates, without them), and everything that needs "the last row" or "oldest first" uses that order.
+A bank's PDF statement lists the newest row first. With several rows on its last day, the review read the closing balance from the earliest of them and showed a gap that didn't exist. The running balances now say which way a statement runs (the dates, without them), and everything that needs "the last row" or "oldest first" uses that order.
 
 | ID | Scenario | Steps | Expected |
 |----|----------|-------|----------|

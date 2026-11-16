@@ -164,6 +164,12 @@ async def upload_bank_statement(
     return await run_in_threadpool(said, out, request, db)
 
 
+def _row_counts(rows) -> dict:
+    """Rows posted from the statement, and rows found already in the books (matched to an entry it didn't make)."""
+    return {"posted_rows": sum(1 for r in rows if r.created_transaction_id is not None),
+            "found_rows": sum(1 for r in rows if r.created_transaction_id is None and r.recon_status == "matched")}
+
+
 def _reading_fields(db: Session, s: BankStatement) -> dict:
     """How far a scanned statement's reading is, and what was read (scenarios AJ1–AJ4, AJ8)."""
     from app.services.statement_import import read_report, settle_stale_reading
@@ -246,7 +252,7 @@ def list_bank_statements(
             currency=s.currency, from_date=s.from_date, to_date=s.to_date,
             status=s.status, total_rows=s.total_rows,
             matched_rows=s.matched_rows, new_rows=s.new_rows, origin=s.origin, **_bank_account_fields(db, s),
-            **_reading_fields(db, s),
+            **_reading_fields(db, s), **_row_counts(rows),
             rows=[BankStatementRowRead(
                 id=r.id, row_index=r.row_index, tx_date=r.tx_date,
                 description=r.description, reference=r.reference,
@@ -276,7 +282,7 @@ def get_bank_statement(statement_id: UUID, db: Session = Depends(get_db)) -> Ban
         currency=s.currency, from_date=s.from_date, to_date=s.to_date,
         status=s.status, total_rows=s.total_rows,
         matched_rows=s.matched_rows, new_rows=s.new_rows, origin=s.origin, **_bank_account_fields(db, s),
-        **_reading_fields(db, s),
+        **_reading_fields(db, s), **_row_counts(rows),
         rows=[BankStatementRowRead(
             id=r.id, row_index=r.row_index, tx_date=r.tx_date,
             description=r.description, reference=r.reference,

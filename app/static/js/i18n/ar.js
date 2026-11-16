@@ -2975,6 +2975,7 @@ window.I18N_PACKS.ar = Object.assign({
         thBank: 'البنك',
         thFile: 'الملف',
         thRows: 'الصفوف',
+        thPosted: 'المسجلة',
         thMatched: 'المطابقة',
         bsStatementDetail: 'تفاصيل الكشف',
         bsReconcileBtn: 'تسوية',

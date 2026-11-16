@@ -1306,6 +1306,27 @@ def _no_stray_tail(text: str) -> str:
     return text[:m.start() + 1]
 
 
+# A card isn't in the books until it is confirmed: «حقوق ۳۰ میلیون … ثبت شد. لطفاً کارت را تأیید کنید» told the user it
+# was recorded (chat review 2026-11-10, item 25, scenario CG3). Said only of what this turn's cards do.
+_NOT_YET = (
+    (re.compile(r"(?<![\w\u200c])ثبت شد(?:ه است)?(?![\w\u200c])"), "آماده شد"),
+    (re.compile(r"(?<![\w\u200c])ثبت کردم(?![\w\u200c])"), "آماده کردم"),
+    (re.compile(r"\b(?:has|have) been recorded\b", re.IGNORECASE), "is ready to confirm"),
+    (re.compile(r"\bI(?:'ve| have) recorded\b"), "I've prepared"),
+    (re.compile(r"\bse ha registrado\b", re.IGNORECASE), "está lista para confirmar"),
+    (re.compile(r"(?<![\w])تم تسجيل(?:ه|ها)?(?![\w])"), "جاهزة للتأكيد"),
+)
+
+
+def _not_recorded_yet(text: str, proposals: list) -> str:
+    """A reply in a turn that only made cards doesn't say the entry is recorded."""
+    if not text or not any(p.get("confirmation_token") and p.get("status", "pending") == "pending" for p in proposals):
+        return text
+    for pattern, said in _NOT_YET:
+        text = pattern.sub(said, text)
+    return text
+
+
 _FA_DECIMAL = re.compile(r"(?<=[۰-۹])\.(?=[۰-۹])")
 _FA_THOUSANDS = re.compile(r"(?<=[۰-۹])[،٬](?=[۰-۹]{3}(?![۰-۹]))")
 
@@ -1908,6 +1929,7 @@ async def run_chat_turn(
                 _true_figures(assistant_msg.text or "", tool_call_log))))
             # the choices taken out of the text can leave the model's stray word last («…بگیرم؟ kartaa»): CC4
             final_text = _no_stray_tail(_choices_as_chips(final_text, tool_call_log))
+            final_text = _not_recorded_yet(final_text, proposals)
             # Final one-card pass over EVERY proposal raised this chat turn (the
             # standalone create and the transaction/time action are often in
             # different LLM turns), so a redundant standalone create is dropped.

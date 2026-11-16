@@ -61,6 +61,9 @@ class ProposePostStatementInput(Replaceable):
     per: Literal["day", "row"] = Field(
         "day", description="day: one voucher for each date, its rows in it («به تفکیک تاریخ»), the default; "
                            "row: a voucher for each row.")
+    row_ids: list[str] | None = Field(
+        None, description="Only these rows of the statement (step by step's group of rows alike); every open row "
+                          "when left out.")
 
 
 def _fold(text: str | None) -> str:
@@ -87,8 +90,11 @@ def _picks(rule: dict, description: str | None) -> bool:
     return words in _fold(description)
 
 
-def _open(row: BankStatementRow) -> bool:
-    return (row.created_transaction_id is None and row.matched_transaction_id is None
+def _open(row: BankStatementRow, *, named: bool = False) -> bool:
+    """Not in the books. ``named``: rows the caller chose (step by step's group, from the review's unrecorded rows),
+    where a partial match's candidate isn't the row's entry — the review said so — and a card for the row alone
+    would post it too (CD1: the group came out empty in books with entries of nearby amounts)."""
+    return (row.created_transaction_id is None and (named or row.matched_transaction_id is None)
             and (row.recon_status or "unmatched") not in _CLOSED_STATUSES)
 
 
@@ -140,7 +146,7 @@ def plan(db: Session, stmt: BankStatement, *, bank: str, money_in: str | None, m
     left = {"in_the_books": 0, "closed_period": 0, "no_rule": 0}
     picked: list[tuple[BankStatementRow, str]] = []
     for r in rows:
-        if not _open(r):
+        if not _open(r, named=row_ids is not None):
             left["in_the_books"] += 1
             continue
         if locked is not None and r.tx_date <= locked:
@@ -237,7 +243,7 @@ class ProposePostStatement(BaseTool):
                             code="no_rules")
         rules = [r.model_dump() for r in args.rules]
         made = plan(ctx.db, stmt, bank=bank[0], money_in=args.money_in_account_code,
-                    money_out=args.money_out_account_code, rules=rules, per=args.per)
+                    money_out=args.money_out_account_code, rules=rules, per=args.per, row_ids=args.row_ids)
         if not made["vouchers"]:
             left = made["left"]
             raise ToolError(f"Nothing to post: {left['in_the_books']} rows are already in the books, "
@@ -275,7 +281,8 @@ class ProposePostStatement(BaseTool):
                    f"({'one per day' if args.per == 'day' else 'one per row'}), {first} to {last}, {currency}: "
                    f"{per_account}. Left out: {left['in_the_books']} already in the books, {left['closed_period']} in a "
                    f"closed period, {left['no_rule']} covered by no rule.")
-        return {"confirmation_token": str(token), "status": "pending", "summary": summary, "preview": payload}
+        return {"confirmation_token": str(token), "status": "pending", "summary": summary, "preview": payload,
+                "tool_name": self.name}
 
 
 def _bank_label(stmt: BankStatement, persian: bool) -> str:

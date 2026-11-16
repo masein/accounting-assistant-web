@@ -1213,3 +1213,14 @@ Asked «چقدر توی کیفم پول هست؟», the assistant read the walle
 | CC2 | Money back only from where it went | After confirming two amounts into the wallet: «اشتباه میکنی یه ۴۱۲ و یه ۳۲۰ همین الان اضافه کردیم» | No correction card: the assistant reads the wallet again and names the two entries. A card crediting a category more than was spent there, or «طلب از دیگران» more than is owed, is refused; a refund of what was spent is made |
 | CC3 | Money back for a purchase | «اون ۴۱۲ ریال رو از شرکت گرفتم» after a 412 purchase recorded as household spending | The card credits the purchase's category, not «طلب از دیگران»; «۳۲۰ نبود دقیقش کمتر بود» gets the card's own 318.250, not a question |
 | CC4 | No stray words | A reply the model ends with «તારીખ», or a question with buttons ending «kartaa» | The reply ends at its last sentence; names in Latin letters (SHOP LLC) stay |
+
+## CI. The rest of the small issues (chat review 2026-11-10, item 25)
+
+From production: Omani rials in replies as «۱٫۷» or «۶۲۹» where the app writes «۹۸۷٫۵۹۰»; a bank named with a letter dropped or moved; «یثغ ذشممشدزث» ("dey ballance" typed with the Persian layout on) answered "unclear"; and an entry's history empty unless it was made on the transactions page. "Last week" was checked: it is Saturday to Friday on a Jalali company, Monday to Sunday otherwise, in each currency. Names and figures made up.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CI1 | Omani rials to three places | A reply the model writes «کارت ۱٫۷ ریال عمان», «۶۲۹ ریال عمان», "59.90 OMR" | «۱٫۷۰۰ ریال عمان», «۶۲۹٫۰۰۰ ریال عمان», "59.900 OMR"; three places or more stay as they are; dollars and Iranian rials untouched |
+| CI2 | Names as the books spell them | A balance reply with «آینه نیلوفر» for the account «بانک آینده نیلوفر», or a branch with one letter moved | The name as the tool gave it. «بانک ملی» beside «بانک ملت» and «کیف پولم» stay as written |
+| CI3 | English on the Persian layout | Type «یثغ ذشممشدزث» | The assistant reads it as "dey ballance" and answers it (the balance of بانک دی); the conversation shows what was typed. Persian messages are never read this way |
+| CI4 | Each entry's history | Confirm a card, undo it; confirm another and reverse it | Audit → an entry's versions: «create» by the user who confirmed it, then «delete» for the undo; the reversing entry has its own «create»; a cancelled card leaves none |

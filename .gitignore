@@ -39,3 +39,5 @@ samples/
 # nightly backups written by the prod backup service
 backups/
 e2e-artifacts/
+# the deployer's state on a server (scripts/deploy.sh)
+.deploy/

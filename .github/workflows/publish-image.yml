@@ -3,9 +3,10 @@ name: Publish image
 # Builds the API Docker image and publishes it so a server can pull + deploy it.
 #
 # Primary registry: GitHub Container Registry (ghcr.io) — reliable, needs no
-# extra secrets (uses the built-in GITHUB_TOKEN). The old registry
-# (docker.netixsystem.com, behind ArvanCloud) is kept only as a BEST-EFFORT
-# mirror: it flaps with 502s, so it can never fail the publish.
+# extra secrets (uses the built-in GITHUB_TOKEN). The second registry
+# (docker.netixsystem.com, behind ArvanCloud) is a BEST-EFFORT mirror: it flaps
+# with 502s, so it can never fail the publish — but a server that can't reach
+# ghcr.io deploys from it (DEPLOY.md §5), so it is kept in step.
 #
 #  - CI green on `main`  → tags `latest` and `sha-<short-sha>` (never before CI passes)
 #  - push a tag `v1.2.3` → tags `1.2.3`, `1.2`, `1` (and `latest`)
@@ -169,6 +170,7 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # Zero-touch deploy is handled server-side by Watchtower (see
-  # docker-compose.prod.yml + DEPLOY.md). Point the server's API_IMAGE at the
-  # GHCR image to drop the ArvanCloud registry from the deploy path entirely.
+  # The server deploys on its own: its `deployer` service (scripts/deploy.sh,
+  # DEPLOY.md §5) pulls :latest from GHCR, or from the mirror when GHCR doesn't
+  # answer, and rolls the api back if the new image isn't healthy. That is why
+  # both registries get every image (and the hourly Mirror sync catches up).

@@ -1,10 +1,10 @@
 # Deployment
 
 CI builds the API Docker image and publishes it to **GitHub Container Registry**
-(`ghcr.io/<owner>/accounting-assistant-api`); a server then pulls that image and
-runs it with `docker-compose.prod.yml`. The old `docker.netixsystem.com`
-registry (behind ArvanCloud) is kept only as a **best-effort mirror** — it can't
-fail the publish, so ArvanCloud outages no longer block releases.
+(`ghcr.io/<owner>/accounting-assistant-api`) and copies it to the
+`docker.netixsystem.com` mirror (behind ArvanCloud) — best-effort, so a mirror
+outage never blocks a release. The server runs it with `docker-compose.prod.yml`,
+and its `deployer` takes each new image from **whichever registry answers** (§5).
 
 ## 1. One-time GitHub setup
 
@@ -27,7 +27,9 @@ Optional **Secrets** — only if the mirror registry is behind auth:
 
 The **Publish image** workflow (`.github/workflows/publish-image.yml`) runs:
 
-- on every push to `main` → tags `latest` and `sha-<short-sha>`
+- on every green CI run of `main` → tags `latest` and `sha-<short-sha>`, on GHCR
+  and (best-effort) on the mirror; **Mirror sync** (`.github/workflows/mirror-sync.yml`)
+  checks hourly that the mirror's `latest` is GHCR's and copies it if not
 - on a version tag → the semver tags. Cut a release:
   ```bash
   git tag v1.0.0 && git push origin v1.0.0
@@ -38,21 +40,20 @@ The **Publish image** workflow (`.github/workflows/publish-image.yml`) runs:
 ## 3. Run it on the server
 
 ```bash
-# once: install Docker + the compose plugin.
+# once: install Docker + the compose plugin. Both registries allow anonymous
+# pulls; if you make the GHCR package private, `docker login ghcr.io` first
+# with a GitHub PAT (classic) that has `read:packages`.
 
-# Pull from GHCR. If the package is PRIVATE, log in first with a GitHub PAT
-# (classic) that has `read:packages` — skip this line if you made it public:
-echo "$GHCR_PAT" | docker login ghcr.io -u <github-username> --password-stdin
-
-# copy these two files to the server (or `git clone`):
+# into one folder (the docs use /opt/accounting), copy from the repo:
 #   docker-compose.prod.yml
-#   .env          (from .env.prod.example — set AUTH_SECRET, DB_PASSWORD, METIS_API_KEY)
+#   scripts/deploy.sh  scripts/backup-loop.sh  scripts/backup.sh  scripts/restore.sh
+#   .env          (from .env.prod.example — set AUTH_SECRET, DB_PASSWORD, METIS_API_KEY,
+#                  and DEPLOY_DIR to this folder's absolute path)
+cd /opt/accounting
 cp .env.prod.example .env && $EDITOR .env
-# Point the deploy at the GHCR image (drops ArvanCloud from the pull path):
-echo 'API_IMAGE=ghcr.io/<owner>/accounting-assistant-api:latest' >> .env
 
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
+sh scripts/deploy.sh      # the first image, from ghcr.io or (if that doesn't answer) the mirror
+docker compose up -d      # db, api, deployer, backup  (.env sets COMPOSE_FILE=docker-compose.prod.yml)
 ```
 
 On start the container's entrypoint runs a **one-shot pre-start** — it waits for
@@ -70,45 +71,99 @@ the healthcheck `start_period`, not a failure.
 
 ## 4. Update to a new image
 
+Nothing to do: the deployer (§5) does it within `DEPLOY_INTERVAL` seconds of a
+publish. To deploy right now, or to see what happened:
+
 ```bash
-# pin a new tag in .env (API_IMAGE=…:1.1.0) for reproducible deploys, or keep :latest
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
+docker compose run --rm deployer once   # one check now (or: sh scripts/deploy.sh)
+cat .deploy/status                      # the last check: up to date / deployed / rolled back, and from where
+docker compose logs --tail=50 deployer  # every deploy, fallback and rollback, with times
 ```
+
+For a controlled release instead of following `main`, pin a published version
+in `.env` (`DEPLOY_TAG=1.2.3`) and run `docker compose up -d deployer`; set it
+back to `latest` to follow `main` again.
 
 Postgres data (`pgdata`) and uploaded branding logos (`uploads`) persist across
 redeploys in named volumes.
 
-## 5. Zero-touch deploy (Watchtower)
+## 5. Zero-touch deploys from two registries
 
-The deploy is **pull-based**: a `watchtower` service in `docker-compose.prod.yml`
-runs on the server, polls the registry, and auto-recreates the **api** container
-whenever CI publishes a new image. Nothing has to reach *into* the server — it
-only needs outbound access to the registry (which it already has), so this works
-even though GitHub's cloud runners can't SSH in.
+Every green build of `main` is published to **two registries** (§2):
+`ghcr.io/masein/accounting-assistant-api` (GitHub's, the primary) and
+`docker.netixsystem.com/accounting-assistant-api` (the mirror; the hourly
+**Mirror sync** workflow copies anything the publish couldn't). Either one can be
+out — the mirror answered 502 for days in November 2026, and ghcr.io can be out
+of reach from some networks — so the server takes each new image from **whichever
+answers**, on its own.
 
-It's built into the prod stack — **just run the stack** (§3) and it's on:
+The `deployer` service in `docker-compose.prod.yml` runs `scripts/deploy.sh loop`.
+Every `DEPLOY_INTERVAL` seconds (default 120) it:
+
+1. pulls `:DEPLOY_TAG` (default `latest`) from the first registry in
+   `DEPLOY_REGISTRIES` that answers — GHCR, then the mirror. A registry that
+   failed is skipped for `DEPLOY_RETRY_AFTER` seconds (default 30 minutes), so a
+   dead one doesn't slow every check; then it's tried first again;
+2. stops there if that image is the one running;
+3. otherwise tags the running image `accounting-assistant-api:previous`, the new
+   one `accounting-assistant-api:deployed` (the tag the api service runs), and
+   recreates **only the api** (never the database);
+4. waits up to `DEPLOY_HEALTH_TIMEOUT` seconds (default 300) for the api's health
+   check. Healthy: done, older copies removed. Not healthy: the previous image
+   is put back, and the new one isn't tried again until a newer one is published.
+
+So the full loop is: **push to `main` → CI passes → Publish pushes `:latest` to
+GHCR and the mirror → the deployer pulls it from whichever answers → api
+redeploys, or rolls back.** No one needs to reach into the server: it only
+pulls, so this works though GitHub's runners can't SSH in.
+
+What to know when working on it:
+
+- The api's image is a **local tag**; `docker compose pull` / `up` never pull it
+  (`pull_policy: never`). Only `scripts/deploy.sh` pulls. To run a particular
+  image by hand: `docker tag <image> accounting-assistant-api:deployed && docker compose up -d api`.
+- The deployer holds the Docker socket, so its image is pinned to an exact
+  version (`docker:27.5.1-cli`, which has the compose plugin).
+- It mounts the stack's folder at the **same path** as on the host
+  (`DEPLOY_DIR`), so compose inside is the same project. If they differ it refuses
+  to act and says so in its log — it never starts a second stack.
+- `.deploy/` (ignored by git) holds its state: `status`, `bad` (the image that
+  failed its health check), `failed-<registry>` (when one last failed).
+- A rollback after a new image already ran its migrations puts the old code on
+  the new schema. Migrations here only add, so the old code runs, but fix
+  forward: publish a fixed image and the deployer takes it.
+- Offline servers: `DEPLOY_REGISTRIES=` (empty) keeps the deployer idle;
+  `scripts/offline-deploy.sh` ships the image already tagged `:deployed`.
+- Change the order or add a registry by editing `DEPLOY_REGISTRIES` in `.env`
+  (space-separated, tried left to right), then `docker compose up -d deployer`.
+
+### Moving a server from Watchtower to the deployer
+
+A server set up before November 2026 runs `watchtower` and an api image named
+straight from one registry (`API_IMAGE=…`). Once, in its folder:
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d   # starts api, db, AND watchtower
+cd /opt/accounting
+cp docker-compose.prod.yml docker-compose.prod.yml.bak      # keep the old one
+# copy in from the repo: docker-compose.prod.yml, scripts/deploy.sh (and the backup scripts)
+# in .env: delete API_IMAGE= and WATCHTOWER_POLL_INTERVAL=, and add
+#   COMPOSE_FILE=docker-compose.prod.yml
+#   DEPLOY_DIR=/opt/accounting
+# and check the settings the newer compose reads: AUTH_COOKIE_SECURE (true for HTTPS),
+# FORWARDED_ALLOW_IPS, API_BIND, APP_PUBLIC_URL, APP_CORS_ORIGINS (see .env.prod.example)
+sh scripts/deploy.sh                    # the first image from whichever registry answers — or, if
+                                        # none does, the copy this server already runs, until one does
+docker compose up -d --remove-orphans   # api on it, the deployer and backup started, watchtower removed
+cat .deploy/status && docker compose ps
 ```
 
-- Only the api is updated (it carries the label `com.centurylinklabs.watchtower.enable=true`); the database is never touched (`WATCHTOWER_LABEL_ENABLE`).
-- On update Watchtower pulls the new image, recreates the container (which applies migrations on start), removes the old image, and keeps the `pgdata` / `uploads` volumes.
-- Tune the check frequency with `WATCHTOWER_POLL_INTERVAL` (seconds; default `120`) in `.env`.
-
-So the full loop is: **push to `main` → CI tests pass → the Publish workflow
-builds & pushes `:latest` (it runs only on a green CI run, never on a failed
-one) → Watchtower sees it within the poll interval → api redeploys.** For a controlled release
-instead, pin `API_IMAGE=…:1.2.3` in `.env` and re-run `up -d` when you want it.
-
-> The old SSH-based deploy job was removed — GitHub's runners can't reach the
-> server. If you added `DEPLOY_ENABLED` / `DEPLOY_*` secrets earlier, you can
-> delete them; they're unused now.
+If you had added backups with a separate `docker-compose.backup.yml`, the
+production file now has the `backup` service itself: run without that file and
+delete it. To go back, restore `docker-compose.prod.yml.bak` and the `.env` lines.
 
 ## 6. After a deploy: the 30-second health check
 
-Right after `up -d` (or a Watchtower auto-update), confirm the api came back on
+Right after `up -d` (or an automatic deploy — `cat .deploy/status`), confirm the api came back on
 its own — it should, with no manual restart:
 
 ```bash
@@ -233,7 +288,7 @@ the web server its own role:
    echo "APP_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
    ```
 2. Recreate the api container (`docker compose -f docker-compose.prod.yml up -d api`,
-   or let Watchtower do it on the next image).
+   or let the deployer do it on the next image).
 
 On start, pre-start (still running as `DB_USER`) creates the role `aa_app`
 (`APP_DB_USER` to rename it) and grants it read and write on rows only:
@@ -275,11 +330,14 @@ match its ranges. The dev stack (`docker-compose.yml`) still installs the
 ranges, so a local run needs no re-lock.
 
 **A server without internet:** `scripts/offline-deploy.sh user@server` builds
-the image, saves it with `postgres:16` and Watchtower, and copies them with
-`docker-compose.prod.yml`, `.env.prod.example` and the backup scripts — never
+the image, tags it `accounting-assistant-api:deployed`, saves it with
+`postgres:16` and the deployer's `docker` image, and copies them with
+`docker-compose.prod.yml`, `.env.prod.example`, the backup scripts and
+`scripts/deploy.sh` — never
 the source tree, a `.env`, a `backups/` folder or a database dump. On the
 server it loads the images and runs `docker compose -f docker-compose.prod.yml
-up -d --pull never` (the first time it stops and asks for the `.env`).
+up -d --pull never` (the first time it stops and asks for the `.env`). Set
+`DEPLOY_REGISTRIES=` (empty) in that server's `.env` so the deployer stays idle.
 
 ## Notes
 - `docker-compose.yml` (no suffix) stays the **dev** stack: it builds locally

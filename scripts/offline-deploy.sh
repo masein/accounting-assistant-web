@@ -9,7 +9,10 @@
 # database dump, a backup folder or a .env can't ride along.
 #
 #   SKIP_BUILD=1        ship the image already tagged $API_IMAGE instead of building
-#   API_IMAGE=repo:tag  the image name the server's compose runs (default below)
+#   API_IMAGE=repo:tag  the image built here (default below); the server runs it as
+#                       accounting-assistant-api:deployed, the tag its compose names
+#
+# A server without internet should keep its deployer idle: DEPLOY_REGISTRIES= (empty) in its .env.
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -27,6 +30,7 @@ SHIP=(
   scripts/backup-loop.sh
   scripts/backup.sh
   scripts/restore.sh
+  scripts/deploy.sh
 )
 # Belt and braces: never these, even if one of the paths above grows a folder.
 NEVER=('*.dump' '*.sql' '*.sql.gz' '*.tgz' '*.tar' '*.tar.gz' 'backups' '.env' '.env.local' 'app/uploads')
@@ -53,7 +57,8 @@ for pattern in "${NEVER[@]}"; do excludes+=(--exclude="$pattern"); done
 tar -czf "$workdir/$BUNDLE" "${excludes[@]}" "${SHIP[@]}"
 
 echo "[3/5] Saving the images..."
-images=("$API_IMAGE" "postgres:16" "containrrr/watchtower:1.7.1")
+docker tag "$API_IMAGE" accounting-assistant-api:deployed
+images=("accounting-assistant-api:deployed" "postgres:16" "docker:27.5.1-cli")
 for image in "${images[@]}"; do
   if ! docker image inspect "$image" >/dev/null 2>&1; then
     docker pull "$image" || { echo "Image not available locally and can't be pulled: $image" >&2; exit 1; }
@@ -74,6 +79,7 @@ ssh "$REMOTE_HOST" "set -e; cd '$REMOTE_DIR'
     echo '  docker compose -f docker-compose.prod.yml up -d --pull never' >&2
     exit 2
   fi
-  API_IMAGE='$API_IMAGE' docker compose -f docker-compose.prod.yml up -d --pull never"
+  grep -qs '^DEPLOY_REGISTRIES= *$' .env || echo 'Note: set DEPLOY_REGISTRIES= (empty) in .env so the deployer stays idle offline.' >&2
+  docker compose -f docker-compose.prod.yml up -d --pull never"
 
 echo "Deployed. Status: ssh $REMOTE_HOST 'cd $REMOTE_DIR && docker compose -f docker-compose.prod.yml ps'"

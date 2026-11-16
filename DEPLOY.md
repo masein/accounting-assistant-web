@@ -151,7 +151,8 @@ cp docker-compose.prod.yml docker-compose.prod.yml.bak      # keep the old one
 #   DEPLOY_DIR=/opt/accounting
 # and check the settings the newer compose reads: AUTH_COOKIE_SECURE (true for HTTPS),
 # FORWARDED_ALLOW_IPS, API_BIND, APP_PUBLIC_URL, APP_CORS_ORIGINS (see .env.prod.example)
-sh scripts/deploy.sh                    # the first image from whichever registry answers
+sh scripts/deploy.sh                    # the first image from whichever registry answers — or, if
+                                        # none does, the copy this server already runs, until one does
 docker compose up -d --remove-orphans   # api on it, the deployer and backup started, watchtower removed
 cat .deploy/status && docker compose ps
 ```

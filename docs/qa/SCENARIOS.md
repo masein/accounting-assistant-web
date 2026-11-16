@@ -1280,3 +1280,4 @@ The server pulled the api only from docker.netixsystem.com through Watchtower; t
 | CJ3 | Nothing new | A check with the same image | No restart; status «up to date» with the commit |
 | CJ4 | A broken image | Publish an image whose health check fails | After DEPLOY_HEALTH_TIMEOUT the previous image is back and healthy; the broken one isn't tried again; the next good image deploys |
 | CJ5 | Mounted elsewhere | Run the deployer with DEPLOY_DIR not the stack's folder | It refuses, naming the folder to set; no second stack is started |
+| CJ6 | Moving a server while both registries are down | A server that runs the mirror's image through Watchtower; neither registry answers; `sh scripts/deploy.sh` | The image already on the server becomes `:deployed`, so `docker compose up -d` keeps the api running; the first registry to answer later brings the newest |

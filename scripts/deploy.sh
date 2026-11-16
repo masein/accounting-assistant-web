@@ -87,11 +87,21 @@ check() {
     note "automatic deploys are off (DEPLOY_REGISTRIES is empty)"; return 0
   fi
   same_project || return 1
+  current=$(image_id "$LOCAL:deployed")
   if ! fetch; then
+    if [ -z "$current" ]; then                  # moving a server over: the copy it already runs, until one answers
+      for repo in $REGISTRIES; do
+        if [ -n "$(image_id "$repo:$TAG")" ]; then
+          docker tag "$repo:$TAG" "$LOCAL:deployed"
+          note "no registry answered; the copy of $repo:$TAG already here is in place ($(revision "$repo:$TAG"))"
+          log "no registry answered; the copy of $repo:$TAG already here is in place — now run: docker compose up -d"
+          return 0
+        fi
+      done
+    fi
     note "no registry answered; the api stays as it is"
     log "no registry answered; the api stays as it is"; return 1
   fi
-  current=$(image_id "$LOCAL:deployed")
   if [ "$got" = "$current" ]; then
     note "up to date: $(revision "$LOCAL:deployed") from $from"; return 0
   fi

@@ -105,3 +105,22 @@ def test_cd4_only_one_other_row_alike(client, db, co, phone):
     _confirm(client, phone, first["proposals"][0])
     nxt = _next(client, phone, sid, first["session_id"])
     assert nxt["proposals"][0]["tool_name"] == "propose_create_transaction"
+
+
+def test_cd1_a_row_with_a_partial_candidate_is_in_the_group(client, db, co, phone):
+    """A partial match the review calls unrecorded (its candidate isn't the row's entry) is posted with the group,
+    as its own card would post it: in books with entries of nearby amounts the group came out empty (CI, CD1)."""
+    _day_bank(db, co)
+    sid = _statement(db, co, [(TUITION.format(card=f"6037-66{i}"), 3_000_000 + i, 0) for i in range(1, 5)])
+    other = client.post("/transactions", headers=phone, json={"date": "2026-07-01", "description": "unrelated", "lines": [
+        {"account_code": "1110", "debit": 5, "credit": 0}, {"account_code": "4110", "debit": 0, "credit": 5}]}).json()["id"]
+    with use_company(co["cid"]):
+        r3 = db.query(BankStatementRow).filter(BankStatementRow.statement_id == uuid.UUID(sid),
+                                               BankStatementRow.row_index == 3).one()
+        r3.recon_status, r3.matched_transaction_id = "partial", uuid.UUID(other)
+        db.commit()
+    first = _next(client, phone, sid)
+    _confirm(client, phone, first["proposals"][0])
+    group = _next(client, phone, sid, first["session_id"])
+    card = group["proposals"][0]
+    assert card["tool_name"] == "propose_post_statement" and len(card["preview"]["row_ids"]) == 3, group["text"]

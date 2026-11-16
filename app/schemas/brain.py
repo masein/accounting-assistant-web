@@ -75,6 +75,10 @@ class BankStatementRead(BaseModel):
     total_rows: int
     matched_rows: int
     new_rows: int
+    # as they stand: rows the statement itself put in the books, and rows found already in them — "matched" counted
+    # both, 140 of a school's statement shown matched when 138 were posted from it (chat review 2026-11-10, CF1)
+    posted_rows: int = 0
+    found_rows: int = 0
     origin: str | None = None          # "email": read from the statements mailbox
     # The ledger account it belongs to and how that was decided: "chosen" (by the
     # user), "account_number", "name", "bank" (the bank's name), "default".

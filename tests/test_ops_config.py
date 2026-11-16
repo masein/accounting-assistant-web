@@ -52,6 +52,16 @@ def test_prod_compose_is_hardened_and_backs_up():
     assert b["image"].startswith("postgres:")
     assert any(v.endswith(":/backups") for v in b["volumes"])
     assert any(v == "uploads:/uploads:ro" for v in b["volumes"])
+    # period-close snapshots live on their own volume and are in the nightly backup: in the container's own
+    # layer every redeploy deleted them (2026-11-16)
+    assert "private_uploads:/app/app/private_uploads" in api["volumes"] and "private_uploads" in c["volumes"]
+    assert "private_uploads:/private_uploads:ro" in b["volumes"]
+    from app.api.exports import SNAPSHOT_DIR
+    assert SNAPSHOT_DIR.parent == ROOT / "app" / "private_uploads"
+    loop = (ROOT / "scripts/backup-loop.sh").read_text(encoding="utf-8")
+    assert "-C /private_uploads ." in loop and "-name 'private-uploads-*.tgz'" in loop
+    assert "/app/app/private_uploads/snapshots" in (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert '"${3:-}"' in (ROOT / "scripts/restore.sh").read_text(encoding="utf-8")
     assert b["depends_on"]["db"]["condition"] == "service_healthy"
 
 
@@ -93,3 +103,29 @@ def test_deploy_script_tries_each_registry_and_rolls_back():
         assert key in env, key
     assert "API_IMAGE=" not in env and "WATCHTOWER" not in env
     assert ".deploy/" in (ROOT / ".gitignore").read_text(encoding="utf-8")
+
+
+def test_the_live_copy_key_can_only_read(tmp_path):
+    """DEPLOY.md §13: the live copy's SSH key runs only ops/live-copy/server/accounting-copy-gate.sh. Anything but a
+    database pipe, a folder check and rsync SENDING one of the three synced folders is refused."""
+    import os
+    gate = ROOT / "ops/live-copy/server/accounting-copy-gate.sh"
+
+    def run(cmd):
+        env = {**os.environ, "SSH_ORIGINAL_COMMAND": cmd, "SSH_CLIENT": "203.0.113.9 50000 22"}
+        return subprocess.run(["sh", str(gate)], env=env, capture_output=True, text=True, timeout=10).returncode
+
+    for refused in ("id", "sh -c id", "bash", "", "has /etc", "has ../../etc",
+                    "rsync --server -logDtpre.iLsfxCIvu . /opt/accounting/backups/",          # receiving: a write
+                    "rsync --server --sender -logDtpre.iLsfxCIvu . /etc/",
+                    "rsync --server --sender -logDtpre.iLsfxCIvu . /opt/accounting/",
+                    "rsync --server --sender --files-from=/etc/shadow . /opt/accounting/backups/",
+                    "rsync --server --sender -e/bin/sh . /opt/accounting/backups/",
+                    "rsync --server --sender -logDtpre.iLsfxCIvu /etc/passwd /opt/accounting/backups/",
+                    "db-pipe; id", "has uploads; id"):
+        assert run(refused) != 0, refused
+    pipe = (ROOT / "ops/live-copy/scripts/pg-pipe.sh").read_text(encoding="utf-8")
+    assert pipe.rstrip().endswith('"$REMOTE" db-pipe')
+    deploy = (ROOT / "DEPLOY.md").read_text(encoding="utf-8")
+    assert 'restrict,command="/usr/local/bin/accounting-copy-gate"' in deploy
+    assert {".env", "known_hosts", "data/"} <= set((ROOT / "ops/live-copy/.gitignore").read_text().split())

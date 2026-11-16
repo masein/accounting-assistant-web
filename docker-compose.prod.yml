@@ -123,6 +123,10 @@ services:
     volumes:
       # Persist uploaded branding logos/stamps across image redeploys.
       - uploads:/app/app/uploads
+      # Period-close snapshots (app/api/exports.py). They lived in the
+      # container's own layer, so every redeploy deleted them and no backup
+      # held them (2026-11-16).
+      - private_uploads:/app/app/private_uploads
     depends_on:
       db:
         condition: service_healthy
@@ -192,6 +196,7 @@ services:
     volumes:
       - ${BACKUP_DIR:-./backups}:/backups
       - uploads:/uploads:ro
+      - private_uploads:/private_uploads:ro
       - ./scripts/backup-loop.sh:/backup-loop.sh:ro
     entrypoint: ["sh", "/backup-loop.sh"]
     depends_on:
@@ -206,3 +211,4 @@ services:
 volumes:
   pgdata:
   uploads:
+  private_uploads:

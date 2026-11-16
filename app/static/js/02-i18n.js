@@ -2997,6 +2997,7 @@
         thBank: 'Bank',
         thFile: 'File',
         thRows: 'Rows',
+        thPosted: 'Posted',
         thMatched: 'Matched',
         bsStatementDetail: 'Statement Detail',
         bsReconcileBtn: 'Reconcile',

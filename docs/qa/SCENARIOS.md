@@ -1281,3 +1281,12 @@ The server pulled the api only from docker.netixsystem.com through Watchtower; t
 | CJ4 | A broken image | Publish an image whose health check fails | After DEPLOY_HEALTH_TIMEOUT the previous image is back and healthy; the broken one isn't tried again; the next good image deploys |
 | CJ5 | Mounted elsewhere | Run the deployer with DEPLOY_DIR not the stack's folder | It refuses, naming the folder to set; no second stack is started |
 | CJ6 | Moving a server while both registries are down | A server that runs the mirror's image through Watchtower; neither registry answers; `sh scripts/deploy.sh` | The image already on the server becomes `:deployed`, so `docker compose up -d` keeps the api running; the first registry to answer later brings the newest |
+
+## CK. A statement's rows in the order they happened (2026-11-16)
+
+A bank's PDF statement lists the newest row first. With several rows on its last day, the review read the closing balance from the earliest of them and showed a gap that didn't exist. The running balances now say which way a statement runs (the dates, without them), and everything that needs "the last row" or "oldest first" uses that order.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CK1 | The closing balance | A newest-first statement (a PDF) with several rows on its last day; the same rows oldest first (a CSV) | The review's closing balance is the balance after the last thing that happened on the last day, in both; so is the gap the chat and the statement page say |
+| CK2 | A day's voucher in order | Post a statement by rules, a voucher per day, from a newest-first and from an oldest-first statement | Each day's voucher lists its rows in the order they happened, in both |

@@ -126,3 +126,35 @@ def mend_amounts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         mended.append({"page": row[1], "row": row[2], "read": before, "amount": row[0]["amount"],
                        "direction": row[0]["direction"]})
     return mended
+
+
+# --- the rows of a statement in the books, in the order they happened ----------------------------------------------
+
+def row_order(rows: list[Any]) -> str:
+    """``"newest_first"`` or ``"oldest_first"``: how a statement's rows (``BankStatementRow``) run by ``row_index``.
+    A PDF from the bank lists the newest first, a CSV or the bank's SMS the oldest first. The running balances say
+    which: each row's balance is the one before it plus what came in, less what went out. A statement without
+    balances goes by its dates (2026-11-16: a newest-first statement's closing balance was read from the earliest
+    row of its last day, scenario CK1)."""
+    ordered = sorted(rows, key=lambda r: r.row_index)
+    newest = oldest = 0
+    for a, b in zip(ordered, ordered[1:]):
+        if a.balance is None or b.balance is None:
+            continue
+        signed_a = Decimal(str(a.credit or 0)) - Decimal(str(a.debit or 0))
+        signed_b = Decimal(str(b.credit or 0)) - Decimal(str(b.debit or 0))
+        if _close(Decimal(str(b.balance)) + signed_a, Decimal(str(a.balance))):
+            newest += 1
+        if _close(Decimal(str(a.balance)) + signed_b, Decimal(str(b.balance))):
+            oldest += 1
+    if newest != oldest:
+        return "newest_first" if newest > oldest else "oldest_first"
+    dates = [r.tx_date for r in ordered if r.tx_date is not None]
+    return "newest_first" if len(dates) >= 2 and dates[0] > dates[-1] else "oldest_first"
+
+
+def in_time_order(rows: list[Any]) -> list[Any]:
+    """A statement's rows oldest first, those of one day in the order they happened: the last is its closing row."""
+    from datetime import date
+    newest_first = row_order(rows) == "newest_first"
+    return sorted(rows, key=lambda r: (r.tx_date or date.min, -r.row_index if newest_first else r.row_index))

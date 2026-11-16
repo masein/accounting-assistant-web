@@ -197,7 +197,8 @@ async def _group_card(db: Session, stmt, *, session_id: str, user_id: str, usern
         logger.info("no group: %d alike (open %d, pending %d, declined %d)", len(alike), len(open_ids), len(pending),
                     len(declined))
         return None
-    alike.sort(key=lambda r: (r.tx_date, -r.row_index))
+    from app.services.statement_checks import in_time_order
+    alike = in_time_order(alike)
     ctx = ToolContext(db=db, user_id=user_id, username=username, chat_session_id=session_id,
                       user_message="ردیف‌های مشابه" if lang == "fa" else "rows alike")
     try:

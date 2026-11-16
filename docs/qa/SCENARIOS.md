@@ -1257,3 +1257,14 @@ From production: a school's statement of 205 rows took 139 separate confirms in 
 | CH1 | Imported vouchers aren't a recurring payment | A journal imported with vouchers that had no narration («سند واردشده ۱۰۱»…) | No "missed recurring payment" insight for them; a real monthly payment (rent) is still found |
 | CH2 | A money account never used | A company with a bank used and another (or the chart's 1110) never used; «چقدر پول داریم؟» | Only the account with entries is listed; a person's own bank and cash places stay listed even before their first entry |
 | CH3 | No talk of tools | The assistant can't do something | It says what it found, can do, or needs — never "the tool" |
+
+## CI. The rest of the small issues (chat review 2026-11-10, item 25)
+
+From production: Omani rials in replies as «۱٫۷» or «۶۲۹» where the app writes «۹۸۷٫۵۹۰»; a bank named with a letter dropped or moved; «یثغ ذشممشدزث» ("dey ballance" typed with the Persian layout on) answered "unclear"; and an entry's history empty unless it was made on the transactions page. "Last week" was checked: it is Saturday to Friday on a Jalali company, Monday to Sunday otherwise, in each currency. Names and figures made up.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CI1 | Omani rials to three places | A reply the model writes «کارت ۱٫۷ ریال عمان», «۶۲۹ ریال عمان», "59.90 OMR" | «۱٫۷۰۰ ریال عمان», «۶۲۹٫۰۰۰ ریال عمان», "59.900 OMR"; three places or more stay as they are; dollars and Iranian rials untouched |
+| CI2 | Names as the books spell them | A balance reply with «آینه نیلوفر» for the account «بانک آینده نیلوفر», or a branch with one letter moved | The name as the tool gave it. «بانک ملی» beside «بانک ملت» and «کیف پولم» stay as written |
+| CI3 | English on the Persian layout | Type «یثغ ذشممشدزث» | The assistant reads it as "dey ballance" and answers it (the balance of بانک دی); the conversation shows what was typed. Persian messages are never read this way |
+| CI4 | Each entry's history | Confirm a card, undo it; confirm another and reverse it | `GET /audit/versions/{id}` for the entry: «create» by the user who confirmed it, then «delete» for the undo; the reversing entry has its own «create»; a cancelled card leaves none |

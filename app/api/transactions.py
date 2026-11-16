@@ -229,35 +229,14 @@ def _log_transaction_audit(db: Session, action: str, txn: Transaction) -> None:
     try:
         import json as _json
         from app.services.audit_service import log_audit_event
-        from app.models.audit_log import TransactionVersion
-
-        snapshot = {
-            "id": str(txn.id),
-            "date": txn.date.isoformat() if txn.date else None,
-            "reference": txn.reference,
-            "description": txn.description,
-            "lines": [
-                {"account_code": getattr(ln.account, "code", ""), "debit": ln.debit, "credit": ln.credit, "desc": ln.line_description}
-                for ln in (txn.lines or [])
-            ] if hasattr(txn, "lines") and txn.lines else [],
-        }
+        from app.services import transaction_versions
 
         log_audit_event(
             db, action=action, entity_type="transaction",
             entity_id=str(txn.id),
-            detail=_json.dumps(snapshot, default=str),
+            detail=_json.dumps(transaction_versions.snapshot(txn), default=str),
         )
-
-        existing_count = db.execute(
-            select(func.count(TransactionVersion.id)).where(TransactionVersion.transaction_id == str(txn.id))
-        ).scalar() or 0
-
-        db.add(TransactionVersion(
-            transaction_id=str(txn.id),
-            version=existing_count + 1,
-            snapshot=_json.dumps(snapshot, default=str),
-            action=action,
-        ))
+        transaction_versions.record(db, txn, action)
         db.commit()
     except (OSError, sa.exc.SQLAlchemyError) as exc:
         chat_logger.warning("audit_log_failed: %s", exc, exc_info=True)

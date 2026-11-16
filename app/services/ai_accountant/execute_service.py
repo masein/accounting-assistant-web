@@ -230,8 +230,10 @@ def execute_proposal(
         db.commit()
         raise ApprovalRequired(info)
 
-    txn_id, audit_id = _dispatch(db, proposal, actor_user_id=actor_user_id, actor_username=actor_username,
-                                 ip_address=ip_address)
+    from app.services.transaction_versions import versions_of_changes
+    with versions_of_changes(db, user_id=actor_user_id, username=actor_username):     # each entry's history (CI4)
+        txn_id, audit_id = _dispatch(db, proposal, actor_user_id=actor_user_id, actor_username=actor_username,
+                                     ip_address=ip_address)
 
     # Mark the proposal executed inside the same DB transaction.
     proposal.status = "executed"
@@ -266,8 +268,10 @@ def approve_proposal(db: Session, *, confirmation_token: str, approver_user_id: 
     proposal.approval_status = "approved"
     proposal.approved_by = str(approver_user_id)
     proposal.approved_at = datetime.now(timezone.utc)
-    txn_id, audit_id = _dispatch(db, proposal, actor_user_id=approver_user_id, actor_username=approver_username,
-                                 ip_address=ip_address)
+    from app.services.transaction_versions import versions_of_changes
+    with versions_of_changes(db, user_id=approver_user_id, username=approver_username):
+        txn_id, audit_id = _dispatch(db, proposal, actor_user_id=approver_user_id, actor_username=approver_username,
+                                     ip_address=ip_address)
     proposal.status = "executed"
     proposal.executed_at = datetime.now(timezone.utc)
     proposal.executed_audit_id = uuid.UUID(audit_id)
@@ -957,6 +961,21 @@ def undo_entries(db: Session, audit: AuditLog, ids: list[str], *, actor_user_id:
                       audit_log_id=str(audit.id), mode=mode)
 
 
+def _versioned(fn):
+    """The entries an undo or a reversal touches get their versions in each entry's history (CI4)."""
+    import functools
+
+    @functools.wraps(fn)
+    def wrapper(db: Session, *args, **kw):
+        from app.services.transaction_versions import versions_of_changes
+        with versions_of_changes(db, user_id=kw.get("actor_user_id"), username=kw.get("actor_username")):
+            result = fn(db, *args, **kw)
+        db.commit()
+        return result
+    return wrapper
+
+
+@_versioned
 def undo_action(
     db: Session,
     *,
@@ -1061,6 +1080,7 @@ def _entry_in_closed_period(db: Session, audit: AuditLog) -> bool:
     return locked_through is not None and txn.date <= locked_through
 
 
+@_versioned
 def reverse_action(
     db: Session,
     *,

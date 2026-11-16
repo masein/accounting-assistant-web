@@ -54,6 +54,7 @@ from .anthropic_client import AIAccountantError, AnthropicLLMClient
 from .base import BaseTool, ToolContext, ToolError, ToolRegistry
 from .llm_protocol import ChatMessage, LLMClient, LLMClientError, ToolCall
 from .openai_client import OpenAILLMClient
+from . import name_spelling
 from .equity_tools import register_equity_tools
 from .proposal_tools import register_proposal_tools
 from .read_tools import register_read_tools
@@ -1338,6 +1339,46 @@ def _persian_separators(text: str) -> str:
     return _FA_THOUSANDS.sub(",", _FA_DECIMAL.sub("٫", text or ""))
 
 
+def _three_place_currency_names() -> str:
+    """The names a reply gives a currency of three places (the Omani rial, the dinars): its code and its name in
+    each language, longest first, as one alternation."""
+    from app.core.currencies import NAMES
+    from app.core.money import exponent
+    names = {"ریال عُمان", "ریال عمانی"}
+    for code, row in NAMES.items():
+        if exponent(code) == 3:
+            names.update((code, *row))
+    return "|".join(re.escape(n) + ("s?" if n[:1].isascii() and not n.isupper() else "")
+                    for n in sorted(names, key=len, reverse=True))
+
+
+_AMOUNT_FIGURE = r"(?<![0-9۰-۹.,٫٬])((?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]{1,2})?|(?:[۰-۹]{1,3}(?:[,٬][۰-۹]{3})+|[۰-۹]+)(?:[٫.][۰-۹]{1,2})?)(?![0-9۰-۹])"
+_THREE_PLACES = re.compile(rf"{_AMOUNT_FIGURE}(\s*(?:{_three_place_currency_names()})(?![A-Za-z\u0600-\u06FF]))"
+                           rf"|(\b(?:{_three_place_currency_names()})\s*){_AMOUNT_FIGURE}", re.IGNORECASE)
+
+
+def _to_three_places(figure: str) -> str:
+    """«۱٫۷» → «۱٫۷۰۰», «629» → «629.000», in the figure's own digits."""
+    persian = any("۰" <= ch <= "۹" for ch in figure)
+    zero, point = ("۰", "٫") if persian else ("0", ".")
+    whole, sep, frac = figure.replace(".", point).replace("٫", point).partition(point)
+    return f"{whole}{point}{frac}{zero * (3 - len(frac))}"
+
+
+def _currency_places(text: str) -> str:
+    """Amounts of a three-place currency to its three places, as the app's own figures write them («۹۸۷٫۵۹۰ ریال
+    عمان»): the model wrote «۱٫۷ ریال عمان», «۶۲۹ ریال عمان», "59.90 OMR" (chat review 2026-11-10 item 25,
+    scenario CI1). A figure already with three places or more, and every other currency, stays as it is."""
+    if not text:
+        return text
+
+    def fix(m: re.Match) -> str:
+        if m.group(1) is not None:
+            return _to_three_places(m.group(1)) + m.group(2)
+        return m.group(3) + _to_three_places(m.group(4))
+    return _THREE_PLACES.sub(fix, text)
+
+
 def _true_figures(text: str, tool_call_log: list[dict]) -> str:
     """The reply's long figures as the tools gave them. Copying 21,721,200,283
     the model wrote «۲۱٬۷۱۲٬۱۰۰٬۲۸۳», and 1,017,516,253 as «۱٬۰۱۷٬۵۱۷٬۲۵۳» (AI
@@ -1788,9 +1829,13 @@ async def run_chat_turn(
         return ([all_defs[n] for n in _routing.tool_names(chosen, set(all_defs))]
                 + [_routing.more_tools_spec(set(all_defs))])
 
+    # English typed with the Persian layout on («یثغ ذشممشدزث» = "dey ballance"): its reading goes beside it (CI3)
+    from app.services.ai_accountant import keyboard_layout
+    layout_english = keyboard_layout.as_english(user_message)
     if routed:
         recent = [tc.name for m in history if m.role == "assistant" for tc in m.tool_calls]
-        groups = _routing.route(user_message, recent_tools=recent, personal=personal,
+        groups = _routing.route(f"{user_message} {layout_english}" if layout_english else user_message,
+                                recent_tools=recent, personal=personal,
                                 attachments=bool(ocr_context or attachment_ids))
         tool_defs = _offer(groups)
         if system_prompt.startswith(SYSTEM_PROMPT):
@@ -1808,10 +1853,12 @@ async def run_chat_turn(
     if reply_to:
         from app.services.ai_accountant import replies
         turn_text = replies.for_model(db, reply_to) + "\n\n" + (turn_text or "")
+    if layout_english:
+        turn_text = f"{turn_text}\n\n{keyboard_layout.note(user_message)}"
     user_turn = ChatMessage(role="user", text=turn_text)
     history.append(user_turn)
     stored = user_turn.to_dict()
-    if ocr_context or reply_to:
+    if ocr_context or reply_to or layout_english:
         stored["said"] = user_message or ""         # what the user typed: "text" also carries the document, for the model
     if reply_to:
         stored["reply_to"] = reply_to
@@ -1925,8 +1972,8 @@ async def run_chat_turn(
             )
 
         if stop_reason == "end_turn" or not assistant_msg.tool_calls:
-            final_text = _persian_separators(_no_stray_tail(_no_foreign_words(
-                _true_figures(assistant_msg.text or "", tool_call_log))))
+            final_text = _currency_places(_persian_separators(_no_stray_tail(_no_foreign_words(
+                name_spelling.as_given(_true_figures(assistant_msg.text or "", tool_call_log), tool_call_log)))))
             # the choices taken out of the text can leave the model's stray word last («…بگیرم؟ kartaa»): CC4
             final_text = _no_stray_tail(_choices_as_chips(final_text, tool_call_log))
             final_text = _not_recorded_yet(final_text, proposals)

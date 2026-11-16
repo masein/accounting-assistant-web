@@ -52,6 +52,16 @@ def test_prod_compose_is_hardened_and_backs_up():
     assert b["image"].startswith("postgres:")
     assert any(v.endswith(":/backups") for v in b["volumes"])
     assert any(v == "uploads:/uploads:ro" for v in b["volumes"])
+    # period-close snapshots live on their own volume and are in the nightly backup: in the container's own
+    # layer every redeploy deleted them (2026-11-16)
+    assert "private_uploads:/app/app/private_uploads" in api["volumes"] and "private_uploads" in c["volumes"]
+    assert "private_uploads:/private_uploads:ro" in b["volumes"]
+    from app.api.exports import SNAPSHOT_DIR
+    assert SNAPSHOT_DIR.parent == ROOT / "app" / "private_uploads"
+    loop = (ROOT / "scripts/backup-loop.sh").read_text(encoding="utf-8")
+    assert "-C /private_uploads ." in loop and "-name 'private-uploads-*.tgz'" in loop
+    assert "/app/app/private_uploads/snapshots" in (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert '"${3:-}"' in (ROOT / "scripts/restore.sh").read_text(encoding="utf-8")
     assert b["depends_on"]["db"]["condition"] == "service_healthy"
 
 

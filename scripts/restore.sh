@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# Restore the PRODUCTION database (and optionally the uploads volume) from a
-# backup made by scripts/backup.sh or the `backup` service:
-#   scripts/restore.sh backups/db-20260924-020000.dump [backups/uploads-20260924-020000.tgz]
+# Restore the PRODUCTION database (and optionally the uploads and private
+# uploads volumes) from a backup made by scripts/backup.sh or the `backup` service:
+#   scripts/restore.sh backups/db-20260924-020000.dump [backups/uploads-20260924-020000.tgz] \
+#                      [backups/private-uploads-20260924-020000.tgz]
 # DESTRUCTIVE: replaces the current database contents. Stops the api first,
 # restores with pg_restore --clean, then starts the api (which re-runs
 # migrations if the dump is older than the image).
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 COMPOSE=(docker compose -f docker-compose.prod.yml)
-DUMP="${1:?usage: restore.sh <db.dump> [uploads.tgz]}"
+DUMP="${1:?usage: restore.sh <db.dump> [uploads.tgz] [private-uploads.tgz]}"
 UPLOADS="${2:-}"
+PRIVATE="${3:-}"
 DB_USER="$(grep -E '^DB_USER=' .env 2>/dev/null | cut -d= -f2- || true)"
 DB_USER="${DB_USER:-postgres}"
 [ -f "$DUMP" ] || { echo "no such file: $DUMP" >&2; exit 1; }
@@ -26,6 +28,12 @@ if [ -n "$UPLOADS" ]; then
   echo "[restore] restoring uploads volume"
   "${COMPOSE[@]}" run --rm --no-deps --entrypoint sh -v "$(cd "$(dirname "$UPLOADS")" && pwd)":/in api \
     -c "rm -rf /app/app/uploads/* && tar -xzf /in/$(basename "$UPLOADS") -C /app/app/uploads"
+fi
+if [ -n "$PRIVATE" ]; then
+  [ -f "$PRIVATE" ] || { echo "no such file: $PRIVATE" >&2; exit 1; }
+  echo "[restore] restoring private_uploads volume (period snapshots)"
+  "${COMPOSE[@]}" run --rm --no-deps --entrypoint sh -v "$(cd "$(dirname "$PRIVATE")" && pwd)":/in api \
+    -c "rm -rf /app/app/private_uploads/* && tar -xzf /in/$(basename "$PRIVATE") -C /app/app/private_uploads"
 fi
 echo "[restore] starting api"
 "${COMPOSE[@]}" up -d api

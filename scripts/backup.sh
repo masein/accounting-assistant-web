@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # On-demand backup of the PRODUCTION stack from the host:
 #   scripts/backup.sh [backup-dir]        (default: ./backups)
-# Produces db-<stamp>.dump (pg_dump custom format) and uploads-<stamp>.tgz.
+# Produces db-<stamp>.dump (pg_dump custom format), uploads-<stamp>.tgz and
+# private-uploads-<stamp>.tgz (period snapshots).
 # Run it before a risky deploy or migration; the `backup` service does the
 # same every night. Copy the folder off the box afterwards.
 set -euo pipefail
@@ -20,5 +21,9 @@ echo "[backup] uploads volume → $OUT/uploads-$stamp.tgz"
 "${COMPOSE[@]}" run --rm --no-deps --entrypoint sh -v "$(cd "$OUT" && pwd)":/out api \
   -c "tar -czf /out/uploads-$stamp.tgz -C /app/app/uploads ."
 
-ls -lh "$OUT/db-$stamp.dump" "$OUT/uploads-$stamp.tgz"
+echo "[backup] private_uploads volume → $OUT/private-uploads-$stamp.tgz"
+"${COMPOSE[@]}" run --rm --no-deps --entrypoint sh -v "$(cd "$OUT" && pwd)":/out api \
+  -c "tar -czf /out/private-uploads-$stamp.tgz -C /app/app/private_uploads ."
+
+ls -lh "$OUT/db-$stamp.dump" "$OUT/uploads-$stamp.tgz" "$OUT/private-uploads-$stamp.tgz"
 echo "[backup] done. Copy $OUT somewhere off this machine."

@@ -36,6 +36,7 @@ RUN mkdir -p /app/app/uploads/snapshots \
              /app/app/uploads/transactions \
              /app/app/uploads/invoice_imports \
              /app/app/uploads/branding \
+             /app/app/private_uploads/snapshots \
     && chmod +x /app/entrypoint.sh \
     && chown -R appuser:appuser /app
 

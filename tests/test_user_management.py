@@ -120,6 +120,38 @@ def test_cross_company_target_is_404(owner_ctx, db):
     assert api.delete(f"/admin/users/{victim.id}").status_code == 404
 
 
+def test_owner_cannot_take_over_the_superadmin_in_their_company(owner_ctx, db, client):
+    """Review 2026-11-16: the platform super-admin lives in the Default company;
+    an owner there set its password with PATCH /admin/users/{id} and signed in
+    as the platform. Its password, role, activation, two-factor and the account
+    itself are now a super-admin's alone."""
+    from app.core.auth import verify_password
+    api, company, owner = owner_ctx
+    root = _mk_user(db, company, f"root-{uuid.uuid4().hex[:6]}")
+    root.is_superadmin = True
+    root.totp_pending_secret = "PENDING"
+    db.flush()
+    before = (root.password_hash, root.password_salt, root.token_version)
+
+    assert api.patch(f"/admin/users/{root.id}", json={"password": "N3w-passw0rd!x"}).status_code == 403
+    assert api.patch(f"/admin/users/{root.id}", json={"role": Role.VIEWER}).status_code == 403
+    assert api.patch(f"/admin/users/{root.id}", json={"is_active": False}).status_code == 403
+    assert api.post(f"/admin/users/{root.id}/reset-2fa").status_code == 403
+    assert api.delete(f"/admin/users/{root.id}").status_code == 403
+    db.refresh(root)
+    assert (root.password_hash, root.password_salt, root.token_version) == before
+    assert verify_password(PW, root.password_hash, root.password_salt)
+    assert root.is_active and root.role == Role.OWNER and root.totp_pending_secret == "PENDING"
+
+    # a super-admin still manages it
+    sa = _as(client, root, company)
+    sa_token = create_session_token(user_id=str(root.id), username=root.username, is_admin=True,
+                                    company_id=str(company.id), token_version=root.token_version,
+                                    role=root.role, is_superadmin=True)
+    client.cookies.set(settings.auth_cookie_name, sa_token)
+    assert sa.patch(f"/admin/users/{root.id}", json={"preferred_language": "fa"}).status_code == 200
+
+
 def test_entity_link_requires_employee(owner_ctx, db, client):
     api, company, owner = owner_ctx
     emp = Entity(id=uuid.uuid4(), name="Jane Emp", type="employee", company_id=company.id)

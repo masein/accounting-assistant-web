@@ -40,7 +40,11 @@ class PaymentMethod(Base):
     fee_rules: Mapped[list["TransactionFee"]] = relationship("TransactionFee", back_populates="method")
 
 
-class TransactionFee(Base):
+class TransactionFee(Base, TenantMixin):
+    """A bank account's fee for a payment method, from a date. Per company:
+    its bank is one of the company's entities (migration 087; before it every
+    company listed every other company's rules)."""
+
     __tablename__ = "transaction_fees"
     __table_args__ = (
         UniqueConstraint("method_id", "bank_id", "effective_from", name="uq_transaction_fee_method_bank_effective"),

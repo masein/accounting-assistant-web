@@ -350,6 +350,7 @@
         chatRename: "Rename",
         chatDelete: "Delete",
         chatDeleteConfirm: "Delete this chat? Its history is archived, not destroyed.",
+        chatShareConfirm: "Attach {n} file(s) shared to this app to the chat? {names}",
         chatDropHint: "Drop files to attach",
         chatTimeNow: "just now",
         chatTimeMin: "min ago",

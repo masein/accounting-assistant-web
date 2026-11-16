@@ -298,6 +298,29 @@ def resolve_active_ai_backend() -> dict[str, str]:
         }
 
 
+def gemini_wrapper_key(active: dict | None = None) -> str:
+    """The key for ``settings.gemini_base_url`` (Metis's Gemini wrapper, used by
+    OCR and speech), or "" when there is none to send.
+
+    It is the active backend's key — but only when that backend lives on the
+    same host as the wrapper (Metis for both). With another provider active
+    (OpenAI, a self-hosted model) its key went to api.metisai.ir with every
+    scan and voice note (review 2026-11-16); then OCR and speech use the
+    active backend's own endpoint instead."""
+    from urllib.parse import urlparse
+
+    from app.core.config import settings
+
+    wrapper = (settings.gemini_base_url or "").strip()
+    active = active if active is not None else resolve_active_ai_backend()
+    key = active.get("api_key") or ""
+    if not wrapper or not key:
+        return ""
+    want = (urlparse(wrapper).hostname or "").lower()
+    have = (urlparse(active.get("base_url") or "").hostname or "").lower()
+    return key if want and want == have else ""
+
+
 def update_anthropic_config(
     *,
     base_url: str | None = None,

@@ -345,6 +345,7 @@ window.I18N_PACKS.es = Object.assign({
         chatRename: "Renombrar",
         chatDelete: "Eliminar",
         chatDeleteConfirm: "¿Eliminar este chat? Su historial se archiva, no se destruye.",
+        chatShareConfirm: "¿Adjuntar al chat {n} archivo(s) compartido(s) con esta aplicación? {names}",
         chatDropHint: "Suelta los archivos para adjuntar",
         chatTimeNow: "ahora mismo",
         chatTimeMin: "min atrás",

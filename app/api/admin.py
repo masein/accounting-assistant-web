@@ -657,6 +657,11 @@ def _get_company_user(db: Session, caller: SessionUser, user_id: UUID) -> User:
     # Cross-company (or unknown) targets look like they don't exist.
     if not user or (caller.company_id and str(user.company_id) != str(caller.company_id)):
         raise HTTPException(status_code=404, detail="User not found")
+    # The platform super-admin sits in the Default company, but is not that
+    # company's to manage: an owner there could otherwise set its password (or
+    # turn its two-factor off) and sign in as the platform (review 2026-11-16).
+    if user.is_superadmin and not caller.is_superadmin:
+        raise HTTPException(status_code=403, detail="Only a super-admin can change a super-admin account.")
     return user
 
 

@@ -143,3 +143,35 @@ def test_double_submit_of_the_same_payment_is_credit_not_double_paid(auth_client
     assert auth_client.post(f"/invoices/{inv['id']}/payments", json=body).status_code == 201
     me = next(i for i in auth_client.get("/invoices").json() if i["id"] == inv["id"])
     assert me["amount_paid"] == 1_000_000 and me["overpaid"] == 1_000_000 and me["balance_due"] == 0
+
+
+def test_an_issued_invoice_cant_be_changed_under_its_entry(auth_client, db, client_entity):
+    """Review 2026-11-16: PATCH changed an issued invoice's amount, currency,
+    lines and status with no re-posting, so the invoice and its AR entry
+    disagreed — and status → draft then DELETE removed it without the void
+    trail. Once recognised, those are 409; the edit dialog's re-sent unchanged
+    values and its non-ledger fields still save."""
+    inv = _issue(auth_client, client_entity["id"])
+    before = _txn_ids(db)
+    for change in ({"amount": 9_000_000}, {"currency": "USD"}, {"issue_date": "2026-05-01"},
+                   {"kind": "purchase"}, {"status": "draft"}, {"status": "paid"}, {"status": "canceled"},
+                   {"items": [{"product_name": "x", "quantity": 1, "unit_price": 5}]}):
+        r = auth_client.patch(f"/invoices/{inv['id']}", json=change)
+        assert r.status_code == 409, (change, r.text)
+    assert auth_client.delete(f"/invoices/{inv['id']}").status_code == 409
+
+    # what the edit dialog sends: every field, unchanged, plus a new note and due date
+    same = {"number": inv["number"], "amount": 3_000_000, "currency": "irr", "issue_date": "2026-06-01",
+            "due_date": "2026-07-15", "description": "called them", "status": "issued"}
+    r = auth_client.patch(f"/invoices/{inv['id']}", json=same)
+    assert r.status_code == 200, r.text
+    got = r.json()
+    assert got["amount"] == 3_000_000 and got["status"] == "issued" and got["due_date"] == "2026-07-15"
+    assert _txn_ids(db) == before                     # nothing re-posted, nothing lost
+
+    # a draft is still freely edited, and issuing it recognises it once
+    d = _issue(auth_client, client_entity["id"], status="draft")
+    assert auth_client.patch(f"/invoices/{d['id']}", json={"amount": 1_234_000}).status_code == 200
+    r = auth_client.patch(f"/invoices/{d['id']}", json={"status": "issued"})
+    assert r.status_code == 200 and r.json()["amount"] == 1_234_000
+    assert len(_txn_ids(db) - before) == 1

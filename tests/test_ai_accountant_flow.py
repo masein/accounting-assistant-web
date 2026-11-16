@@ -349,3 +349,40 @@ class TestReverse:
         ex = execute_proposal(db, confirmation_token=token, actor_user_id=USER)
         with pytest.raises(PermissionDenied):
             reverse_action(db, audit_log_id=ex.audit_log_id, actor_user_id=USER_ALT)
+
+
+@pytest.mark.skipif(not (__import__("os").environ.get("TEST_DATABASE_URL") or "").startswith("postgresql"),
+                    reason="row locks need PostgreSQL (SQLite ignores FOR UPDATE)")
+def test_two_confirms_of_one_card_at_once_post_it_once(db: Session) -> None:
+    """Review 2026-11-16: execute read the proposal without a lock, so two
+    confirms at the same moment (a double tap; the web and the phone) both saw
+    it pending and both posted the entry."""
+    import threading
+
+    from tests.conftest import _TestSession
+
+    token = _make_proposal(db)
+    db.commit()
+    before = len(db.execute(select(Transaction.id)).all())
+    start = threading.Barrier(2)
+    results, errors = [], []
+
+    def confirm():
+        s = _TestSession()
+        try:
+            start.wait()
+            results.append(execute_proposal(s, confirmation_token=token, actor_user_id=USER))
+        except Exception as exc:  # noqa: BLE001 - reported below
+            errors.append(exc)
+        finally:
+            s.close()
+
+    threads = [threading.Thread(target=confirm) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(30)
+    assert not errors, errors
+    assert sorted(r.idempotent for r in results) == [False, True]
+    db.expire_all()
+    assert len(db.execute(select(Transaction.id)).all()) == before + 1

@@ -347,3 +347,30 @@ def test_html_is_escaped(tenant):
     composed, _ = invoice_mail.compose(tenant, inv, kind="invoice", message="<b>hi</b>", today=TODAY)
     assert "<script>" not in composed.html and "&lt;script&gt;" in composed.html
     assert "<b>hi</b>" not in composed.html
+
+
+def test_one_failing_invoice_does_not_lose_the_runs_sent_log(tenant, mailbox, monkeypatch):
+    """Review 2026-11-16: the run committed once at the end, so an invoice that
+    raised (a PDF that wouldn't render) rolled back the log rows of the
+    reminders already sent — and every scheduler tick mailed them again."""
+    _enable(tenant)
+    first = _mk(tenant, due_offset=7)                     # oldest due date: sent first
+    broken = _mk(tenant, due_offset=6)
+    last = _mk(tenant, due_offset=5)
+    real = invoice_mail.send_invoice_email
+
+    def flaky(db, inv, **kw):
+        if inv.id == broken.id:
+            raise RuntimeError("weasyprint fell over")
+        return real(db, inv, **kw)
+    monkeypatch.setattr(invoice_mail, "send_invoice_email", flaky)
+    out = invoice_mail.run_reminders(tenant, today=TODAY)
+    assert out["sent"] == 2 and out["failed"] == 1 and len(mailbox) == 2
+    tenant.rollback()                                       # what the scheduler does on any error
+    assert invoice_mail.last_reminder_stage(tenant, first.id) == 3
+    assert invoice_mail.last_reminder_stage(tenant, last.id) == 3
+    assert invoice_mail.last_reminder_stage(tenant, broken.id) is None
+
+    monkeypatch.setattr(invoice_mail, "send_invoice_email", real)
+    again = invoice_mail.run_reminders(tenant, today=TODAY + timedelta(days=1))
+    assert again["sent"] == 1 and len(mailbox) == 3          # only the one that failed

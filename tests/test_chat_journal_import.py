@@ -349,3 +349,57 @@ def test_migration_080_gives_imported_accounts_their_own_codes_once(co, db):
     with use_company(cid):
         db.expire_all()
         assert db.execute(select(Account).where(Account.code == code)).scalars().one().source_codes == "1302"
+
+
+def _journal_xlsx(rows: list[str]) -> bytes:
+    wb = Workbook()
+    wb.active.append("ردیف,شماره سند,تاریخ,Title 1,Title 2,Title 3,شرح,بدهکار,بستانکار".split(","))
+    for line in rows:
+        cells = []
+        for c in line.split(","):
+            try:
+                cells.append(int(c) if c.isdigit() else float(c))
+            except ValueError:
+                cells.append(c)
+        wb.active.append(cells)
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()
+
+
+def _excel_import(auth_client, data: bytes, currency: str) -> dict:
+    p = auth_client.post("/transactions/excel-import/preview", files={"file": ("j.xlsx", data, XLSX)})
+    assert p.status_code == 200, p.text
+    p = p.json()
+    codes = {"اینترنت": "6112", "بانک": "1110"}
+    c = auth_client.post("/transactions/excel-import/confirm", json={
+        "file_token": p["file_token"], "jalali_year": p["jalali_year"], "amount_multiplier": 1, "currency": currency,
+        "account_mappings": [{"title1": a["title1"], "title2": a["title2"], "title3": a["title3"],
+                              "account_code": codes[a["title3"]]} for a in p["unique_accounts"]]})
+    assert c.status_code == 200, c.text
+    return c.json()
+
+
+def test_excel_import_rounds_each_line_before_it_checks_the_balance(auth_client, db):
+    """Review 2026-11-16: the import checked the file's floats, then rounded each
+    line with int(round()): 0.5 + 0.5 against 1 posted as 0 + 0 against 1 (an
+    unbalanced entry), and a pound file lost every penny."""
+    before = {t for (t,) in db.execute(select(Transaction.id)).all()}
+    halves = _journal_xlsx(["1,9072,14040103,سود و زیان,هزینه عملیاتی,اینترنت,a,0.5,0",
+                            "2,9072,14040103,سود و زیان,هزینه عملیاتی,اینترنت,b,0.5,0",
+                            "3,9072,14040103,دارایی,دارایی جاری,بانک,c,0,1"])
+    out = _excel_import(auth_client, halves, "IRR")
+    assert out["imported"] == 0
+    assert any("9072" in e and "unbalanced" in e for e in out.get("errors", [])), out
+
+    pence = _journal_xlsx(["1,9071,14040102,سود و زیان,هزینه عملیاتی,اینترنت,a,10.25,0",
+                           "2,9071,14040102,سود و زیان,هزینه عملیاتی,اینترنت,b,5.1,0",
+                           "3,9071,14040102,دارایی,دارایی جاری,بانک,c,0,15.35"])
+    assert _excel_import(auth_client, pence, "GBP")["imported"] == 1
+    db.expire_all()
+    [txn] = [t for t in db.execute(select(Transaction).where(Transaction.reference == "V9071")).scalars()
+             if t.id not in before]
+    lines = db.execute(select(TransactionLine).where(TransactionLine.transaction_id == txn.id)).scalars().all()
+    from decimal import Decimal
+    assert sorted(Decimal(str(ln.debit)) for ln in lines if ln.debit) == [Decimal("5.10"), Decimal("10.25")]
+    assert [Decimal(str(ln.credit)) for ln in lines if ln.credit] == [Decimal("15.35")]

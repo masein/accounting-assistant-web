@@ -100,7 +100,6 @@ def test_alembic_strict_reraises_but_tolerant_swallows(monkeypatch):
     fallback = {"n": 0}
     for fn in (
         "_apply_numeric_migrations",
-        "_apply_entity_cleanup_migrations",
         "_apply_transaction_fee_migrations",
         "_apply_user_migrations",
     ):
@@ -119,12 +118,48 @@ def test_alembic_strict_reraises_but_tolerant_swallows(monkeypatch):
 
     fallback["n"] = 0
     main._run_alembic_migrations(strict=False)  # tolerant: no raise
-    assert fallback["n"] == 4  # fallback recovery still attempted
+    assert fallback["n"] == 3  # fallback recovery still attempted
 
     fallback["n"] = 0
     with pytest.raises(RuntimeError, match="bad migration 099"):
         main._run_alembic_migrations(strict=True)  # strict: re-raises loudly
-    assert fallback["n"] == 4  # fallback attempted BEFORE re-raising
+    assert fallback["n"] == 3  # fallback attempted BEFORE re-raising
+
+
+def test_fallback_never_casts_numeric_money_to_bigint(monkeypatch):
+    """Review 2026-11-16: the fallback ran ``ALTER … TYPE BIGINT`` on every money
+    column that wasn't BIGINT — the NUMERIC pence columns (migration 075)
+    included, which drops their minor units. Only INTEGER/SMALLINT is widened,
+    and the old entity clean-up (cross-company DELETEs) is gone from it."""
+    import contextlib
+
+    import app.main as main
+
+    types = {("invoices", "amount"): "numeric", ("recurring_rules", "amount"): "integer",
+             ("budget_limits", "limit_amount"): "bigint", ("transaction_lines", "debit"): "numeric",
+             ("transaction_lines", "credit"): "smallint"}
+    ran: list[str] = []
+
+    class _Conn:
+        def execute(self, stmt, *_a, **_k):
+            ran.append(str(stmt))
+
+    class _Engine:
+        class dialect:
+            name = "postgresql"
+
+        @contextlib.contextmanager
+        def begin(self):
+            yield _Conn()
+
+    monkeypatch.setattr(main, "get_admin_engine", lambda: _Engine())
+    monkeypatch.setattr(main, "_col_type", lambda _c, t, col: types[(t, col)])
+    main._apply_numeric_migrations()
+    assert ran == [
+        "ALTER TABLE recurring_rules ALTER COLUMN amount TYPE BIGINT USING amount::BIGINT",
+        "ALTER TABLE transaction_lines ALTER COLUMN credit TYPE BIGINT USING credit::BIGINT",
+    ]
+    assert not hasattr(main, "_apply_entity_cleanup_migrations")
 
 
 def test_lifespan_runs_bootstrap_without_flag(monkeypatch):

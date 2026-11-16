@@ -327,6 +327,11 @@ EXACT: dict[str, dict[str, str]] = {
     "You cannot deactivate yourself": {"fa": "نمی‌توانید خودتان را غیرفعال کنید", "es": "No puedes desactivarte a ti mismo",
                                        "ar": "لا يمكنك تعطيل حسابك"},
     "You cannot delete yourself": {"fa": "نمی‌توانید خودتان را حذف کنید", "es": "No puedes eliminarte a ti mismo", "ar": "لا يمكنك حذف حسابك"},
+    # the platform super-admin is not a company's to manage (review 2026-11-16)
+    "Only a super-admin can change a super-admin account.": {
+        "fa": "فقط مدیر کل سامانه می‌تواند حساب مدیر کل را تغییر دهد.",
+        "es": "Solo un superadministrador puede cambiar una cuenta de superadministrador.",
+        "ar": "لا يغيّر حساب المشرف العام إلا مشرف عام."},
     "closed_period must be an ISO date (YYYY-MM-DD) or empty.": {
         "fa": "تاریخ بستن دوره باید به شکل \u2066YYYY-MM-DD\u2069 یا خالی باشد.",
         "es": "La fecha de cierre debe tener el formato AAAA-MM-DD o estar vacía.",
@@ -1234,6 +1239,18 @@ PATTERNS: list[_Pattern] = [
     _Pattern(r"^Voucher (?P<v>\S+): unbalanced \(debit=(?P<d>[^,]*), credit=(?P<c>[^)]*)\)$",
              {"fa": "سند {v}: تراز نیست (بدهکار {d}، بستانکار {c})", "es": "Asiento {v}: descuadrado (debe {d}, haber {c})",
               "ar": "القيد {v}: غير متوازن (مدين {d}، دائن {c})"}),
+    _Pattern(r"^Voucher (?P<v>\S+): unbalanced once each line is rounded to (?P<cur>\S+) \(debit=(?P<d>[^,]*), credit=(?P<c>[^)]*)\)$",
+             {"fa": "سند {v}: با گرد کردن هر ردیف به {cur} تراز نیست (بدهکار {d}، بستانکار {c})",
+              "es": "Asiento {v}: descuadrado al redondear cada línea a {cur} (debe {d}, haber {c})",
+              "ar": "القيد {v}: غير متوازن بعد تقريب كل سطر إلى {cur} (مدين {d}، دائن {c})"}),
+    # a recognised invoice: what its entry was made from stays (review 2026-11-16)
+    _Pattern(r"^This invoice is already in the books, so its (?P<f>.+) can't change here\. Record a payment or a "
+             r"credit note, or void it and issue a new one\.$",
+             {"fa": "این فاکتور در دفاتر ثبت شده است، پس {f} آن اینجا تغییر نمی‌کند. پرداخت یا برگ بستانکار ثبت کنید، "
+                    "یا آن را باطل کنید و فاکتور تازه‌ای صادر کنید.",
+              "es": "Esta factura ya está en los libros, así que su {f} no puede cambiar aquí. Registra un pago o una nota "
+                    "de crédito, o anúlala y emite una nueva.",
+              "ar": "هذه الفاتورة مسجّلة في الدفاتر، فلا يتغيّر {f} هنا. سجّل دفعة أو إشعارًا دائنًا، أو ألغِها وأصدر فاتورة جديدة."}),
     _Pattern(r"^Voucher (?P<v>[^,]+), row (?P<r>\S+): no account mapping for \[(?P<path>.*)\]$",
              {"fa": "سند {v}، ردیف {r}: برای [{path}] حسابی معادل‌سازی نشده است", "es": "Asiento {v}, fila {r}: sin cuenta asignada para [{path}]",
               "ar": "القيد {v}، الصف {r}: لا يوجد حساب مقابل لـ [{path}]"}),

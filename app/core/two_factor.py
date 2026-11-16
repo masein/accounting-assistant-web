@@ -18,6 +18,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import unicodedata
 import json
 import secrets
 import struct
@@ -74,6 +75,12 @@ def verify_totp(secret: str, code: str | None, *, last_step: int | None = None,
     ``last_step`` (already used) is refused."""
     code = normalize_code(code)
     if len(code) != DIGITS or not code.isdigit() or not secret:
+        return None
+    # Persian/Arabic digits from a phone keyboard pass isdigit(); compare them
+    # as the ASCII digits they are (compare_digest raised TypeError on them).
+    try:
+        code = "".join(str(unicodedata.decimal(ch)) for ch in code)
+    except ValueError:
         return None
     here = current_step(now)
     for step in range(here - DRIFT_STEPS, here + DRIFT_STEPS + 1):

@@ -41,8 +41,17 @@ env:
 jobs:
   build-push:
     name: Build & push API image
-    # A CI run that failed or was cancelled never publishes.
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    # A CI run that failed or was cancelled never publishes. `branches: [main]`
+    # above matches the head branch's NAME only, so a pull request from a fork's
+    # own `main` passes it too: publish only for a push to this repository
+    # (review 2026-11-16; a fork's code would otherwise ship as :latest and the
+    # server's deployer would run it).
+    if: >-
+      ${{ github.event_name != 'workflow_run' || (
+            github.event.workflow_run.conclusion == 'success'
+            && github.event.workflow_run.event == 'push'
+            && github.event.workflow_run.head_branch == 'main'
+            && github.event.workflow_run.head_repository.full_name == github.repository) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -67,8 +76,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Log in to the legacy mirror only when credentials are configured (it
-      # accepts anonymous push today, so this no-ops by default). Best-effort,
+      # Log in to the legacy mirror (pushes need its credentials). Best-effort,
       # like the mirror push: the mirror answered 502 at login on 2026-10-19 and
       # failed the whole job before the required GHCR push — production, which
       # pulls from GHCR, got nothing.

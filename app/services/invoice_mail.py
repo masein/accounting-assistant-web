@@ -15,6 +15,7 @@ successful or not, is kept in ``invoice_emails``.
 from __future__ import annotations
 
 import html
+import logging
 import json
 import re
 from dataclasses import dataclass
@@ -29,6 +30,8 @@ from app.models.entity import Entity
 from app.models.invoice import Invoice
 from app.models.invoice_email import InvoiceEmail
 from app.core.money import json_dumps, plain
+
+_log = logging.getLogger(__name__)
 
 SETTINGS_KEY = "invoice_mail"
 DEFAULT_REMINDER_DAYS = (3, 10, 20)
@@ -326,32 +329,49 @@ def run_reminders(db: Session, *, today: date | None = None) -> dict:
             Invoice.kind == "sales", Invoice.status.in_(REMINDER_STATUSES), Invoice.due_date.is_not(None),
         ).order_by(Invoice.due_date)
     ).scalars().all()
+    # Each reminder is committed the moment it is sent: its log row is what
+    # stops the next run sending it again. One commit at the end lost every log
+    # row of the run when a later invoice raised (a PDF that wouldn't render):
+    # the scheduler rolled back and the customers already mailed were mailed
+    # again on every tick (review 2026-11-16). Ids and due dates are read up
+    # front so the per-invoice commits don't reload every candidate.
+    due_list = [(inv.id, inv.due_date) for inv in candidates]
     attempts = 0
-    for inv in candidates:
+    for inv_id, due in due_list:
         if attempts >= MAX_REMINDERS_PER_RUN:
             result["capped"] = True
             break
-        offset = (today - inv.due_date).days
+        offset = (today - due).days
         if offset < earliest:
             continue
         stage = due_stage(offset, days)
         if stage is None:
             continue
-        last = last_reminder_stage(db, inv.id)
+        last = last_reminder_stage(db, inv_id)
         if last is not None and last >= stage:
             continue
-        if _invoice_totals(db, inv)[2] <= 0:
+        inv = db.get(Invoice, inv_id)
+        if inv is None or _invoice_totals(db, inv)[2] <= 0:
             continue
         if not default_recipient(db, inv):
             result["no_email"] += 1
             continue
         try:
             row = send_invoice_email(db, inv, kind="reminder", stage=stage, actor="scheduler", today=today)
+            status = row.status
+            db.commit()
         except InvoiceMailError:
+            db.rollback()
             result["no_email"] += 1  # an unusable address on the customer
             continue
+        except Exception:  # this invoice only: the rest of the run goes on
+            db.rollback()
+            _log.warning("invoice_reminder_failed invoice=%s", inv_id, exc_info=True)
+            attempts += 1
+            result["failed"] += 1
+            continue
         attempts += 1
-        result["sent" if row.status == "sent" else "failed"] += 1
+        result["sent" if status == "sent" else "failed"] += 1
     db.commit()
     return result
 

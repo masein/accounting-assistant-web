@@ -118,10 +118,17 @@ def _col_is_nullable(conn, table: str, column: str) -> bool | None:
     return row[0] == "YES" if row else None
 
 
+# Only these are widened: a money column that is already NUMERIC (pence,
+# migration 075) cast to BIGINT would lose its minor units for good.
+_WIDEN_TO_BIGINT = frozenset({"smallint", "integer"})
+
+
 def _apply_numeric_migrations() -> None:
     """
     Idempotent startup migrations: promote INT columns to BIGINT for IRR values.
-    Only alters columns that are not already BIGINT.
+    Only an INTEGER/SMALLINT column is altered — never a NUMERIC one (this runs
+    when Alembic fails, and used to cast the pence columns back to BIGINT:
+    review 2026-11-16).
     """
     if get_admin_engine().dialect.name != "postgresql":
         return
@@ -135,50 +142,11 @@ def _apply_numeric_migrations() -> None:
     with get_admin_engine().begin() as conn:
         for table, col in targets:
             current = _col_type(conn, table, col)
-            if current and current != "bigint":
+            if current in _WIDEN_TO_BIGINT:
                 _migration_logger.info("Upgrading %s.%s from %s to BIGINT", table, col, current)
                 conn.execute(text(
                     f"ALTER TABLE {table} ALTER COLUMN {col} TYPE BIGINT USING {col}::BIGINT"
                 ))
-
-
-def _apply_entity_cleanup_migrations() -> None:
-    """
-    Cleanup malformed entity names produced by old chat parsing paths.
-    These UPDATEs/DELETEs use WHERE clauses so they are naturally idempotent.
-    """
-    if get_admin_engine().dialect.name != "postgresql":
-        return
-    stmts = [
-        "UPDATE entities SET name = btrim(regexp_replace(name, '\\s+', ' ', 'g')) WHERE name ~ '\\s{2,}'",
-        (
-            "UPDATE entities "
-            "SET name = initcap(btrim(regexp_replace(name, E'\\s+with\\s+of\\s+\\d+\\s*$', '', 'i'))) "
-            "WHERE type = 'bank' AND name ~* E'\\s+with\\s+of\\s+\\d+\\s*$'"
-        ),
-        (
-            "UPDATE transactions t SET description = regexp_replace(t.description, E'\\s+[Ww]ith\\s+[Oo]f\\s+\\d+\\s+bank\\s+account', ' bank account', 'g') "
-            "WHERE t.description ~* E'\\s+with\\s+of\\s+\\d+\\s+bank\\s+account'"
-        ),
-        (
-            "UPDATE transaction_lines tl SET line_description = regexp_replace(tl.line_description, E'\\s+[Ww]ith\\s+[Oo]f\\s+\\d+', '', 'g') "
-            "WHERE tl.line_description ~* E'\\s+with\\s+of\\s+\\d+'"
-        ),
-        (
-            "DELETE FROM transaction_entities te USING entities e "
-            "WHERE te.entity_id = e.id "
-            "AND e.type = 'employee' "
-            "AND e.name ~* '^(us|our|me|we|you|your)[[:space:]]+via[[:space:]].*(bank|account|about)'"
-        ),
-        (
-            "DELETE FROM entities e "
-            "WHERE e.type = 'employee' "
-            "AND e.name ~* '^(us|our|me|we|you|your)[[:space:]]+via[[:space:]].*(bank|account|about)'"
-        ),
-    ]
-    with get_admin_engine().begin() as conn:
-        for s in stmts:
-            conn.execute(text(s))
 
 
 def _apply_transaction_fee_migrations() -> None:
@@ -250,8 +218,10 @@ def _run_alembic_migrations(strict: bool = False) -> None:
             "Alembic step failed — attempting idempotent startup SQL recovery",
             exc_info=True,
         )
+        # Schema-only recovery. The old entity clean-up (DELETEs and description
+        # rewrites across every company, posted entries included) is not run
+        # here any more: a failed migration is no reason to change books.
         _apply_numeric_migrations()
-        _apply_entity_cleanup_migrations()
         _apply_transaction_fee_migrations()
         _apply_user_migrations()
         if strict:

@@ -122,3 +122,19 @@ def test_the_shell_routes_are_exactly_the_public_ones():
     for path in ("/sw.js", "/manifest.webmanifest", "/offline"):
         r = c.get(path)
         assert r.status_code == 200 and "set-cookie" not in r.headers, path
+
+
+def test_shared_files_wait_for_a_yes_and_the_ledger_escapes_names():
+    """Review 2026-11-16: any site can POST a form to /share-target, and the
+    page uploaded what the worker kept straight into the signed-in user's chat;
+    the ledger table also wrote an account's name as HTML."""
+    chat = (STATIC / "js" / "15-ai-chat.js").read_text(encoding="utf-8")
+    pick = chat.split("(async function pickUpSharedFiles()", 1)[1].split("})();", 1)[0]
+    assert pick.index("await uiConfirm(") < pick.index("handleAttachFile(")
+    assert "if (!ok) return;" in pick
+    from tests.i18n_source import pack_values
+    values = pack_values()
+    for lang in ("en", "fa", "ar", "es"):
+        assert "{n}" in values[lang]["chatShareConfirm"], lang
+    ledger = (STATIC / "js" / "09-ledger.js").read_text(encoding="utf-8")
+    assert "${r.account_name}" not in ledger and "${escapeHtml(r.account_name)}" in ledger

@@ -1213,3 +1213,11 @@ Asked «چقدر توی کیفم پول هست؟», the assistant read the walle
 | CC2 | Money back only from where it went | After confirming two amounts into the wallet: «اشتباه میکنی یه ۴۱۲ و یه ۳۲۰ همین الان اضافه کردیم» | No correction card: the assistant reads the wallet again and names the two entries. A card crediting a category more than was spent there, or «طلب از دیگران» more than is owed, is refused; a refund of what was spent is made |
 | CC3 | Money back for a purchase | «اون ۴۱۲ ریال رو از شرکت گرفتم» after a 412 purchase recorded as household spending | The card credits the purchase's category, not «طلب از دیگران»; «۳۲۰ نبود دقیقش کمتر بود» gets the card's own 318.250, not a question |
 | CC4 | No stray words | A reply the model ends with «તારીખ», or a question with buttons ending «kartaa» | The reply ends at its last sentence; names in Latin letters (SHOP LLC) stay |
+
+## CF. A statement's posted rows apart from rows found in the books (chat review 2026-11-10)
+
+From production: a school's statement showed 140 rows "matched" when 138 of them had been posted from the statement itself.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CF1 | Posted, found, open | A statement of three rows: one posted from its card, one matched to an entry already in the books, one not yet in them; open Bank statements | Rows 3, «ثبت‌شده» (posted) 1, «تطبیق‌یافته» (matched) 1 — counted as they stand, in the page's language and digits |

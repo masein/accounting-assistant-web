@@ -136,6 +136,12 @@ def _existing_rule_keys(db: Session) -> set[str]:
     }
 
 
+# an imported voucher with no narration of its own is named «سند واردشده {number}»: with the number gone every one of
+# them reads the same, and a whole imported journal looked like one payment that stopped (chat review 2026-11-10,
+# item 25, scenario CH1)
+_IMPORTED = {"سند واردشده", "imported voucher"}
+
+
 def detect_recurring(db: Session, *, today: date | None = None, txns: list | None = None,
                      currency: str | None = None) -> list[RecurringCandidate]:
     """``txns``: entries already loaded reaching back at least LOOKBACK_DAYS
@@ -164,7 +170,7 @@ def detect_recurring(db: Session, *, today: date | None = None, txns: list | Non
     groups: dict[tuple[str, str], list[tuple[date, int, str, str | None, str]]] = {}
     for txn in txns:
         narration = normalize_narration(txn.description)
-        if not narration:
+        if not narration or narration in _IMPORTED:
             continue
         # A recurring payment has exactly one cash leg and one counter leg;
         # anything more complex is a compound entry, not a standing order.

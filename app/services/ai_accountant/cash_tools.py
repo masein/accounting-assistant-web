@@ -79,11 +79,13 @@ class GetCashPosition(BaseTool):
         ).all()
         by_code = {code: (name, plain(d or 0) - plain(c or 0)) for code, name, d, c in rows}
         names = {a.code: a.name for a in ctx.db.execute(select(Account).where(Account.code.in_(codes))).scalars().all()}
+        # an account no entry was ever made on isn't a place money is: the chart's own 1110 at 0 was listed beside
+        # the banks a migrated company really uses (chat review 2026-11-10, item 25, scenario CH2)
         accounts = [
             {"account_code": code, "account_name": by_code.get(code, (names.get(code, ""), 0))[0] or names.get(code, ""),
              "balance": by_code.get(code, ("", 0))[1]}
-            for code in codes
-        ]
+            for code in codes if code in by_code or getattr(ctx, "mode", "default") == "personal"   # a person's places stay
+        ] or [{"account_code": code, "account_name": names.get(code, ""), "balance": 0} for code in codes[:1]]
         total = sum(a["balance"] for a in accounts)
         base = (get_reporting_currency(ctx.db) or "IRR").upper()
         # each place in the currency its money is in, nothing exchanged (scenario AB5): a person

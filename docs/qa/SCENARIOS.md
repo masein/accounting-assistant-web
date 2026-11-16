@@ -1249,3 +1249,11 @@ From production: a school's statement of 205 rows took 139 separate confirms in 
 | CD2 | One that is different | Cancel the group card; Next | The rows come one at a time again, and that group is not offered again in this conversation |
 | CD3 | The group card is waiting | Next again before confirming or cancelling the group card | «کارت ردیف … بالاتر هنوز منتظر است» — no second card |
 | CD4 | Too few or nothing alike | Only one other row like it, or a row whose narration is only digits | One card at a time, as before |
+
+## CH. More small fixes (chat review 2026-11-10, item 25)
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CH1 | Imported vouchers aren't a recurring payment | A journal imported with vouchers that had no narration («سند واردشده ۱۰۱»…) | No "missed recurring payment" insight for them; a real monthly payment (rent) is still found |
+| CH2 | A money account never used | A company with a bank used and another (or the chart's 1110) never used; «چقدر پول داریم؟» | Only the account with entries is listed; a person's own bank and cash places stay listed even before their first entry |
+| CH3 | No talk of tools | The assistant can't do something | It says what it found, can do, or needs — never "the tool" |

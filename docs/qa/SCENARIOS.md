@@ -1213,3 +1213,11 @@ Asked «چقدر توی کیفم پول هست؟», the assistant read the walle
 | CC2 | Money back only from where it went | After confirming two amounts into the wallet: «اشتباه میکنی یه ۴۱۲ و یه ۳۲۰ همین الان اضافه کردیم» | No correction card: the assistant reads the wallet again and names the two entries. A card crediting a category more than was spent there, or «طلب از دیگران» more than is owed, is refused; a refund of what was spent is made |
 | CC3 | Money back for a purchase | «اون ۴۱۲ ریال رو از شرکت گرفتم» after a 412 purchase recorded as household spending | The card credits the purchase's category, not «طلب از دیگران»; «۳۲۰ نبود دقیقش کمتر بود» gets the card's own 318.250, not a question |
 | CC4 | No stray words | A reply the model ends with «તારીખ», or a question with buttons ending «kartaa» | The reply ends at its last sentence; names in Latin letters (SHOP LLC) stay |
+
+## CH. More small fixes (chat review 2026-11-10, item 25)
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CH1 | Imported vouchers aren't a recurring payment | A journal imported with vouchers that had no narration («سند واردشده ۱۰۱»…) | No "missed recurring payment" insight for them; a real monthly payment (rent) is still found |
+| CH2 | A money account never used | A company with a bank used and another (or the chart's 1110) never used; «چقدر پول داریم؟» | Only the account with entries is listed; a person's own bank and cash places stay listed even before their first entry |
+| CH3 | No talk of tools | The assistant can't do something | It says what it found, can do, or needs — never "the tool" |

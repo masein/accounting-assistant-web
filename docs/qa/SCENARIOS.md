@@ -1213,3 +1213,12 @@ Asked «چقدر توی کیفم پول هست؟», the assistant read the walle
 | CC2 | Money back only from where it went | After confirming two amounts into the wallet: «اشتباه میکنی یه ۴۱۲ و یه ۳۲۰ همین الان اضافه کردیم» | No correction card: the assistant reads the wallet again and names the two entries. A card crediting a category more than was spent there, or «طلب از دیگران» more than is owed, is refused; a refund of what was spent is made |
 | CC3 | Money back for a purchase | «اون ۴۱۲ ریال رو از شرکت گرفتم» after a 412 purchase recorded as household spending | The card credits the purchase's category, not «طلب از دیگران»; «۳۲۰ نبود دقیقش کمتر بود» gets the card's own 318.250, not a question |
 | CC4 | No stray words | A reply the model ends with «તારીખ», or a question with buttons ending «kartaa» | The reply ends at its last sentence; names in Latin letters (SHOP LLC) stay |
+
+## CE. The mirror catches up (ops, 2026-11-16)
+
+The production server pulls from the legacy mirror. From 2026-11-14 it answered 502 for days; every publish skipped it and production stayed on an older image with nothing saying so.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CE1 | The mirror back after an outage | Publishes run while the mirror is down; the mirror comes back | Within the hour the "Mirror sync" workflow copies GHCR's latest to the mirror (its run summary says which digest), and the server's Watchtower deploys it; while the mirror is down, each hourly run ends with a warning, not a failure |
+| CE2 | Nothing to do | The mirror already has GHCR's latest | The run says «The mirror is current» and copies nothing |

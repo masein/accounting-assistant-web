@@ -157,7 +157,7 @@ jobs:
               fi
               echo "mirror attempt $attempt failed; retrying in 20s…"; sleep 20
             done
-            echo "::warning::mirror to $MIRROR_REGISTRY skipped (registry unavailable)"
+            echo "::warning::mirror to $MIRROR_REGISTRY skipped (registry unavailable) — the hourly Mirror sync copies it once the mirror is back"
           fi
 
       - name: Summary

@@ -1,0 +1,74 @@
+name: Mirror sync
+
+# The production server pulls the API image from the legacy mirror (docker.netixsystem.com). The publish job copies
+# each new image there, but only tries for a minute: from 2026-11-14 the mirror answered 502 for days, every publish
+# skipped it, and production stayed on an older image with nothing saying so. Every hour this job checks whether the
+# mirror's `latest` is GHCR's `latest` and copies it over when it isn't — so once the mirror is back, the server's
+# Watchtower picks up the newest image within the hour, with no one re-running anything.
+#
+# Turn it off with the repo variable MIRROR_ENABLED = "false" (as for the publish job's mirror step).
+
+on:
+  schedule:
+    - cron: "17 * * * *"        # hourly, off the hour
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: mirror-sync
+  cancel-in-progress: false
+
+env:
+  GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/accounting-assistant-api
+  MIRROR_REGISTRY: docker.netixsystem.com
+  MIRROR_IMAGE: ${{ vars.IMAGE_NAME || 'docker.netixsystem.com/accounting-assistant-api' }}
+
+jobs:
+  sync:
+    name: Copy GHCR latest to the mirror when it is behind
+    if: ${{ vars.MIRROR_ENABLED != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to the mirror registry (if credentials are set)
+        continue-on-error: true
+        env:
+          REG_USER: ${{ secrets.REGISTRY_USERNAME }}
+          REG_PASS: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          if [ -n "$REG_USER" ]; then
+            echo "$REG_PASS" | docker login "$MIRROR_REGISTRY" -u "$REG_USER" --password-stdin \
+              || echo "::warning::mirror login to $MIRROR_REGISTRY failed"
+          fi
+
+      - name: Copy latest when the mirror is behind
+        run: |
+          set -u
+          want=$(docker buildx imagetools inspect "$GHCR_IMAGE:latest" --format '{{json .Manifest.Digest}}' | tr -d '"')
+          have=$(docker buildx imagetools inspect "$MIRROR_IMAGE:latest" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"' || true)
+          if [ -n "$want" ] && [ "$want" = "$have" ]; then
+            echo "The mirror is current: $want"; exit 0
+          fi
+          echo "The mirror has ${have:-nothing it can show}; GHCR latest is $want — copying."
+          for attempt in 1 2 3; do
+            if docker buildx imagetools create --tag "$MIRROR_IMAGE:latest" "$GHCR_IMAGE@$want"; then
+              echo "✓ mirrored $want on attempt $attempt"
+              echo "Mirrored \`$want\` to $MIRROR_IMAGE:latest" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "mirror attempt $attempt failed; retrying in 20s…"; sleep 20
+          done
+          echo "::warning::the mirror is still unavailable; the next hourly run tries again"

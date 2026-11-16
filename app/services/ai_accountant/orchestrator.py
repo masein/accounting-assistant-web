@@ -258,6 +258,7 @@ Copy dates. The current date is given above in both calendars — when you menti
 # Style
 
 * Be concise. Don't apologise. Don't lecture about accounting basics.
+* Never mention tools, "the tool", ``search_accounts`` or other internals to the user («ابزار مبلغ را ۳۹۰ تشخیص داد», "the report tool only gives…"): say what you found, what you can do, or what you need from them.
 * LANGUAGE — non-negotiable: reply in the language of the user's LAST message. A Persian question gets a Persian answer, even if the interface language (named at the end of these instructions) is another. Only when the message has no words of its own (numbers, a receipt sent alone) answer in the language of the user's earlier messages; the turn's language is named at the end. Describe an entry in that language too — a receipt printed in English, from a user who writes Persian, gets a Persian description (the shop's name as printed). Write Persian entity names in Persian script — never transliterate them to Latin ("تولیدی آرد روشن", not "Ard roshan").
 * Match the company's currency by default (returned by ``get_company_defaults``).
 * TOMAN: Iranian users quote prices in تومان but the books are kept in ریال (IRR). 1 تومان = 10 ریال — ALWAYS convert: «۲۱۵ میلیون تومان» → propose 2,150,000,000 IRR, and say the conversion in your reply («۲۱۵ میلیون تومان = ۲,۱۵۰,۰۰۰,۰۰۰ ریال»). Tomans written in English are tomans too ("640M Toman" → 6,400,000,000 IRR; "42000 toman" → 420,000 IRR). A follow-up that gives a bare figure in a conversation priced in تومان («کارمزدش ۴۲ هزار بود», "the fee was 42000") is in tomans as well: convert it and say the conversion, so the user can correct it. Amounts said in ریال are used as-is. If the user corrects the figure, use their number. A figure the user typed beats a document's: an invoice printed in tomans is a tenth of the cheque in rials.
@@ -1306,6 +1307,27 @@ def _no_stray_tail(text: str) -> str:
     return text[:m.start() + 1]
 
 
+# A card isn't in the books until it is confirmed: «حقوق ۳۰ میلیون … ثبت شد. لطفاً کارت را تأیید کنید» told the user it
+# was recorded (chat review 2026-11-10, item 25, scenario CG3). Said only of what this turn's cards do.
+_NOT_YET = (
+    (re.compile(r"(?<![\w\u200c])ثبت شد(?:ه است)?(?![\w\u200c])"), "آماده شد"),
+    (re.compile(r"(?<![\w\u200c])ثبت کردم(?![\w\u200c])"), "آماده کردم"),
+    (re.compile(r"\b(?:has|have) been recorded\b", re.IGNORECASE), "is ready to confirm"),
+    (re.compile(r"\bI(?:'ve| have) recorded\b"), "I've prepared"),
+    (re.compile(r"\bse ha registrado\b", re.IGNORECASE), "está lista para confirmar"),
+    (re.compile(r"(?<![\w])تم تسجيل(?:ه|ها)?(?![\w])"), "جاهزة للتأكيد"),
+)
+
+
+def _not_recorded_yet(text: str, proposals: list) -> str:
+    """A reply in a turn that only made cards doesn't say the entry is recorded."""
+    if not text or not any(p.get("confirmation_token") and p.get("status", "pending") == "pending" for p in proposals):
+        return text
+    for pattern, said in _NOT_YET:
+        text = pattern.sub(said, text)
+    return text
+
+
 _FA_DECIMAL = re.compile(r"(?<=[۰-۹])\.(?=[۰-۹])")
 _FA_THOUSANDS = re.compile(r"(?<=[۰-۹])[،٬](?=[۰-۹]{3}(?![۰-۹]))")
 
@@ -1954,6 +1976,7 @@ async def run_chat_turn(
                 name_spelling.as_given(_true_figures(assistant_msg.text or "", tool_call_log), tool_call_log)))))
             # the choices taken out of the text can leave the model's stray word last («…بگیرم؟ kartaa»): CC4
             final_text = _no_stray_tail(_choices_as_chips(final_text, tool_call_log))
+            final_text = _not_recorded_yet(final_text, proposals)
             # Final one-card pass over EVERY proposal raised this chat turn (the
             # standalone create and the transaction/time action are often in
             # different LLM turns), so a redundant standalone create is dropped.

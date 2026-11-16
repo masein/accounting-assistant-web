@@ -1214,6 +1214,50 @@ Asked «چقدر توی کیفم پول هست؟», the assistant read the walle
 | CC3 | Money back for a purchase | «اون ۴۱۲ ریال رو از شرکت گرفتم» after a 412 purchase recorded as household spending | The card credits the purchase's category, not «طلب از دیگران»; «۳۲۰ نبود دقیقش کمتر بود» gets the card's own 318.250, not a question |
 | CC4 | No stray words | A reply the model ends with «તારીખ», or a question with buttons ending «kartaa» | The reply ends at its last sentence; names in Latin letters (SHOP LLC) stay |
 
+## CF. A statement's posted rows apart from rows found in the books (chat review 2026-11-10)
+
+From production: a school's statement showed 140 rows "matched" when 138 of them had been posted from the statement itself.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CF1 | Posted, found, open | A statement of three rows: one posted from its card, one matched to an entry already in the books, one not yet in them; open Bank statements | Rows 3, «ثبت‌شده» (posted) 1, «تطبیق‌یافته» (matched) 1 — counted as they stand, in the page's language and digits |
+
+## CG. Small fixes (chat review 2026-11-10, item 25)
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CG1 | The integrity history | Run the audit with a duplicate payment and two back-dated entries in the books | The history records "Duplicate payments" and "Backdated entries" as warnings with their findings — they were "pass" always; a check that fails to run is recorded so |
+| CG2 | A bank in Persian words | A Day Bank statement summarised in Persian | «بانک دی», never «Day», in the Persian sentence |
+| CG3 | Not recorded until confirmed | The assistant's reply to a card says «… ثبت شد» or "has been recorded" | It reads «… آماده شد» / "is ready to confirm"; words about entries already in the books («ثبت‌شده») stay |
+
+## CE. The mirror catches up (ops, 2026-11-16)
+
+The production server pulls from the legacy mirror. From 2026-11-14 it answered 502 for days; every publish skipped it and production stayed on an older image with nothing saying so.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CE1 | The mirror back after an outage | Publishes run while the mirror is down; the mirror comes back | Within the hour the "Mirror sync" workflow copies GHCR's latest to the mirror (its run summary says which digest), and the server's Watchtower deploys it; while the mirror is down, each hourly run ends with a warning, not a failure |
+| CE2 | Nothing to do | The mirror already has GHCR's latest | The run says «The mirror is current» and copies nothing |
+
+## CD. Step by step in groups (chat review 2026-11-10)
+
+From production: a school's statement of 205 rows took 139 separate confirms in step by step; one day alone had 26 small card-to-card tuition transfers, each its own card.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CD1 | A group like the row just recorded | Step by step; confirm the card of a card-to-card tuition row (its account set to «درآمد شهریه», edited on the card if needed); Next | One card for every other open row like it (same direction, the same first words of the narration): all to «درآمد شهریه», one voucher per day, «۲۵ ردیف دیگر مثل ردیف قبل است …»; confirmed, each row is in the books and the rest come next |
+| CD2 | One that is different | Cancel the group card; Next | The rows come one at a time again, and that group is not offered again in this conversation |
+| CD3 | The group card is waiting | Next again before confirming or cancelling the group card | «کارت ردیف … بالاتر هنوز منتظر است» — no second card |
+| CD4 | Too few or nothing alike | Only one other row like it, or a row whose narration is only digits | One card at a time, as before |
+
+## CH. More small fixes (chat review 2026-11-10, item 25)
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CH1 | Imported vouchers aren't a recurring payment | A journal imported with vouchers that had no narration («سند واردشده ۱۰۱»…) | No "missed recurring payment" insight for them; a real monthly payment (rent) is still found |
+| CH2 | A money account never used | A company with a bank used and another (or the chart's 1110) never used; «چقدر پول داریم؟» | Only the account with entries is listed; a person's own bank and cash places stay listed even before their first entry |
+| CH3 | No talk of tools | The assistant can't do something | It says what it found, can do, or needs — never "the tool" |
+
 ## CI. The rest of the small issues (chat review 2026-11-10, item 25)
 
 From production: Omani rials in replies as «۱٫۷» or «۶۲۹» where the app writes «۹۸۷٫۵۹۰»; a bank named with a letter dropped or moved; «یثغ ذشممشدزث» ("dey ballance" typed with the Persian layout on) answered "unclear"; and an entry's history empty unless it was made on the transactions page. "Last week" was checked: it is Saturday to Friday on a Jalali company, Monday to Sunday otherwise, in each currency. Names and figures made up.

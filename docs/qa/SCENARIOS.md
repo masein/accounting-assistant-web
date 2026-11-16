@@ -1213,3 +1213,11 @@ Asked «چقدر توی کیفم پول هست؟», the assistant read the walle
 | CC2 | Money back only from where it went | After confirming two amounts into the wallet: «اشتباه میکنی یه ۴۱۲ و یه ۳۲۰ همین الان اضافه کردیم» | No correction card: the assistant reads the wallet again and names the two entries. A card crediting a category more than was spent there, or «طلب از دیگران» more than is owed, is refused; a refund of what was spent is made |
 | CC3 | Money back for a purchase | «اون ۴۱۲ ریال رو از شرکت گرفتم» after a 412 purchase recorded as household spending | The card credits the purchase's category, not «طلب از دیگران»; «۳۲۰ نبود دقیقش کمتر بود» gets the card's own 318.250, not a question |
 | CC4 | No stray words | A reply the model ends with «તારીખ», or a question with buttons ending «kartaa» | The reply ends at its last sentence; names in Latin letters (SHOP LLC) stay |
+
+## CG. Small fixes (chat review 2026-11-10, item 25)
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CG1 | The integrity history | Run the audit with a duplicate payment and two back-dated entries in the books | The history records "Duplicate payments" and "Backdated entries" as warnings with their findings — they were "pass" always; a check that fails to run is recorded so |
+| CG2 | A bank in Persian words | A Day Bank statement summarised in Persian | «بانک دی», never «Day», in the Persian sentence |
+| CG3 | Not recorded until confirmed | The assistant's reply to a card says «… ثبت شد» or "has been recorded" | It reads «… آماده شد» / "is ready to confirm"; words about entries already in the books («ثبت‌شده») stay |

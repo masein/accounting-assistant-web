@@ -146,10 +146,25 @@ class TestVisionRouting:
         from app.services import ocr_extract
 
         monkeypatch.setattr(
-            ocr_extract, "resolve_active_ai_backend", lambda: {"api_key": "k"}
+            ocr_extract, "resolve_active_ai_backend",
+            lambda: {"provider": "metis", "base_url": "https://api.metisai.ir/openai/v1", "api_key": "k"},
         )
         assert ocr_extract._gemini_enabled("gemini-2.5-pro") is True
         assert ocr_extract._gemini_enabled("gpt-4o") is False
+
+    def test_another_providers_key_never_goes_to_the_gemini_wrapper(self, monkeypatch):
+        """Review 2026-11-16: with OpenAI (or any other provider) active, its key
+        was sent to the Metis Gemini wrapper with every scan and voice note."""
+        from app.services import ocr_extract, speech
+
+        other = {"provider": "custom", "base_url": "https://api.openai.com/v1", "api_key": "sk-openai"}
+        monkeypatch.setattr(ocr_extract, "resolve_active_ai_backend", lambda: other)
+        monkeypatch.setattr(speech, "resolve_active_ai_backend", lambda: other)
+        assert ocr_extract._gemini_enabled("gemini-2.5-pro") is False
+        assert speech._gemini_ready() is False
+        with pytest.raises(ocr_extract.OCRExtractError):
+            import asyncio
+            asyncio.run(ocr_extract._gemini_raw([("image/png", "AAAA")], "gemini-2.5-pro", "read it"))
 
     def test_gemini_disabled_without_key(self, monkeypatch):
         from app.services import ocr_extract

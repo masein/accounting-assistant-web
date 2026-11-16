@@ -175,7 +175,7 @@ def parse_session_token(token: str | None) -> SessionUser | None:
     expected_sig = hmac.new(
         settings.auth_secret.encode("utf-8"), payload_b64.encode("utf-8"), hashlib.sha256
     ).hexdigest()
-    if not hmac.compare_digest(sig, expected_sig):
+    if not hmac.compare_digest(sig.encode("utf-8", "replace"), expected_sig.encode("ascii")):  # any text: no TypeError
         return None
     try:
         payload = json.loads(_b64url_decode(payload_b64).decode("utf-8"))
@@ -243,4 +243,4 @@ def validate_csrf(request: Request) -> bool:
     header_token = request.headers.get(CSRF_HEADER)
     if not cookie_token or not header_token:
         return False
-    return hmac.compare_digest(cookie_token, header_token)
+    return hmac.compare_digest(cookie_token.encode("utf-8", "replace"), header_token.encode("utf-8", "replace"))

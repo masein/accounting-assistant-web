@@ -131,6 +131,10 @@ def test_the_digest_email_is_titled_in_its_language(db, client, monkeypatch):
         set_digest_settings(db, enabled=True, channel="email")
         db.commit()
     sent = []
+    from app.api import notifications
+    # the operator's channel carries only the platform's own company (review
+    # 2026-11-16); this test is about the subject's language
+    monkeypatch.setattr(notifications, "_operator_channels_open", lambda: True)
     monkeypatch.setattr(settings, "smtp_to", "ops@example.com", raising=False)
     monkeypatch.setattr(mail_service, "send_email", lambda **kw: sent.append(kw) or True)
     r = _api(client, Role.OWNER, co).post("/notifications/daily-digest", json={})
@@ -138,3 +142,49 @@ def test_the_digest_email_is_titled_in_its_language(db, client, monkeypatch):
     assert sent[0]["subject"] == "خلاصه روزانه — Acme" and sent[0]["text"].startswith("خلاصه روزانه")
     db.delete(owner)
     db.commit()
+
+
+def test_another_companys_digest_never_reaches_the_operators_channels(db, client, monkeypatch):
+    """Review 2026-11-16: SLACK_WEBHOOK_URL / TELEGRAM_* / SMTP_TO are the
+    operator's, one set per server — every company's digest (and its alerts
+    from /notifications/check) went to them."""
+    import asyncio
+
+    from app.api import notifications
+    from app.db.seed import DEFAULT_COMPANY_ID
+    from app.services import mail_service
+
+    posted, mailed = [], []
+
+    class _Http:
+        def __init__(self, *a, **k): ...
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def post(self, url, **kw):
+            posted.append(url)
+            return type("R", (), {"status_code": 200})()
+
+    monkeypatch.setattr(notifications.httpx, "AsyncClient", _Http)
+    monkeypatch.setattr(settings, "slack_webhook_url", "https://hooks.example/ops", raising=False)
+    monkeypatch.setattr(settings, "telegram_bot_token", "tok", raising=False)
+    monkeypatch.setattr(settings, "telegram_chat_id", "42", raising=False)
+    monkeypatch.setattr(settings, "smtp_to", "ops@example.com", raising=False)
+    monkeypatch.setattr(mail_service, "send_email", lambda **kw: mailed.append(kw) or True)
+
+    co = _company(db)
+    db.commit()
+    with use_company(str(co.id)):
+        set_digest_settings(db, enabled=True, channel="all")
+        db.commit()
+    r = _api(client, Role.OWNER, co).post("/notifications/daily-digest", json={})
+    assert r.status_code == 200 and r.json()["delivered"] == [], r.text
+    with use_company(str(co.id)):
+        assert asyncio.run(notifications._send_slack("x")) is False
+        assert asyncio.run(notifications._send_telegram("x")) is False
+        assert notifications._send_email("x") is False
+    assert posted == [] and mailed == []
+
+    with use_company(DEFAULT_COMPANY_ID):                    # the platform's own books: as before
+        assert asyncio.run(notifications._send_slack("x")) is True
+        assert notifications._send_email("x") is True
+    assert posted == ["https://hooks.example/ops"] and len(mailed) == 1

@@ -730,31 +730,62 @@ def create_invoice(payload: InvoiceCreate, db: Session = Depends(get_db)) -> Inv
     return _to_read(row)
 
 
+def _changed_fields(row: Invoice, sent: dict, keys: tuple[str, ...], *, default_ccy: str = "") -> set[str]:
+    """The fields of ``keys`` a PATCH really changes — the edit dialog re-sends
+    unchanged ones. ``items`` counts as changed whenever it is sent. An old row
+    with no currency reads as ``default_ccy`` (the books' own)."""
+    current = {"number": row.number, "kind": row.kind, "status": row.status, "issue_date": row.issue_date,
+               "amount": plain(row.amount or 0), "entity_id": row.entity_id,
+               "currency": (row.currency or default_ccy or "").upper()}
+    touched = set()
+    for key in keys:
+        new_val = sent.get(key)
+        if new_val is None:
+            continue
+        if key == "items":
+            touched.add(key)
+            continue
+        if key == "currency":
+            new_val = new_val.strip().upper()
+        elif key in ("kind", "status"):
+            new_val = new_val.strip().lower()
+        elif key == "number":
+            new_val = new_val.strip()
+        if new_val != current[key]:
+            touched.add(key)
+    return touched
+
+
 @router.patch("/{invoice_id}", response_model=InvoiceRead)
 def update_invoice(invoice_id: UUID, payload: InvoiceUpdate, db: Session = Depends(get_db)) -> InvoiceRead:
     row = db.execute(select(Invoice).where(Invoice.id == invoice_id).options(selectinload(Invoice.items))).scalars().one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Invoice not found")
+    sent = payload.model_dump(exclude_unset=True)
     if row.moadian_status == "confirmed":
-        # Block only real changes: the edit dialog re-sends unchanged fields.
-        sent = payload.model_dump(exclude_unset=True)
-        current = {"number": row.number, "kind": row.kind, "issue_date": row.issue_date,
-                   "amount": plain(row.amount or 0), "entity_id": row.entity_id,
-                   "currency": (row.currency or "").upper()}
-        touched = set()
-        for key, now_val in current.items():
-            if key in sent and sent[key] is not None:
-                new_val = sent[key].strip().upper() if key == "currency" else (
-                    sent[key].strip() if key == "number" else sent[key])
-                if new_val != now_val:
-                    touched.add(key)
-        if sent.get("items") is not None:
-            touched.add("items")
+        touched = _changed_fields(row, sent, ("number", "kind", "issue_date", "amount", "entity_id",
+                                              "currency", "items"))
         if touched:
             raise HTTPException(
                 status_code=409,
                 detail=("This invoice is registered in سامانه مؤدیان; its " + ", ".join(sorted(touched))
                         + " can't change. Issue a corrective (اصلاحی) invoice instead."),
+            )
+    if row.transaction_id is not None:
+        # Recognised: its entry is in the books. What the entry was made from
+        # can't change under it (the entry would no longer match the invoice),
+        # and its status follows the money — Void reverses it, a payment pays
+        # it. A PATCH used to change all of that with no re-posting, and
+        # status → draft then DELETE removed an issued invoice without the
+        # void trail (review 2026-11-16).
+        touched = _changed_fields(row, sent, ("kind", "issue_date", "amount", "entity_id", "currency",
+                                              "items", "status"), default_ccy=default_currency(db, None))
+        if touched:
+            changed = ", ".join(sorted(touched))
+            raise HTTPException(
+                status_code=409,
+                detail=(f"This invoice is already in the books, so its {changed} can't change here. Record a "
+                        f"payment or a credit note, or void it and issue a new one."),
             )
     if payload.number is not None:
         number = payload.number.strip()

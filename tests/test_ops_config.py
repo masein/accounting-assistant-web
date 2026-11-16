@@ -20,6 +20,10 @@ def test_publish_workflow_waits_for_a_green_ci_run():
     assert "branches" not in on.get("push", {}), "a push to main must not publish directly"
     job = wf["jobs"]["build-push"]
     assert "workflow_run.conclusion == 'success'" in job["if"]
+    # `branches: [main]` matches a fork PR's head branch called main as well:
+    # only a push to this repository may publish (review 2026-11-16)
+    assert "workflow_run.event == 'push'" in job["if"]
+    assert "workflow_run.head_repository.full_name == github.repository" in job["if"]
     checkout = next(s for s in job["steps"] if str(s.get("uses", "")).startswith("actions/checkout"))
     assert "workflow_run.head_sha" in checkout["with"]["ref"]
 

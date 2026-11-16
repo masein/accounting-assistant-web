@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.http_headers import content_disposition
 from app.core.messages import said
+from app.core.money import quantize, to_decimal
 from app.db.session import get_db
 from app.models.account import Account
 from app.models.entity import Entity, TransactionEntity
@@ -1081,6 +1082,21 @@ def excel_import_confirm(
                               f"no account mapping for [{line.title1} > {line.title2} > {line.title3}]")
             continue
 
+        # Each line to the currency's places FIRST, then the balance check. The
+        # parser checked the file's floats, and the lines were then rounded one
+        # by one with int(round()): a voucher of 0.5 + 0.5 against 1 posted as
+        # 0 + 0 against 1, and int() dropped every penny of a pound file
+        # (review 2026-11-16).
+        mult = to_decimal(multiplier)
+        amounts = [(quantize(to_decimal(line.debit or 0) * mult, currency),
+                    quantize(to_decimal(line.credit or 0) * mult, currency)) for line in v.lines]
+        total_dr = sum(d for d, _c in amounts)
+        total_cr = sum(c for _d, c in amounts)
+        if total_dr != total_cr:
+            errors.append(f"Voucher {v.voucher_number}: unbalanced once each line is rounded to {currency} "
+                          f"(debit={total_dr}, credit={total_cr})")
+            continue
+
         # Build description from first line
         descriptions = [l.description for l in v.lines if l.description]
         desc = descriptions[0] if descriptions else f"Excel import voucher {v.voucher_number}"
@@ -1110,7 +1126,7 @@ def excel_import_confirm(
         db.add(t)
         db.flush()
 
-        for line in v.lines:
+        for line, (debit_amt, credit_amt) in zip(v.lines, amounts):
             acct_key = f"{line.title1}||{line.title2}||{line.title3}"
             code = acct_map.get(acct_key)
             if not code:
@@ -1119,9 +1135,6 @@ def excel_import_confirm(
                     f"no account mapping for [{line.title1} > {line.title2} > {line.title3}]"
                 )
                 continue
-
-            debit_amt = int(round(line.debit * multiplier))
-            credit_amt = int(round(line.credit * multiplier))
 
             acc = existing_accounts.get(code)
             if not acc:

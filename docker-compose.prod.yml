@@ -61,6 +61,9 @@ services:
       # Session-signing secret — REQUIRED in prod (auth tokens are signed with
       # it). Generate one: `openssl rand -hex 32`.
       AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
+      # First password of the seeded `admin` on a brand-new database (DEPLOY.md
+      # §3). Empty = a random one, written once to the log.
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
       # Background jobs (recurring postings, feed refresh, daily digest).
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
       # Only when the proxy is NOT declared via FORWARDED_ALLOW_IPS.

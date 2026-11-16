@@ -177,7 +177,7 @@
           tr.tabIndex = 0;   // opened from the keyboard too (Enter / Space), not only by a click
           tr.innerHTML = `
             <td style="${grouped && g.code ? 'padding-inline-start:1.4rem;' : ''}">${escapeHtml(localCode(r.account_code))}</td>
-            <td>${r.account_name}</td>
+            <td>${escapeHtml(r.account_name)}</td>
             <td class="num">${formatAmount(r.debit_turnover)}</td>
             <td class="num">${formatAmount(r.credit_turnover)}</td>
             <td class="num">${formatAmount(r.debit_balance)}</td>

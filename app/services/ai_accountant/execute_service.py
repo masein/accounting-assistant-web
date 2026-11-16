@@ -108,14 +108,19 @@ class UndoResult:
 # ---------------------------------------------------------------------------
 
 
-def _resolve_proposal(db: Session, token: str) -> AIProposal:
+def _resolve_proposal(db: Session, token: str, *, lock: bool = False) -> AIProposal:
+    """The proposal behind a confirmation token. ``lock`` holds its row until
+    the commit: two confirms of one card (a double tap, the web and the phone)
+    both read ``pending`` and both posted the entry (review 2026-11-16) — with
+    the lock the second waits, then finds it ``executed``."""
     try:
         token_uuid = uuid.UUID(token)
     except (ValueError, TypeError):
         raise ProposalNotFound(f"Invalid confirmation_token format: {token!r}")
-    row = db.execute(
-        select(AIProposal).where(AIProposal.confirmation_token == token_uuid)
-    ).scalar_one_or_none()
+    q = select(AIProposal).where(AIProposal.confirmation_token == token_uuid)
+    if lock:
+        q = q.with_for_update().execution_options(populate_existing=True)
+    row = db.execute(q).scalar_one_or_none()
     if row is None:
         raise ProposalNotFound(f"No proposal found for token {token}")
     return row
@@ -173,7 +178,7 @@ def execute_proposal(
         returns the original audit-log entry (idempotent).
       * Older than a day → ``ProposalExpired``; recorded already by a later card → ``ProposalCancelled``.
     """
-    proposal = _resolve_proposal(db, confirmation_token)
+    proposal = _resolve_proposal(db, confirmation_token, lock=True)
 
     if proposal.user_id != actor_user_id:
         raise PermissionDenied(
@@ -256,7 +261,7 @@ def approve_proposal(db: Session, *, confirmation_token: str, approver_user_id: 
     approver. The requester can't approve their own."""
     from app.services.ai_accountant import guardrails
     from app.services.audit_service import log_audit_event
-    proposal = _resolve_proposal(db, confirmation_token)
+    proposal = _resolve_proposal(db, confirmation_token, lock=True)
     if proposal.status != "pending" or proposal.approval_status != "requested":
         raise ProposalCancelled("This proposal is not waiting for approval.")
     if str(proposal.user_id) == str(approver_user_id):

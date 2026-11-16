@@ -311,6 +311,39 @@ def seed_payment_methods_if_empty(session: "Session") -> int:
     return len(defaults)
 
 
+def initial_admin_password() -> str:
+    """The first password of the seeded ``admin`` super-admin.
+
+    Outside production it is ``admin`` (the sign-in is then locked to the
+    change-password screen). In production a fresh server used to come up with
+    admin/admin too — whoever reached it first chose the platform's password
+    (review 2026-11-16). There it is INITIAL_ADMIN_PASSWORD when that is set and
+    strong enough, else a random one written once to the log."""
+    import logging
+    import os
+    import secrets
+
+    from app.core.auth import PasswordPolicyError, validate_password_strength
+    from app.core.config import settings
+
+    if settings.app_env != "prod":
+        return "admin"
+    log = logging.getLogger("app.security")
+    supplied = (os.environ.get("INITIAL_ADMIN_PASSWORD") or "").strip()
+    if supplied:
+        try:
+            validate_password_strength(supplied)
+            if supplied.lower() != "admin":
+                return supplied
+        except PasswordPolicyError as exc:
+            log.warning("INITIAL_ADMIN_PASSWORD is not usable (%s); generating one instead", exc)
+    generated = secrets.token_urlsafe(18)
+    log.warning(
+        "SECURITY: created the 'admin' super-admin with the one-time password %s — sign in and change it "
+        "under Settings → Security (set INITIAL_ADMIN_PASSWORD to choose it yourself)", generated)
+    return generated
+
+
 def seed_admin_user_if_missing(session: "Session") -> int:
     """
     Ensure the default admin user exists for first login.
@@ -324,7 +357,7 @@ def seed_admin_user_if_missing(session: "Session") -> int:
     )
     if existing:
         return 0
-    password_hash, password_salt = hash_password("admin")
+    password_hash, password_salt = hash_password(initial_admin_password())
     session.add(
         User(
             username="admin",

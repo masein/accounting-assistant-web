@@ -145,7 +145,7 @@ def _bucket_totals(
     to_d: date,
     currency: str | None,
 ) -> dict[str, int]:
-    """Sum positive (sign-corrected) balances per Iranian-standard bucket for a period."""
+    """Sum signed (sign-corrected) balances per Iranian-standard bucket for a period."""
     turnovers = {
         account_id: (debit, credit)
         for account_id, debit, credit in account_turnovers_between(db, from_d, to_d, currency=currency)
@@ -157,11 +157,23 @@ def _bucket_totals(
             continue
         debit, credit = turnovers.get(acc.id, (0, 0))
         acc_type = classify_account_code(acc.code)
-        raw = balance_from_turnovers(acc_type, debit, credit)
-        # Positive magnitude of the period's net movement on this account.
-        # Sign is applied at the row level (below) based on bucket semantics.
-        buckets[bucket] = buckets.get(bucket, 0) + max(0, raw)
+        if bucket in _NET_BUCKETS:
+            # income and expenses in one row, read as income: a gain adds to
+            # profit and a loss takes from it (the expense-class reading added
+            # a loss to profit and floored a gain to 0)
+            raw = credit - debit
+        else:
+            raw = balance_from_turnovers(acc_type, debit, credit)
+        # The period's net movement on this account, in the bucket's own sense,
+        # SIGNED: a contra balance (sales returns, a recovered expense) reduces
+        # its bucket — floored at 0 it was dropped (review 2026-11-16). The
+        # bucket's presentation sign is applied at the row level (below).
+        buckets[bucket] = buckets.get(bucket, 0) + raw
     return buckets
+
+
+# Buckets that net income against expenses and are presented as income.
+_NET_BUCKETS = frozenset({"non_operating_net", "discontinued_ops"})
 
 
 # Buckets whose values are presented as negatives (deductions) on the statement.

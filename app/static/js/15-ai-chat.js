@@ -2220,14 +2220,23 @@
         history.replaceState(null, '', location.pathname + location.hash);
         try {
           const cache = await caches.open('shared-files');
+          const files = [];
           for (const req of await cache.keys()) {
             const res = await cache.match(req);
             await cache.delete(req);
             if (!res) continue;
             const blob = await res.blob();
             const name = new URL(req.url).searchParams.get('name') || 'shared';
-            await handleAttachFile(new File([blob], name, { type: blob.type }));
+            files.push(new File([blob], name, { type: blob.type }));
           }
+          if (!files.length) return;
+          // Any site can POST a form to /share-target, not only the phone's
+          // share sheet: the files wait for the person's yes before they are
+          // uploaded into their books (review 2026-11-16).
+          const names = files.map(f => f.name).join('، ');
+          const ok = await uiConfirm({ message: tf('chatShareConfirm', { n: files.length, names }) });
+          if (!ok) return;
+          for (const f of files) await handleAttachFile(f);
         } catch (_) { /* nothing to pick up */ }
       })();
 

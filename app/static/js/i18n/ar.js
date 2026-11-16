@@ -345,6 +345,7 @@ window.I18N_PACKS.ar = Object.assign({
         chatRename: "إعادة تسمية",
         chatDelete: "حذف",
         chatDeleteConfirm: "حذف هذه المحادثة؟ يُؤرشف سجلها ولا يُدمَّر.",
+        chatShareConfirm: "هل تُرفق {n} ملفًا تمت مشاركته مع هذا التطبيق بالمحادثة؟ {names}",
         chatDropHint: "أفلت الملفات لإرفاقها",
         chatTimeNow: "الآن",
         chatTimeMin: "دقيقة مضت",

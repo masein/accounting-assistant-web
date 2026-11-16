@@ -62,8 +62,12 @@ server. So the schema is always at head before anything serves, a brand-new
 database boots ready, and a **migration failure aborts the container loudly**
 (non-zero exit, traceback in `docker compose logs api`) instead of leaving a
 half-started app. First boot seeds the chart of accounts and the `admin`
-super-admin under the Default company (log in as `admin` / `admin`, then change
-the password).
+super-admin under the Default company. Its first password is
+`INITIAL_ADMIN_PASSWORD` from `.env` when you set one; otherwise a random one is
+written once to the log — find it with
+`docker compose logs api | grep "one-time password"`. Sign in as `admin` with
+it and change it straight away. (Outside production the seeded password is
+`admin`, and that sign-in is locked to the change-password screen.)
 
 Health check: `curl http://SERVER:8000/health` → `{"status":"ok",...}`. A cold
 boot (migrations + fonts) can take up to ~60s before it turns healthy — that's

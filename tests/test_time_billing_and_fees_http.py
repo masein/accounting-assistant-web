@@ -258,3 +258,47 @@ def test_fee_calculation_errors(co):
     assert r.status_code == 404
     assert api.post("/transactions/fees/calculate", json={"amount": 1, "method_name": "Paya"}).status_code == 422
     assert api.put("/transactions/fees", json={"method_name": "Paya", "fee_type": "flat"}).status_code == 422
+
+
+def test_fee_rules_are_each_companys_own(co, client, db):
+    """Review 2026-11-16: transaction_fees had no company, so every company
+    listed every other company's fee rules (migration 087)."""
+    from sqlalchemy import select
+
+    from app.core.auth import CSRF_COOKIE, create_session_token, generate_csrf_token
+    from app.core.config import settings
+    from app.db.seed import seed_chart_if_empty, seed_payment_methods_if_empty
+    from app.db.tenant import tenant_bypass, use_company
+    from app.models.company import Company
+    from app.models.transaction_fee import TransactionFee
+    from tests.conftest import _CSRFTestClient
+    from tests.test_admin_audit import _purge_company
+
+    api, cid = co
+    mine = _rule(api, fee_type="flat", flat_fee=7_000)
+
+    other = Company(id=uuid.uuid4(), name="Other Co", slug=f"oth-{uuid.uuid4().hex[:6]}", locale="ir",
+                    base_currency="IRR", status="active", token_version=0)
+    db.add(other)
+    db.commit()
+    oid = str(other.id)
+    try:
+        with use_company(oid):
+            seed_chart_if_empty(db, locale="ir")
+            seed_payment_methods_if_empty(db)
+            db.commit()
+        csrf = generate_csrf_token()
+        client.cookies.set(settings.auth_cookie_name, create_session_token(
+            user_id=str(uuid.uuid4()), username="other", is_admin=True, role="owner", company_id=oid))
+        client.cookies.set(CSRF_COOKIE, csrf)
+        theirs_api = _CSRFTestClient(client, csrf)
+        r = theirs_api.get("/transactions/fees")
+        assert r.status_code == 200 and r.json() == [], r.text          # not the first company's rule
+        theirs = _rule(theirs_api, fee_type="flat", flat_fee=9_000)
+        assert [x["id"] for x in theirs_api.get("/transactions/fees").json()] == [theirs["id"]]
+        assert _calc(theirs_api, 1_000_000)["fee_amount"] == 9_000
+        with tenant_bypass():
+            owners = dict(db.execute(select(TransactionFee.id, TransactionFee.company_id)).all())
+        assert str(owners[uuid.UUID(mine["id"])]) == cid and str(owners[uuid.UUID(theirs["id"])]) == oid
+    finally:
+        _purge_company(db, oid)

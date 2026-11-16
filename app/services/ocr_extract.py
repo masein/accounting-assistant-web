@@ -422,19 +422,23 @@ def _parse_json_blob(content: str) -> dict[str, Any]:
 
 
 def _gemini_enabled(model: str) -> bool:
-    """Use the Gemini wrapper when the OCR model is a Gemini model and we
-    have an API key (the Metis key works for both wrappers)."""
+    """Use the Gemini wrapper when the OCR model is a Gemini model and the
+    active backend's key is for the wrapper's host (the Metis key works for
+    both wrappers; another provider's key is never sent there)."""
     if not model.lower().startswith("gemini"):
         return False
-    key = (resolve_active_ai_backend().get("api_key") or "").strip()
-    return bool(key and (settings.gemini_base_url or "").strip())
+    from app.core.ai_runtime import gemini_wrapper_key
+    return bool(gemini_wrapper_key(resolve_active_ai_backend()))
 
 
 async def _gemini_raw(pages: list[tuple[str, str]], model: str, prompt: str) -> str:
     """Raw vision call via Metis's Google-format Gemini wrapper — returns the
     model's text. gemini-2.5 reads Persian-script digits exactly where gpt-4o
     misreads them."""
-    key = (resolve_active_ai_backend().get("api_key") or "").strip()
+    from app.core.ai_runtime import gemini_wrapper_key
+    key = gemini_wrapper_key(resolve_active_ai_backend())
+    if not key:
+        raise OCRExtractError("The Gemini reader isn't available with the active AI provider.")
     base = (settings.gemini_base_url or "").strip().rstrip("/")
     url = f"{base}/models/{model}:generateContent"
     parts: list[dict[str, Any]] = [{"text": prompt}]

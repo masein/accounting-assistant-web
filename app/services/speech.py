@@ -65,14 +65,18 @@ def _clean(text: str) -> str:
 
 
 def _gemini_ready() -> bool:
+    from app.core.ai_runtime import gemini_wrapper_key
     model = (settings.stt_gemini_model or "").strip()
-    key = (resolve_active_ai_backend().get("api_key") or "").strip()
-    return bool(model.lower().startswith("gemini") and key and (settings.gemini_base_url or "").strip())
+    # only the wrapper's own provider's key goes there (review 2026-11-16)
+    return bool(model.lower().startswith("gemini") and gemini_wrapper_key(resolve_active_ai_backend()))
 
 
 async def _gemini(data: bytes, mime: str) -> str:
+    from app.core.ai_runtime import gemini_wrapper_key
     model = settings.stt_gemini_model.strip()
-    key = (resolve_active_ai_backend().get("api_key") or "").strip()
+    key = gemini_wrapper_key(resolve_active_ai_backend())
+    if not key:
+        raise SpeechError("The Gemini transcriber isn't available with the active AI provider.")
     url = f"{settings.gemini_base_url.strip().rstrip('/')}/models/{model}:generateContent"
     payload = {"contents": [{"parts": [{"text": PROMPT},
                                        {"inline_data": {"mime_type": mime,

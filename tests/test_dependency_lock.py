@@ -88,7 +88,10 @@ def test_the_image_and_ci_install_the_locks_with_hashes():
 
 def test_no_dump_or_backup_enters_the_image():
     ignored = (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
-    for pattern in ("*.dump", "*.sql", "*.sql.gz", "*.tgz", "backups/", ".env", "app/uploads/"):
+    # `**/` — a bare `*.zip` matched the build context's root only, and the
+    # period snapshots under app/private_uploads/ shipped (review 2026-11-16)
+    for pattern in ("**/*.dump", "**/*.sql", "**/*.sql.gz", "**/*.tgz", "**/*.zip", "**/backups/", ".env",
+                    "app/uploads/", "app/private_uploads/"):
         assert pattern in ignored, pattern
 
 

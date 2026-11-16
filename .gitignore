@@ -41,3 +41,7 @@ backups/
 e2e-artifacts/
 # the deployer's state on a server (scripts/deploy.sh)
 .deploy/
+
+# local tool state: never committed (review 2026-11-16)
+.claude/settings.local.json
+.coverage

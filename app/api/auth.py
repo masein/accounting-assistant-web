@@ -97,6 +97,13 @@ class SignupRequest(BaseModel):
 # The password the seed gives the first admin. A login that presents it (for
 # any account) is let in only as far as the change-password screen.
 DEFAULT_SEED_PASSWORD = "admin"
+
+
+def _same_text(a: str, b: str) -> bool:
+    """Constant-time equality for any text. ``hmac.compare_digest`` refuses
+    str with non-ASCII characters (TypeError): a correct Persian password used
+    to end its sign-in with a 500 (review 2026-11-16)."""
+    return hmac.compare_digest((a or "").encode("utf-8"), (b or "").encode("utf-8"))
 MIN_PASSWORD_LENGTH = 8
 
 
@@ -184,7 +191,7 @@ def password_step(username: str, password: str, request: Request, db: Session):
     # The seeded default password gets a locked session: nothing but the
     # change-password screen works until a real password is set (production
     # QA 2026-09-24 found admin/admin still active on a live server).
-    must_change = hmac.compare_digest(password, DEFAULT_SEED_PASSWORD)
+    must_change = _same_text(password, DEFAULT_SEED_PASSWORD)
     _login_limiter.reset(db, username)  # a correct password clears the failed-attempt count
 
     if two_factor_on(user):
@@ -665,9 +672,9 @@ def change_password(payload: PasswordChangeRequest, request: Request, response: 
         validate_password_strength(new)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    if hmac.compare_digest(new, DEFAULT_SEED_PASSWORD) or new.lower() == user.username.lower():
+    if _same_text(new, DEFAULT_SEED_PASSWORD) or new.lower() == user.username.lower():
         raise HTTPException(status_code=400, detail="Choose a password that is not the default and not your username.")
-    if hmac.compare_digest(new, payload.current_password):
+    if _same_text(new, payload.current_password):
         raise HTTPException(status_code=400, detail="The new password must differ from the current one.")
     h, s = hash_password(new)
     user.password_hash = h

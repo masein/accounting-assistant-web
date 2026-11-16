@@ -29,8 +29,21 @@ def _fmt(items: list[NotificationItem]) -> str:
     return "\n".join(f"- [{i.level.upper()}] {i.title}: {i.message}" for i in items)
 
 
+def _operator_channels_open() -> bool:
+    """SLACK_WEBHOOK_URL, TELEGRAM_* and SMTP_TO are the operator's own channels,
+    one set for the whole server. Every company's digest and alerts went to
+    them — another company's figures in the operator's Slack (review
+    2026-11-16). They carry only the platform's own company (or a request with
+    no company at all: the operator)."""
+    from app.db.seed import DEFAULT_COMPANY_ID
+    from app.db.tenant import get_current_company
+
+    cid = get_current_company()
+    return cid is None or str(cid) == DEFAULT_COMPANY_ID
+
+
 async def _send_slack(text: str) -> bool:
-    if not settings.slack_webhook_url:
+    if not settings.slack_webhook_url or not _operator_channels_open():
         return False
     async with httpx.AsyncClient(timeout=15) as c:
         r = await c.post(settings.slack_webhook_url, json={"text": text})
@@ -38,7 +51,7 @@ async def _send_slack(text: str) -> bool:
 
 
 async def _send_telegram(text: str) -> bool:
-    if not settings.telegram_bot_token or not settings.telegram_chat_id:
+    if not settings.telegram_bot_token or not settings.telegram_chat_id or not _operator_channels_open():
         return False
     url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
     async with httpx.AsyncClient(timeout=15) as c:
@@ -50,7 +63,7 @@ def _send_email(text: str, subject: str | None = None) -> bool:
     """Operator alert channel: one fixed recipient, set by SMTP_TO."""
     from app.services.mail_service import send_email
 
-    if not settings.smtp_to:
+    if not settings.smtp_to or not _operator_channels_open():
         return False
     return send_email(to=settings.smtp_to, subject=subject or "Accounting Assistant Alerts", text=text)
 

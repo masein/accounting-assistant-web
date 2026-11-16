@@ -339,7 +339,10 @@ def build_income_statement(
         if tb is None:
             continue
         acc_type = classify_account_code(acc.code)
-        amount = max(0, balance_from_turnovers(acc_type, tb.debit, tb.credit))
+        # Signed: a contra balance (returns and discounts on revenue, a recovery
+        # on an expense) reduces its section. Flooring it at 0 dropped it and
+        # overstated profit (review 2026-11-16).
+        amount = balance_from_turnovers(acc_type, tb.debit, tb.credit)
         if amount == 0:
             continue
         node = StatementAccountNode(

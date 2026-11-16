@@ -345,6 +345,7 @@ window.I18N_PACKS.fa = Object.assign({
         chatRename: "تغییر نام",
         chatDelete: "حذف",
         chatDeleteConfirm: "این گفتگو حذف شود؟ تاریخچه بایگانی می‌شود، از بین نمی‌رود.",
+        chatShareConfirm: "{n} فایلی که با این برنامه هم‌رسانی شد به گفتگو پیوست شود؟ {names}",
         chatDropHint: "فایل‌ها را برای پیوست رها کنید",
         chatTimeNow: "همین حالا",
         chatTimeMin: "دقیقه پیش",

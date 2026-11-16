@@ -61,6 +61,9 @@ class ProposePostStatementInput(Replaceable):
     per: Literal["day", "row"] = Field(
         "day", description="day: one voucher for each date, its rows in it («به تفکیک تاریخ»), the default; "
                            "row: a voucher for each row.")
+    row_ids: list[str] | None = Field(
+        None, description="Only these rows of the statement (step by step's group of rows alike); every open row "
+                          "when left out.")
 
 
 def _fold(text: str | None) -> str:
@@ -237,7 +240,7 @@ class ProposePostStatement(BaseTool):
                             code="no_rules")
         rules = [r.model_dump() for r in args.rules]
         made = plan(ctx.db, stmt, bank=bank[0], money_in=args.money_in_account_code,
-                    money_out=args.money_out_account_code, rules=rules, per=args.per)
+                    money_out=args.money_out_account_code, rules=rules, per=args.per, row_ids=args.row_ids)
         if not made["vouchers"]:
             left = made["left"]
             raise ToolError(f"Nothing to post: {left['in_the_books']} rows are already in the books, "
@@ -275,7 +278,8 @@ class ProposePostStatement(BaseTool):
                    f"({'one per day' if args.per == 'day' else 'one per row'}), {first} to {last}, {currency}: "
                    f"{per_account}. Left out: {left['in_the_books']} already in the books, {left['closed_period']} in a "
                    f"closed period, {left['no_rule']} covered by no rule.")
-        return {"confirmation_token": str(token), "status": "pending", "summary": summary, "preview": payload}
+        return {"confirmation_token": str(token), "status": "pending", "summary": summary, "preview": payload,
+                "tool_name": self.name}
 
 
 def _bank_label(stmt: BankStatement, persian: bool) -> str:

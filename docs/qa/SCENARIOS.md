@@ -1213,3 +1213,14 @@ Asked «چقدر توی کیفم پول هست؟», the assistant read the walle
 | CC2 | Money back only from where it went | After confirming two amounts into the wallet: «اشتباه میکنی یه ۴۱۲ و یه ۳۲۰ همین الان اضافه کردیم» | No correction card: the assistant reads the wallet again and names the two entries. A card crediting a category more than was spent there, or «طلب از دیگران» more than is owed, is refused; a refund of what was spent is made |
 | CC3 | Money back for a purchase | «اون ۴۱۲ ریال رو از شرکت گرفتم» after a 412 purchase recorded as household spending | The card credits the purchase's category, not «طلب از دیگران»; «۳۲۰ نبود دقیقش کمتر بود» gets the card's own 318.250, not a question |
 | CC4 | No stray words | A reply the model ends with «તારીખ», or a question with buttons ending «kartaa» | The reply ends at its last sentence; names in Latin letters (SHOP LLC) stay |
+
+## CD. Step by step in groups (chat review 2026-11-10)
+
+From production: a school's statement of 205 rows took 139 separate confirms in step by step; one day alone had 26 small card-to-card tuition transfers, each its own card.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CD1 | A group like the row just recorded | Step by step; confirm the card of a card-to-card tuition row (its account set to «درآمد شهریه», edited on the card if needed); Next | One card for every other open row like it (same direction, the same first words of the narration): all to «درآمد شهریه», one voucher per day, «۲۵ ردیف دیگر مثل ردیف قبل است …»; confirmed, each row is in the books and the rest come next |
+| CD2 | One that is different | Cancel the group card; Next | The rows come one at a time again, and that group is not offered again in this conversation |
+| CD3 | The group card is waiting | Next again before confirming or cancelling the group card | «کارت ردیف … بالاتر هنوز منتظر است» — no second card |
+| CD4 | Too few or nothing alike | Only one other row like it, or a row whose narration is only digits | One card at a time, as before |

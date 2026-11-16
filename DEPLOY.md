@@ -202,6 +202,7 @@ Every day at `BACKUP_HOUR` (default 02, server time) it writes
 
 - `db-<stamp>.dump` — `pg_dump -Fc` (compressed custom format) of the database
 - `uploads-<stamp>.tgz` — the uploads volume (receipts, statements, branding)
+- `private-uploads-<stamp>.tgz` — the `private_uploads` volume (period-close snapshots)
 
 into `BACKUP_DIR` (default `./backups` next to the compose file) and deletes
 copies older than `BACKUP_KEEP_DAYS` (14). **Copy that folder off the server**
@@ -211,17 +212,37 @@ only protects against mistakes, not against losing the machine.
 Before a risky deploy take one by hand:
 
 ```bash
-scripts/backup.sh            # → ./backups/db-<stamp>.dump + uploads-<stamp>.tgz
+scripts/backup.sh            # → ./backups/db-<stamp>.dump + uploads-<stamp>.tgz + private-uploads-<stamp>.tgz
 ```
 
 Restore (destructive — replaces the live database; asks for confirmation):
 
 ```bash
-scripts/restore.sh backups/db-20260924-020000.dump backups/uploads-20260924-020000.tgz
+scripts/restore.sh backups/db-20260924-020000.dump backups/uploads-20260924-020000.tgz \
+                   backups/private-uploads-20260924-020000.tgz
 ```
 
-It stops the api, runs `pg_restore --clean`, optionally unpacks the uploads,
-and starts the api again (which applies any newer migrations on boot).
+It stops the api, runs `pg_restore --clean`, optionally unpacks the uploads
+and the private uploads, and starts the api again (which applies any newer
+migrations on boot).
+
+### Servers set up before 2026-11-16: the `private_uploads` volume
+
+Period-close snapshots (`app/private_uploads/snapshots`) used to be written into
+the api container's own layer. Every redeploy deleted them, and no backup held
+them. They now live on the `private_uploads` volume. The deployer only replaces
+the image, never the compose file, so an existing server needs this once (done on
+production on 2026-11-16):
+
+```bash
+cd /opt/accounting
+for f in docker-compose.prod.yml scripts/backup-loop.sh scripts/backup.sh scripts/restore.sh; do cp -p "$f" "$f.before-$(date +%Y%m%d)"; done
+# copy those four files in from the repo, then:
+docker compose up -d --no-deps backup          # creates the volume (and mounts it read-only for the backup)
+docker run --rm --user 0 --entrypoint sh -v accounting_private_uploads:/v accounting-assistant-api:deployed \
+  -c 'mkdir -p /v/snapshots && chown -R 999:999 /v'   # the app's user (images from now on seed it themselves)
+docker compose up -d --no-deps api             # a few seconds, as on any deploy
+```
 
 ## 8. Proxy, cookies and ports
 
@@ -342,6 +363,64 @@ the source tree, a `.env`, a `backups/` folder or a database dump. On the
 server it loads the images and runs `docker compose -f docker-compose.prod.yml
 up -d --pull never` (the first time it stops and asks for the `.env`). Set
 `DEPLOY_REGISTRIES=` (empty) in that server's `.env` so the deployer stays idle.
+
+## 13. A live copy on another machine
+
+A read-only copy of production's database, kept current as changes happen, runs
+on the owner's always-on Mac (set up 2026-11-16). It also keeps the uploads,
+the snapshots and the server's own backups, plus its own hourly and daily dumps.
+It is a backup off the server, and a place to query the books or react to
+changes without touching production. The stack is in
+[`ops/live-copy/`](ops/live-copy/README.md); its README says how to run, check
+and rebuild it. In short:
+
+- **Database:** a Postgres 16 *hot standby* (physical streaming replication),
+  usually a second behind production. It runs as `linux/amd64`, production's
+  architecture; a physical standby must match it.
+- **The link:** SSH, with a key of its own. The server's sshd allows no port
+  forwarding (`AllowTcpForwarding no`, left so), so each database connection is
+  carried by its own SSH session to `nc` on the server.
+- **Files:** `rsync` every 5 minutes of the uploads, the private uploads and
+  `/opt/accounting/backups`.
+- **Dumps:** hourly (kept 7 days) and daily (kept 90 days). A live copy alone
+  isn't a backup: a mistaken delete reaches it within a second.
+
+What it needed on the server (no restart):
+
+```sql
+-- docker exec -i accounting-db-1 psql -U postgres
+create role replicator with replication login password '…';   -- the password is in the copy's .env only
+alter system set max_slot_wal_keep_size = '4GB';               -- what a copy that's behind may hold back
+select pg_reload_conf();
+```
+
+```bash
+# pg_hba.conf, in the accounting_pgdata volume: only from the server's own end of the stack's network
+echo 'host replication replicator 172.18.0.1/32 scram-sha-256' | \
+  docker exec -i accounting-db-1 sh -c 'cat >> /var/lib/postgresql/data/pg_hba.conf'
+docker exec accounting-db-1 psql -U postgres -c 'select pg_reload_conf()'
+```
+
+The copy's SSH key in `/root/.ssh/authorized_keys` can run only
+`/usr/local/bin/accounting-copy-gate`
+([`ops/live-copy/server/accounting-copy-gate.sh`](ops/live-copy/server/accounting-copy-gate.sh)):
+
+```
+restrict,command="/usr/local/bin/accounting-copy-gate" ssh-ed25519 AAAA… accounting-replica (this Mac)
+```
+
+`restrict` turns off forwarding, a terminal and the rest. The gate allows a
+database connection (`db-pipe`), checking for a synced folder (`has <name>`),
+and `rsync` *sending* those three folders, so the key can't change anything on the
+server. Every request goes into `/var/log/accounting-copy-gate.log`, refusals as
+`DENIED`. Server admin is done as root with its password, not with this key.
+
+The replication slot is `mac_replica`. Watch it with
+`select slot_name, active, wal_status from pg_replication_slots;`. A copy that's
+gone for good must drop its slot (`select pg_drop_replication_slot('mac_replica');`),
+or production keeps up to 4 GB of changes for it. To remove the copy entirely:
+drop the slot, delete the `replicator` role, the `pg_hba.conf` line and the key's
+line in `authorized_keys`, then `docker compose down -v` on the Mac.
 
 ## Notes
 - `docker-compose.yml` (no suffix) stays the **dev** stack: it builds locally

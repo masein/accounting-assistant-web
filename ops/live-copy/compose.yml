@@ -1,0 +1,81 @@
+# A live, read-only copy of production's accounting database on this Mac, plus its files and point-in-time dumps.
+#   docker compose up -d          start (and on every boot: restart policies + OrbStack starting at login)
+#   sh status.sh                  how far behind it is, the last file sync, the last dumps
+# See README.md. The replication password is in .env (never commit this folder).
+name: accounting-replica
+
+x-log: &log
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+services:
+  tunnel:
+    build: { context: ., dockerfile: Dockerfile.ssh }
+    image: accounting-replica-ssh:local
+    restart: unless-stopped
+    logging: *log
+    env_file: .env
+    command: ["sh", "/scripts/tunnel.sh"]
+    volumes:
+      - ${HOME}/.ssh/accounting_replica:/keys/id:ro
+      - ./known_hosts:/keys/known_hosts:ro
+      - ./scripts:/scripts:ro
+    healthcheck:
+      # the listener only: a test connection would open one to production each time
+      test: ["CMD", "pgrep", "socat"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  replica:
+    image: postgres:16
+    # production's architecture: a physical standby must match it (this Mac is ARM; OrbStack runs it via Rosetta)
+    platform: linux/amd64
+    restart: unless-stopped
+    logging: *log
+    env_file: .env
+    entrypoint: ["sh", "/scripts/replica-entrypoint.sh"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - pgsocket:/var/run/postgresql
+      - ./scripts:/scripts:ro
+    ports:
+      # for psql / a database app on this Mac only (sign in with production's own database credentials)
+      - "127.0.0.1:55432:5432"
+    depends_on: [tunnel]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -h /var/run/postgresql -q"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+
+  files:
+    build: { context: ., dockerfile: Dockerfile.ssh }
+    image: accounting-replica-ssh:local
+    restart: unless-stopped
+    logging: *log
+    env_file: .env
+    command: ["sh", "/scripts/sync.sh"]
+    volumes:
+      - ${HOME}/.ssh/accounting_replica:/keys/id:ro
+      - ./known_hosts:/keys/known_hosts:ro
+      - ./scripts:/scripts:ro
+      - ./data/files:/files
+    depends_on: [tunnel]
+
+  dumps:
+    image: postgres:16
+    restart: unless-stopped
+    logging: *log
+    env_file: .env
+    entrypoint: ["sh", "/scripts/dumps.sh"]
+    volumes:
+      - pgsocket:/var/run/postgresql
+      - ./scripts:/scripts:ro
+      - ./data/dumps:/dumps
+    depends_on: [replica]
+
+volumes:
+  pgdata:
+  pgsocket:

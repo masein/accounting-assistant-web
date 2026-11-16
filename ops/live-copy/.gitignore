@@ -1,0 +1,4 @@
+# this machine's own: the password, the server's pinned host key, the copied files and dumps
+.env
+known_hosts
+data/

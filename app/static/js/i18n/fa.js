@@ -2989,6 +2989,7 @@ window.I18N_PACKS.fa = Object.assign({
         thBank: 'بانک',
         thFile: 'فایل',
         thRows: 'ردیف‌ها',
+        thPosted: 'ثبت‌شده',
         thMatched: 'تطبیق‌یافته',
         bsStatementDetail: 'جزئیات صورت‌حساب',
         bsReconcileBtn: 'مغایرت‌گیری',

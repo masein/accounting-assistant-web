@@ -2975,6 +2975,7 @@ window.I18N_PACKS.es = Object.assign({
         thBank: 'Banco',
         thFile: 'Archivo',
         thRows: 'Filas',
+        thPosted: 'Registradas',
         thMatched: 'Conciliadas',
         bsStatementDetail: 'Detalle del extracto',
         bsReconcileBtn: 'Conciliar',

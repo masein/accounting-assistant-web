@@ -31,7 +31,7 @@ def _day_bank(db, co, *, entity=True) -> str:
         return code
 
 
-def _statement(db, co, *, bank="Day", number=None, rows=3) -> str:
+def _statement(db, co, *, bank="Day", number=None, rows=3, narrations=None) -> str:
     with use_company(co["cid"]):
         s = BankStatement(bank_name=bank, account_number=number, source_type="pdf",
                           source_filename=f"{uuid.uuid4().hex[:6]}_receipt.pdf", currency="IRR",
@@ -40,7 +40,8 @@ def _statement(db, co, *, bank="Day", number=None, rows=3) -> str:
         db.flush()
         for i in range(1, rows + 1):
             db.add(BankStatementRow(statement_id=s.id, row_index=i, tx_date=date(2026, 7, 22 + i),
-                                    description=f"تعیین وضعیت چک عادی {i}", debit=0, credit=350_000_000 + i,
+                                    description=(narrations[i - 1] if narrations else f"تعیین وضعیت چک عادی {i}"),
+                                    debit=0, credit=350_000_000 + i,
                                     balance=None, confidence=1.0, recon_status="unmatched",
                                     suggested_account_code="4110", category="misc"))
         db.commit()
@@ -115,7 +116,8 @@ def test_aj13_one_card_at_a_time_and_the_next_after_confirming(client, db, co, p
         raise AssertionError("the model was called")
     monkeypatch.setattr(api_mod, "run_chat_turn", never)
     code = _day_bank(db, co)
-    sid = _statement(db, co)
+    # rows not alike, so each comes on its own (rows alike come as one card: test_statement_groups, CD1)
+    sid = _statement(db, co, narrations=["تعیین وضعیت چک عادی", "واریز نقدی شعبه", "انتقال پایا"])
     client.put("/api/mobile/v1/me/language", headers=phone, json={"language": "fa"})
     first = client.post(f"/ai-accountant/statements/{sid}/next", headers=phone, json={}).json()
     assert first["left"] == 2 and first["text"] == "پس از این، ۲ ردیف دیگر مانده." and first["choose"] is False

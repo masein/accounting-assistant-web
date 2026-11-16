@@ -488,7 +488,8 @@ def _pending_row_ids(db: Session, user_id: str, session_id: str | None) -> set[s
 
     q = select(AIProposal).where(waiting_clause(),          # a card past its time can't be confirmed any more
                                  AIProposal.tool_name.in_(("propose_create_transaction",
-                                                           "propose_record_invoice_payment")),
+                                                           "propose_record_invoice_payment",
+                                                           "propose_post_statement")),
                                  AIProposal.user_id == str(user_id))
     if session_id:
         q = q.where(AIProposal.session_id == str(session_id))
@@ -497,6 +498,7 @@ def _pending_row_ids(db: Session, user_id: str, session_id: str | None) -> set[s
         rid = (p.tool_input or {}).get("bank_statement_row_id")
         if rid:
             out.add(str(rid))
+        out.update(str(r) for r in (p.tool_input or {}).get("row_ids") or [])   # a card of many rows (CD3)
     return out
 
 

@@ -1238,3 +1238,14 @@ The production server pulls from the legacy mirror. From 2026-11-14 it answered 
 |----|----------|-------|----------|
 | CE1 | The mirror back after an outage | Publishes run while the mirror is down; the mirror comes back | Within the hour the "Mirror sync" workflow copies GHCR's latest to the mirror (its run summary says which digest), and the server's Watchtower deploys it; while the mirror is down, each hourly run ends with a warning, not a failure |
 | CE2 | Nothing to do | The mirror already has GHCR's latest | The run says «The mirror is current» and copies nothing |
+
+## CD. Step by step in groups (chat review 2026-11-10)
+
+From production: a school's statement of 205 rows took 139 separate confirms in step by step; one day alone had 26 small card-to-card tuition transfers, each its own card.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CD1 | A group like the row just recorded | Step by step; confirm the card of a card-to-card tuition row (its account set to «درآمد شهریه», edited on the card if needed); Next | One card for every other open row like it (same direction, the same first words of the narration): all to «درآمد شهریه», one voucher per day, «۲۵ ردیف دیگر مثل ردیف قبل است …»; confirmed, each row is in the books and the rest come next |
+| CD2 | One that is different | Cancel the group card; Next | The rows come one at a time again, and that group is not offered again in this conversation |
+| CD3 | The group card is waiting | Next again before confirming or cancelling the group card | «کارت ردیف … بالاتر هنوز منتظر است» — no second card |
+| CD4 | Too few or nothing alike | Only one other row like it, or a row whose narration is only digits | One card at a time, as before |

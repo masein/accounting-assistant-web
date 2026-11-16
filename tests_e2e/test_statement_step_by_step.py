@@ -53,11 +53,13 @@ def test_aj13_step_by_step_carries_on_after_each_card(flow_page):
         switch_language(page, "en")
 
 
+# Days and amounts of its own: the suite's shared books hold other tests' entries in early August, and a row near
+# one of them is a row to look at, rightly kept out of a group (CI, 2026-11-16)
 GROUP_CSV = ("Date,Description,Debit,Credit,Balance\n"
-             "2026-08-02,Card transfer 6037-11 tuition CD1,0,1000013,1000013\n"
-             "2026-08-02,Card transfer 6037-22 tuition CD1,0,2000013,3000026\n"
-             "2026-08-03,Card transfer 6037-33 tuition CD1,0,3000013,6000039\n"
-             "2026-08-04,Card transfer 6037-44 tuition CD1,0,4000013,10000052\n").encode()
+             "2026-10-12,Card transfer 6037-11 tuition CD1,0,4111117,4111117\n"
+             "2026-10-12,Card transfer 6037-22 tuition CD1,0,4222227,8333344\n"
+             "2026-10-13,Card transfer 6037-33 tuition CD1,0,4333337,12666681\n"
+             "2026-10-14,Card transfer 6037-44 tuition CD1,0,4444447,17111128\n").encode()
 
 
 def test_cd1_rows_alike_come_as_one_card(flow_page):
@@ -85,7 +87,7 @@ def test_cd1_rows_alike_come_as_one_card(flow_page):
         page.locator("#ai-acct-messages").screenshot(path=os.path.join(ARTIFACTS, "statement-group-fa.png"))
         cards.nth(before + 1).locator(".ai-card-actions button.btn-primary").click()          # confirm the group
         # every row in: the last word, here the closing balance the shared books don't reach (BN4)
-        expect(page.locator("#ai-acct-messages")).to_contain_text("ماندهٔ پایانی صورت‌حساب ۱۰,۰۰۰,۰۵۲", timeout=15_000)
+        expect(page.locator("#ai-acct-messages")).to_contain_text("ماندهٔ پایانی صورت‌حساب ۱۷,۱۱۱,۱۲۸", timeout=15_000)
         assert watch.problems() == [], watch.problems()
     finally:
         switch_language(page, "en")

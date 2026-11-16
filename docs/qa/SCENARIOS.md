@@ -1221,3 +1221,11 @@ From production: a school's statement showed 140 rows "matched" when 138 of them
 | ID | Scenario | Steps | Expected |
 |----|----------|-------|----------|
 | CF1 | Posted, found, open | A statement of three rows: one posted from its card, one matched to an entry already in the books, one not yet in them; open Bank statements | Rows 3, «ثبت‌شده» (posted) 1, «تطبیق‌یافته» (matched) 1 — counted as they stand, in the page's language and digits |
+
+## CG. Small fixes (chat review 2026-11-10, item 25)
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CG1 | The integrity history | Run the audit with a duplicate payment and two back-dated entries in the books | The history records "Duplicate payments" and "Backdated entries" as warnings with their findings — they were "pass" always; a check that fails to run is recorded so |
+| CG2 | A bank in Persian words | A Day Bank statement summarised in Persian | «بانک دی», never «Day», in the Persian sentence |
+| CG3 | Not recorded until confirmed | The assistant's reply to a card says «… ثبت شد» or "has been recorded" | It reads «… آماده شد» / "is ready to confirm"; words about entries already in the books («ثبت‌شده») stay |

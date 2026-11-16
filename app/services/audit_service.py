@@ -458,9 +458,13 @@ def run_full_audit(db: Session) -> AuditReport:
         ("Liability threshold", check_liability_threshold),
     ]
 
+    # each check's own findings, for its row in the integrity history: matched by title before, six of the seven
+    # never matched («Duplicate payments» against «Potential duplicate payment») and were always "pass" (CG1)
+    per_check: dict[str, list] = {}
     for name, check_fn in checks:
         try:
             findings = check_fn(db)
+            per_check[name] = list(findings)
             report.findings.extend(findings)
             if findings:
                 report.checks_failed += 1
@@ -469,14 +473,16 @@ def run_full_audit(db: Session) -> AuditReport:
         except Exception:
             logger.exception("Audit check failed: %s", name)
             report.checks_failed += 1
-            report.findings.append(AuditFinding(
+            failed = AuditFinding(
                 severity="warning",
                 category="system",
                 title=f"Check failed: {name}",
                 detail=f"The {name} check encountered an error",
                 key="check_failed",
                 params={"name": name},
-            ))
+            )
+            per_check[name] = [failed]
+            report.findings.append(failed)
 
     # Assign domains to findings
     for f in report.findings:
@@ -498,7 +504,7 @@ def run_full_audit(db: Session) -> AuditReport:
 
     # Persist check results
     for name, _ in checks:
-        check_findings = [f for f in report.findings if f.title.startswith(name) or name.lower() in f.title.lower()]
+        check_findings = per_check.get(name, [])
         status = "fail" if any(f.severity == "critical" for f in check_findings) else "warning" if check_findings else "pass"
         score = max(0, 100 - len(check_findings) * 10)
         ic = IntegrityCheck(

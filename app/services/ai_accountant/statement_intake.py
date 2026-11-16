@@ -229,7 +229,9 @@ def bank_label(name: str | None, lang: str) -> str | None:
         return None
     if lang in ("fa", "ar"):
         from app.services.bank_sms import BANKS
-        return (BANKS.get(name) or (name,))[0]
+        from app.services.statement_import import canonical_bank
+        # the reader's «Day» is the SMS table's «Dey» («بانک دی»): «Day» stood in a Persian sentence (CG2)
+        return (BANKS.get(name) or BANKS.get(canonical_bank(name) or "") or (name,))[0]
     return name
 
 

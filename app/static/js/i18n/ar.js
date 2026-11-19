@@ -1406,7 +1406,7 @@ window.I18N_PACKS.ar = Object.assign({
         msgBotRelayKeyNote: "ضعه في ملف ‎.env‎ الخاص بالوسيط باسم RELAY_KEY. يظهر الآن فقط — ومفتاح جديد يحلّ محله.",
         msgBotRelayNewKey: "مفتاح وسيط جديد",
         msgBotRelayWaiting: "وضع الوسيط — بانتظار أن يتصل الوسيط",
-        msgBotRelayConnected: "متصل عبر الوسيط باسم {bot} · آخر اتصال {seen}",
+        msgBotRelayConnected: "متصل عبر الوسيط باسم {bot}، آخر اتصال {seen}",
         rateLimitedNotice: "طلبات كثيرة خلال دقيقة — انتظر {seconds} ثانية ثم حاول مجددًا.",
         rateLimitedShort: "طلبات كثيرة الآن — أعد التحميل بعد دقيقة.",
         budgetColActual: 'الفعلي',

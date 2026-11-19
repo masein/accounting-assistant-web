@@ -1408,7 +1408,7 @@
       // a relay (ops/telegram-relay) talks to the platform for a server that can't reach it
       const relayState = (b) => !b.username ? t('msgBotRelayWaiting')
         : tf('msgBotRelayConnected', { bot: '@' + b.username,
-            seen: b.relay_seen_at ? new Date(b.relay_seen_at).toLocaleString() : '—' });
+            seen: b.relay_seen_at ? formatDisplayDateTime(b.relay_seen_at) : '—' });
       list.innerHTML = Object.entries(d.bots || {}).map(([key, b]) => `<div class="msg-bot" data-platform="${escapeHtml(key)}">
           <strong>${escapeHtml(b.name)}</strong>
           ${b.connected

@@ -1450,7 +1450,7 @@ window.I18N_PACKS.fa = Object.assign({
         msgBotRelayKeyNote: "این را با نام RELAY_KEY در فایل .env رله بگذارید. فقط همین حالا نشان داده می‌شود — کلید تازه جای آن را می‌گیرد.",
         msgBotRelayNewKey: "کلید رلهٔ تازه",
         msgBotRelayWaiting: "حالت رله — در انتظار اتصال رله",
-        msgBotRelayConnected: "متصل از راه رله: {bot} · آخرین تماس {seen}",
+        msgBotRelayConnected: "متصل از راه رله: {bot}، آخرین تماس {seen}",
         rateLimitedNotice: "تعداد درخواست‌ها در یک دقیقه از حد مجاز گذشت — {seconds} ثانیه صبر کنید و دوباره امتحان کنید.",
         rateLimitedShort: "در حال حاضر درخواست‌ها زیاد است — یک دقیقهٔ دیگر صفحه را دوباره بارگذاری کنید.",
         budgetColActual: 'هزینهٔ واقعی',

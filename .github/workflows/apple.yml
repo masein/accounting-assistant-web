@@ -1,0 +1,43 @@
+# The iPhone, iPad and Mac chat app (apple/): the package's tests (the API client, the chat's state, and the
+# contract recordings in docs/contracts), then the app built for the iOS Simulator and for the Mac. Runs when the
+# app, the contract or this workflow changes.
+name: Apple
+
+on:
+  push:
+    branches: [main]
+    paths: ["apple/**", "docs/contracts/**", ".github/workflows/apple.yml"]
+  pull_request:
+    paths: ["apple/**", "docs/contracts/**", ".github/workflows/apple.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apple-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: Apple app
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: The newest Xcode on the runner
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          xcodebuild -version
+      - name: Package tests
+        working-directory: apple/ChatKit
+        run: swift test
+      - name: Build for the iOS Simulator
+        run: |
+          xcodebuild -project apple/AccountingChat.xcodeproj -scheme AccountingChat \
+            -destination 'generic/platform=iOS Simulator' -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO build | tail -20
+      - name: Build for the Mac
+        run: |
+          xcodebuild -project apple/AccountingChat.xcodeproj -scheme AccountingChat \
+            -destination 'generic/platform=macOS' -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO build | tail -20

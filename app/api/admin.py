@@ -153,6 +153,22 @@ async def put_messenger_bot(platform: str, payload: MessengerBotPayload, db: Ses
     return out
 
 
+@router.post("/messenger-bots/{platform}/relay")
+def relay_messenger_bot(platform: str, db: Session = Depends(get_db), _=Depends(require_superadmin)) -> dict:
+    """Relay mode, for a server that can't reach the platform (Telegram, where it is filtered): a new relay key,
+    shown this once — it goes in the relay's .env (ops/telegram-relay). The server keeps only its hash and no bot
+    token; a new key replaces the old one, and the webhook setup if there was one."""
+    from app.services.messenger import enable_relay, public_status
+    try:
+        key = enable_relay(db, platform)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail="Unknown platform") from e
+    log_audit_event(db, action="update", entity_type="messenger_bot", entity_id=platform,
+                    detail="relay mode: a new relay key")
+    db.commit()
+    return {**public_status(db)[platform], "relay_key": key}
+
+
 @router.delete("/messenger-bots/{platform}", status_code=204)
 async def delete_messenger_bot(platform: str, db: Session = Depends(get_db), _=Depends(require_superadmin)) -> None:
     from app.services.messenger import disconnect

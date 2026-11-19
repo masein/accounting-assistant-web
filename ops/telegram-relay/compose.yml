@@ -1,0 +1,24 @@
+# The Telegram relay (DEPLOY.md §14), on a machine that can reach Telegram:
+#   cp .env.example .env && chmod 600 .env     # the bot token, the app's address, the relay key
+#   docker compose up -d --build
+#   docker compose logs -f relay
+name: telegram-relay
+
+services:
+  relay:
+    build: .
+    image: telegram-relay:local
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./state:/state                 # the offset of the last update handled
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    healthcheck:
+      # touched after every getUpdates round (at most POLL_TIMEOUT + a little apart)
+      test: ["CMD", "python", "-c", "import os, sys, time; sys.exit(time.time() - os.path.getmtime('/state/alive') > 180)"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 120s

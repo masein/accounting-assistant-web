@@ -139,7 +139,8 @@ def test_connecting_checks_the_token_and_points_the_webhook_here(db, bot_api, mo
     monkeypatch.setattr(settings, "app_public_url", "https://books.example.com")
     try:
         out = asyncio.run(messenger.connect(db, "bale", TOKEN))
-        assert out == {"name": "Bale", "connected": True, "username": "BooksBot"}
+        assert out == {"name": "Bale", "connected": True, "username": "BooksBot", "mode": "webhook",
+                       "relay_seen_at": None}
         (_, hook), = [c for c in calls if c[0] == "setWebhook"]
         secret = messenger.load_settings(db)["bale"]["secret"]
         assert hook["url"] == f"https://books.example.com/bots/bale/webhook/{secret}" and hook["secret_token"] == secret
@@ -457,3 +458,110 @@ def test_confirm_above_the_approval_limit_goes_for_approval(co, bot_api, db):
         db.expire_all()
         p = db.execute(select(AIProposal).where(AIProposal.confirmation_token == token)).scalars().one()
         assert p.status == "pending" and p.approval_status == "requested"
+
+
+# ─── Relay mode: a server that can't reach the platform (ops/telegram-relay) ──────────────────────────────────
+
+def _relay(client, key, path, body):
+    return client.post(f"/bots/telegram/relay/{path}", json=body, headers={"Authorization": f"Bearer {key}"})
+
+
+@pytest.fixture()
+def relay(co, db, client):
+    """The co fixture's bot, switched to relay mode; the relay has checked in."""
+    key = messenger.enable_relay(db, "telegram")
+    db.commit()
+    assert _relay(client, key, "hello", {"username": "BooksRelayBot"}).status_code == 200
+    return key
+
+
+def test_relay_mode_keeps_no_token_and_the_server_never_calls_the_platform(client, co, relay, bot_api, db, fake_turn):
+    cid, uid = co
+    calls, _ = bot_api
+    cfg = messenger.load_settings(db)["telegram"]
+    assert cfg["mode"] == "relay" and "token" not in cfg and relay not in json.dumps(cfg)   # only the key's hash
+    st = messenger.public_status(db)["telegram"]
+    assert st["connected"] and st["mode"] == "relay" and st["username"] == "BooksRelayBot" and st["relay_seen_at"]
+
+    out = _start(db, uid)                                         # the app's link names the relay's bot
+    assert out["url"].startswith("https://t.me/BooksRelayBot?start=")
+    r = _relay(client, relay, "update", {"update": _msg(f"/start {out['code']}", update_id=4100)})
+    assert r.status_code == 200
+    [linked] = r.json()["calls"]
+    assert linked["method"] == "sendMessage" and linked["params"]["chat_id"] == "5550001"
+    assert linked["params"]["text"].startswith("Linked to Sterling Ltd")
+
+    seen = fake_turn(FakeResult("Recorded? Say yes."))
+    r = _relay(client, relay, "update", {"update": _msg("paid 20 for lunch", update_id=4101)})
+    assert [c["params"]["text"] for c in r.json()["calls"]] == ["Recorded? Say yes."]
+    assert seen[-1]["user_message"] == "paid 20 for lunch" and seen[-1]["company"] == cid
+    # a re-delivered update (the relay retrying) does nothing twice
+    assert _relay(client, relay, "update", {"update": _msg("paid 20 for lunch", update_id=4101)}).json()["calls"] == []
+    assert calls == []                                            # nothing went to the platform from here
+
+
+def test_the_relay_key_is_the_only_way_in(client, co, relay, bot_api, db):
+    upd = {"update": _msg("/start", update_id=4200)}
+    for headers in ({}, {"Authorization": "Bearer wrong"}, {"Authorization": relay}):
+        assert client.post("/bots/telegram/relay/update", json=upd, headers=headers).status_code == 404
+    assert _relay(client, relay, "update", upd).status_code == 200
+    assert client.post(f"/bots/bale/relay/update", json=upd, headers={"Authorization": f"Bearer {relay}"}).status_code == 404
+    assert client.post("/bots/telegram/webhook/anything", json=upd["update"]).status_code == 404   # no webhook in relay mode
+    assert _relay(client, relay, "hello", {"username": "not a name!"}).status_code == 422
+    # a new key replaces the old one
+    new = messenger.enable_relay(db, "telegram")
+    db.commit()
+    assert _relay(client, relay, "hello", {"username": "BooksRelayBot"}).status_code == 404
+    assert _relay(client, new, "hello", {"username": "BooksRelayBot"}).status_code == 200
+
+
+def test_a_relayed_voice_note_comes_with_its_audio(client, co, relay, bot_api, db, fake_turn, monkeypatch):
+    import base64
+
+    from app.services import speech
+    _cid, uid = co
+    calls, _ = bot_api
+    out = _start(db, uid)
+    _relay(client, relay, "update", {"update": _msg(f"/start {out['code']}", update_id=4300)})
+
+    async def fake_transcribe(data):
+        assert data.startswith(b"OggS")
+        return {"text": "fifty for bread", "provider": "gemini"}
+    monkeypatch.setattr(speech, "transcribe", fake_transcribe)
+    seen = fake_turn(FakeResult("Bread, 50?"))
+    voice = {"file_id": "F9", "duration": 3, "mime_type": "audio/ogg"}
+    audio = base64.b64encode(b"OggS" + b"\x00" * 40).decode()
+    r = _relay(client, relay, "update", {"update": _msg(voice=voice, update_id=4301), "files": {"F9": audio}})
+    assert [c["params"]["text"] for c in r.json()["calls"]] == ["🎙 fifty for bread", "Bread, 50?"]
+    assert seen[-1]["user_message"] == "fifty for bread"
+    # without the audio (too large for the relay to send) the user is told, and nothing is guessed
+    r = _relay(client, relay, "update", {"update": _msg(voice={**voice, "file_id": "F10"}, update_id=4302)})
+    assert [c["params"]["text"] for c in r.json()["calls"]] == [messenger._t("en", "voice_failed")]
+    assert calls == []                                            # the server never fetched a file itself
+
+
+def test_a_relayed_confirm_answers_the_button(client, co, relay, bot_api, db):
+    cid, uid = co
+    out = _start(db, uid)
+    _relay(client, relay, "update", {"update": _msg(f"/start {out['code']}", update_id=4400)})
+    token = _proposal(db, cid, uid)
+    tap = {"update_id": 4401, "callback_query": {"id": "cb9", "data": f"ok:{token}",
+                                                 "message": {"message_id": 77, "chat": {"id": 5550001, "type": "private"}}}}
+    methods = [c["method"] for c in _relay(client, relay, "update", {"update": tap}).json()["calls"]]
+    assert "answerCallbackQuery" in methods and "editMessageReplyMarkup" in methods
+
+
+def test_only_the_platform_admin_turns_relay_mode_on(client, co, bot_api, db):
+    cid, uid = co
+    assert _login(client, cid, uid).post("/admin/messenger-bots/telegram/relay").status_code == 403
+    admin = _login(client, None, str(uuid.uuid4()), superadmin=True)
+    r = admin.post("/admin/messenger-bots/telegram/relay")
+    assert r.status_code == 200 and r.json()["mode"] == "relay" and len(r.json()["relay_key"]) >= 40
+    assert admin.post("/admin/messenger-bots/whatsapp/relay").status_code == 404
+    bots = admin.get("/admin/messenger-bots").json()["bots"]
+    assert "relay_key" not in json.dumps(bots) and bots["telegram"]["mode"] == "relay"
+    # before the relay checks in there is no bot name for a link
+    with pytest.raises(ValueError, match="relay hasn't checked in"):
+        messenger.start_link(db, user_id=uid, platform="telegram")
+    assert admin.delete("/admin/messenger-bots/telegram").status_code == 204
+    assert bot_api[0] == []                                       # disconnecting a relay calls no platform

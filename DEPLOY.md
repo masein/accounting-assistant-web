@@ -422,6 +422,44 @@ or production keeps up to 4 GB of changes for it. To remove the copy entirely:
 drop the slot, delete the `replicator` role, the `pg_hba.conf` line and the key's
 line in `authorized_keys`, then `docker compose down -v` on the Mac.
 
+## 14. Telegram through a relay
+
+Telegram is filtered where production runs, so the server can't reach
+api.telegram.org to set a webhook or send a reply. The bot still lives on the
+server: linking a chat to a login, the same assistant as the web chat, voice
+notes, and Confirm / Cancel (`app/services/messenger.py`). Its Telegram side
+runs on a machine that can reach Telegram: the **relay**, in
+[`ops/telegram-relay/`](ops/telegram-relay/README.md). On the owner's Mac it
+runs from `/Users/masein/Development/accounting/telegram-relay`, next to the
+live copy (§13).
+
+```
+Telegram  ⇄  relay (getUpdates; sends the replies)  ⇄  POST /bots/telegram/relay/update  →  the bot, on the server
+```
+
+- **Turning it on:** a platform admin goes to Settings → Messenger bots →
+  Telegram → **Use a relay**, which makes a *relay key*, shown once
+  (`POST /admin/messenger-bots/telegram/relay`). The server keeps only its
+  hash, and no bot token at all. The relay's `.env` holds the key and the bot
+  token.
+- **The relay's two calls:** `…/relay/hello` (on start and every 10 minutes:
+  the bot's username, for the links the app shows, and when the relay was last
+  seen) and `…/relay/update` (one update, plus a voice note's audio, which the
+  server can't fetch). The answer is the Bot API calls to make. A wrong key
+  gets a plain 404, as a wrong webhook secret does.
+- **Webhooks:** relay mode replaces a webhook setup for that bot. Bale, which is
+  reachable from Iran, stays on its webhook.
+- **A new key:** clicking "New relay key" replaces the old one. The relay then
+  stops with `the server doesn't know this relay key` until its `.env` has the
+  new one.
+
+The relay is a single Python file with httpx, in Docker. It handles updates in
+order per chat and different chats at the same time, keeps its offset across
+restarts, retries the server three times, and never logs the token. Tests:
+`tests/test_telegram_relay.py` and the relay cases in
+`tests/test_messenger_bot.py`. For a local end-to-end run without an AI key,
+`tests_e2e/fake_llm.py` stands in for the AI.
+
 ## Notes
 - `docker-compose.yml` (no suffix) stays the **dev** stack: it builds locally
   and bind-mounts the source for live reload. `docker-compose.prod.yml` runs the

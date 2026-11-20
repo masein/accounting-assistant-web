@@ -16,9 +16,12 @@ if ! xcrun --find swift >/dev/null 2>&1 || ! xcodebuild -license check >/dev/nul
   if [ -d /Library/Developer/CommandLineTools ]; then export DEVELOPER_DIR=/Library/Developer/CommandLineTools; fi
 fi
 
+# its own build folder: with the Command Line Tools, building this product in the folder `swift test` uses leaves the
+# Swift Testing macros unloadable there for the next test run (a toolchain fault), so the two never share one
+SCRATCH="$HERE/build/swiftpm"
 cd "$HERE/ChatKit"
-swift build -c "$CONFIG" --product AccountingChat
-BIN="$(swift build -c "$CONFIG" --product AccountingChat --show-bin-path)/AccountingChat"
+swift build -c "$CONFIG" --product AccountingChat --scratch-path "$SCRATCH"
+BIN="$(swift build -c "$CONFIG" --product AccountingChat --scratch-path "$SCRATCH" --show-bin-path)/AccountingChat"
 
 APP="$HERE/build/AccountingChat.app"
 rm -rf "$APP"

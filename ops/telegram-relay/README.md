@@ -48,3 +48,17 @@ On the owner's Mac the relay runs from `/Users/masein/Development/accounting/tel
   `APP_URL` is the address users open.
 
 Tests: `tests/test_telegram_relay.py` (this program) and `tests/test_messenger_bot.py` (the server's relay mode).
+
+## Seen working (2026-11-20)
+
+These screens are from @NSAccountingbot through this relay, running on the owner's Mac, against a local test server.
+The AI was the stand-in `tests_e2e/fake_llm.py`:
+
+| | |
+|---|---|
+| ![An unlinked chat gets the instructions](../../docs/screenshots/telegram-relay/1-unlinked-start.png) | ![Linked with the one-time code](../../docs/screenshots/telegram-relay/2-linked.png) |
+| 1. `/start` in a chat not linked yet: the instructions | 2. `/start <code>`: linked to the login |
+| ![A spend comes back as a card](../../docs/screenshots/telegram-relay/3-card.png) | ![Confirm records it](../../docs/screenshots/telegram-relay/4-confirmed.png) |
+| 3. "paid 250000 for lunch from cash": a card with Confirm / Cancel | 4. Confirm: the buttons go, "✅ Done", and the entry is in the books |
+| ![Persian, then Cancel](../../docs/screenshots/telegram-relay/5-persian-cancelled.png) | |
+| 5. A Persian message gets its card. Cancel: "nothing was saved" | |

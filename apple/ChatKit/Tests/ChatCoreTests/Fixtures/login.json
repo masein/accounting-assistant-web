@@ -1,0 +1,27 @@
+{
+ "ok": true,
+ "access_token": "access-1",
+ "token_type": "bearer",
+ "expires_in": 900,
+ "refresh_token": "refresh-1",
+ "device_id": "00000000-0000-0000-0000-0000000000d1",
+ "user": {
+  "id": "83d9ac5c-546b-4e3b-a70a-efdc3b6be74c",
+  "username": "admin",
+  "role": "owner",
+  "is_admin": true,
+  "entity_id": null,
+  "preferred_language": "en",
+  "two_factor_enabled": false
+ },
+ "company": {
+  "id": "00000000-0000-0000-0000-000000000001",
+  "name": "Default",
+  "slug": "default",
+  "locale": "uk",
+  "base_currency": "GBP",
+  "status": "active",
+  "calendar": "gregorian",
+  "kind": "business"
+ }
+}

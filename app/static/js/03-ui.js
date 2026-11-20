@@ -1405,13 +1405,19 @@
       card.style.display = '';
       document.getElementById('msg-bots-url').textContent = tf('msgBotsUrl', { url: d.public_url || '' });
       const list = document.getElementById('msg-bots-list');
+      // a relay (ops/telegram-relay) talks to the platform for a server that can't reach it
+      const relayState = (b) => !b.username ? t('msgBotRelayWaiting')
+        : tf('msgBotRelayConnected', { bot: '@' + b.username,
+            seen: b.relay_seen_at ? formatDisplayDateTime(b.relay_seen_at) : '—' });
       list.innerHTML = Object.entries(d.bots || {}).map(([key, b]) => `<div class="msg-bot" data-platform="${escapeHtml(key)}">
           <strong>${escapeHtml(b.name)}</strong>
           ${b.connected
-            ? `<span>${escapeHtml(tf('msgBotConnected', { bot: '@' + (b.username || '') }))}</span>
+            ? `<span>${escapeHtml(b.mode === 'relay' ? relayState(b) : tf('msgBotConnected', { bot: '@' + (b.username || '') }))}</span>
+               ${b.mode === 'relay' ? `<button type="button" class="btn btn-secondary btn-sm msg-bot-relay">${escapeHtml(t('msgBotRelayNewKey'))}</button>` : ''}
                <button type="button" class="btn btn-secondary btn-sm msg-bot-off">${escapeHtml(t('msgBotDisconnect'))}</button>`
             : `<input type="password" class="msg-bot-token" autocomplete="off" dir="ltr" placeholder="123456:ABC…" aria-label="${escapeHtml(tf('msgBotToken', { name: b.name }))}">
-               <button type="button" class="btn btn-primary btn-sm msg-bot-on">${escapeHtml(t('msgBotConnect'))}</button>`}
+               <button type="button" class="btn btn-primary btn-sm msg-bot-on">${escapeHtml(t('msgBotConnect'))}</button>
+               <button type="button" class="btn btn-secondary btn-sm msg-bot-relay">${escapeHtml(t('msgBotRelay'))}</button>`}
         </div>`).join('');
       list.querySelectorAll('.msg-bot').forEach(row => {
         const platform = row.dataset.platform;
@@ -1428,6 +1434,20 @@
             showAlert(tf('msgBotConnected', { bot: '@' + (out.username || '') }));
             loadMessengerBots(); refreshMessengerButton();
           } finally { on.disabled = false; }
+        });
+        const relay = row.querySelector('.msg-bot-relay');
+        if (relay) relay.addEventListener('click', async () => {
+          if (!(await uiConfirm({ message: t('msgBotRelayConfirm'), confirmLabel: t('msgBotRelay') }))) return;
+          relay.disabled = true;
+          try {
+            const r = await fetch(API + '/admin/messenger-bots/' + platform + '/relay', { method: 'POST' });
+            const out = await r.json().catch(() => ({}));
+            if (!r.ok || !out.relay_key) { showAlert(t('msgFailed'), true); return; }
+            // shown this once: the server keeps only its hash
+            await uiPrompt({ title: t('msgBotRelayKeyTitle'), message: t('msgBotRelayKeyNote'), value: out.relay_key,
+                             confirmLabel: t('btnClose') });
+            loadMessengerBots(); refreshMessengerButton();
+          } finally { relay.disabled = false; }
         });
         const off = row.querySelector('.msg-bot-off');
         if (off) off.addEventListener('click', async () => {

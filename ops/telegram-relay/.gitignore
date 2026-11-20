@@ -1,0 +1,3 @@
+# this machine's own: the token and key, the offset
+.env
+state/

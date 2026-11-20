@@ -501,6 +501,7 @@ _add("DELETE", "/ai-accountant/messenger/links/{link_id}", Perm.BOOKS_WRITE)
 _add("GET", "/admin/messenger-bots", Perm.PLATFORM_ADMIN)
 _add("PUT", "/admin/messenger-bots/{platform}", Perm.PLATFORM_ADMIN)
 _add("DELETE", "/admin/messenger-bots/{platform}", Perm.PLATFORM_ADMIN)
+_add("POST", "/admin/messenger-bots/{platform}/relay", Perm.PLATFORM_ADMIN)   # relay mode (DEPLOY.md §14)
 _add("POST", "/ai-accountant/preferences", Perm.BOOKS_WRITE)
 _add("DELETE", "/ai-accountant/preferences/{pref_id}", Perm.BOOKS_WRITE)
 # Guardrails (roadmap §5.6): the owner sets the two-person threshold; the

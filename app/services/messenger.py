@@ -20,6 +20,18 @@ Flow
 * Unlinked chats and groups only get instructions. A re-delivered update is
   ignored (``messenger_updates``). The webhook answers at once and does the
   work in the background: an AI turn can take longer than a platform waits.
+
+Relay mode
+----------
+A server that can't reach the platform (Telegram is filtered where production
+runs) keeps the bot through a *relay*: a small program on a machine that can
+(ops/telegram-relay). The platform admin turns relay mode on and gets a relay
+key once; the server keeps only its hash, and no bot token at all. The relay
+polls the platform (getUpdates), hands each update to
+``POST /bots/<platform>/relay/update`` with the key — and a voice note's audio,
+which the server can't fetch — and makes the calls the answer lists
+(sendMessage, answerCallbackQuery, …). Everything else — linking, the
+assistant, Confirm / Cancel — is the same code as above.
 """
 from __future__ import annotations
 
@@ -122,7 +134,11 @@ def load_settings(db: Session) -> dict[str, dict[str, Any]]:
         raw = {}
     out = {}
     for platform, cfg in raw.items():
-        if platform in PLATFORMS and isinstance(cfg, dict) and cfg.get("token"):
+        if platform not in PLATFORMS or not isinstance(cfg, dict):
+            continue
+        if cfg.get("mode") == "relay" and cfg.get("relay_key_hash"):
+            out[platform] = dict(cfg)                       # no token: the relay holds it
+        elif cfg.get("token"):
             out[platform] = {**cfg, "token": decrypt_secret(cfg["token"])}
     return out
 
@@ -132,7 +148,8 @@ def _save(db: Session, bots: dict[str, dict[str, Any]]) -> None:
     from app.core.secrets import encrypt_secret
     from app.db.tenant import tenant_bypass
     from app.models.app_setting import AppSetting
-    value = json_dumps({p: {**c, "token": encrypt_secret(c["token"])} for p, c in bots.items()})
+    value = json_dumps({p: ({**c, "token": encrypt_secret(c["token"])} if c.get("token") else dict(c))
+                        for p, c in bots.items()})
     with tenant_bypass():
         row = _row(db)
         if row is None:
@@ -144,8 +161,13 @@ def _save(db: Session, bots: dict[str, dict[str, Any]]) -> None:
 
 def public_status(db: Session) -> dict[str, Any]:
     bots = load_settings(db)
-    return {p: {"name": meta["name"], "connected": p in bots, "username": (bots.get(p) or {}).get("username")}
-            for p, meta in PLATFORMS.items()}
+    out = {}
+    for p, meta in PLATFORMS.items():
+        cfg = bots.get(p) or {}
+        out[p] = {"name": meta["name"], "connected": p in bots, "username": cfg.get("username"),
+                  "mode": cfg.get("mode", "webhook") if cfg else None,
+                  "relay_seen_at": cfg.get("relay_seen_at")}
+    return out
 
 
 # --- the Bot API ----------------------------------------------------------------------------------------------
@@ -199,7 +221,7 @@ async def connect(db: Session, platform: str, token: str) -> dict[str, Any]:
 async def disconnect(db: Session, platform: str) -> None:
     bots = load_settings(db)
     cfg = bots.pop(platform, None)
-    if cfg:
+    if cfg and cfg.get("token"):
         try:
             await api(platform, cfg["token"], "deleteWebhook")
         except Exception:  # noqa: BLE001 — forget it locally either way
@@ -217,6 +239,59 @@ def check_secret(db: Session, platform: str, path_secret: str, header_secret: st
     return ok
 
 
+# --- relay mode -----------------------------------------------------------------------------------------------
+
+def _key_hash(key: str) -> str:
+    import hashlib
+    return hashlib.sha256((key or "").encode("utf-8")).hexdigest()
+
+
+def enable_relay(db: Session, platform: str) -> str:
+    """Relay mode for ``platform``: a fresh relay key, returned once; only its hash is kept. Replaces a webhook
+    setup (and any earlier relay key). Raises ValueError for an unknown platform."""
+    if platform not in PLATFORMS:
+        raise ValueError("Unknown platform.")
+    key = secrets.token_urlsafe(32)
+    bots = load_settings(db)
+    # no username until the relay checks in with its bot's own (it may be another bot than a webhook's)
+    bots[platform] = {"mode": "relay", "relay_key_hash": _key_hash(key), "username": "",
+                      "connected_at": datetime.now(timezone.utc).isoformat(), "relay_seen_at": None}
+    _save(db, bots)
+    return key
+
+
+def relay_config(db: Session, platform: str, key: str | None) -> dict[str, Any] | None:
+    """The relay setup when ``key`` is its relay key, else None (a wrong key, or not in relay mode)."""
+    cfg = load_settings(db).get(platform) if platform in PLATFORMS else None
+    if not cfg or cfg.get("mode") != "relay" or not key:
+        return None
+    return cfg if secrets.compare_digest(_key_hash(key), cfg.get("relay_key_hash") or "") else None
+
+
+def relay_hello(db: Session, platform: str, username: str) -> dict[str, Any]:
+    """The relay checking in (on start, and every few minutes): the bot's username — for the links the app
+    shows — and when the relay was last seen."""
+    bots = load_settings(db)
+    cfg = bots[platform]
+    username = (username or "").strip().lstrip("@")
+    if not re.fullmatch(r"[A-Za-z0-9_]{3,64}", username):
+        raise ValueError("That is not a bot username.")
+    cfg.update(username=username, relay_seen_at=datetime.now(timezone.utc).isoformat())
+    _save(db, bots)
+    return public_status(db)[platform]
+
+
+def relay_calls(reply: "_Reply | None") -> list[dict[str, Any]]:
+    """The Bot API calls a reply stands for, for the relay to make in order."""
+    if reply is None:
+        return []
+    calls = [{"method": m["method"], "params": {k: v for k, v in m.items() if k != "method"}}
+             for m in reply.messages]
+    if reply.callback:
+        calls.append({"method": "answerCallbackQuery", "params": dict(reply.callback)})
+    return calls
+
+
 # --- linking --------------------------------------------------------------------------------------------------
 
 def start_link(db: Session, *, user_id: str, platform: str) -> dict[str, Any]:
@@ -224,6 +299,8 @@ def start_link(db: Session, *, user_id: str, platform: str) -> dict[str, Any]:
     bots = load_settings(db)
     if platform not in bots:
         raise ValueError("That messenger is not connected on this server.")
+    if not bots[platform].get("username"):
+        raise ValueError("The bot's relay hasn't checked in yet — try again in a few minutes.")
     uid = uuid.UUID(str(user_id))
     db.execute(delete(MessengerLink).where(MessengerLink.user_id == uid, MessengerLink.status == "pending"))
     code = secrets.token_urlsafe(9).replace("-", "x").replace("_", "y")
@@ -344,26 +421,31 @@ class _Reply:
             self.messages.append({"method": "sendMessage", "chat_id": self.chat_id, "text": part, **extra})
 
 
-async def handle_update(db: Session, platform: str, update: dict[str, Any]) -> _Reply | None:
-    """Process one update and send the replies. Returns what was sent."""
+async def handle_update(db: Session, platform: str, update: dict[str, Any], *,
+                        files: dict[str, bytes] | None = None, deliver: bool = True) -> _Reply | None:
+    """Process one update and send the replies. Returns what was sent. Through a relay (``deliver=False``)
+    nothing is sent here — the relay makes the calls (``relay_calls``) — and a voice note's audio comes in
+    ``files`` ({file_id: bytes}): the server can't fetch it from the platform."""
     if _seen(db, platform, update.get("update_id")):
         return None
     db.commit()
     cfg = load_settings(db).get(platform)
     if not cfg:
         return None
+    if files is not None:
+        cfg = {**cfg, "_files": files}
     if "callback_query" in update:
         reply = await _on_callback(db, platform, update["callback_query"])
     elif "message" in update:
         reply = await _on_message(db, platform, cfg, update["message"])
     else:
         return None
-    if reply is None:
-        return None
+    if reply is None or not deliver:
+        return reply
     for msg in reply.messages:
-        method = msg.pop("method")
+        method, params = msg["method"], {k: v for k, v in msg.items() if k != "method"}
         try:
-            await api(platform, cfg["token"], method, **msg)
+            await api(platform, cfg["token"], method, **params)
         except Exception:  # noqa: BLE001
             log.warning("could not send %s to %s", method, platform, exc_info=True)
     if reply.callback:
@@ -477,7 +559,12 @@ async def _transcribe(db: Session, platform: str, cfg: dict, link: MessengerLink
         with _as_user(su):
             from app.services.ai_usage import guard_ai_request
             guard_ai_request(db)
-            data = await download(platform, cfg["token"], media.get("file_id", ""))
+            if cfg.get("mode") == "relay":
+                data = (cfg.get("_files") or {}).get(media.get("file_id", ""))
+                if not data or len(data) > MAX_VOICE_BYTES:
+                    return ""                                 # the relay didn't send it (too large, or failed)
+            else:
+                data = await download(platform, cfg["token"], media.get("file_id", ""))
             return (await transcribe(data))["text"]
     except (SpeechError, RuntimeError, httpx.HTTPError):
         return ""

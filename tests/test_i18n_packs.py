@@ -16,7 +16,9 @@ INDEX = (JS.parent / "index.html").read_text(encoding="utf-8")
 
 def test_english_alone_is_in_the_core_file():
     assert re.findall(r"^      (en|fa|es|ar): \{", CORE, re.M) == ["en", "en"]
-    assert len(CORE.encode("utf-8")) < 200_000, "02-i18n.js grew back — new languages go in js/i18n/"
+    # The size is a backstop for the check above (a language pack moved back in doubles the file); English grows
+    # with each feature, so the bound sits a little above the core's size (2026-11-19: 200.7 kB).
+    assert len(CORE.encode("utf-8")) < 215_000, "02-i18n.js grew back — new languages go in js/i18n/"
 
 
 def test_each_pack_registers_itself_with_every_key():

@@ -150,6 +150,8 @@ API_ONLY_LITERAL = {
     "Not Found": "the chat bots' webhook, and the API's own 404 for an unknown path",
     "Not JSON": "the chat bots' webhook",
     "Not an update": "the chat bots' webhook",
+    "That is not a bot username.": "the Telegram relay checking in (ops/telegram-relay), not a page",
+    "Unknown platform": "the bot settings page only sends the platforms it lists",
     "Invalid session_id": "the chat page sends its own session id",
     "Invalid confirmation_token format": "the chat page sends the token it was given",
 }

@@ -25,6 +25,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		AC0000000000000000000014 /* ChatKit/Sources/AccountingChatApp */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ChatKit/Sources/AccountingChatApp;
+			sourceTree = "<group>";
+		};
 		AC0000000000000000000003 /* AccountingChat */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -50,6 +55,7 @@
 		AC0000000000000000000005 = {
 			isa = PBXGroup;
 			children = (
+				AC0000000000000000000014 /* ChatKit/Sources/AccountingChatApp */,
 				AC0000000000000000000003 /* AccountingChat */,
 				AC0000000000000000000006 /* Products */,
 			);
@@ -79,6 +85,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				AC0000000000000000000014 /* ChatKit/Sources/AccountingChatApp */,
 				AC0000000000000000000003 /* AccountingChat */,
 			);
 			name = AccountingChat;

@@ -31,6 +31,13 @@ jobs:
       - name: Package tests
         working-directory: apple/ChatKit
         run: swift test
+      - name: The Mac app without Xcode (Command Line Tools, when the runner has them)
+        run: |
+          if [ -d /Library/Developer/CommandLineTools/usr/bin ]; then
+            DEVELOPER_DIR=/Library/Developer/CommandLineTools apple/build-mac.sh
+          else
+            echo "::notice::no Command Line Tools on this runner — building with Xcode"; apple/build-mac.sh
+          fi
       - name: Build for the iOS Simulator
         run: |
           xcodebuild -project apple/AccountingChat.xcodeproj -scheme AccountingChat \

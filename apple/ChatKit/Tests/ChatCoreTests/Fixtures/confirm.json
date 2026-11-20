@@ -1,1 +1,1 @@
-{"state": "posted", "block": {"type": "posted", "id": "posted:t1", "token": "t1", "date": {"iso": "2026-11-19", "display": "19 Nov 2026"}, "undo_seconds": 120, "actions": ["undo"], "fallback_text": "Posted"}}
+{"state": "posted", "block": {"file": null, "type": "posted", "id": "posted:t1", "token": "t1", "transaction_id": "5865b5e4-66f5-4e84-8a26-fd49705b5801", "audit_log_id": "24c9fd6d-42f4-46d8-b1a4-f1a0c82fe144", "voucher": null, "date": {"iso": "2026-11-19", "display": "19 Nov 2026"}, "undo_seconds": 120, "actions": ["undo"], "fallback_text": "Posted"}}

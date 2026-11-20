@@ -27,6 +27,8 @@ struct BlockView: View {
             ChartCard(chart: c, fallback: fallback)
         case .review(_, let r, _):
             ReviewCard(review: r)
+        case .intake(_, let i, _):
+            IntakeCard(intake: i)
         case .other(_, _, let fallback):
             AssistantBubble(text: fallback)
         }
@@ -45,9 +47,11 @@ struct PostedNote: View {
             if posted.undone == true {
                 Label(l10n[.undone], systemImage: "arrow.uturn.backward.circle").foregroundStyle(.secondary)
             } else {
-                Label(([l10n[.posted]] + [posted.voucher, posted.date?.display].compactMap { $0 }).joined(separator: " · "),
-                      systemImage: "checkmark.seal.fill")
-                    .foregroundStyle(Theme.primary)
+                // the card above already says "Recorded": this line is the voucher, the date and the undo
+                let detail = [posted.voucher, posted.date?.display].compactMap { $0 }.joined(separator: " · ")
+                if !detail.isEmpty {
+                    Label(detail, systemImage: "doc.text").foregroundStyle(.secondary)
+                }
                 if posted.canUndo {
                     Button(l10n[.undo], action: onUndo).buttonStyle(.borderless).disabled(working)
                         .accessibilityIdentifier("undo")
@@ -116,6 +120,24 @@ struct ChartCard: View {
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(.quaternary))
         .environment(\.layoutDirection, chart.title.isRTLScript ? .rightToLeft : .leftToRight)
         .accessibilityIdentifier("chart")
+    }
+}
+
+struct IntakeCard: View {
+    let intake: Intake
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(intake.bankLabel ?? intake.bankName ?? intake.fileName ?? intake.kind,
+                  systemImage: intake.kind == "bank_statement" ? "building.columns" : "tray.and.arrow.down")
+                .font(.headline)
+            Text(intake.summary).font(.subheadline).foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .frame(maxWidth: 560, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.card))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(.quaternary))
+        .accessibilityIdentifier("intake")
     }
 }
 

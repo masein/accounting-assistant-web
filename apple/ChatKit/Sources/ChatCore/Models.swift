@@ -82,6 +82,11 @@ public struct ProposalOutcome: Codable, Equatable, Sendable {
 public struct Money: Codable, Equatable, Sendable {
     public let value: Decimal
     public let currency: String?
+
+    public init(value: Decimal, currency: String?) {
+        self.value = value
+        self.currency = currency
+    }
 }
 
 public struct BlockDate: Codable, Equatable, Sendable {
@@ -169,6 +174,35 @@ public struct Review: Codable, Equatable, Sendable {
     public let note: String?
 }
 
+/// A file read for the books (contract: "intake"): a bank statement, or a batch of transactions. The server sends
+/// it without a sentence, so its words are made here.
+public struct Intake: Codable, Equatable, Sendable {
+    public let kind: String
+    public let status: String?
+    public let bankName: String?
+    public let bankLabel: String?
+    public let fileName: String?
+    public let totalRows: Int?
+    public let rows: Int?
+    public let matched: Int?
+    public let fromDate: String?
+    public let toDate: String?
+    public let counts: [String: Int]?
+
+    public var rowCount: Int? { totalRows ?? rows }
+    public var matchedCount: Int? { matched ?? counts?["matched"] }
+
+    /// One plain line: what was read, how many rows, the period, how many matched.
+    public var summary: String {
+        var parts: [String] = [kind == "bank_statement" ? "Bank statement" : "Transactions"]
+        if let bank = bankLabel ?? bankName { parts.append(bank) }
+        if let n = rowCount { parts.append("\(n) rows") }
+        if let from = fromDate, let to = toDate { parts.append("\(from) – \(to)") }
+        if let m = matchedCount { parts.append("\(m) matched") }
+        return parts.joined(separator: " · ")
+    }
+}
+
 /// Recorded (contract: "posted"): undo is open for `undoSeconds` after it.
 public struct Posted: Codable, Equatable, Sendable {
     public let token: String?
@@ -189,13 +223,14 @@ public enum Block: Codable, Equatable, Sendable, Identifiable {
     case figure(id: String, Figure, fallback: String)
     case chart(id: String, ChartData, fallback: String)
     case review(id: String, Review, fallback: String)
-    /// tables, files, approvals, statement intake, and kinds added later: their own sentence
+    case intake(id: String, Intake, fallback: String)
+    /// tables, files, approvals, and kinds added later: their own sentence
     case other(id: String, type: String, fallback: String)
 
     public var id: String {
         switch self {
         case .text(let id, _), .proposal(let id, _), .posted(let id, _, _), .figure(let id, _, _), .chart(let id, _, _),
-             .review(let id, _, _), .other(let id, _, _): return id
+             .review(let id, _, _), .intake(let id, _, _), .other(let id, _, _): return id
         }
     }
 
@@ -204,6 +239,7 @@ public enum Block: Codable, Equatable, Sendable, Identifiable {
         switch self {
         case .text(_, let text): return text
         case .proposal(_, let p): return p.summary ?? p.title ?? ""
+        case .intake(_, let intake, let fallback): return fallback.isEmpty ? intake.summary : fallback
         case .posted(_, _, let fallback), .figure(_, _, let fallback), .chart(_, _, let fallback),
              .review(_, _, let fallback), .other(_, _, let fallback): return fallback
         }
@@ -217,6 +253,7 @@ public enum Block: Codable, Equatable, Sendable, Identifiable {
         case .figure: return "figure"
         case .chart: return "chart"
         case .review: return "review"
+        case .intake: return "intake"
         case .other(_, let type, _): return type
         }
     }
@@ -244,6 +281,8 @@ public enum Block: Codable, Equatable, Sendable, Identifiable {
             self = (try? ChartData(from: decoder)).map { .chart(id: id, $0, fallback: said) } ?? .other(id: id, type: type, fallback: said)
         case "review":
             self = (try? Review(from: decoder)).map { .review(id: id, $0, fallback: said) } ?? .other(id: id, type: type, fallback: said)
+        case "intake":
+            self = (try? Intake(from: decoder)).map { .intake(id: id, $0, fallback: said) } ?? .other(id: id, type: type, fallback: said)
         default:
             self = .other(id: id, type: type, fallback: said)
         }
@@ -269,6 +308,9 @@ public enum Block: Codable, Equatable, Sendable, Identifiable {
         case .review(let id, let value, let fallback):
             try value.encode(to: encoder)
             try c.encode("review", forKey: .type); try c.encode(id, forKey: .id); try c.encode(fallback, forKey: .fallbackText)
+        case .intake(let id, let value, let fallback):
+            try value.encode(to: encoder)
+            try c.encode("intake", forKey: .type); try c.encode(id, forKey: .id); try c.encode(fallback, forKey: .fallbackText)
         case .other(let id, let type, let fallback):
             try c.encode(type, forKey: .type); try c.encode(id, forKey: .id); try c.encode(fallback, forKey: .fallbackText)
         }

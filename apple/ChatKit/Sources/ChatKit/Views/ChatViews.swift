@@ -1,11 +1,16 @@
 import SwiftUI
 
 /// After sign-in: the conversations beside the open one (a sidebar on the Mac and iPad, a stack on the iPhone).
+/// The chat screen's own switches (an object rather than `@State`: see LoginFields).
+final class ChatScreenState: ObservableObject {
+    @Published var confirmingSignOut = false
+    @Published var columns = NavigationSplitViewVisibility.all
+}
+
 public struct ChatScreen: View {
     @ObservedObject var app: AppModel
     @ObservedObject var chat: ChatModel
-    @State private var confirmingSignOut = false
-    @State private var columns = NavigationSplitViewVisibility.all
+    @StateObject private var ui = ChatScreenState()
 
     public init(app: AppModel, chat: ChatModel) {
         self.app = app
@@ -15,7 +20,7 @@ public struct ChatScreen: View {
     private var t: L10n { app.l10n }
 
     public var body: some View {
-        NavigationSplitView(columnVisibility: $columns) {
+        NavigationSplitView(columnVisibility: $ui.columns) {
             ThreadList(chat: chat, l10n: t)
                 .navigationTitle(t[.conversations])
                 .toolbar {
@@ -28,7 +33,7 @@ public struct ChatScreen: View {
                             if let name = app.user?.username { Text(name) }
                             if let company = app.company?.name { Text(company) }
                             Divider()
-                            Button(t[.signOut], role: .destructive) { confirmingSignOut = true }
+                            Button(t[.signOut], role: .destructive) { ui.confirmingSignOut = true }
                         } label: { Label(app.user?.username ?? t[.signOut], systemImage: "person.crop.circle") }
                     }
                 }
@@ -37,7 +42,7 @@ public struct ChatScreen: View {
                 .navigationTitle(chat.threads.first { $0.id == chat.thread }?.title ?? t[.newConversation])
         }
         .tint(Theme.primary)
-        .confirmationDialog(t(.signOutConfirm, app.company?.name ?? app.serverAddress), isPresented: $confirmingSignOut) {
+        .confirmationDialog(t(.signOutConfirm, app.company?.name ?? app.serverAddress), isPresented: $ui.confirmingSignOut) {
             Button(t[.signOut], role: .destructive) { Task { await app.signOut() } }
         }
         .task { await chat.refreshThreads() }
@@ -56,8 +61,8 @@ struct ThreadList: View {
             ForEach(chat.threads) { thread in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(thread.title?.isEmpty == false ? thread.title! : l10n[.untitled]).lineLimit(1)
-                    if let n = thread.messageCount {
-                        Text("\(n)").font(.caption).foregroundStyle(.secondary)
+                    if let when = Self.when(thread.updatedAt, l10n) {
+                        Text(when).font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 .tag(Optional(thread.id))
@@ -65,6 +70,18 @@ struct ThreadList: View {
             }
         }
         .refreshable { await chat.refreshThreads() }
+    }
+
+    /// "5 minutes ago", "yesterday" — when the conversation last moved, in the user's language.
+    static func when(_ iso: String?, _ l10n: L10n) -> String? {
+        guard let iso else { return nil }
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return nil }
+        let r = RelativeDateTimeFormatter()
+        r.locale = l10n.locale
+        r.unitsStyle = .full
+        return r.localizedString(for: date, relativeTo: Date())
     }
 }
 

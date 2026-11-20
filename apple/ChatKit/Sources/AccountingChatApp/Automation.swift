@@ -9,7 +9,7 @@ import AppKit
 /// Set in the launch environment:
 ///   AC_SERVER, AC_USER, AC_PASS   sign in to that server as that user
 ///   AC_SEND                       messages to send, one after another, separated by "|"
-///   AC_CONFIRM=1                  confirm the first card the assistant proposes
+///   AC_CONFIRM=1 / AC_CANCEL=1    confirm / cancel the first card the assistant proposes
 ///   AC_SNAPSHOT_DIR               on the Mac: after each step the window is saved there as NN-step.png
 ///                                 (the app draws its own window: no screen-recording permission needed)
 @MainActor
@@ -39,6 +39,10 @@ enum Automation {
         if env["AC_CONFIRM"] == "1", let token = firstCard(in: chat) {
             await chat.confirm(token)
             await shot("confirmed")
+        }
+        if env["AC_CANCEL"] == "1", let token = firstCard(in: chat) {
+            await chat.cancel(token)
+            await shot("cancelled")
         }
         print("AUTOMATION DONE \(step) steps")
     }

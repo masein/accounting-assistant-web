@@ -1,10 +1,16 @@
 import SwiftUI
 
+/// What's typed on the sign-in screen. (An object rather than `@State`: SwiftUI's `@State` is a macro whose plugin
+/// ships only with Xcode, and the Mac app also builds with the Command Line Tools alone — apple/build-mac.sh.)
+final class LoginFields: ObservableObject {
+    @Published var username = ""
+    @Published var password = ""
+    @Published var code = ""
+}
+
 public struct LoginView: View {
     @ObservedObject var app: AppModel
-    @State private var username = ""
-    @State private var password = ""
-    @State private var code = ""
+    @StateObject private var fields = LoginFields()
 
     public init(app: AppModel) { self.app = app }
 
@@ -56,7 +62,7 @@ public struct LoginView: View {
                     .accessibilityIdentifier("server")
             }
             field(t[.username]) {
-                TextField(t[.username], text: $username)
+                TextField(t[.username], text: $fields.username)
                     .textContentType(.username)
                     #if os(iOS)
                     .textInputAutocapitalization(.never)
@@ -65,7 +71,7 @@ public struct LoginView: View {
                     .accessibilityIdentifier("username")
             }
             field(t[.password]) {
-                SecureField(t[.password], text: $password)
+                SecureField(t[.password], text: $fields.password)
                     .textContentType(.password)
                     .onSubmit(signIn)
                     .accessibilityIdentifier("password")
@@ -78,7 +84,7 @@ public struct LoginView: View {
             .buttonStyle(.borderedProminent)
             .tint(Theme.primary)
             .controlSize(.large)
-            .disabled(app.busy || username.isEmpty || password.isEmpty)
+            .disabled(app.busy || fields.username.isEmpty || fields.password.isEmpty)
             .keyboardShortcut(.defaultAction)
             .accessibilityIdentifier("sign-in")
         }
@@ -89,7 +95,7 @@ public struct LoginView: View {
             Text(t[.twoFactorTitle]).font(.headline)
             Text(t[.twoFactorHint]).font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
             field(t[.code]) {
-                TextField("123456", text: $code)
+                TextField("123456", text: $fields.code)
                     .textContentType(.oneTimeCode)
                     #if os(iOS)
                     .keyboardType(.numberPad)
@@ -103,7 +109,7 @@ public struct LoginView: View {
             .buttonStyle(.borderedProminent)
             .tint(Theme.primary)
             .controlSize(.large)
-            .disabled(app.busy || code.isEmpty)
+            .disabled(app.busy || fields.code.isEmpty)
             Button(t[.cancelAction]) { app.backToSignIn() }
                 .buttonStyle(.borderless)
         }
@@ -121,12 +127,12 @@ public struct LoginView: View {
     }
 
     private func signIn() {
-        guard !username.isEmpty, !password.isEmpty, !app.busy else { return }
-        Task { await app.signIn(username: username, password: password) }
+        guard !fields.username.isEmpty, !fields.password.isEmpty, !app.busy else { return }
+        Task { await app.signIn(username: fields.username, password: fields.password) }
     }
 
     private func verify() {
-        guard !code.isEmpty, !app.busy else { return }
-        Task { await app.confirmTwoFactor(code: code) }
+        guard !fields.code.isEmpty, !app.busy else { return }
+        Task { await app.confirmTwoFactor(code: fields.code) }
     }
 }

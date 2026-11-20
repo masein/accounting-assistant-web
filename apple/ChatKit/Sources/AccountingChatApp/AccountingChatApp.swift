@@ -2,15 +2,20 @@ import ChatKit
 import SwiftUI
 
 /// The chat app for iPhone, iPad and Mac: the same assistant as the web chat, nothing else (apple/README.md).
-/// Everything it does is in the ChatKit package; this is only its entry point.
+/// Everything it does is in ChatKit; this is only its entry point (the Xcode project and apple/build-mac.sh both
+/// build it).
 @main
 struct AccountingChatApp: App {
     @StateObject private var app: AppModel = {
-        let app = AppModel()
         #if DEBUG
-        if Automation.isOn { app.startFresh(server: Automation.env["AC_SERVER"] ?? "") }
+        if Automation.isOn {
+            // a scripted run keeps its session in memory: it never touches the Keychain
+            let app = AppModel(tokens: { _ in MemoryTokenStore() })
+            app.startFresh(server: Automation.env["AC_SERVER"] ?? "")
+            return app
+        }
         #endif
-        return app
+        return AppModel()
     }()
 
     var body: some Scene {

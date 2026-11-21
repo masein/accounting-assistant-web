@@ -29,6 +29,16 @@ TAX_CAVEAT = (
 )
 
 
+def default_period_start(db: Session, today: date) -> date:
+    """Where a tax summary starts when it is given no start date: the first day of the current
+    quarter in the company's calendar (calendar_periods). For an Iranian company that is the
+    current season (فصل), the period its VAT is filed for — Mehr 1 when asked on 28 Aban — and not
+    1 October, which cut every season in two; for everyone else, the calendar quarter."""
+    from app.services.calendar_periods import company_calendar, quarter_bounds, quarter_key
+
+    return quarter_bounds(quarter_key(today, company_calendar(db)))[0]
+
+
 def _line_tax(line_total, tax_rate, taxable: bool, currency: str | None = None):
     """A line's VAT to its currency's places, half-up (the penny for pounds);
     without a currency, and in rials, whole units as before (app.api.invoices)."""

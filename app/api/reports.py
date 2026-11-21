@@ -658,16 +658,15 @@ def get_tax_summary(
 ) -> dict:
     """VAT / sales-tax summary for a period: output tax (sales), input tax
     (purchases) and net tax = output − input, with the rate assumptions used
-    and an estimate caveat. Defaults to the current calendar quarter."""
-    from app.services.tax_service import compute_tax_summary
+    and an estimate caveat. Defaults to the current quarter in the company's calendar: for
+    an Iranian company the current season (فصل)."""
+    from app.services.tax_service import compute_tax_summary, default_period_start
 
     today = date.today()
     if to_date is None:
         to_date = today
     if from_date is None:
-        # Start of the current calendar quarter.
-        q_start_month = ((today.month - 1) // 3) * 3 + 1
-        from_date = date(today.year, q_start_month, 1)
+        from_date = default_period_start(db, today)
     return compute_tax_summary(db, from_date, to_date, currency=currency)
 
 

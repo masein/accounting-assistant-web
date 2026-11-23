@@ -190,11 +190,14 @@ def report_card(db: Session, month: str | None = None, *, lang: str | None = Non
     past = [h[1] for h in history if h[0] or h[1]]
     avg3 = average(past, currency) if past else None
 
-    top = sorted(cats.items(), key=lambda kv: -kv[1])[:TOP]
+    # a category the month gave money back to (a refund of an earlier month's purchase) isn't a top spending, and
+    # a month before that went below nothing isn't a base for a percentage: «۳۶۹۸٪ کمتر از ماه قبل» against −6
+    # moved out of «خانواده و هدایا» (chat review 2026-11-23, CL2)
+    top = sorted(((c, a) for c, a in cats.items() if a > 0), key=lambda kv: -kv[1])[:TOP]
     categories = [{"category": c, "amount": a, "previous": p_cats.get(c, 0),
-                   "change_pct": round((a - p_cats[c]) / p_cats[c] * 100, 1) if p_cats.get(c) else None}
+                   "change_pct": round((a - p_cats[c]) / p_cats[c] * 100, 1) if p_cats.get(c, 0) > 0 else None}
                   for c, a in top]
-    rises = sorted(((c, a - p_cats.get(c, 0)) for c, a in cats.items()), key=lambda kv: -kv[1])
+    rises = sorted(((c, a - max(p_cats.get(c, 0), 0)) for c, a in cats.items()), key=lambda kv: -kv[1])
     biggest_rise = {"category": rises[0][0], "increase": rises[0][1]} if rises and rises[0][1] > 0 else None
 
     budgets = budget_utilization(db, key, currency)            # the card's currency's own budgets
@@ -248,7 +251,7 @@ def _other(db: Session, currency: str, start: date, upto: date, previous_key: st
             "savings_rate": _rate(income, spending),
             "previous": {"income": p_income, "spending": p_spending, "saved": plain(p_income - p_spending)},
             "categories": [{"category": c, "amount": a, "previous": p_cats.get(c, 0)}
-                           for c, a in sorted(cats.items(), key=lambda kv: -kv[1])[:TOP]]}
+                           for c, a in sorted(((c, a) for c, a in cats.items() if a > 0), key=lambda kv: -kv[1])[:TOP]]}
 
 
 def _fmt_rate(rate: float, lang: str) -> str:

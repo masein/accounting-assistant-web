@@ -124,6 +124,11 @@ _MONTHS = {
 }
 
 
+# a receipt prints the time beside the day («19/11/26 22:42», «11/20/2026, 2:06 PM»), and a label before it
+_TIME_TAIL = re.compile(r"(?:[\s,]+|T)\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?\s*(?:[AaPp]\.?\s?[Mm]\.?)?\s*$")
+_DATE_LABEL = re.compile(r"^(?:date|تاریخ|التاريخ)\s*[:：]\s*", re.IGNORECASE)
+
+
 def _normalize_date(value: Any) -> str | None:
     """Normalize a model-provided date to ISO ``YYYY-MM-DD``. Accepts a
     Gregorian ISO date, a Jalali date (1404/10/15 — common on Iranian
@@ -138,6 +143,9 @@ def _normalize_date(value: Any) -> str | None:
     from datetime import date as _date
 
     raw = normalize_digits(str(value)).strip()
+    # with its time, a receipt's date was dropped whole and the card took the day it was sent: a MATALAN receipt of
+    # «19/11/26 22:42» became an entry of the next day (chat review 2026-11-23, CO1)
+    raw = _DATE_LABEL.sub("", _TIME_TAIL.sub("", raw).strip().rstrip(",")).strip()
 
     def _iso(y: int, mo: int, d: int) -> str | None:
         try:
@@ -164,6 +172,16 @@ def _normalize_date(value: Any) -> str | None:
         if b > 12 and a <= 12:        # unambiguous month-first
             return _iso(y, a, b)
         return _iso(y, b, a)          # ambiguous → day-first (UK/intl default)
+
+    # A two-digit year («19/11/26»), read the same way, in this century and only near today: «۰۵/۰۸/۲۹» is a Jalali
+    # date with its year first, not 5 August 2029, and is left for the user (CO1)
+    m = re.match(r"^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})$", raw)
+    if m:
+        a, b, y = int(m.group(1)), int(m.group(2)), 2000 + int(m.group(3))
+        iso = _iso(y, a, b) if (b > 12 and a <= 12) else _iso(y, b, a)
+        if iso and abs((_date.fromisoformat(iso) - _date.today()).days) <= 400:
+            return iso
+        return None
 
     # Text dates: "18 June 2026", "18 Jun 2026", "June 18, 2026".
     low = raw.lower()
@@ -392,6 +410,8 @@ _VISION_PROMPT = (
     "'مبلغ قابل پرداخت', or 'Total'. This is usually subtotal + tax.\n"
     "  amount (number or null) — same as total\n"
     "  line_items (array of {description, amount} or empty)\n"
+    "  paid_with (string or null) — how the customer paid, as the receipt shows it: \"cash\", or \"card\" "
+    "(card, bank, POS, Visa, Mastercard, mada, debit); null when it doesn't say\n"
     "  confidence (0..1)\n"
     "Rules: Convert any Persian digits (۰۱۲۳۴۵۶۷۸۹) to normal digits. For "
     "subtotal, tax, total and amount, report the value in MAJOR currency units "
@@ -723,9 +743,27 @@ def _normalize_extracted(out: dict[str, Any]) -> dict[str, Any]:
         "currency": currency,
         "toman": toman,
         "line_items": items,
+        "paid_with": _paid_with(out.get("paid_with")),
         "confidence": out.get("confidence") if isinstance(out.get("confidence"), (int, float)) else 0.6,
         "raw_text": str(out.get("raw_text") or "")[:6000],
     }
+
+
+_CASH_WORDS = ("cash", "نقد", "كاش")
+_CARD_WORDS = ("card", "bank", "pos", "visa", "master", "mada", "debit", "credit", "کارت", "بانک", "بطاقة", "شبکه")
+
+
+def _paid_with(value: Any) -> str | None:
+    """«cash» or «card», as the receipt says it was paid: «Bank 13.680» on a restaurant's receipt was carded as
+    paid from a cash wallet (chat review 2026-11-23, CO3). None when it doesn't say."""
+    said = str(value or "").strip().lower()
+    if not said:
+        return None
+    if any(w in said for w in _CASH_WORDS):
+        return "cash"
+    if any(w in said for w in _CARD_WORDS):
+        return "card"
+    return None
 
 
 async def extract_from_attachment(path: str, content_type: str) -> dict[str, Any]:

@@ -170,6 +170,15 @@ def _priced(n: int, code: str | None, lang: str) -> str:
 
 
 _T = {
+    # books with nothing in them yet: «0 IRR» alone told a new user nothing (chat review 2026-11-23, CR2)
+    "nothing_yet": {"en": "Nothing is recorded yet. Tell me what you have and where — for example "
+                          "\"I have 5 million tomans in my bank account\" — and I'll set it up.",
+                    "fa": "هنوز چیزی ثبت نشده است. بگویید چقدر و کجا دارید — مثلاً «۵ میلیون تومان توی حساب بانکی دارم» — "
+                          "تا ثبتش کنم.",
+                    "es": "Todavía no hay nada registrado. Dime cuánto tienes y dónde — por ejemplo, "
+                          "«tengo 500 euros en el banco» — y lo preparo.",
+                    "ar": "لم يُسجَّل شيء بعد. أخبرني كم لديك وأين — مثلًا «لديّ ٥٠٠ ريال في حسابي البنكي» — "
+                          "وسأسجّله."},
     "cash": {"en": "Cash and bank today: {total_p}.", "fa": "موجودی نقد و بانک امروز: {total} {cur}.",
              "es": "Efectivo y bancos hoy: {total_p}.", "ar": "النقد والبنوك اليوم: {total_p}."},
     "cash_currencies": {"en": "Cash and bank today, each currency as it is: {list}.",
@@ -579,4 +588,13 @@ async def answer(db, message: str, *, user_id: str, username: str | None, lang: 
                         over=_money(-left, lang), actual_p=_priced(r.get("total_actual") or 0, code, lang),
                         budget_p=_priced(r.get("total_budget") or 0, code, lang),
                         left_p=_priced(left, code, lang), over_p=_priced(-left, code, lang))
+    if intent in ("cash", "net_worth") and mode == "personal" and _nothing_recorded(db):
+        text += " " + _say("nothing_yet", lang)
     return FastAnswer(intent=intent, text=text, tool_calls=calls)
+
+
+def _nothing_recorded(db) -> bool:
+    """A person's books with no entry at all yet."""
+    from sqlalchemy import select
+    from app.models.transaction import Transaction
+    return db.execute(select(Transaction.id).where(Transaction.deleted_at.is_(None)).limit(1)).first() is None

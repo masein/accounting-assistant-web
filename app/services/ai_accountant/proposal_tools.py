@@ -591,6 +591,79 @@ def _guard_typed_over_document(ctx: ToolContext, proposed_total) -> None:
         code="toman_not_converted")
 
 
+def _guard_place_below_zero(ctx: ToolContext, args) -> None:
+    """Cash doesn't go below zero (chat review 2026-11-23, CS1): «۱۰۰ ریال از پاکت جا به جا کردم به کیف پول قشنگم» was
+    taken from «پاکت توی کشو», empty since a purchase took all of it a month before, and left it at −100 — the money
+    was in the other envelope. In a person's books, a move between their own places that takes more from a wallet or
+    an envelope (a place under 1120) than it held that day, in the card's currency, is refused: they named the wrong
+    one. Spending isn't — a wallet's earlier money is often not all in the books («۳۰۰ ریال از کیف پول قشنگم دادم» for
+    the gym), and the ledger marks a place that went below zero when its balance is in doubt (CS2). A place with
+    nothing recorded in that currency yet is let through too."""
+    if getattr(ctx, "mode", "default") != "personal":
+        return
+    if not any((ln.account_code or "").startswith("11") and ln.debit for ln in args.lines):
+        return                                        # not a move between their own places
+    from app.core.money import plain
+    from app.models.transaction import Transaction, TransactionLine
+    from app.services.fx_base import base_currency
+    base = (base_currency(ctx.db) or "IRR").upper()
+    ccy = (args.currency or base).strip().upper()
+    taken: dict[str, Any] = {}
+    for ln in args.lines:
+        if (ln.account_code or "").startswith("112"):
+            taken[ln.account_code] = plain(taken.get(ln.account_code, 0) + plain(ln.credit or 0) - plain(ln.debit or 0))
+    same_ccy = func.upper(func.coalesce(Transaction.currency, base)) == ccy
+
+    def held(account_id) -> tuple[int, Any]:
+        n, net = ctx.db.execute(
+            select(func.count(), func.coalesce(func.sum(TransactionLine.debit), 0) - func.coalesce(func.sum(TransactionLine.credit), 0))
+            .select_from(TransactionLine).join(Transaction, Transaction.id == TransactionLine.transaction_id)
+            .where(TransactionLine.account_id == account_id, Transaction.deleted_at.is_(None), same_ccy,
+                   Transaction.date <= args.date)).one()
+        return int(n or 0), plain(net or 0)
+
+    def coming(code: str) -> Any:
+        """What this conversation's cards not yet confirmed bring into the place: the gym paid from the Omani rials
+        the dollars were changed into in the same message, both cards waiting (eval p_gym_exchange_fa, AZ2)."""
+        from app.models.ai_accountant import AIProposal
+        session = getattr(ctx, "chat_session_id", None)
+        if not session:
+            return 0
+        total: Any = 0
+        for row in ctx.db.execute(select(AIProposal).where(AIProposal.session_id == str(session),
+                                                           AIProposal.status == "pending")).scalars():
+            p = row.tool_input or {}
+            if row.tool_name == "propose_currency_exchange":
+                if p.get("to_code") == code and (p.get("to_currency") or "").upper() == ccy:
+                    total = plain(total + plain(p.get("to_amount") or 0))
+            elif row.tool_name == "propose_create_transaction" and (p.get("currency") or base).upper() == ccy:
+                for ln in p.get("lines") or []:
+                    if ln.get("account_code") == code:
+                        total = plain(total + plain(ln.get("debit") or 0) - plain(ln.get("credit") or 0))
+        return total
+
+    for code, out in taken.items():
+        if out <= 0:
+            continue
+        acc = ctx.db.execute(select(Account).where(Account.code == code)).scalars().first()
+        if acc is None:
+            continue
+        n, there = held(acc.id)
+        on_the_way = coming(code)
+        if (not n and not on_the_way) or out <= plain(there + on_the_way):
+            continue
+        others = [a for a in ctx.db.execute(select(Account).where(Account.code.like("112%"), Account.code != code,
+                                                                  Account.is_active.is_(True))).scalars()
+                  if held(a.id)[1] >= out]
+        where = "، ".join(f"«{a.name}» ({a.code})" for a in others[:4])
+        raise ToolError(
+            f"«{acc.name}» ({code}) held {grouped(max(there, 0))} {ccy} on {args.date}: {grouped(out)} {ccy} can't come "
+            f"out of it — cash doesn't go below zero. The money came from another of their places"
+            + (f" (holding enough: {where})" if where else "")
+            + ", or there was more in it than the books know. Ask once with ask_with_choices which place it came from; "
+            "record more in this one only if they say it held more.", code="place_below_zero")
+
+
 def _guard_money_back(ctx: ToolContext, args) -> None:
     """In a person's books, money comes back only from where it went (owner's phone, 2026-11-14, scenario CC2):
     a «correction» into a wallet was credited to «متفرقه», where far less had been spent —
@@ -932,6 +1005,7 @@ class ProposeCreateTransaction(BaseTool):
             _guard_people_direction(ctx, args)
             _guard_place_currency(ctx, args)
             _guard_money_back(ctx, args)
+            _guard_place_below_zero(ctx, args)
             _guard_own_transfer(ctx, args)
             _guard_move_made_already(ctx, args)
 

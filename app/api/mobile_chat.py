@@ -944,6 +944,13 @@ def mobile_briefing(payload: BriefingPayload, db: Session = Depends(get_db),
         session = _get_or_create_session(db, user_id=user.user_id, session_id=payload.thread_id)
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
+    # the briefing once a day in a thread, whatever came with it: said with the weekly reviews at noon, it came
+    # again alone that evening (chat review 2026-11-23, CM1)
+    from app.services.insight_service import briefing_said_today
+    if text and briefing_said_today(db, session.id, text):
+        text = None
+        if not waiting and not sms and not reviews:
+            return {"thread_id": str(session.id), "blocks": []}
     # ids unique to this message: a thread holds a briefing a day, and the
     # phone keys its list by block id
     mid = uuid.uuid4()

@@ -870,6 +870,8 @@ def insights_payload(db: Session, lang: str, *, today: date | None = None, worde
 
 _MONTH_KEY = re.compile(r"^\d{4}-\d{2}$")
 _FIGURE = re.compile(r"^[\d.,/%+\-−]+$")
+# an amount in another currency, as ``_fmt_in`` writes it: «1,300.00 USD»
+_FIGURE_CCY = re.compile(r"^([\d.,\-−]+) ([A-Z]{3})$")
 
 
 def _said(value: Any, lang: str) -> Any:
@@ -884,6 +886,12 @@ def _said(value: Any, lang: str) -> Any:
     if lang == "fa" and isinstance(value, str) and _FIGURE.match(value):
         from app.core.money import persian_figures
         return persian_figures(value)
+    # «۰٫۴ ماه کفایت می‌کند — 1,300.00 USD نقد موجود است» in a Persian briefing: the amount in Persian figures and the
+    # currency by name, «۱,۳۰۰٫۰۰ دلار آمریکا», as the reviews beside it (chat review 2026-11-23, CM2)
+    if lang == "fa" and isinstance(value, str) and (m := _FIGURE_CCY.match(value)):
+        from app.core.currencies import after_amount
+        from app.core.money import persian_figures, signed_fa
+        return f"{signed_fa(persian_figures(m.group(1)))} {after_amount(m.group(2), 'fa')}"
     # a count kept as a number: «۰ سند برگشت خورده و 4 یادداشت» (deep browser test, 2026-10-16)
     if lang == "fa" and isinstance(value, (int, float)) and not isinstance(value, bool):
         from app.core.money import grouped_fa
@@ -895,6 +903,25 @@ def chat_wording(ins: Insight, lang: str) -> dict[str, str]:
     """An insight's title and message as the chat and the phone's
     notifications say them (the pages keep their own figures)."""
     return replace(ins, params={k: _said(v, lang) for k, v in ins.params.items()}).localize(lang)
+
+
+def briefing_said_today(db: Session, session_id, text: str) -> bool:
+    """This briefing was already said in this conversation today — on its own (the web) or in a message with the
+    day's reviews (the phone). The phone compared whole messages, so the briefing that came with the weekly reviews
+    came again alone that evening (chat review 2026-11-23, CM1)."""
+    from app.models.ai_accountant import AIChatMessage
+    since = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    rows = db.execute(select(AIChatMessage.content).where(
+        AIChatMessage.session_id == session_id, AIChatMessage.role == "assistant",
+        AIChatMessage.created_at >= since).order_by(AIChatMessage.created_at.desc()).limit(50)).scalars().all()
+    for c in rows:
+        c = c or {}
+        if not c.get("briefing"):
+            continue
+        if c.get("text") == text or any(str(b.get("id") or "").startswith("briefing:") and b.get("text") == text
+                                         for b in c.get("blocks") or []):
+            return True
+    return False
 
 
 def briefing_text(insights: list[Insight], lang: str, *, limit: int = 4) -> str | None:

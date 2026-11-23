@@ -415,6 +415,12 @@ class QueryLedger(BaseTool):
         import re as _re
         first = next(iter(c for c in _re.split(r"[,\s،]+", (args.account_code or "").strip()) if c), None)
         nature = classify_account_code(first) if first else None
+        if nature is None and rows:
+            # a person's or a party's lines, no account asked: their accounts' one nature, when they share one.
+            # «پرداختی های امین» came back with 5,806.15 credited to «بدهی به دیگران» and a signed net of 0, which
+            # reads as nothing owed (chat review 2026-11-23, CQ1)
+            kinds = {classify_account_code(a.code) for (_t, _l, a) in rows}
+            nature = kinds.pop() if len(kinds) == 1 else None
 
         def net(d, c):
             return d - c if nature in (ASSET, EXPENSE) else c - d if nature in (LIABILITY, EQUITY, REVENUE) else 0
@@ -517,6 +523,19 @@ class QueryLedger(BaseTool):
                 }
                 for (txn, line, acc) in _latest_entries(rows, args.limit)
             ]
+        if getattr(ctx, "mode", "default") == "personal" and first and first.startswith("112") \
+                and first == (args.account_code or "").strip():
+            doubt = _doubtful_moves(ctx.db, first, ccy, base)
+            if doubt:
+                result["doubtful"] = doubt
+                result["doubtful_note"] = ("Entries worth asking the user about when they doubt this place's balance: "
+                                           "say them with their dates and amounts and ask which isn't as they "
+                                           "remember. Change none without them.")
+        if nature is None:
+            # lines of accounts of different natures have no one signed net: a 0 read as "nothing" (CQ1)
+            result.pop("signed_net", None)
+            for v in (result.get("totals_by_currency") or {}).values():
+                v.pop("signed_net", None)
         return result
 
 
@@ -556,6 +575,57 @@ def _entity_lines(db, entity_id, rows) -> set[str] | None:
 # ---------------------------------------------------------------------------
 # get_account_balance
 # ---------------------------------------------------------------------------
+
+
+def _doubtful_moves(db, code: str, ccy: str | None, base: str) -> list[dict[str, Any]]:
+    """A wallet's or an envelope's entries worth asking about (chat review 2026-11-23, CS2). Told «بنظرم داری اشتباه
+    میکنی», the assistant added the same 68 entries up again and said the balance was right; among them, 100 Omani
+    rials from the same envelope twice in two days. These are: the same amount moved in or out against the same
+    other place of theirs within a week (one move told twice?), and the day the place went below zero."""
+    acc = db.execute(select(Account).where(Account.code == code)).scalars().first()
+    if acc is None:
+        return []
+    q = (select(Transaction.id, Transaction.date, Transaction.created_at, Transaction.description, Transaction.currency,
+                TransactionLine.debit, TransactionLine.credit)
+         .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
+         .where(TransactionLine.account_id == acc.id, Transaction.deleted_at.is_(None)))
+    if ccy:
+        q = q.where(func.upper(func.coalesce(Transaction.currency, base)) == ccy.upper())
+    rows = sorted(db.execute(q).all(), key=lambda r: (r.date, str(r.created_at or "")))
+    if not rows:
+        return []
+    other: dict = defaultdict(set)
+    for tid, oc in db.execute(select(TransactionLine.transaction_id, Account.code)
+                              .join(Account, Account.id == TransactionLine.account_id)
+                              .where(TransactionLine.transaction_id.in_([r.id for r in rows]),
+                                     TransactionLine.account_id != acc.id)).all():
+        other[tid].add(oc)
+    names = dict(db.execute(select(Account.code, Account.name)).all())
+    out: list[dict[str, Any]] = []
+    seen: dict = {}
+    running: dict[str, Any] = defaultdict(int)
+    below: set[str] = set()
+    for r in rows:
+        cur = (r.currency or base).upper()
+        amount = plain(r.debit or 0) - plain(r.credit or 0)
+        running[cur] = plain(running[cur] + amount)
+        if running[cur] < 0 and cur not in below:
+            below.add(cur)
+            out.append({"date": r.date.isoformat(), "description": r.description, "currency": cur,
+                        "why": f"the place went below zero ({running[cur]}) — cash can't"})
+        places = frozenset(c for c in other[r.id] if c.startswith("11"))
+        if not places or not amount:
+            continue
+        key = (cur, amount, places)
+        prev = seen.get(key)
+        if prev is not None and (r.date - prev.date).days <= 7:
+            out.append({"date": r.date.isoformat(), "description": r.description, "amount": abs(amount),
+                        "currency": cur, "same_as": prev.date.isoformat(),
+                        "why": f"the same amount {'from' if amount > 0 else 'to'} "
+                               f"{'، '.join('«' + names.get(c, c) + '»' for c in sorted(places))} "
+                               f"{(r.date - prev.date).days} days after another — one move told twice?"})
+        seen[key] = r
+    return out[-8:]
 
 
 class GetAccountBalanceInput(BaseModel):
@@ -701,9 +771,14 @@ _ACCOUNT_ALIASES: dict[str, dict[str, tuple[list[str], list[str]]]] = {
         "bank / card": (["bank", "card", "transfer", "بانک", "کارت", "کارت به کارت", "انتقال", "حساب بانکی", "پوز"], ["1110"]),
         "gold / fx savings": (["gold", "coin", "طلا", "سکه"], ["1130"]),
         "fx savings": (["dollar", "euro", "fx", "دلار", "یورو", "ارز"], ["1140"]),
-        "food": (["food", "grocery", "groceries", "supermarket", "خوراک", "سوپرمارکت", "میوه", "نان", "غذا"], ["6110"]),
+        # «خرید خونه کردیم» is the household's shopping: «خرید خانه» found bank fees at 0.48 (chat review 2026-11-23, CP1)
+        "food": (["food", "grocery", "groceries", "supermarket", "خوراک", "سوپرمارکت", "میوه", "نان", "غذا",
+                  "خرید خونه", "خرید خانه", "خرید منزل", "خرید هفتگی", "خرید روزانه"], ["6110"]),
         "housing": (["rent", "housing", "اجاره", "مسکن", "شارژ"], ["6120"]),
-        "transport": (["transport", "taxi", "fuel", "petrol", "metro", "snapp", "حمل", "تاکسی", "بنزین", "مترو", "اسنپ"], ["6130"]),
+        # a car hired for a week is getting around, not «مسکن و اجاره»: «اجاره ماشین» found the rent at 0.99 (CP1)
+        "transport": (["transport", "taxi", "fuel", "petrol", "metro", "snapp", "حمل", "تاکسی", "بنزین", "مترو", "اسنپ",
+                       "car rental", "rental car", "rent a car", "car hire", "اجاره ماشین", "کرایه ماشین",
+                       "اجاره خودرو", "کرایه خودرو"], ["6130"]),
         "bills": (["bill", "bills", "utilities", "electricity", "water", "gas", "internet", "قبض", "قبوض", "برق", "آب", "گاز", "اینترنت"], ["6140"]),
         # things for the home (6125, migration 085): «مبدل برق» went to the electricity bill on «برق» (AY4)
         "home supplies": (["home supplies", "household", "home repair", "adapter", "charger", "light bulb", "bulb",
@@ -727,7 +802,9 @@ _ACCOUNT_ALIASES: dict[str, dict[str, tuple[list[str], list[str]]]] = {
         "loan / installment": (["loan", "installment", "وام", "قسط", "اقساط"], ["2110", "2120"]),
         # money between the person and someone else (scenarios AG1–AG6); matched as substrings, so no
         # bare «lent» (excellent), «trip» (Stripe) or «visa» (a Visa card)
-        "money I owe": (["i owe", "owe him", "owe her", "paid for me", "بدهی به", "بدهکارم", "قرض گرفتم"], ["2130"]),
+        # "money owed to others" found nothing in a Persian chart (chat review 2026-11-23, CP1)
+        "money I owe": (["i owe", "owe him", "owe her", "paid for me", "owed to others", "owe others", "بدهی به",
+                         "بدهکارم", "قرض گرفتم"], ["2130"]),
         "money owed to me": (["owed to me", "owes me", "lent to", "i lent", "طلب از", "طلبکارم", "قرض دادم"], ["1150"]),
         # money the person already had when they started (scenario Z4): a chart opened in English
         # names it "Opening net worth", and «افتتاحیه» found nothing. Not «سرمایه»: in a person's
@@ -848,9 +925,14 @@ class SearchAccounts(BaseTool):
         # the longest phrase wins over one inside it: «مبدل برق» is a power adapter, not «برق» the electricity
         # bill; "bank fee" is a fee, not the bank (scenario AY4)
         hits = [h for h in hits if not any(h[1] != o[1] and h[1] in o[1] for o in hits)]
+        # A person's phrase of more than one word names its category as surely as an account's name does: «اجاره
+        # ماشین» is getting around, and «مسکن و اجاره» only shares its «اجاره» (chat review 2026-11-23, CP1)
+        phrased: set[str] = set()
         for label, _said, codes in hits:
             from app.services.chart_codes import own_code
             preferred_codes.update(own_code(c) for c in codes)      # a company's own code for the app's
+            if alias_key == "personal" and " " in _said.strip():
+                phrased.update(own_code(c) for c in codes)
             role = _ALIAS_ROLES.get(label) if alias_key != "personal" else None
             if role:
                 from app.services.account_resolver import find_account_code
@@ -932,6 +1014,7 @@ class SearchAccounts(BaseTool):
             # seed account in established books stays a fallback.
             if (acc.code or "") in preferred_codes:
                 score = max(score, 0.97 if (in_use or not established) else 0.55)
+                by_name = by_name or (acc.code or "") in phrased
             if in_use and score >= 0.45:
                 score = min(0.99, score + 0.05)
             elif established:

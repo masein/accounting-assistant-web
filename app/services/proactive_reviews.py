@@ -153,9 +153,18 @@ def _usual(history: list[tuple], ccy: str) -> tuple[Any, dict[str, Any]]:
             {name: average([by.get(name, 0) for _inc, _sp, by in active], ccy) for name in names})
 
 
+def _out_and_back(cats: dict[str, Any]) -> tuple[Any, Any, list[str]]:
+    """A period's spending and the money that came back: a category whose refunds outweigh what was spent in it
+    that period (a purchase of an earlier week paid back) is money back, not spending below nothing. The week of
+    an iSTYLE refund said «این هفته −۴۹۰٫۰۲۰ ریال عمان خرج کردید؛ ۱۸۳٪ کمتر …» (chat review 2026-11-23, CL1)."""
+    out = sum((v for v in cats.values() if v > 0), 0)
+    back = sum((-v for v in cats.values() if v < 0), 0)
+    return out, back, [n for n, v in sorted(cats.items(), key=lambda kv: kv[1]) if v < 0]
+
+
 def _top(cats: dict[str, Any], usual: dict[str, Any]) -> list[dict]:
     out = []
-    for name, amount in sorted(cats.items(), key=lambda kv: -kv[1])[:TOP]:
+    for name, amount in sorted(((n, a) for n, a in cats.items() if a > 0), key=lambda kv: -kv[1])[:TOP]:
         u = usual.get(name)
         out.append({"name": name, "amount": plain(amount), "usual": plain(u) if u else None})
     return out
@@ -273,7 +282,7 @@ def suggestions(db: Session, kind: str, facts: dict, today: date) -> list[dict]:
     only = ccy if personal else None
     for c in facts.get("top") or []:
         # float(): books with pence or baisa hold Decimals, and a Decimal times a float is a TypeError
-        if c.get("usual") and float(c["amount"]) >= HOT * float(c["usual"]) and spent \
+        if (c.get("usual") or 0) > 0 and float(c["amount"]) >= HOT * float(c["usual"]) and spent \
                 and float(c["amount"]) >= HOT_SHARE * float(spent) and c["name"] not in budgeted:
             # the button says how much, or the assistant reads the budgets, finds none, and stops (2026-10-20)
             out.append({"key": "hot_category", "params": {"category": c["name"],
@@ -323,13 +332,16 @@ def _monthly_budget(db: Session, cat: dict, kind: str, today: date, only: str | 
 
 def _week(db: Session, start: date, end: date, ccy: str, only: str | None) -> dict[str, Any]:
     """A week's figures in ``ccy``: with ``only``, that currency's entries in their own amounts."""
-    income, spent, cats = _flows(db, start, end, only)
-    history = [_flows(db, start - timedelta(days=7 * i), end - timedelta(days=7 * i), only)
-               for i in range(1, HISTORY_WEEKS + 1)]
+    income, _net, cats = _flows(db, start, end, only)
+    spent, back, back_to = _out_and_back(cats)
+    history = [(inc, _out_and_back(by)[0], by) for inc, _sp, by in
+               (_flows(db, start - timedelta(days=7 * i), end - timedelta(days=7 * i), only)
+                for i in range(1, HISTORY_WEEKS + 1))]
     usual, usual_cats = _usual(history, ccy)
     active = [h for h in history if h[0] or h[1]]
     return {
         "currency": ccy, "income": plain(income), "spent": plain(spent),
+        "back": plain(back), "back_to": back_to,
         "usual": plain(usual) if usual is not None else None, "top": _top(cats, usual_cats),
         "biggest": _biggest(db, start, end, only),
         "usual_income": plain(average([h[0] for h in active], ccy)) if len(active) >= 2 else None,
@@ -394,7 +406,7 @@ def _month(db: Session, key: str, prev_key: str, ccy: str) -> dict[str, Any]:
             "rate": _rate(income, spent),
             "previous": {"income": plain(p_income), "spending": plain(p_spent), "saved": plain(p_income - p_spent)},
             "top": [{"name": n, "amount": plain(a), "usual": plain(_p[n]) if _p.get(n) else None}
-                    for n, a in sorted(cats.items(), key=lambda kv: -kv[1])[:TOP]],
+                    for n, a in sorted(((n, a) for n, a in cats.items() if a > 0), key=lambda kv: -kv[1])[:TOP]],
             "series": _series(db, int(key[:4]), int(key[5:7]), ccy)}
 
 
@@ -432,7 +444,7 @@ def monthly_facts(db: Session, today: date) -> dict | None:
         facts.update(income=plain(income), spent=plain(spent), profit=plain(income - spent),
                      previous={"income": plain(p_income), "spending": plain(p_spent), "profit": plain(p_income - p_spent)},
                      top=[{"name": n, "amount": plain(a), "usual": plain(p_cats[n]) if p_cats.get(n) else None}
-                          for n, a in sorted(cats.items(), key=lambda kv: -kv[1])[:TOP]])
+                          for n, a in sorted(((n, a) for n, a in cats.items() if a > 0), key=lambda kv: -kv[1])[:TOP]])
         facts.update(_company_position(db))
     facts["series"] = _series(db, y, m, only)
     facts["label"] = month_label(key, "en")
@@ -619,6 +631,11 @@ W: dict[str, dict[str, str]] = {
     "spent": {"en": "You spent {spent} this week.", "fa": "این هفته {spent} خرج کردید.",
               "es": "Esta semana gastaste {spent}.", "ar": "أنفقت هذا الأسبوع {spent}."},
     "income": {"en": "Income: {income}.", "fa": "درآمد: {income}.", "es": "Ingresos: {income}.", "ar": "الدخل: {income}."},
+    # a refund of an earlier week's purchase: money back, not spending below nothing (CL1)
+    "back": {"en": "{amount} came back for earlier spending ({names}).",
+             "fa": "{amount} از خرج‌های قبلی برگشت ({names}).",
+             "es": "Volvieron {amount} de gastos anteriores ({names}).",
+             "ar": "عاد {amount} من مصروفات سابقة ({names})."},
     "biggest": {"en": "Biggest spend: {what}, {amount} ({date}).", "fa": "بیشترین خرج: {what}، {amount} ({date}).",
                 "es": "El mayor gasto: {what}, {amount} ({date}).", "ar": "أكبر إنفاق: {what}، {amount} ({date})."},
     "you_owe": {"en": "You owe {person} {amount}.", "fa": "به {person} {amount} بدهکارید.",
@@ -893,7 +910,7 @@ def _render_one(review: ProactiveReview, f: dict, lang: str, *, first: bool, ide
         title = _say(W, "weekly_title" if personal else "weekly_title_co", lang, start=start, end=end)
         spent, usual = f.get("spent") or 0, f.get("usual")
         if personal:
-            if usual:
+            if usual and usual > 0:
                 change = (spent - usual) / usual * 100
                 key = "spent_same" if abs(change) < 5 else ("spent_more" if change > 0 else "spent_less")
                 lines.append(_say(W, key, lang, spent=m(spent), usual=m(usual), pct=_pct(change, lang)))
@@ -902,6 +919,9 @@ def _render_one(review: ProactiveReview, f: dict, lang: str, *, first: bool, ide
             headline = lines[0]
             if f.get("income"):
                 lines.append(_say(W, "income", lang, income=m(f["income"])))
+            if f.get("back"):
+                lines.append(_say(W, "back", lang, amount=m(f["back"]), names=_sep(lang).join(
+                    f"«{n}»" if lang == "fa" else n for n in f.get("back_to") or [])))
             if f.get("biggest"):
                 b = f["biggest"]
                 lines.append(_say(W, "biggest", lang, what=b["what"] or b["category"], amount=m(b["amount"]),
@@ -913,7 +933,7 @@ def _render_one(review: ProactiveReview, f: dict, lang: str, *, first: bool, ide
         else:
             lines.append(_say(W, "co_week", lang, income=m(f.get("income") or 0), spent=m(spent)))
             headline = lines[0]
-            if usual and abs((spent - usual) / usual * 100) >= 5:
+            if usual and usual > 0 and abs((spent - usual) / usual * 100) >= 5:
                 change = (spent - usual) / usual * 100
                 lines.append(_say(W, "co_vs", lang, pct=_pct(change, lang), dir=W["above" if change > 0 else "below"][lang]))
             lines.extend(_company_lines(f, lang, m, ideas=ideas))
@@ -935,7 +955,7 @@ def _render_one(review: ProactiveReview, f: dict, lang: str, *, first: bool, ide
                 lines.append(_say(W, "month_spent", lang, spent=m(f["spent"])))
             headline = lines[0]
             prev = (f.get("previous") or {}).get("spending")
-            if prev:
+            if prev and prev > 0 and (f.get("spent") or 0) > 0:
                 change = (f["spent"] - prev) / prev * 100
                 if abs(change) >= 5:
                     lines.append(_say(W, "month_vs", lang, pct=_pct(change, lang), month=prev_month,
@@ -1015,7 +1035,7 @@ def _short(label: str) -> str:
 
 
 def _delta(value, usual, lang: str, *, monthly: bool, lower_is_good: bool) -> dict | None:
-    if not usual:
+    if not usual or usual < 0 or value < 0:
         return None
     change = (value - usual) / usual * 100
     if abs(change) < 5:
@@ -1106,6 +1126,10 @@ def _card(review: ProactiveReview, lang: str, *, title: str, lines: list[str], r
 def _against(c: dict, lang: str, *, monthly: bool) -> str:
     if not c.get("usual"):
         return W["cat_new"][lang]
+    if c["usual"] < 0:
+        # the period before was money back, not spending: «۲۱۵٫۹۰۰ ریال عمان (۳۶۹۸٪ کمتر از ماه قبل)» against
+        # −6 moved out of the category (chat review 2026-11-23, CL2)
+        return ""
     change = (c["amount"] - c["usual"]) / c["usual"] * 100
     if abs(change) < 10:
         return W["cat_same"][lang]

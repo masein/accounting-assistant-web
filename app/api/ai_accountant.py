@@ -248,6 +248,16 @@ async def _build_ocr_context(db: Session, attachment_ids: list[str]) -> tuple[st
                 pass
         if fields.get("invoice_or_receipt_no"):
             lines.append(f"  reference: {fields['invoice_or_receipt_no']}")
+        if fields.get("paid_with"):
+            lines.append(f"  paid with: {fields['paid_with']}")
+        # what was bought: the category comes from it (CB2), and the reader's items never reached the model
+        # (chat review 2026-11-23, CO2)
+        items = [it for it in fields.get("line_items") or []
+                 if isinstance(it, dict) and str(it.get("description") or "").strip()]
+        if items:
+            lines.append("  items: " + "; ".join(
+                str(it["description"]).strip()[:60] + (f" {it['amount']}" if it.get("amount") is not None else "")
+                for it in items[:15]))
         if fields.get("confidence") is not None:
             lines.append(f"  confidence: {fields['confidence']}")
         if raw_text:
@@ -1147,12 +1157,9 @@ class BriefingResponse(BaseModel):
 
 
 def _briefed_today(db: Session, session_id, text: str) -> bool:
-    """This briefing was already said in this conversation today."""
-    since = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    rows = db.execute(select(AIChatMessage.content).where(
-        AIChatMessage.session_id == session_id, AIChatMessage.role == "assistant",
-        AIChatMessage.created_at >= since).order_by(AIChatMessage.created_at.desc()).limit(50)).scalars().all()
-    return any((c or {}).get("briefing") and (c or {}).get("text") == text for c in rows)
+    """This briefing was already said in this conversation today (here or on the phone)."""
+    from app.services.insight_service import briefing_said_today
+    return briefing_said_today(db, session_id, text)
 
 
 @router.post("/briefing", response_model=BriefingResponse)

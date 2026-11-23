@@ -1290,3 +1290,75 @@ A bank's PDF statement lists the newest row first. With several rows on its last
 |----|----------|-------|----------|
 | CK1 | The closing balance | A newest-first statement (a PDF) with several rows on its last day; the same rows oldest first (a CSV) | The review's closing balance is the balance after the last thing that happened on the last day, in both; so is the gap the chat and the statement page say |
 | CK2 | A day's voucher in order | Post a statement by rules, a voucher per day, from a newest-first and from an oldest-first statement | Each day's voucher lists its rows in the order they happened, in both |
+
+## CL. The reviews' figures, with money back (chat review 2026-11-23)
+
+From production: a purchase of an earlier week paid back by the owner's company made the week's review say «این هفته −۴۹۰٫۰۲۰ ریال عمان خرج کردید؛ ۱۸۳٪ کمتر از هفته‌های معمولتان»; the month's said «خانواده و هدایا: ۲۱۵٫۹۰۰ ریال عمان (۳۶۹۸٪ کمتر از ماه قبل)» against a month that a correction had left at −6.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CL1 | Money back from an earlier week | Four ordinary weeks of 3,000,000, one of them with a 6,000,000 vacuum cleaner under «لوازم و تعمیرات خانه»; last week 2,000,000 at the supermarket and the vacuum cleaner paid back | The review: 2,000,000 spent, 56% less than the usual week (4,500,000), and «۶,۰۰۰,۰۰۰ ریال ایران از خرج‌های قبلی برگشت («لوازم و تعمیرات خانه»)». No spending below nothing, and the category isn't among the week's top spending |
+| CL2 | Against a period below nothing | A category moved out of in September (−6), spent in in October | The monthly review and the report card give it no percentage — never «۳۶۹۸٪ کمتر» — and a month's spending is compared with the month before only when both had spending |
+
+## CM. The briefing once a day, in the reader's figures (chat review 2026-11-23)
+
+From the owner's phone: the briefing came with the weekly reviews at noon and again alone that evening, and said «1,300.00 USD نقد موجود است» in a Persian sentence.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CM1 | Said with the reviews | Open the phone's chat on a day with a weekly review and a briefing; open it again; open the web chat | The reviews and the briefing the first time; nothing the second time, nor on the web, until the briefing changes |
+| CM2 | Another currency in Persian | A runway insight of 1,300 dollars on hand, read in Persian | «۱,۳۰۰٫۰۰ دلار آمریکا», never «1,300.00 USD» |
+
+## CN. A reply kept as it was said (chat review 2026-11-23)
+
+From production: the reply was stored before its last pass, so a conversation opened again on the web showed «最近‌ترین افزایش‌ها», which the phone never did, and the model read its own stray words back.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CN1 | Opened again | A reply the model writes with a stray «最近», a «ثبت شد» for a card not confirmed, or «۳۳۳.۷۷»; open the conversation again | The same words as when it was said: no stray word, «آماده شد», «۳۳۳٫۷۷» |
+
+## CO. Receipts: the printed date, what was bought, how it was paid (chat review 2026-11-23)
+
+From the owner's phone: a MATALAN receipt printed «19/11/26 22:42» became an entry of the next day, and a restaurant's «11/20/2026, 2:06 PM» was read the same way — the reader returns the date as printed, time and all, and a date with a time was dropped. The receipts' items never reached the assistant. A restaurant's receipt printed «Bank 13.680» was carded as paid from the cash wallet named for the morning's receipt.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CO1 | A date with its time | Receipts dated «19/11/26 22:42», «11/20/2026, 2:06 PM», «Date: 20/11/2026 14:06:33» | The cards are dated 19 and 20 November. «۰۵/۰۸/۲۹» (a Jalali year first) is asked for, not read as a day of 2029 |
+| CO2 | What was bought | A receipt with items | The items reach the assistant, and the category is chosen from them |
+| CO3 | Paid by card | A receipt that says «Bank» or «Visa», sent with no words, after a cash receipt from a wallet that morning | The card is from the bank or card account, or the assistant asks which with choices — never the cash wallet; a place the user names wins |
+
+## CP. The words for a car hired, the household's shopping, and a word two places share (chat review 2026-11-23)
+
+From production: «اجاره ماشین برای یک هفته» found «مسکن و اجاره» at 0.99, «خرید خونه» found bank fees, and "money owed to others" nothing; «۱۰۰ ریال از پاکت …» went to «پاکت توی کیفم» one day and «پاکت توی کشو» four days later.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CP1 | The search | In a person's books: «اجاره ماشین», "car rental", «خرید خونه», "money owed to others" | حمل‌ونقل (6130), خوراک و سوپرمارکت (6110), بدهی به دیگران (2130) first; «اجاره» and "rent" are still the rent |
+| CP2 | One word, two places | «۱۰۰ ریال از پاکت جابه‌جا کردم به کیف پول قشنگم» with two envelopes | The assistant asks which envelope, with both as choices; «از پاکت توی کشو» needs no question |
+
+## CQ. A person's ledger says what is owed (chat review 2026-11-23)
+
+From production: «پرداختی های امین چی بودن؟» read Amin's lines — 5,806.15 dollars credited to «بدهی به دیگران» — with a signed net of 0, which reads as nothing owed.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CQ1 | A person's lines | Ask the ledger for Amir's lines, no account named | Each currency's signed net is what is owed (300 Omani rials, 333.77 dollars); lines of accounts of different kinds give no signed net, never 0 |
+
+## CR. What the assistant is for, and an empty book (chat review 2026-11-23)
+
+From production: a new user asked what the assistant could do and was told stories, ad copy, translation and image prompts; "How much money do I have?" in her empty books was answered «0 IRR» and nothing more; her questions about fire ants, hair colours and a picture of them were answered at length.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CR1 | "What can you do?" | «تو چه قابلیت‌هایی داری؟» | What the app does: recording from messages, receipts and voice notes as cards to confirm, balances, spending, people, budgets, goals, reviews — nothing it doesn't do |
+| CR2 | An empty book | "How much money do I have?" or «ارزش دارایی خالصم» in books with no entry | The figure, then «هنوز چیزی ثبت نشده است. بگویید چقدر و کجا دارید …»; not once there is an entry |
+| CR3 | Nothing to do with money | «راجع به مورچه‌های آتشین بهم بگو», «یه عکس generate بکن», «من از رنگ آبی و نارنجی خوشم میاد» | One short, friendly sentence that the assistant is here for their money, with an example — not an answer (the owner's choice, 2026-11-23). A greeting gets a short reply; accounting questions are answered |
+
+## CS. A wallet's balance in doubt (chat review 2026-11-23)
+
+From production: «۱۰۰ ریال از پاکت جا به جا کردم به کیف پول قشنگم» was taken from «پاکت توی کشو», empty since a purchase took all of it on 24 October, and left it at −100; told «بنظرم داری اشتباه میکنی», the assistant added the wallet's 68 entries up again and said the balance was right. The sum was the sum; three of its entries were in doubt — 100 from the same envelope on 13 and 14 November, and a card receipt paid from it (CO3).
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CS1 | A move from an empty place | A person's wallet holding 39.75 Omani rials; «۱۰۰ ریال از کیف پول قشنگم گذاشتم توی کیف پول سبز» | Refused: the assistant asks with choices which place the money came from, naming those holding enough. Moving 30 is a card as before, and so is spending more than a wallet holds (its earlier money may not be in the books) |
+| CS2 | "I think you're wrong" | Two moves of 50 from the green wallet into the pretty one on two days running, and a purchase that takes it below zero; ask its balance, then say it's wrong | The assistant doesn't say the balance is right: it says the latest entries and the ones in doubt — the 50 twice in a day, the day it went below zero — and asks which isn't as they remember; it changes nothing on its own |

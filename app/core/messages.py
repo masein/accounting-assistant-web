@@ -793,6 +793,23 @@ PATTERNS: list[_Pattern] = [
              {"fa": "حساب پیدا نشد: {code}", "es": "Cuenta no encontrada: {code}", "ar": "الحساب غير موجود: {code}"}),
     _Pattern(r"^Entity not found: (?P<id>\S+)$",
              {"fa": "طرف حساب پیدا نشد: {id}", "es": "Tercero no encontrado: {id}", "ar": "الطرف غير موجود: {id}"}),
+    # a count's card confirmed after the place changed the other way (scenario CT1)
+    _Pattern(r"^(?P<place>.+) holds (?P<n>\S+) (?P<cur>.+?) now, "
+             r"(?P<what>what was counted|less than was counted|more than was counted): "
+             r"nothing of this card is left to record\. Cancel it, and count again if needed\.$",
+             {"fa": "{place} اکنون {n} {cur} دارد، {what}: از این کارت چیزی برای ثبت نمانده است. لغوش کنید و اگر لازم است دوباره بشمارید.",
+              "es": "{place} tiene ahora {n} {cur}, {what}: no queda nada de esta tarjeta por registrar. Cancélala y vuelve a contar si hace falta.",
+              "ar": "{place} فيه الآن {n} {cur}، {what}: لم يبقَ من هذه البطاقة شيء يُسجَّل. ألغِها وأعد العدّ إن لزم."},
+             values={"cur": _CURRENCY_NAMES,
+                     "what": {"fa": {"what was counted": "همان قدر که شمرده شد",
+                                     "less than was counted": "کمتر از آنچه شمرده شد",
+                                     "more than was counted": "بیشتر از آنچه شمرده شد"},
+                              "es": {"what was counted": "lo que se contó", "less than was counted": "menos de lo que se contó",
+                                     "more than was counted": "más de lo que se contó"},
+                              "ar": {"what was counted": "ما عُدّ تمامًا", "less than was counted": "أقل مما عُدّ",
+                                     "more than was counted": "أكثر مما عُدّ"}}},
+             example="کیف پول قشنگم holds 5 Omani rial now, less than was counted: nothing of this card is left to record. "
+                     "Cancel it, and count again if needed."),
     _Pattern(r"^At most (?P<n>\d+) messages at a time$",
              {"fa": "هر بار حداکثر {n} پیامک پذیرفته می‌شود.", "es": "Como máximo {n} mensajes a la vez.",
               "ar": "{n} رسالة على الأكثر في كل مرة."}),

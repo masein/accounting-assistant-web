@@ -1362,3 +1362,11 @@ From production: «۱۰۰ ریال از پاکت جا به جا کردم به ک
 |----|----------|-------|----------|
 | CS1 | A move from an empty place | A person's wallet holding 39.75 Omani rials; «۱۰۰ ریال از کیف پول قشنگم گذاشتم توی کیف پول سبز» | Refused: the assistant asks with choices which place the money came from, naming those holding enough. Moving 30 is a card as before, and so is spending more than a wallet holds (its earlier money may not be in the books) |
 | CS2 | "I think you're wrong" | Two moves of 50 from the green wallet into the pretty one on two days running, and a purchase that takes it below zero; ask its balance, then say it's wrong | The assistant doesn't say the balance is right: it says the latest entries and the ones in doubt — the 50 twice in a day, the day it went below zero — and asks which isn't as they remember; it changes nothing on its own |
+
+## CT. A place counted (the owner, 2026-11-23)
+
+The owner counted his wallet, an envelope and another wallet and asked how to say it in the app. The books said 274.815 Omani rials where the wallet held 59.9; the difference had to be worked out by hand and given back as a figure, and the assistant's rule was never to make a "correction" card of its own.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CT1 | Say what's in it | «شمردم، توی کیف پول قشنگم ۲۰ ریال عمان هست» with 39.75 in the books | The assistant asks once what the 19.750 was (spending forgotten — «متفرقه» when they don't know —, given to someone, moved to another place); then one card of the difference, and the wallet reads 20. More than the books asks where it came from (income, a person, a place, money there before the books). A count that matches says so, with no card; a place of several currencies is counted one currency at a time. A card confirmed in between is taken into account: what they counted is what the place reads |

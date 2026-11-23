@@ -460,6 +460,24 @@ restarts, retries the server three times, and never logs the token. Tests:
 `tests/test_messenger_bot.py`. For a local end-to-end run without an AI key,
 `tests_e2e/fake_llm.py` stands in for the AI.
 
+## 15. The watchdog
+
+The live copy (§13) and the relay (§14) run on one Mac, and production can't
+see either. The **watchdog**, in [`ops/watchdog/`](ops/watchdog/README.md),
+checks all three from that Mac every five minutes: production's `/health`, the
+relay's container and heartbeat, the copy's link to production, its files and
+hourly dumps, and the Mac's free disk. It tells the owner on Telegram, through
+the same bot, when a check has failed two rounds in a row, every six hours while
+it stays failed, and when it is right again. A Mac that slept or was off says so
+when it wakes. On the owner's Mac it runs from
+`/Users/masein/Development/accounting/watchdog` under launchd, and tells the
+Telegram chat `masein` linked in the app.
+
+```bash
+ops/watchdog/install.sh /path/to/watchdog     # install or update; then set watchdog.env
+/path/to/watchdog/watchdog.sh --status        # each check, now
+```
+
 ## Notes
 - `docker-compose.yml` (no suffix) stays the **dev** stack: it builds locally
   and bind-mounts the source for live reload. `docker-compose.prod.yml` runs the

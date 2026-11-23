@@ -26,6 +26,9 @@ GROUPS: dict[str, tuple[str, tuple[str, ...]]] = {
               "renaming a place, the books' currency, money changed from one currency to another",
               ("get_cash_position", "get_people_balances", "get_net_worth", "propose_money_place",
                "propose_rename_place", "propose_books_currency", "propose_currency_exchange", "propose_empty_place")),
+    # its own group, offered when the message says it was counted: a lunch's tools stay as they were (AX1)
+    "counting": ("a place counted: what is really in it, the books' difference worked out (CT1)",
+                 ("propose_counted_place",)),
     "spending": ("spending and income for a period and by category, the monthly report card, insights, "
                  "financial statements, tax, the cash forecast",
                  ("get_spending_summary", "get_report_card", "get_insights", "get_financial_statement",
@@ -107,6 +110,9 @@ KEYWORDS: dict[str, re.Pattern] = {
         r"بستن|قفل|حسابرسی|تاریخچه|پایان ماه|\b(close|closing|lock\w*|audit\w*|checklist|cierre|إقفال|تدقيق)\b", _I),
     "memory": re.compile(r"همیشه|از این به بعد|از حالا|یادت باشه|\b(always|from now on|remember|siempre|دائما)\b", _I),
     "dates": re.compile(r"تاریخ|\b(dates?|dated|re-?date|fecha|تاريخ)\b", _I),
+    "counting": re.compile(
+        r"شمردم|شمارش|شمرده|بشمارم|شمردیم|واقعا .*(هست|دارم)|"
+        r"\b(count(ed|ing)?|re-?count\w*|actually (have|has|is)|really (have|has)|cont(é|e|ado)|عددت|عدّ)\b", _I),
 }
 
 

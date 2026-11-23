@@ -308,6 +308,102 @@ class ProposeEmptyPlace(BaseTool):
                 + ("; then the place is closed." if args.close else ".")}
 
 
+class ProposeCountedPlaceInput(BaseModel):
+    place: str = Field(..., min_length=1, max_length=120,
+                       description="The place they counted: «کیف پول قشنگم», its name or code.")
+    counted: Money = Field(..., ge=0, description="What is in it now, as they counted it, in that currency: 59.9.")
+    currency: str | None = Field(None, min_length=3, max_length=3,
+                                 description="The currency counted (OMR for «ریال عمان»); needed when the place holds "
+                                             "several. One currency per card.")
+    gap_account: str | None = Field(None, max_length=64,
+                                    description="Where the difference went or came from, as a code from YOUR BOOKS AT A "
+                                                "GLANCE: less than the books → the category it was spent on (6220 "
+                                                "«متفرقه» when they don't know), or another place it went to; more → "
+                                                "an income category, another place, or 3110 for money there before "
+                                                "the books began. Left out, the tool says what to ask.")
+    description: str | None = Field(None, max_length=255, description="What it was, in the user's words.")
+    date: _date | None = Field(None, description="When they counted; defaults to today.")
+
+
+class ProposeCountedPlace(BaseTool):
+    """«شمردم، توی کیف پول قشنگم ۵۹٫۹ ریال عمان هست»: the books said 274.815, and the difference had to be worked out
+    by hand and told back as a figure (chat review 2026-11-23, CT1). The tool reads the place and works it out."""
+    name = "propose_counted_place"
+    category = "proposal"
+    description = (
+        "The user counted the money in a place and says what is in it: «شمردم، توی کیف پول قشنگم ۵۹٫۹ ریال هست», "
+        "'I counted 700 dollars in the envelope'. Reads what the books say the place holds in that currency and makes "
+        "ONE card for the difference against gap_account, so the place reads what they counted. Never subtract it "
+        "yourself. Returns a confirm card, or says the books already match."
+    )
+    InputSchema = ProposeCountedPlaceInput
+
+    async def run(self, ctx: ToolContext, args: ProposeCountedPlaceInput) -> dict[str, Any]:
+        from app.models.account import Account
+        from app.services.ai_accountant.fast_paths import _in_currency
+        from app.services.fx_base import base_currency
+        src = resolve_place(ctx.db, args.place)
+        if src is None:
+            known = "; ".join(f"{a.code} {a.name}" for a in _places(ctx.db)) or "none yet"
+            raise ToolError(f"No place called {args.place!r}. The places are: {known}. Ask which one.", code="no_place")
+        held = _held(ctx.db, src.code)
+        ccy = (args.currency or "").strip().upper() or (next(iter(held)) if len(held) == 1 else None)
+        if ccy is None and not held:
+            ccy = (base_currency(ctx.db) or "IRR").upper()
+        if ccy is None:
+            raise ToolError(f"{src.name} holds {', '.join(sorted(held))}: say which currency was counted — one card "
+                            "for each.", code="which_currency")
+        balance = plain(held.get(ccy, 0))
+        counted = plain(args.counted)
+        diff = plain(counted - balance)
+        persian = _persian((ctx.user_message or "") + src.name)
+        lang = "fa" if persian else "en"
+        if not diff:
+            return {"status": "matches", "place": src.name, "currency": ccy, "balance": balance,
+                    "summary": f"{src.code} {src.name} holds {grouped(balance)} {ccy} in the books — what they counted. "
+                               "Nothing to record: say so."}
+        code = (args.gap_account or "").strip()
+        gap = None
+        if code:
+            gap = ctx.db.execute(select(Account).where(Account.code == code, Account.is_active.is_(True))).scalars().first()
+            if gap is None:
+                gap = next((a for a in ctx.db.execute(select(Account).where(Account.is_active.is_(True))).scalars()
+                            if _fold(a.name) == _fold(code)), None)
+        if gap is None or gap.id == src.id:
+            if diff < 0:
+                ask = (f"The books say {grouped(balance)} {ccy}; they counted {grouped(counted)}: {grouped(-diff)} {ccy} "
+                       "left it unrecorded. Ask once with ask_with_choices what it was — spending they forgot (a "
+                       "category; «متفرقه» 6220 when they don't know), money given to someone, or moved to another of "
+                       "their places — then call again with gap_account.")
+            else:
+                ask = (f"The books say {grouped(balance)} {ccy}; they counted {grouped(counted)}: {grouped(diff)} {ccy} "
+                       "came in unrecorded. Ask once with ask_with_choices where it came from — income, a person, "
+                       "another of their places, or money there before the books began (3110) — then call again with "
+                       "gap_account.")
+            raise ToolError(ask, code="gap_account")
+        amount = abs(diff)
+        lines = ([{"account_code": gap.code, "debit": amount, "credit": 0},
+                  {"account_code": src.code, "debit": 0, "credit": amount}] if diff < 0 else
+                 [{"account_code": src.code, "debit": amount, "credit": 0},
+                  {"account_code": gap.code, "debit": 0, "credit": amount}])
+        said = _in_currency(counted, ccy, lang)
+        moved = _in_currency(amount, ccy, lang)
+        if persian:
+            default = f"شمارش {src.name}: {said}؛ {moved} {'کمتر' if diff < 0 else 'بیشتر'} از دفاتر، {gap.name}"
+        else:
+            default = f"{src.name} counted: {said}; {moved} {'less' if diff < 0 else 'more'} than the books, {gap.name}"
+        description = (args.description or default)[:255]
+        payload = {"place": src.name, "account_code": src.code, "currency": ccy, "balance": balance,
+                   "counted": counted, "difference": diff, "gap_code": gap.code, "gap_name": gap.name,
+                   "amount": amount, "date": (args.date or _date.today()).isoformat(), "description": description,
+                   "lines": lines}
+        token = _register(ctx, self.name, payload)
+        return {"confirmation_token": str(token), "status": "pending", "preview": payload,
+                "summary": f"{src.code} {src.name}: the books say {grouped(balance)} {ccy}, they counted "
+                           f"{grouped(counted)}; {grouped(amount)} {ccy} {'out to' if diff < 0 else 'in from'} "
+                           f"{gap.code} {gap.name}, so it reads what they counted."}
+
+
 def _held(db, code: str) -> dict:
     """What a place holds, currency by currency, from its entries."""
     from sqlalchemy import func
@@ -553,6 +649,8 @@ def execute_money_proposal(db, proposal, *, actor_user_id: str, actor_username: 
         return None, _rename_place(db, proposal, p, common)
     if proposal.tool_name == "propose_currency_exchange":
         return _exchange(db, proposal, p, common)
+    if proposal.tool_name == "propose_counted_place":
+        return _counted(db, proposal, p, common)
     if proposal.tool_name == "propose_empty_place":
         txn = None
         if p.get("lines"):
@@ -589,6 +687,34 @@ def execute_money_proposal(db, proposal, *, actor_user_id: str, actor_username: 
                       detail={"place": acc.name, "code": acc.code, "currency": p["currency"], "amount": amount,
                               "transaction_id": str(txn.id) if txn else None}, **common)
     return (str(txn.id) if txn else None), audit_id
+
+
+def _counted(db, proposal, p: dict, common: dict):
+    """The count stands, not the figure of the moment it was carded: a card confirmed in between (the envelope's
+    transfer put right) changes what the place holds, and the difference posted is the one to what they counted.
+    One that would now go the other way, or nowhere, is refused: counted again, it is carded again."""
+    from app.schemas.transaction import TransactionCreate, TransactionLineCreate
+    from app.services.ai_accountant.execute_service import ProposalCancelled
+    from app.services.ai_accountant.time_execute import _audit
+    from app.services.ledger_posting import create_transaction_from_payload
+    now = plain(_held(db, p["account_code"]).get(p["currency"], 0))
+    diff = plain(plain(p["counted"]) - now)
+    if not diff or (diff < 0) != (plain(p["difference"]) < 0):
+        from app.core.currencies import name
+        raise ProposalCancelled(f"{p['place']} holds {grouped(now)} {name(p['currency'])} now, "
+                                f"{'what was counted' if not diff else 'less than was counted' if diff > 0 else 'more than was counted'}: nothing of this card is "
+                                "left to record. Cancel it, and count again if needed.")
+    amount = abs(diff)
+    out = diff < 0
+    lines = [(p["gap_code"], amount, 0), (p["account_code"], 0, amount)] if out else \
+            [(p["account_code"], amount, 0), (p["gap_code"], 0, amount)]
+    txn = create_transaction_from_payload(db, TransactionCreate(
+        date=_date.fromisoformat(p["date"]), description=p["description"], currency=p["currency"],
+        lines=[TransactionLineCreate(account_code=c, debit=d, credit=k, line_description=p["description"])
+               for c, d, k in lines]))
+    return str(txn.id), _audit(db, proposal, entity_type="transaction", entity_id=str(txn.id),
+                               detail={"counted": p["account_code"], "currency": p["currency"], "count": p["counted"],
+                                       "books_before": now, "difference": diff}, **common)
 
 
 def _close_place(db, code: str) -> None:
@@ -635,5 +761,6 @@ def register_money_tools(registry) -> None:
     registry.register(ProposeRenamePlace())
     registry.register(ProposeCurrencyExchange())
     registry.register(ProposeEmptyPlace())
+    registry.register(ProposeCountedPlace())
     registry.register(ProposeBooksCurrency())
     registry.register(AskWithChoices())

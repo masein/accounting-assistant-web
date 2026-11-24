@@ -79,11 +79,48 @@ def quantize(value: Any, currency: str | None) -> int | Decimal:
     return plain(d)
 
 
+def tax_on(base: Any, rate: Any, currency: str | None, *, half_even: bool = False) -> int | Decimal:
+    """VAT on ``base`` at ``rate`` percent, exactly and half-up to
+    ``currency``'s places — whole units without a currency: £19.99 at 20% is
+    £4.00, 5 rials at 10% is 1 (``round()`` gave 0, issue #2). Every line's
+    VAT goes through here (the invoice, the VAT returns, the Moadian packet).
+
+    ``half_even`` is the rule whole-unit invoices were issued with before
+    issue #2 — float maths and ``round()``, half to even — for an invoice whose
+    stored amount was made that way (``issued_half_even``), so it keeps the
+    VAT it was booked and reported with."""
+    whole = currency is None or exponent(currency) == 0
+    if whole and half_even:
+        return int(round(int(base or 0) * float(rate) / 100.0))
+    if whole:
+        exact = Decimal(int(base or 0)) * to_decimal(rate) / 100
+        return int(exact.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    return quantize(to_decimal(base or 0) * to_decimal(rate) / 100, currency)
+
+
+def issued_half_even(amount: Any, lines: Any, currency: str | None) -> bool:
+    """Whether a whole-unit invoice (rials) was issued with its VAT rounded
+    half to even, as before issue #2: ``lines`` are its ``(line_total, rate,
+    taxable)``, and its stored ``amount`` is their total plus that VAT, not
+    plus the half-up VAT. Its amount and its ledger entries were made with that
+    VAT, so it keeps it rather than reading a rial above what was booked."""
+    if not (currency is None or exponent(currency) == 0):
+        return False
+    rows = list(lines)
+    taxed = [(t, float(r or 0)) for t, r, taxable in rows if taxable and float(r or 0) > 0]
+    subtotal = sum(plain(t or 0) for t, _r, _x in rows)
+    before = subtotal + sum(tax_on(t, r, currency, half_even=True) for t, r in taxed)
+    now = subtotal + sum(tax_on(t, r, currency) for t, r in taxed)
+    return before != now and plain(amount or 0) == before
+
+
 def round_amount(value: Any, currency: str | None) -> int | Decimal:
-    """A figure the app makes — a line's total, its VAT, a share of tax — to
+    """A figure the app makes — a line's total (quantity × price), a cost — to
     ``currency``'s places: half-up to the penny for pounds. A currency without
-    places keeps Python's ``round()`` (half to even) exactly as rial invoices
-    always were, so a rial invoice comes out as before (scenario Q1)."""
+    places keeps Python's ``round()`` (half to even) exactly as rial figures
+    always were, so a rial line total comes out as before (scenario Q1). Not
+    for VAT: a rial line's VAT and a share of it go half-up (``tax_on``,
+    ``quantize``; issue #2)."""
     if exponent(currency) == 0:
         return int(round(float(to_decimal(value))))
     return quantize(value, currency)

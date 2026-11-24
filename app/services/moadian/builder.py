@@ -21,6 +21,8 @@ from sqlalchemy.orm import Session
 
 from app.models.entity import Entity
 from app.models.invoice import Invoice
+from app.core.money import tax_on
+from app.services.tax_service import half_even_vat
 from app.services.moadian.settings import get_settings
 from app.services.moadian.taxid import generate_taxid, valid_memory_id
 
@@ -127,6 +129,7 @@ def build(db: Session, inv: Invoice, *, serial: int | None = None, shared: Share
     else:
         lines_src = [(it.product_name, float(it.quantity or 0), int(it.unit_price or 0), int(it.line_total or 0),
                       float(it.tax_rate or 0), bool(it.taxable), it.sstid, it.mu) for it in lines]
+    old = half_even_vat(inv)   # a rial invoice issued before issue #2 keeps the VAT it was sent with
     for n, (title, am, fee, line_total, rate, taxable, sstid, mu) in enumerate(lines_src, start=1):
         sid = (sstid or default_sstid or "").strip()
         unit = (mu or default_mu or "").strip()
@@ -138,7 +141,7 @@ def build(db: Session, inv: Invoice, *, serial: int | None = None, shared: Share
         if prdis != line_total:
             b.problems.append(f"Line {n} ({title}): quantity × unit price ({prdis:,}) differs from the line total ({line_total:,}).")
         vra = rate if taxable else 0.0
-        vam = int(round(line_total * vra / 100.0)) if vra > 0 else 0
+        vam = tax_on(line_total, vra, None, half_even=old) if vra > 0 else 0   # whole rials, as the invoice's VAT
         body.append({
             "sstid": sid, "sstt": (title or "")[:400], "am": am, "mu": unit, "fee": fee,
             "prdis": line_total, "dis": 0, "adis": line_total, "vra": vra, "vam": vam,

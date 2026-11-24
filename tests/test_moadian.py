@@ -172,6 +172,18 @@ def test_packet_for_a_b2b_invoice(co, db):
     assert body[1]["sstid"] == "2330000000009" and body[1]["mu"] == "164" and body[1]["vra"] == 0
 
 
+def test_line_vat_rounds_half_up_like_the_invoice(co):
+    api, _cid = co
+    _setup(api)
+    inv = _invoice(api, _customer(api), items=[{"product_name": "خودکار", "quantity": 1, "unit_price": 25, "tax_rate": 10}])
+    assert inv["tax_total"] == 3 and inv["amount"] == 28
+    pv = api.get(f"/moadian/invoices/{inv['id']}/preview").json()
+    assert pv["problems"] == []
+    h, body = pv["packet"]["header"], pv["packet"]["body"]
+    assert body[0]["vam"] == 3 and body[0]["tsstam"] == 28
+    assert h["tvam"] == 3 and h["tbill"] == 28 == inv["amount"]
+
+
 def test_b2c_and_payment_split(co):
     api, _ = co
     _setup(api)

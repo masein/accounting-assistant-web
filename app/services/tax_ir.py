@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.credit_note import CreditNote
 from app.models.entity import Entity
 from app.models.invoice import Invoice
-from app.services.tax_service import _line_tax
+from app.services.tax_service import _line_tax, half_even_vat
 
 SEASONS = {1: "بهار", 2: "تابستان", 3: "پاییز", 4: "زمستان"}
 TTMS_DAYS = 45
@@ -124,9 +124,10 @@ def invoice_split(inv: Invoice) -> dict[str, int]:
         amount = int(inv.amount or 0)
         return {"taxable_base": 0, "exempt_base": amount, "base": amount, "vat": 0}
     taxable = exempt = vat = 0
+    old = half_even_vat(inv)
     for it in items:
         total = int(it.line_total or 0)
-        tax = _line_tax(total, it.tax_rate, it.taxable)
+        tax = _line_tax(total, it.tax_rate, it.taxable, None, old)
         treatment = getattr(it, "tax_treatment", "standard") or "standard"
         if it.taxable and float(it.tax_rate or 0) > 0 and treatment == "standard":
             taxable += total

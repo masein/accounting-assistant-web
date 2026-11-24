@@ -7,6 +7,7 @@ Calls endpoint functions directly with an isolated in-memory chart per locale.
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 from datetime import date, timedelta
 
 import pytest
@@ -114,6 +115,76 @@ class TestTaxMath:
     def test_zero_rate_no_tax(self, uk):
         out = _issue(uk, items=[{"product_name": "A", "quantity": 1, "unit_price": 800, "line_total": 800, "tax_rate": 0}])
         assert out.tax_total == 0 and out.grand_total == 800
+
+
+class TestRialHalfUp:
+    """Rial VAT rounds half-up at .5 (5 rials at 10% is 1, not Python round()'s 0) — issue #2."""
+
+    @pytest.mark.parametrize("price,vat", [(5, 1), (15, 2), (25, 3), (35, 4), (45, 5), (44, 4), (46, 5)])
+    def test_irr_invoice_line_vat_half_up(self, ir, price, vat):
+        out = _issue(ir, currency="IRR", items=[{"product_name": "A", "quantity": 1, "unit_price": price, "tax_rate": 10}])
+        assert out.tax_total == vat
+        assert out.grand_total == out.amount == price + vat
+
+    def test_line_tax_helpers_half_up_without_places(self):
+        from app.api.invoices import _line_tax as invoice_line_tax
+        from app.services.tax_service import _line_tax, _notional_tax
+        for cur in ("IRR", None):
+            assert invoice_line_tax(5, 10, True, cur) == 1
+            assert invoice_line_tax(25, 10, True, cur) == 3
+            assert _line_tax(45, 10, True, cur) == 5
+            assert _notional_tax(25, 10, cur) == 3
+            assert _line_tax(1_000_000, 9, True, cur) == 90_000
+            assert isinstance(_line_tax(25, 10, True, cur), int)
+
+    def test_shared_helper(self):
+        from app.core.money import issued_half_even, tax_on
+        assert [tax_on(p, 10, "IRR") for p in (5, 25, 45)] == [1, 3, 5]
+        assert [tax_on(p, 10, "IRR", half_even=True) for p in (5, 25, 45)] == [0, 2, 4]   # the rule before
+        assert tax_on(50, 9, None) == 5 and tax_on(Decimal("19.99"), 20, "GBP") == Decimal("4.00")
+        assert tax_on(Decimal("0.125"), 20, "OMR") == Decimal("0.025")
+        assert issued_half_even(27, [(25, 10, True)], "IRR")            # amount made with round()
+        assert not issued_half_even(28, [(25, 10, True)], "IRR")        # made half-up
+        assert not issued_half_even(33, [(30, 10, True)], "IRR")        # no .5: the same either way
+        assert not issued_half_even(27, [(25, 10, False), (2, 0, True)], "IRR")
+        assert not issued_half_even(Decimal("27.5"), [(25, 10, True)], "GBP")
+
+    def test_invoice_issued_with_half_even_vat_still_reads_as_issued(self, ir):
+        """An IRR invoice issued before the fix: its amount (and entries) were made with
+        round()'s VAT — 25 at 10% gave 2, 50 at 9% gave 4 — so it keeps that VAT."""
+        from app.services import tax_ir
+        from app.services.moadian.builder import build
+        out = _issue(ir, currency="IRR", items=[
+            {"product_name": "A", "quantity": 1, "unit_price": 25, "tax_rate": 10},
+            {"product_name": "B", "quantity": 1, "unit_price": 50, "tax_rate": 9},
+            {"product_name": "C", "quantity": 1, "unit_price": 10, "tax_rate": 10, "taxable": False},
+        ])
+        assert out.tax_total == 3 + 5 and out.amount == 85 + 8                      # half-up today
+        row = ir.get(Invoice, out.id)
+        row.amount = 85 + 2 + 4                                                     # as issued before
+        ir.commit()
+        got = _to_read(row)
+        assert got.subtotal == 85 and got.tax_total == 6
+        assert got.grand_total == got.amount == got.balance_due == 91
+        today = date.today()
+        data = compute_tax_summary(ir, today - timedelta(days=1), today + timedelta(days=1), "IRR")
+        assert data["output_tax"] == 6 and data["by_rate"]["10"]["output"] == 2
+        assert tax_ir.invoice_split(row)["vat"] == 6
+        packet = build(ir, row)
+        assert [x["vam"] for x in packet.packet["body"]] == [2, 4, 0]
+        assert not [p for p in packet.problems if "add up" in p]
+
+    def test_vat_share_half_up_in_rials(self, ir):
+        """A 6-rial credit on an invoice of VAT 10 in 120 carries 0.5 of VAT: 1, not round()'s 0."""
+        from app.api.invoices import _vat_share
+        out = _issue(ir, currency="IRR", items=[
+            {"product_name": "A", "quantity": 1, "unit_price": 100, "tax_rate": 10},
+            {"product_name": "B", "quantity": 1, "unit_price": 10, "tax_rate": 10, "taxable": False},
+        ])
+        assert out.tax_total == 10 and out.grand_total == 120
+        row = ir.get(Invoice, out.id)
+        assert _vat_share(row, 6) == 1
+        assert _vat_share(row, 18) == 2 and _vat_share(row, 120) == 10
 
 
 class TestSalesPostingSplit:

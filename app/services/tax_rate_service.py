@@ -25,6 +25,10 @@ TREATMENTS = ("standard", "zero_rated", "exempt", "reverse_charge")
 # has no reverse charge (#1).
 LOCALE_JURISDICTION = {"uk": "UK", "ir": "IR"}
 JURISDICTION_TREATMENTS = {"IR": ("standard", "zero_rated", "exempt")}
+# how a message names them to the reader
+JURISDICTION_NAMES = {"UK": "the UK", "IR": "Iran"}
+TREATMENT_NAMES = {"standard": "The standard rate", "zero_rated": "Zero rating",
+                   "exempt": "Exemption", "reverse_charge": "Reverse charge"}
 
 # Standard rates per jurisdiction, each with a real historical change so the
 # effective-dated selection is exercised. (Dates mirror real VAT changes.)

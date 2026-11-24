@@ -399,7 +399,8 @@ def _build_invoice_items(
     and its treatment one that country has (#1); ``check_tax=False`` only for
     reading a stored template back."""
     from app.services.tax_rate_service import (
-        JURISDICTION_TREATMENTS, LOCALE_JURISDICTION, TREATMENTS, rates_in_force, tax_rate_for,
+        JURISDICTION_NAMES, JURISDICTION_TREATMENTS, LOCALE_JURISDICTION, TREATMENT_NAMES, TREATMENTS,
+        rates_in_force, tax_rate_for,
     )
 
     rows: list[InvoiceItem] = []
@@ -437,12 +438,13 @@ def _build_invoice_items(
             if derived is not None:
                 tax_rate = float(derived)
         if juris and treatment not in JURISDICTION_TREATMENTS.get(juris, TREATMENTS):
-            raise HTTPException(status_code=422, detail=f"VAT treatment {treatment} doesn't apply in {juris}.")
+            raise HTTPException(status_code=422, detail=(
+                f"{TREATMENT_NAMES[treatment]} doesn't apply in {JURISDICTION_NAMES[juris]}."))
         # none set up for the country (or the date): nothing to check against
         if valid_rates and tax_rate != 0 and Decimal(repr(tax_rate)) not in valid_rates:
             shown = ", ".join(f"{r:f}" for r in valid_rates)
             raise HTTPException(status_code=422, detail=(
-                f"VAT rate {Decimal(repr(tax_rate)).normalize():f}% isn't valid in {juris} on the invoice date. "
+                f"VAT rate {Decimal(repr(tax_rate)).normalize():f}% isn't valid in {JURISDICTION_NAMES[juris]} on the invoice date. "
                 f"Valid rates (%): {shown}."))
         # Only a standard-treatment line actually charges output tax. The
         # explicit `taxable=False` flag still forces a line exempt.

@@ -274,3 +274,69 @@ def test_delete_keeps_the_issued_invoices(auth_client, db, customer):
     db.expire_all()
     inv = db.get(Invoice, inv_id)
     assert inv is not None and inv.recurring_invoice_id is None and inv.status == "issued"
+
+
+# ─── 4. VAT rates and treatments of the company's country (#1) ─────────
+
+def test_legacy_template_with_unknown_treatment(db, company):
+    """A template saved before treatments were checked still lists, and the
+    generator records why it can't issue it instead of stopping the run."""
+    from app.models.recurring_invoice import RecurringInvoice
+    with company():
+        bad = _template(db, start=date(2026, 9, 1), items=[
+            {"product_name": "Old line", "quantity": 1, "unit_price": 1000, "tax_rate": 20, "tax_treatment": "bogus"}])
+        good = _template(db, start=date(2026, 9, 1))
+        assert svc.template_total(db, bad, bad.next_run_date) == 1200        # read as standard, as billed then
+        out = svc.generate_due(db, today=date(2026, 9, 1))
+        assert out["failed"] == 1 and out["issued"] == 1 and len(_invoices(db, good)) == 1
+        bad = db.get(RecurringInvoice, bad.id)
+        assert _invoices(db, bad) == [] and bad.next_run_date == date(2026, 9, 1)
+        assert "no longer valid" in bad.last_error
+
+
+def test_legacy_template_lists_over_http(auth_client, db, customer):
+    t = auth_client.post("/recurring-invoices", json=_body(customer, generate_now=False)).json()
+    from app.models.recurring_invoice import RecurringInvoice
+    row = db.get(RecurringInvoice, uuid.UUID(t["id"]))
+    row.items = json.dumps([{"product_name": "Old", "quantity": 1, "unit_price": 100, "tax_treatment": "bogus"}])
+    db.commit()
+    r = auth_client.get("/recurring-invoices")
+    assert r.status_code == 200 and any(x["id"] == t["id"] for x in r.json())
+
+
+@pytest.fixture()
+def iran_rates(db):
+    """The shared test company reports as Iran, with the seeded VAT rates; put back after."""
+    from app.models.tax_rate import TaxRate
+    from app.services.locale_service import get_reporting_locale, set_reporting_locale
+    from app.services.tax_rate_service import seed_tax_rates
+    before_locale = get_reporting_locale(db)
+    before = set(db.execute(select(TaxRate.id)).scalars().all())
+    set_reporting_locale(db, "ir")
+    seed_tax_rates(db)
+    db.commit()
+    yield
+    db.rollback()
+    for r in db.execute(select(TaxRate)).scalars().all():
+        if r.id not in before:
+            db.delete(r)
+    set_reporting_locale(db, before_locale)
+    db.commit()
+
+
+def test_template_rates_checked_when_saved(auth_client, customer, iran_rates):
+    future = (date.today() + timedelta(days=30)).isoformat()
+    line = {"product_name": "Hosting", "quantity": 1, "unit_price": 5_000_000}
+    r = auth_client.post("/recurring-invoices", json=_body(customer, start_date=future,
+                                                           items=[{**line, "tax_rate": 20}]))
+    assert r.status_code == 422, r.text
+    r = auth_client.post("/recurring-invoices", json=_body(customer, start_date=future,
+                                                           items=[{**line, "tax_treatment": "reverse_charge"}]))
+    assert r.status_code == 422, r.text
+    t = auth_client.post("/recurring-invoices", json=_body(customer, start_date=future,
+                                                           items=[{**line, "tax_rate": 10}])).json()
+    assert t["total"] == 5_500_000
+    r = auth_client.patch(f"/recurring-invoices/{t['id']}", json={"items": [{**line, "tax_rate": 20}]})
+    assert r.status_code == 422, r.text
+    assert auth_client.get(f"/recurring-invoices/{t['id']}").json()["total"] == 5_500_000
+    assert auth_client.patch(f"/recurring-invoices/{t['id']}", json={"status": "paused"}).status_code == 200

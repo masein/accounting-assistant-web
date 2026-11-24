@@ -582,6 +582,8 @@ EXACT: dict[str, dict[str, str]] = {
     'Recurring invoice not found.': {"fa": 'فاکتور دوره\u200cای پیدا نشد.', "es": 'Factura recurrente no encontrada.', "ar": 'الفاتورة المتكررة غير موجودة.'},
     "The schedule already issued invoices; its frequency, calendar and start can't change. Create a new one.": {"fa": 'این برنامه قبلاً فاکتور صادر کرده و تناوب، تقویم و تاریخ شروع آن قابل تغییر نیست. یک برنامه جدید بسازید.', "es": 'La programación ya emitió facturas; su frecuencia, calendario e inicio no pueden cambiar. Crea una nueva.', "ar": 'أصدرت الجدولة فواتير بالفعل؛ لا يمكن تغيير تكرارها وتقويمها وبدايتها. أنشئ جدولة جديدة.'},
     'The template bills nothing; check the lines.': {"fa": 'مبلغ این الگو صفر است؛ ردیف\u200cها را بررسی کنید.', "es": 'La plantilla no factura nada; revisa las líneas.', "ar": 'القالب لا يفوتر شيئاً؛ راجع البنود.'},
+    # a template line saved before its VAT treatment was checked (#1)
+    'A line of this recurring invoice is no longer valid; edit its lines.': {"fa": 'یکی از ردیف\u200cهای این فاکتور تکرارشونده دیگر معتبر نیست؛ ردیف\u200cها را ویرایش کنید.', "es": 'Una línea de esta factura recurrente ya no es válida; edita sus líneas.', "ar": 'أحد بنود هذه الفاتورة المتكررة لم يعد صالحاً؛ عدّل البنود.'},
     'This schedule has ended; create a new one.': {"fa": 'این برنامه پایان یافته است؛ یک برنامه جدید بسازید.', "es": 'Esta programación ha terminado; crea una nueva.', "ar": 'انتهت هذه الجدولة؛ أنشئ واحدة جديدة.'},
     'end_date is before start_date.': {"fa": 'تاریخ پایان پیش از تاریخ شروع است.', "es": 'La fecha de fin es anterior a la de inicio.', "ar": 'تاريخ النهاية قبل تاريخ البداية.'},
     'role must be client, supplier, payee, bank, or shareholder': {"fa": 'نقش باید مشتری، تأمین\u200cکننده، دریافت\u200cکننده، بانک یا سهامدار باشد', "es": 'El rol debe ser cliente, proveedor, beneficiario, banco o accionista', "ar": 'يجب أن يكون الدور عميلاً أو مورّداً أو مستفيداً أو بنكاً أو مساهماً'},
@@ -773,12 +775,15 @@ def _currency_names() -> dict:
 _CURRENCY_NAMES = _currency_names()
 
 # the company's country and VAT treatments in a tax message (#1)
-_VAT_COUNTRY = {"fa": {"UK": "بریتانیا", "IR": "ایران"}, "es": {"UK": "el Reino Unido", "IR": "Irán"},
-                "ar": {"UK": "المملكة المتحدة", "IR": "إيران"}}
+_VAT_COUNTRY = {"fa": {"the UK": "بریتانیا", "Iran": "ایران"}, "es": {"the UK": "el Reino Unido", "Iran": "Irán"},
+                "ar": {"the UK": "المملكة المتحدة", "Iran": "إيران"}}
 _VAT_TREATMENT = {
-    "fa": {"standard": "نرخ استاندارد", "zero_rated": "نرخ صفر", "exempt": "معاف", "reverse_charge": "معکوس (reverse charge)"},
-    "es": {"standard": "tipo general", "zero_rated": "tipo cero", "exempt": "exento", "reverse_charge": "inversión del sujeto pasivo"},
-    "ar": {"standard": "النسبة الأساسية", "zero_rated": "نسبة الصفر", "exempt": "معفى", "reverse_charge": "الاحتساب العكسي"},
+    "fa": {"The standard rate": "نرخ استاندارد", "Zero rating": "نرخ صفر", "Exemption": "معافیت",
+           "Reverse charge": "معکوس (reverse charge)"},
+    "es": {"The standard rate": "tipo general", "Zero rating": "tipo cero", "Exemption": "exención",
+           "Reverse charge": "inversión del sujeto pasivo"},
+    "ar": {"The standard rate": "النسبة الأساسية", "Zero rating": "نسبة الصفر", "Exemption": "الإعفاء",
+           "Reverse charge": "الاحتساب العكسي"},
 }
 
 
@@ -1310,18 +1315,18 @@ PATTERNS: list[_Pattern] = [
     _Pattern(r"^Net cash decreased by (?P<n>\S+)\.$",
              {"fa": "وجه نقد خالص {n} کاهش یافت.", "es": "El efectivo neto disminuyó en {n}.", "ar": "انخفض صافي النقد بمقدار {n}."}),
     # a VAT rate or treatment the company's country doesn't have (#1)
-    _Pattern(r"^VAT rate (?P<rate>\S+)% isn't valid in (?P<juris>UK|IR) on the invoice date\. Valid rates \(%\): (?P<valid>[0-9., ]+)\.$",
+    _Pattern(r"^VAT rate (?P<rate>\S+)% isn't valid in (?P<juris>the UK|Iran) on the invoice date\. Valid rates \(%\): (?P<valid>[0-9., ]+)\.$",
              {"fa": "نرخ مالیات بر ارزش افزوده {rate}٪ در تاریخ فاکتور در {juris} معتبر نیست. نرخ‌های معتبر (٪): {valid}.",
               "es": "El tipo de IVA del {rate} % no es válido en {juris} en la fecha de la factura. Tipos válidos (%): {valid}.",
               "ar": "نسبة ضريبة القيمة المضافة {rate}٪ غير صالحة في {juris} في تاريخ الفاتورة. النسب الصالحة (٪): {valid}."},
              values={"juris": _VAT_COUNTRY},
-             example="VAT rate 15% isn't valid in UK on the invoice date. Valid rates (%): 20, 5, 0."),
-    _Pattern(r"^VAT treatment (?P<treatment>zero_rated|exempt|reverse_charge|standard) doesn't apply in (?P<juris>UK|IR)\.$",
+             example="VAT rate 15% isn't valid in the UK on the invoice date. Valid rates (%): 20, 5, 0."),
+    _Pattern(r"^(?P<treatment>The standard rate|Zero rating|Exemption|Reverse charge) doesn't apply in (?P<juris>the UK|Iran)\.$",
              {"fa": "رفتار مالیاتی «{treatment}» در {juris} کاربرد ندارد.",
               "es": "El tratamiento de IVA «{treatment}» no se aplica en {juris}.",
               "ar": "المعاملة الضريبية «{treatment}» لا تنطبق في {juris}."},
              values={"juris": _VAT_COUNTRY, "treatment": _VAT_TREATMENT},
-             example="VAT treatment reverse_charge doesn't apply in IR."),
+             example="Reverse charge doesn't apply in Iran."),
 ]
 
 

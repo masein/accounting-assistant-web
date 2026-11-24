@@ -283,6 +283,7 @@ def test_ir_rejects_reverse_charge(ir):
     with pytest.raises(HTTPException) as e:
         _ir_invoice(ir, [_item(price=100, tax_rate=10, tax_treatment="reverse_charge")])
     assert e.value.status_code == 422
+    assert e.value.detail == "Reverse charge doesn't apply in Iran."
 
 
 def test_ir_accepts_its_rates_and_treatments(ir):
@@ -308,9 +309,10 @@ def test_unknown_treatment_rejected_not_standard():
 
 def test_country_tax_messages_translated():
     from app.core.messages import LANGS, localize_detail
-    for msg in ("VAT rate 15% isn't valid in UK on the invoice date. Valid rates (%): 20, 5, 0.",
-                "VAT treatment reverse_charge doesn't apply in IR."):
+    for msg in ("VAT rate 15% isn't valid in the UK on the invoice date. Valid rates (%): 20, 5, 0.",
+                "Reverse charge doesn't apply in Iran."):
         for lang in LANGS:
             assert localize_detail(msg, lang) != msg
     assert "المملكة المتحدة" in localize_detail(
-        "VAT rate 15% isn't valid in UK on the invoice date. Valid rates (%): 20, 5, 0.", "ar")
+        "VAT rate 15% isn't valid in the UK on the invoice date. Valid rates (%): 20, 5, 0.", "ar")
+    assert "إيران" in localize_detail("Reverse charge doesn't apply in Iran.", "ar")

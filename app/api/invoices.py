@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 
 import io
 import uuid
@@ -46,7 +46,8 @@ from app.services.audit_service import log_audit_event
 from app.services.ledger_posting import assert_amount_places, default_currency
 from app.services.ocr_extract import OCRExtractError, extract_from_attachment
 from app.services.book_text import bt
-from app.core.money import plain, round_amount, to_decimal, grouped
+from app.core.money import plain, quantize, round_amount, to_decimal, grouped
+from app.services import tax_service
 from app.services.documents.formatting import fmt_amount
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -69,22 +70,13 @@ def _validate_status(status: str) -> str:
     return v
 
 
-def _line_tax(line_total, tax_rate, taxable: bool, currency: str | None = None):
+def _line_tax(line_total, tax_rate, taxable: bool, currency: str | None = None, half_even: bool = False):
     """Tax on one line: ``line_total * rate/100`` for taxable lines, 0 for
     exempt lines — to the currency's places, half-up (£19.99 at 20% is £4.00,
     it was £4 of whole pounds; docs/PLAN_PENCE.md). Without a currency, and in
-    rials, whole units exactly as before."""
-    if not taxable:
-        return 0
-    rate = float(tax_rate or 0)
-    if rate <= 0:
-        return 0
-    from app.core.money import exponent, quantize, to_decimal
-    if currency is None or exponent(currency) == 0:
-        # half-up, exactly: round() went half to even (5 rials at 10% gave 0, issue #2)
-        tax = Decimal(int(line_total or 0)) * Decimal(repr(rate)) / 100
-        return int(tax.quantize(Decimal(1), rounding=ROUND_HALF_UP))
-    return quantize(to_decimal(line_total or 0) * Decimal(repr(rate)) / 100, currency)
+    rials, whole units, half-up too (5 rials at 10% is 1, issue #2) — but a
+    rial invoice issued before keeps its half-to-even VAT (``half_even``)."""
+    return tax_service._line_tax(line_total, tax_rate, taxable, currency, half_even)
 
 
 def _tax_breakdown(inv: Invoice) -> tuple[int, int, int]:
@@ -99,7 +91,9 @@ def _tax_breakdown(inv: Invoice) -> tuple[int, int, int]:
         amount = plain(inv.amount or 0)
         return amount, 0, amount
     subtotal = sum(plain(it.line_total or 0) for it in items)
-    tax_total = sum(_line_tax(it.line_total, it.tax_rate, it.taxable, inv.currency) for it in items)
+    # a rial invoice issued before issue #2 reads with the VAT its amount and entries were made with
+    old = tax_service.half_even_vat(inv)
+    tax_total = sum(_line_tax(it.line_total, it.tax_rate, it.taxable, inv.currency, old) for it in items)
     return subtotal, tax_total, subtotal + tax_total
 
 
@@ -978,8 +972,8 @@ def _vat_share(inv: Invoice, gross):
     _subtotal, tax_total, grand_total = _tax_breakdown(inv)
     if tax_total <= 0 or grand_total <= 0:
         return 0
-    # to the invoice currency's places (pence for pounds; rials as before)
-    return round_amount(to_decimal(tax_total) * to_decimal(gross) / to_decimal(grand_total), inv.currency)
+    # to the invoice currency's places, half-up (pence for pounds; whole rials half-up, issue #2)
+    return quantize(to_decimal(tax_total) * to_decimal(gross) / to_decimal(grand_total), inv.currency)
 
 
 def _assert_rate_on(db: Session, currency: str | None, on: date) -> None:
@@ -1009,7 +1003,8 @@ def stock_returns(invoice_id: UUID, db: Session = Depends(get_db)) -> dict:
         lines = [it for it in (inv.items or []) if it.inventory_item_id == item_id]
         n = sum((to_decimal(it.quantity or 0) for it in lines), Decimal(0))
         net = sum((to_decimal(it.line_total or 0) for it in lines), Decimal(0))
-        tax = sum((to_decimal(_line_tax(it.line_total, it.tax_rate, it.taxable, inv.currency)) for it in lines),
+        old = tax_service.half_even_vat(inv)
+        tax = sum((to_decimal(_line_tax(it.line_total, it.tax_rate, it.taxable, inv.currency, old)) for it in lines),
                   Decimal(0))
         q6 = Decimal("0.000001")
         rows.append({"item_id": str(item_id), "name": item.name if item else "", "unit": item.unit if item else "",

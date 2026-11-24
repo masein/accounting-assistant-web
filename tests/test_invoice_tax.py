@@ -190,3 +190,60 @@ class TestTaxSummary:
         assert data["caveat"] == TAX_CAVEAT
         assert data["net_tax"] == 0
         assert "No tax rates" in data["assumptions"]
+
+
+class TestDefaultPeriodIsJalaliSeasonForIran:
+    """Bug #4: 'this quarter' VAT for an Iranian company started on the
+    Gregorian quarter (1 October) and left out Mehr 1–9 sales. The default
+    period is the Jalali season (Mehr 1 1405 = 2026-09-23), as the VAT return
+    (/tax/ir/vat-return) files it; other companies keep the calendar quarter."""
+
+    TODAY = date(2026, 11, 24)  # 3 Azar 1405 — season 3 (Mehr–Azar)
+
+    class _Today(date):
+        @classmethod
+        def today(cls):
+            return date(2026, 11, 24)
+
+    def _seed(self, ir):
+        for number, day, price in (("QA-4", date(2026, 9, 25), 1_000_000),   # 3 Mehr 1405
+                                   ("QA-1", date(2026, 10, 5), 1_250_000),
+                                   ("QA-2", date(2026, 11, 10), 1_000_000)):
+            create_invoice(InvoiceCreate(
+                number=number, kind="sales", issue_date=day, due_date=day + timedelta(days=30),
+                amount=0, currency="IRR", status="issued",
+                items=[InvoiceItemCreate(product_name="S", quantity=1, unit_price=price,
+                                         line_total=price, tax_rate=10)],
+            ), ir)
+
+    def test_default_start_follows_company(self, ir, uk):
+        from app.services.tax_service import default_period_start
+        assert default_period_start(ir, self.TODAY) == date(2026, 9, 23)
+        assert default_period_start(ir, date(2026, 3, 25)) == date(2026, 3, 21)  # 5 Farvardin 1405
+        assert default_period_start(uk, self.TODAY) == date(2026, 10, 1)
+
+    def test_endpoint_default_is_the_jalali_season(self, ir, monkeypatch):
+        import app.api.reports as reports
+        self._seed(ir)
+        monkeypatch.setattr(reports, "date", self._Today)
+        data = get_tax_summary(None, None, None, ir)
+        assert data["from_date"] == "2026-09-23"
+        assert data["output_tax"] == 325_000
+
+    def test_ai_tool_default_is_the_jalali_season(self, ir, monkeypatch):
+        import asyncio
+        import app.services.ai_accountant.read_tools as read_tools
+        from app.services.ai_accountant.base import ToolContext
+        self._seed(ir)
+        monkeypatch.setattr(read_tools, "date", self._Today)
+        tool = read_tools.GetTaxSummary()
+        data = asyncio.run(tool.run(ToolContext(db=ir, user_id="u", username="t"),
+                                    read_tools.GetTaxSummaryInput()))
+        assert data["from_date"] == "2026-09-23"
+        assert data["output_tax"] == 325_000
+
+
+def test_system_prompt_maps_this_quarter_to_the_jalali_season():
+    from app.services.ai_accountant import orchestrator
+    prompt = orchestrator.SYSTEM_PROMPT
+    assert "Jalali SEASON" in prompt and "هذا الفصل" in prompt and "این فصل" in prompt

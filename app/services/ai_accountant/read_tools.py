@@ -1299,7 +1299,9 @@ class GetCompanyDefaults(BaseTool):
 
 
 class GetTaxSummaryInput(BaseModel):
-    from_date: date | None = Field(None, description="Period start (defaults to the current quarter start).")
+    from_date: date | None = Field(None, description=(
+        "Period start (defaults to the current VAT period start: the Jalali season for an "
+        "Iranian company, the calendar quarter otherwise)."))
     to_date: date | None = Field(None, description="Period end (defaults to today).")
     currency: str | None = Field(None, description="Filter by currency; defaults to all.")
 
@@ -1320,14 +1322,13 @@ class GetTaxSummary(BaseTool):
     InputSchema = GetTaxSummaryInput
 
     async def run(self, ctx: ToolContext, args: GetTaxSummaryInput) -> dict[str, Any]:
-        from app.services.tax_service import compute_tax_summary
+        from app.services.tax_service import compute_tax_summary, default_period_start
 
         today = date.today()
         to_date = args.to_date or today
         from_date = args.from_date
         if from_date is None:
-            q_start_month = ((today.month - 1) // 3) * 3 + 1
-            from_date = date(today.year, q_start_month, 1)
+            from_date = default_period_start(ctx.db, today)
         return compute_tax_summary(ctx.db, from_date, to_date, currency=args.currency)
 
 

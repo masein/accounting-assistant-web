@@ -63,6 +63,18 @@ def _notional_tax(line_total, tax_rate, currency: str | None = None):
     return quantize(to_decimal(line_total or 0) * Decimal(repr(rate)) / 100, currency)
 
 
+def default_period_start(db: Session, today: date) -> date:
+    """Start of the current VAT period, the default for a tax summary: the
+    Jalali season (Farvardin/Tir/Mehr/Dey 1) for an Iranian company — the
+    period its VAT return covers (app/services/tax_ir.py) — and the calendar
+    quarter otherwise."""
+    from app.services.locale_service import get_reporting_locale
+    if get_reporting_locale(db) == "ir":
+        from app.services.tax_ir import season_of
+        return season_of(today).start
+    return date(today.year, ((today.month - 1) // 3) * 3 + 1, 1)
+
+
 def compute_tax_summary(
     db: Session,
     from_date: date,

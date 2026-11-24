@@ -384,6 +384,7 @@ def _resolve_bank_code(db: Session, code: str | None) -> str:
 def _build_invoice_items(
     payload_items: list, invoice_id: UUID,
     db: Session | None = None, on_date: date | None = None, currency: str | None = None,
+    *, check_tax: bool = True,
 ) -> tuple[list[InvoiceItem], int]:
     """Build InvoiceItem rows. Returns (rows, grand_total) where grand_total =
     Σ line_total + Σ per-line tax (only ``standard``-treatment lines charge tax),
@@ -392,13 +393,24 @@ def _build_invoice_items(
     Tax rate resolution (§7.6): if a line gives no explicit ``tax_rate`` but has
     a ``tax_code``, derive the rate in effect on ``on_date`` (the invoice date).
     Treatment (§7.3): zero_rated / exempt / reverse_charge charge no output tax;
-    the resolved rate is still stored (for reverse-charge notional reporting)."""
-    from app.services.tax_rate_service import TREATMENTS, tax_rate_for
+    the resolved rate is still stored (for reverse-charge notional reporting).
+
+    A line's rate must be one in force in the company's country on that date,
+    and its treatment one that country has (#1); ``check_tax=False`` only for
+    reading a stored template back."""
+    from app.services.tax_rate_service import (
+        JURISDICTION_TREATMENTS, LOCALE_JURISDICTION, TREATMENTS, rates_in_force, tax_rate_for,
+    )
 
     rows: list[InvoiceItem] = []
     subtotal = 0
     tax_total = 0
     cur = currency or (default_currency(db, None) if db is not None else None)
+    juris = valid_rates = None
+    if check_tax and db is not None and on_date is not None and payload_items:
+        from app.services.locale_service import get_reporting_locale
+        juris = LOCALE_JURISDICTION.get(get_reporting_locale(db))
+        valid_rates = rates_in_force(db, juris, on_date) if juris else None
     for raw in payload_items or []:
         qty = float(raw.quantity or 0)
         if qty <= 0:
@@ -424,6 +436,14 @@ def _build_invoice_items(
             derived = tax_rate_for(db, tax_code, on_date)
             if derived is not None:
                 tax_rate = float(derived)
+        if juris and treatment not in JURISDICTION_TREATMENTS.get(juris, TREATMENTS):
+            raise HTTPException(status_code=422, detail=f"VAT treatment {treatment} doesn't apply in {juris}.")
+        # none set up for the country (or the date): nothing to check against
+        if valid_rates and tax_rate != 0 and Decimal(repr(tax_rate)) not in valid_rates:
+            shown = ", ".join(f"{r:f}" for r in valid_rates)
+            raise HTTPException(status_code=422, detail=(
+                f"VAT rate {Decimal(repr(tax_rate)).normalize():f}% isn't valid in {juris} on the invoice date. "
+                f"Valid rates (%): {shown}."))
         # Only a standard-treatment line actually charges output tax. The
         # explicit `taxable=False` flag still forces a line exempt.
         explicit_taxable = bool(getattr(raw, "taxable", True))

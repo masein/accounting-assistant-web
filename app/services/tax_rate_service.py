@@ -8,6 +8,7 @@ including a historical change so the effective-dating is real, not theoretical.
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,6 +19,12 @@ from app.models.tax_rate import TaxRate
 # charge none; reverse_charge shifts the liability to the customer (cross-border
 # B2B) and nets to zero, recorded as a notional figure for the return.
 TREATMENTS = ("standard", "zero_rated", "exempt", "reverse_charge")
+
+# The company's country (its reporting locale) → the jurisdiction of its seeded
+# rates, and the treatments its VAT law has where not all of them: Iran's VAT
+# has no reverse charge (#1).
+LOCALE_JURISDICTION = {"uk": "UK", "ir": "IR"}
+JURISDICTION_TREATMENTS = {"IR": ("standard", "zero_rated", "exempt")}
 
 # Standard rates per jurisdiction, each with a real historical change so the
 # effective-dated selection is exercised. (Dates mirror real VAT changes.)
@@ -77,6 +84,19 @@ def tax_rate_for(db: Session, code: str, on_date: date) -> float | None:
         if r.effective_to is None or r.effective_to >= on_date:
             return float(r.rate)
     return None
+
+
+def rates_in_force(db: Session, jurisdiction: str, on_date: date) -> list[Decimal]:
+    """The distinct rates (percent, highest first) of a jurisdiction's tax codes
+    in force on ``on_date``. Empty when none are set up for it."""
+    rows = db.execute(
+        select(TaxRate.rate).where(
+            TaxRate.jurisdiction == jurisdiction,
+            TaxRate.effective_from <= on_date,
+            (TaxRate.effective_to.is_(None)) | (TaxRate.effective_to >= on_date),
+        )
+    ).scalars().all()
+    return sorted({Decimal(str(r)).normalize() for r in rows}, reverse=True)
 
 
 def list_tax_rates(db: Session, code: str | None = None) -> list[TaxRate]:

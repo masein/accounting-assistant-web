@@ -772,6 +772,15 @@ def _currency_names() -> dict:
 
 _CURRENCY_NAMES = _currency_names()
 
+# the company's country and VAT treatments in a tax message (#1)
+_VAT_COUNTRY = {"fa": {"UK": "بریتانیا", "IR": "ایران"}, "es": {"UK": "el Reino Unido", "IR": "Irán"},
+                "ar": {"UK": "المملكة المتحدة", "IR": "إيران"}}
+_VAT_TREATMENT = {
+    "fa": {"standard": "نرخ استاندارد", "zero_rated": "نرخ صفر", "exempt": "معاف", "reverse_charge": "معکوس (reverse charge)"},
+    "es": {"standard": "tipo general", "zero_rated": "tipo cero", "exempt": "exento", "reverse_charge": "inversión del sujeto pasivo"},
+    "ar": {"standard": "النسبة الأساسية", "zero_rated": "نسبة الصفر", "exempt": "معفى", "reverse_charge": "الاحتساب العكسي"},
+}
+
 
 PATTERNS: list[_Pattern] = [
     _Pattern(r"^Invalid confirmation_token format: (?P<t>.+)$",
@@ -1300,6 +1309,19 @@ PATTERNS: list[_Pattern] = [
              {"fa": "حاشیه سود ناخالص پایین: {m}٪.", "es": "Margen bruto bajo: {m} %.", "ar": "هامش ربح إجمالي منخفض: {m}٪."}),
     _Pattern(r"^Net cash decreased by (?P<n>\S+)\.$",
              {"fa": "وجه نقد خالص {n} کاهش یافت.", "es": "El efectivo neto disminuyó en {n}.", "ar": "انخفض صافي النقد بمقدار {n}."}),
+    # a VAT rate or treatment the company's country doesn't have (#1)
+    _Pattern(r"^VAT rate (?P<rate>\S+)% isn't valid in (?P<juris>UK|IR) on the invoice date\. Valid rates \(%\): (?P<valid>[0-9., ]+)\.$",
+             {"fa": "نرخ مالیات بر ارزش افزوده {rate}٪ در تاریخ فاکتور در {juris} معتبر نیست. نرخ‌های معتبر (٪): {valid}.",
+              "es": "El tipo de IVA del {rate} % no es válido en {juris} en la fecha de la factura. Tipos válidos (%): {valid}.",
+              "ar": "نسبة ضريبة القيمة المضافة {rate}٪ غير صالحة في {juris} في تاريخ الفاتورة. النسب الصالحة (٪): {valid}."},
+             values={"juris": _VAT_COUNTRY},
+             example="VAT rate 15% isn't valid in UK on the invoice date. Valid rates (%): 20, 5, 0."),
+    _Pattern(r"^VAT treatment (?P<treatment>zero_rated|exempt|reverse_charge|standard) doesn't apply in (?P<juris>UK|IR)\.$",
+             {"fa": "رفتار مالیاتی «{treatment}» در {juris} کاربرد ندارد.",
+              "es": "El tratamiento de IVA «{treatment}» no se aplica en {juris}.",
+              "ar": "المعاملة الضريبية «{treatment}» لا تنطبق في {juris}."},
+             values={"juris": _VAT_COUNTRY, "treatment": _VAT_TREATMENT},
+             example="VAT treatment reverse_charge doesn't apply in IR."),
 ]
 
 

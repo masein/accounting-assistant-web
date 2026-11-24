@@ -81,7 +81,7 @@ def template_total(db: Session, t: RecurringInvoice, on: date) -> int:
     items = [InvoiceItemCreate(**it) for it in template_items(t)]
     if not items:
         return plain(t.amount or 0)
-    _rows, total = _build_invoice_items(items, None, db, on, t.currency)
+    _rows, total = _build_invoice_items(items, None, db, on, t.currency, check_tax=False)
     return plain(total)
 
 

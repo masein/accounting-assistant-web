@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 from datetime import date as _date  # alias: fields literally named `date` shadow the type
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -19,11 +19,18 @@ class InvoiceItemBase(BaseModel):
     tax_rate: float = Field(default=0, ge=0, le=100, description="VAT/sales-tax percent, e.g. 20")
     taxable: bool = Field(default=True, description="Exempt lines (False) contribute to subtotal but not tax")
     tax_code: str | None = Field(default=None, description="Effective-dated tax code, e.g. UK_VAT_STANDARD; rate auto-derived as of the invoice date when no explicit rate is given")
-    tax_treatment: str = Field(default="standard", description="standard | zero_rated | exempt | reverse_charge")
+    # an unknown treatment is refused, not taken for standard (#1)
+    tax_treatment: Literal["standard", "zero_rated", "exempt", "reverse_charge"] = Field(
+        default="standard", description="standard | zero_rated | exempt | reverse_charge")
     description: str | None = None
     inventory_item_id: UUID | None = None
     sstid: str | None = Field(default=None, description="سامانه مؤدیان goods/service id, 13 digits")
     mu: str | None = Field(default=None, max_length=8, description="سامانه مؤدیان measurement-unit code")
+
+    @field_validator("tax_treatment", mode="before")
+    @classmethod
+    def _treatment(cls, v):
+        return v.strip().lower() if isinstance(v, str) else v
 
     @field_validator("sstid")
     @classmethod

@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.credit_note import CreditNote
 from app.models.invoice import Invoice
 from app.services.tax_ir import _share
-from app.services.tax_service import _line_tax, _notional_tax
+from app.services.tax_service import _line_tax, _notional_tax, half_even_vat
 from app.services.uk_mtd.periods import VatPeriod
 from app.core.money import exponent, plain
 
@@ -36,14 +36,15 @@ def _split(inv: Invoice) -> dict[str, int]:
     if not items:
         return {"base": plain(inv.amount or 0), "vat": 0, "reverse": 0}
     base = vat = reverse = 0
+    old = half_even_vat(inv)
     for it in items:
         total = plain(it.line_total or 0)
         base += total
         treatment = getattr(it, "tax_treatment", "standard") or "standard"
         if treatment == "reverse_charge":
-            reverse += _notional_tax(total, it.tax_rate, inv.currency)
+            reverse += _notional_tax(total, it.tax_rate, inv.currency, old)
         elif treatment == "standard":
-            vat += _line_tax(total, it.tax_rate, it.taxable, inv.currency)
+            vat += _line_tax(total, it.tax_rate, it.taxable, inv.currency, old)
     return {"base": base, "vat": vat, "reverse": reverse}
 
 

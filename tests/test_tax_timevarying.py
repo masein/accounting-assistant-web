@@ -10,6 +10,8 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
+from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -227,3 +229,90 @@ def test_ir_invoice_effective_rate(ir):
     ), ir)
     assert float(inv.items[0].tax_rate) == 9.0
     assert inv.amount == 1_090_000
+
+
+# ─── 5. Only the company's own country's rates and treatments (#1) ──────
+
+def _rejected(db, **kw) -> HTTPException:
+    with pytest.raises(HTTPException) as e:
+        _invoice(db, **kw)
+    assert e.value.status_code == 422
+    db.rollback()
+    return e.value
+
+
+@pytest.mark.parametrize("rate", [15, 17.5, 8])
+def test_uk_rejects_rates_not_in_force(uk, rate):
+    err = _rejected(uk, issue_date=date(2026, 11, 10), items=[_item(price=100, tax_rate=rate)])
+    assert "20, 5, 0" in err.detail
+
+
+@pytest.mark.parametrize("rate,vat", [(20, 20), (5, 5), (0, 0)])
+def test_uk_accepts_its_rates(uk, rate, vat):
+    inv = _invoice(uk, issue_date=date(2026, 11, 10), items=[_item(price=100, tax_rate=rate)])
+    assert inv.amount == 100 + vat
+
+
+def test_uk_historical_rate_valid_on_its_date(uk):
+    inv = _invoice(uk, issue_date=date(2010, 6, 1), items=[_item(price=1000, tax_rate=17.5)])
+    assert inv.amount == 1175
+    _rejected(uk, issue_date=date(2010, 6, 1), number="INV-2", items=[_item(price=1000, tax_rate=20)])
+
+
+def test_uk_reverse_charge_still_allowed(uk):
+    inv = _invoice(uk, issue_date=date(2026, 11, 10),
+                   items=[_item(price=100, tax_rate=20, tax_treatment="reverse_charge")])
+    assert inv.amount == 100
+
+
+def _ir_invoice(db, items, number="IR-9", status="issued"):
+    return create_invoice(InvoiceCreate(
+        number=number, kind="sales", issue_date=date(2026, 11, 20), due_date=date(2026, 12, 30),
+        amount=0, currency="IRR", items=items, status=status,
+    ), db)
+
+
+def test_ir_rejects_rate_20(ir):
+    with pytest.raises(HTTPException) as e:
+        _ir_invoice(ir, [_item(price=100, tax_rate=20)])
+    assert e.value.status_code == 422
+    assert "10, 0" in e.value.detail
+
+
+def test_ir_rejects_reverse_charge(ir):
+    with pytest.raises(HTTPException) as e:
+        _ir_invoice(ir, [_item(price=100, tax_rate=10, tax_treatment="reverse_charge")])
+    assert e.value.status_code == 422
+    assert e.value.detail == "Reverse charge doesn't apply in Iran."
+
+
+def test_ir_accepts_its_rates_and_treatments(ir):
+    inv = _ir_invoice(ir, [_item(price=100, tax_rate=10), _item(price=100, tax_rate=0, tax_treatment="exempt"),
+                           _item(price=100, tax_rate=0, tax_treatment="zero_rated")])
+    assert inv.amount == 310
+
+
+def test_ir_update_rejects_rate_20(ir):
+    from app.api.invoices import update_invoice
+    from app.schemas.invoice import InvoiceUpdate
+    inv = _ir_invoice(ir, [_item(price=100, tax_rate=10)], status="draft")
+    with pytest.raises(HTTPException) as e:
+        update_invoice(inv.id, InvoiceUpdate(items=[_item(price=100, tax_rate=20)]), ir)
+    assert e.value.status_code == 422
+
+
+def test_unknown_treatment_rejected_not_standard():
+    with pytest.raises(ValidationError):
+        _item(tax_treatment="bogus")
+    assert _item(tax_treatment=" Zero_Rated ").tax_treatment == "zero_rated"
+
+
+def test_country_tax_messages_translated():
+    from app.core.messages import LANGS, localize_detail
+    for msg in ("VAT rate 15% isn't valid in the UK on the invoice date. Valid rates (%): 20, 5, 0.",
+                "Reverse charge doesn't apply in Iran."):
+        for lang in LANGS:
+            assert localize_detail(msg, lang) != msg
+    assert "المملكة المتحدة" in localize_detail(
+        "VAT rate 15% isn't valid in the UK on the invoice date. Valid rates (%): 20, 5, 0.", "ar")
+    assert "إيران" in localize_detail("Reverse charge doesn't apply in Iran.", "ar")

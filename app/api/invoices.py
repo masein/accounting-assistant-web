@@ -46,7 +46,8 @@ from app.services.audit_service import log_audit_event
 from app.services.ledger_posting import assert_amount_places, default_currency
 from app.services.ocr_extract import OCRExtractError, extract_from_attachment
 from app.services.book_text import bt
-from app.core.money import plain, round_amount, to_decimal, grouped
+from app.core.money import plain, quantize, round_amount, to_decimal, grouped
+from app.services import tax_service
 from app.services.documents.formatting import fmt_amount
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -69,20 +70,13 @@ def _validate_status(status: str) -> str:
     return v
 
 
-def _line_tax(line_total, tax_rate, taxable: bool, currency: str | None = None):
+def _line_tax(line_total, tax_rate, taxable: bool, currency: str | None = None, half_even: bool = False):
     """Tax on one line: ``line_total * rate/100`` for taxable lines, 0 for
     exempt lines — to the currency's places, half-up (£19.99 at 20% is £4.00,
     it was £4 of whole pounds; docs/PLAN_PENCE.md). Without a currency, and in
-    rials, whole units exactly as before."""
-    if not taxable:
-        return 0
-    rate = float(tax_rate or 0)
-    if rate <= 0:
-        return 0
-    from app.core.money import exponent, quantize, to_decimal
-    if currency is None or exponent(currency) == 0:
-        return int(round(int(line_total or 0) * rate / 100.0))
-    return quantize(to_decimal(line_total or 0) * Decimal(repr(rate)) / 100, currency)
+    rials, whole units, half-up too (5 rials at 10% is 1, issue #2) — but a
+    rial invoice issued before keeps its half-to-even VAT (``half_even``)."""
+    return tax_service._line_tax(line_total, tax_rate, taxable, currency, half_even)
 
 
 def _tax_breakdown(inv: Invoice) -> tuple[int, int, int]:
@@ -97,7 +91,9 @@ def _tax_breakdown(inv: Invoice) -> tuple[int, int, int]:
         amount = plain(inv.amount or 0)
         return amount, 0, amount
     subtotal = sum(plain(it.line_total or 0) for it in items)
-    tax_total = sum(_line_tax(it.line_total, it.tax_rate, it.taxable, inv.currency) for it in items)
+    # a rial invoice issued before issue #2 reads with the VAT its amount and entries were made with
+    old = tax_service.half_even_vat(inv)
+    tax_total = sum(_line_tax(it.line_total, it.tax_rate, it.taxable, inv.currency, old) for it in items)
     return subtotal, tax_total, subtotal + tax_total
 
 
@@ -384,6 +380,7 @@ def _resolve_bank_code(db: Session, code: str | None) -> str:
 def _build_invoice_items(
     payload_items: list, invoice_id: UUID,
     db: Session | None = None, on_date: date | None = None, currency: str | None = None,
+    *, check_tax: bool = True,
 ) -> tuple[list[InvoiceItem], int]:
     """Build InvoiceItem rows. Returns (rows, grand_total) where grand_total =
     Σ line_total + Σ per-line tax (only ``standard``-treatment lines charge tax),
@@ -392,13 +389,25 @@ def _build_invoice_items(
     Tax rate resolution (§7.6): if a line gives no explicit ``tax_rate`` but has
     a ``tax_code``, derive the rate in effect on ``on_date`` (the invoice date).
     Treatment (§7.3): zero_rated / exempt / reverse_charge charge no output tax;
-    the resolved rate is still stored (for reverse-charge notional reporting)."""
-    from app.services.tax_rate_service import TREATMENTS, tax_rate_for
+    the resolved rate is still stored (for reverse-charge notional reporting).
+
+    A line's rate must be one in force in the company's country on that date,
+    and its treatment one that country has (#1); ``check_tax=False`` only for
+    reading a stored template back."""
+    from app.services.tax_rate_service import (
+        JURISDICTION_NAMES, JURISDICTION_TREATMENTS, LOCALE_JURISDICTION, TREATMENT_NAMES, TREATMENTS,
+        rates_in_force, tax_rate_for,
+    )
 
     rows: list[InvoiceItem] = []
     subtotal = 0
     tax_total = 0
     cur = currency or (default_currency(db, None) if db is not None else None)
+    juris = valid_rates = None
+    if check_tax and db is not None and on_date is not None and payload_items:
+        from app.services.locale_service import get_reporting_locale
+        juris = LOCALE_JURISDICTION.get(get_reporting_locale(db))
+        valid_rates = rates_in_force(db, juris, on_date) if juris else None
     for raw in payload_items or []:
         qty = float(raw.quantity or 0)
         if qty <= 0:
@@ -424,6 +433,15 @@ def _build_invoice_items(
             derived = tax_rate_for(db, tax_code, on_date)
             if derived is not None:
                 tax_rate = float(derived)
+        if juris and treatment not in JURISDICTION_TREATMENTS.get(juris, TREATMENTS):
+            raise HTTPException(status_code=422, detail=(
+                f"{TREATMENT_NAMES[treatment]} doesn't apply in {JURISDICTION_NAMES[juris]}."))
+        # none set up for the country (or the date): nothing to check against
+        if valid_rates and tax_rate != 0 and Decimal(repr(tax_rate)) not in valid_rates:
+            shown = ", ".join(f"{r:f}" for r in valid_rates)
+            raise HTTPException(status_code=422, detail=(
+                f"VAT rate {Decimal(repr(tax_rate)).normalize():f}% isn't valid in {JURISDICTION_NAMES[juris]} on the invoice date. "
+                f"Valid rates (%): {shown}."))
         # Only a standard-treatment line actually charges output tax. The
         # explicit `taxable=False` flag still forces a line exempt.
         explicit_taxable = bool(getattr(raw, "taxable", True))
@@ -976,8 +994,8 @@ def _vat_share(inv: Invoice, gross):
     _subtotal, tax_total, grand_total = _tax_breakdown(inv)
     if tax_total <= 0 or grand_total <= 0:
         return 0
-    # to the invoice currency's places (pence for pounds; rials as before)
-    return round_amount(to_decimal(tax_total) * to_decimal(gross) / to_decimal(grand_total), inv.currency)
+    # to the invoice currency's places, half-up (pence for pounds; whole rials half-up, issue #2)
+    return quantize(to_decimal(tax_total) * to_decimal(gross) / to_decimal(grand_total), inv.currency)
 
 
 def _assert_rate_on(db: Session, currency: str | None, on: date) -> None:
@@ -1007,7 +1025,8 @@ def stock_returns(invoice_id: UUID, db: Session = Depends(get_db)) -> dict:
         lines = [it for it in (inv.items or []) if it.inventory_item_id == item_id]
         n = sum((to_decimal(it.quantity or 0) for it in lines), Decimal(0))
         net = sum((to_decimal(it.line_total or 0) for it in lines), Decimal(0))
-        tax = sum((to_decimal(_line_tax(it.line_total, it.tax_rate, it.taxable, inv.currency)) for it in lines),
+        old = tax_service.half_even_vat(inv)
+        tax = sum((to_decimal(_line_tax(it.line_total, it.tax_rate, it.taxable, inv.currency, old)) for it in lines),
                   Decimal(0))
         q6 = Decimal("0.000001")
         rows.append({"item_id": str(item_id), "name": item.name if item else "", "unit": item.unit if item else "",

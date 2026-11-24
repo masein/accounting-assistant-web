@@ -74,14 +74,40 @@ def template_items(t: RecurringInvoice) -> list[dict]:
     return data if isinstance(data, list) else []
 
 
-def template_total(db: Session, t: RecurringInvoice, on: date) -> int:
-    """What one occurrence will bill (tax-inclusive), for the list view."""
-    from app.api.invoices import _build_invoice_items
+def template_lines(t: RecurringInvoice, *, strict: bool = True) -> list:
+    """The template's lines as invoice lines. A line saved before VAT
+    treatments were checked (#1) may carry one no longer accepted: ``strict``
+    (issuing) refuses the template with a 422 the generator records on it;
+    otherwise (the list's total, the forecast) it reads as standard, as it was
+    billed then."""
+    from fastapi import HTTPException
+    from pydantic import ValidationError
+
     from app.schemas.invoice import InvoiceItemCreate
-    items = [InvoiceItemCreate(**it) for it in template_items(t)]
+    from app.services.tax_rate_service import TREATMENTS
+    out = []
+    for it in template_items(t):
+        tr = it.get("tax_treatment")
+        if not strict and isinstance(tr, str) and tr.strip().lower() not in TREATMENTS:
+            it = {**it, "tax_treatment": "standard"}
+        try:
+            out.append(InvoiceItemCreate(**it))
+        except ValidationError:
+            if not strict:
+                raise
+            raise HTTPException(status_code=422,
+                                detail="A line of this recurring invoice is no longer valid; edit its lines.")
+    return out
+
+
+def template_total(db: Session, t: RecurringInvoice, on: date, *, check_tax: bool = False) -> int:
+    """What one occurrence will bill (tax-inclusive). ``check_tax`` (saving a
+    template) also holds its lines to the country's VAT rates on ``on``."""
+    from app.api.invoices import _build_invoice_items
+    items = template_lines(t, strict=check_tax)
     if not items:
         return plain(t.amount or 0)
-    _rows, total = _build_invoice_items(items, None, db, on, t.currency)
+    _rows, total = _build_invoice_items(items, None, db, on, t.currency, check_tax=check_tax)
     return plain(total)
 
 
@@ -96,7 +122,7 @@ def _finished(t: RecurringInvoice, run_date: date) -> bool:
 def _issue_one(db: Session, t: RecurringInvoice, run_date: date):
     from app.api.invoices import insert_invoice, invoice_number_prefix, suggest_number
     from app.models.invoice import Invoice
-    from app.schemas.invoice import InvoiceCreate, InvoiceItemCreate
+    from app.schemas.invoice import InvoiceCreate
 
     inv = insert_invoice(db, InvoiceCreate(
         number=suggest_number(db, Invoice, invoice_number_prefix(db), kind="sales"),
@@ -104,7 +130,7 @@ def _issue_one(db: Session, t: RecurringInvoice, run_date: date):
         due_date=run_date + timedelta(days=max(0, int(t.terms_days or 0))),
         amount=plain(t.amount or 0), currency=t.currency,
         description=t.description or t.name, entity_id=t.entity_id,
-        items=[InvoiceItemCreate(**it) for it in template_items(t)],
+        items=template_lines(t),
     ))
     inv.recurring_invoice_id = t.id
     return inv

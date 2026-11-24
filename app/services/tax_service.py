@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.invoice import Invoice
-from app.core.money import exponent, plain, quantize, to_decimal
+from app.core.money import exponent, issued_half_even, plain, quantize, tax_on, to_decimal
 
 # Returned with every summary and surfaced to the user verbatim, even when the
 # user asks to "just give me the number" (§17.6).
@@ -29,38 +29,56 @@ TAX_CAVEAT = (
 )
 
 
-def _line_tax(line_total, tax_rate, taxable: bool, currency: str | None = None):
+def _line_tax(line_total, tax_rate, taxable: bool, currency: str | None = None, half_even: bool = False):
     """A line's VAT to its currency's places, half-up (the penny for pounds);
-    without a currency, and in rials, whole units as before (app.api.invoices)."""
+    without a currency, and in rials, whole units (app.core.money.tax_on).
+    ``half_even``: a rial invoice issued before issue #2 (``half_even_vat``)."""
     if not taxable:
         return 0
     rate = float(tax_rate or 0)
     if rate <= 0:
         return 0
-    if currency is None or exponent(currency) == 0:
-        return int(round(int(line_total or 0) * rate / 100.0))
-    return quantize(to_decimal(line_total or 0) * Decimal(repr(rate)) / 100, currency)
+    return tax_on(line_total, rate, currency, half_even=half_even)
+
+
+def half_even_vat(inv) -> bool:
+    """Whether ``inv`` (an invoice or quote) was issued with its rial VAT
+    rounded half to even, before issue #2, and so keeps that VAT
+    (app.core.money.issued_half_even)."""
+    return issued_half_even(
+        inv.amount, [(it.line_total, it.tax_rate, it.taxable) for it in (inv.items or [])], inv.currency)
 
 
 def _invoice_tax(inv: Invoice) -> tuple[int, set[float]]:
     """(tax_total, set of rates used) for one invoice's taxable lines."""
     total = 0
     rates: set[float] = set()
+    old = half_even_vat(inv)
     for it in inv.items or []:
-        t = _line_tax(it.line_total, it.tax_rate, it.taxable, inv.currency)
+        t = _line_tax(it.line_total, it.tax_rate, it.taxable, inv.currency, old)
         if t and it.taxable and float(it.tax_rate or 0) > 0:
             rates.add(float(it.tax_rate))
         total += t
     return total, rates
 
 
-def _notional_tax(line_total, tax_rate, currency: str | None = None):
+def _notional_tax(line_total, tax_rate, currency: str | None = None, half_even: bool = False):
     rate = float(tax_rate or 0)
     if rate <= 0:
         return 0
-    if currency is None or exponent(currency) == 0:
-        return int(round(int(line_total or 0) * rate / 100.0))
-    return quantize(to_decimal(line_total or 0) * Decimal(repr(rate)) / 100, currency)
+    return tax_on(line_total, rate, currency, half_even=half_even)
+
+
+def default_period_start(db: Session, today: date) -> date:
+    """Start of the current VAT period, the default for a tax summary: the
+    Jalali season (Farvardin/Tir/Mehr/Dey 1) for an Iranian company — the
+    period its VAT return covers (app/services/tax_ir.py) — and the calendar
+    quarter otherwise."""
+    from app.services.locale_service import get_reporting_locale
+    if get_reporting_locale(db) == "ir":
+        from app.services.tax_ir import season_of
+        return season_of(today).start
+    return date(today.year, ((today.month - 1) // 3) * 3 + 1, 1)
 
 
 def compute_tax_summary(
@@ -104,6 +122,7 @@ def compute_tax_summary(
 
     for inv in invoices:
         tax, inv_rates = _invoice_tax(inv)
+        old = half_even_vat(inv)
         rates |= inv_rates
         side = "output" if inv.kind == "sales" else "input"
         if inv.kind == "sales":
@@ -121,13 +140,13 @@ def compute_tax_summary(
             base = plain(it.line_total or 0)
             _bucket(by_treatment, treatment, "base", base)
             if treatment == "standard" and it.taxable:
-                t = _line_tax(it.line_total, it.tax_rate, it.taxable, inv.currency)
+                t = _line_tax(it.line_total, it.tax_rate, it.taxable, inv.currency, old)
                 _bucket(by_treatment, treatment, side, t)
                 _bucket(by_rate, f"{float(it.tax_rate or 0):g}", side, t)
             elif treatment == "reverse_charge":
                 # Cross-border B2B: customer self-accounts. Notional output AND
                 # input that net to zero — recorded/labelled, never added to net.
-                notional = _notional_tax(it.line_total, it.tax_rate, inv.currency)
+                notional = _notional_tax(it.line_total, it.tax_rate, inv.currency, old)
                 _bucket(by_treatment, treatment, "output", notional)
                 _bucket(by_treatment, treatment, "input", notional)
                 reverse_charge_notional += notional

@@ -102,6 +102,16 @@ def _items_json(items: list[InvoiceItemCreate]) -> str:
     return json_dumps([it.model_dump(mode="json") for it in items])
 
 
+def _checked_total(db: Session, t: RecurringInvoice, on: date) -> int:
+    """The template's total, refusing (422) a VAT rate or treatment its
+    country doesn't have on ``on`` now rather than on the run date (#1)."""
+    try:
+        return svc.template_total(db, t, on, check_tax=True)
+    except HTTPException:
+        db.rollback()
+        raise
+
+
 @router.get("")
 def list_recurring_invoices(db: Session = Depends(get_db)) -> list[dict]:
     rows = db.execute(select(RecurringInvoice).order_by(RecurringInvoice.next_run_date)).scalars().all()
@@ -144,7 +154,7 @@ def create_recurring_invoice(payload: RecurringInvoiceCreate, db: Session = Depe
     )
     db.add(t)
     db.flush()
-    if svc.template_total(db, t, t.start_date) <= 0:
+    if _checked_total(db, t, t.start_date) <= 0:
         db.rollback()
         raise HTTPException(status_code=422, detail="The template bills nothing; check the lines.")
     log_audit_event(db, action="create", entity_type="recurring_invoice", entity_id=str(t.id),
@@ -208,7 +218,11 @@ def update_recurring_invoice(template_id: UUID, payload: RecurringInvoiceUpdate,
                 n += 1
             t.next_run_date = svc.occurrence_date(t.start_date, t.frequency, t.calendar, n)
             t.occurrences = n
-    if svc.template_total(db, t, t.next_run_date) <= 0:
+    # new lines or a new start are held to the country's VAT rates; a pause isn't
+    total = (_checked_total(db, t, t.next_run_date)
+             if payload.items is not None or payload.start_date is not None
+             else svc.template_total(db, t, t.next_run_date))
+    if total <= 0:
         db.rollback()
         raise HTTPException(status_code=422, detail="The template bills nothing; check the lines.")
     log_audit_event(db, action="update", entity_type="recurring_invoice", entity_id=str(t.id),

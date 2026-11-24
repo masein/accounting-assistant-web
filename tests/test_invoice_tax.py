@@ -116,6 +116,27 @@ class TestTaxMath:
         assert out.tax_total == 0 and out.grand_total == 800
 
 
+class TestRialHalfUp:
+    """Rial VAT rounds half-up at .5 (5 rials at 10% is 1, not Python round()'s 0) — issue #2."""
+
+    @pytest.mark.parametrize("price,vat", [(5, 1), (15, 2), (25, 3), (35, 4), (45, 5), (44, 4), (46, 5)])
+    def test_irr_invoice_line_vat_half_up(self, ir, price, vat):
+        out = _issue(ir, currency="IRR", items=[{"product_name": "A", "quantity": 1, "unit_price": price, "tax_rate": 10}])
+        assert out.tax_total == vat
+        assert out.grand_total == out.amount == price + vat
+
+    def test_line_tax_helpers_half_up_without_places(self):
+        from app.api.invoices import _line_tax as invoice_line_tax
+        from app.services.tax_service import _line_tax, _notional_tax
+        for cur in ("IRR", None):
+            assert invoice_line_tax(5, 10, True, cur) == 1
+            assert invoice_line_tax(25, 10, True, cur) == 3
+            assert _line_tax(45, 10, True, cur) == 5
+            assert _notional_tax(25, 10, cur) == 3
+            assert _line_tax(1_000_000, 9, True, cur) == 90_000
+            assert isinstance(_line_tax(25, 10, True, cur), int)
+
+
 class TestSalesPostingSplit:
     def test_uk_sales_split(self, uk):
         _issue(uk, kind="sales", items=[

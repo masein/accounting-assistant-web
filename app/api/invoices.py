@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 import io
 import uuid
@@ -81,7 +81,9 @@ def _line_tax(line_total, tax_rate, taxable: bool, currency: str | None = None):
         return 0
     from app.core.money import exponent, quantize, to_decimal
     if currency is None or exponent(currency) == 0:
-        return int(round(int(line_total or 0) * rate / 100.0))
+        # half-up, exactly: round() went half to even (5 rials at 10% gave 0, issue #2)
+        tax = Decimal(int(line_total or 0)) * Decimal(repr(rate)) / 100
+        return int(tax.quantize(Decimal(1), rounding=ROUND_HALF_UP))
     return quantize(to_decimal(line_total or 0) * Decimal(repr(rate)) / 100, currency)
 
 

@@ -8,7 +8,7 @@ always attached and must always be surfaced to the user.
 """
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from datetime import date
 from typing import Any
@@ -38,7 +38,9 @@ def _line_tax(line_total, tax_rate, taxable: bool, currency: str | None = None):
     if rate <= 0:
         return 0
     if currency is None or exponent(currency) == 0:
-        return int(round(int(line_total or 0) * rate / 100.0))
+        # half-up, exactly: round() went half to even (5 rials at 10% gave 0, issue #2)
+        tax = Decimal(int(line_total or 0)) * Decimal(repr(rate)) / 100
+        return int(tax.quantize(Decimal(1), rounding=ROUND_HALF_UP))
     return quantize(to_decimal(line_total or 0) * Decimal(repr(rate)) / 100, currency)
 
 
@@ -59,7 +61,9 @@ def _notional_tax(line_total, tax_rate, currency: str | None = None):
     if rate <= 0:
         return 0
     if currency is None or exponent(currency) == 0:
-        return int(round(int(line_total or 0) * rate / 100.0))
+        # half-up, exactly: round() went half to even (5 rials at 10% gave 0, issue #2)
+        tax = Decimal(int(line_total or 0)) * Decimal(repr(rate)) / 100
+        return int(tax.quantize(Decimal(1), rounding=ROUND_HALF_UP))
     return quantize(to_decimal(line_total or 0) * Decimal(repr(rate)) / 100, currency)
 
 

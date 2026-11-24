@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, timezone
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -138,7 +139,8 @@ def build(db: Session, inv: Invoice, *, serial: int | None = None, shared: Share
         if prdis != line_total:
             b.problems.append(f"Line {n} ({title}): quantity × unit price ({prdis:,}) differs from the line total ({line_total:,}).")
         vra = rate if taxable else 0.0
-        vam = int(round(line_total * vra / 100.0)) if vra > 0 else 0
+        # half-up, as the invoice's own VAT (app.api.invoices._line_tax): round() went half to even (issue #2)
+        vam = int((Decimal(line_total) * Decimal(repr(vra)) / 100).quantize(Decimal(1), rounding=ROUND_HALF_UP)) if vra > 0 else 0
         body.append({
             "sstid": sid, "sstt": (title or "")[:400], "am": am, "mu": unit, "fee": fee,
             "prdis": line_total, "dis": 0, "adis": line_total, "vra": vra, "vam": vam,

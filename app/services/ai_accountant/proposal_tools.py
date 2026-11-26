@@ -43,6 +43,8 @@ from app.models.ai_accountant import AIProposal
 from app.models.entity import Entity
 
 from .base import BaseTool, ToolContext, ToolError, Replaceable
+from app.services.locale_service import book_today
+
 from .date_resolver import resolve_entry_date
 from .entity_create import (
     EntityCreateError,
@@ -1016,7 +1018,6 @@ class ProposeCreateTransaction(BaseTool):
         from app.models.entity import Entity as _Entity
         banks = tuple(n for (n,) in ctx.db.execute(select(_Entity.name).where(_Entity.type == "bank")).all())
         scheduled = _mentions_scheduled(ctx.user_message, banks)
-        from app.services.locale_service import book_today
         today = book_today(ctx.db)  # the book's local day, not the server's UTC one (#13)
         statement_row = None
         if args.bank_statement_row_id:
@@ -1716,7 +1717,7 @@ class ProposeReverseTransaction(BaseTool):
             })
 
         payload = {
-            "date": _date.today().isoformat(),
+            "date": book_today(ctx.db).isoformat(),
             "reference": rev_ref,
             "description": f"Reversal of {txn.reference or str(txn.id)[:8]} — {(txn.description or '')}"[:2000],
             "currency": txn.currency or "IRR",

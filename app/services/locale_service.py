@@ -8,7 +8,7 @@ Stored in AppSetting under the `reporting_locale` key.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -22,8 +22,10 @@ SUPPORTED_LOCALES = frozenset({"default", "ir", "uk"})
 
 # The book's own clock: "today" for an entry is the day where the company is, not the server's (UTC)
 # day — an Iranian entry said at 00:45 Tehran time otherwise lands on the previous day, Jalali month or
-# VAT season (#13). A locale with no country ("default") keeps the server's date.
+# VAT season (#13). Omani and Emirati books have no locale of their own ("default"), so their country is
+# read from the base currency; a book with neither keeps the server's date.
 LOCALE_TIMEZONES = {"ir": "Asia/Tehran", "uk": "Europe/London"}
+CURRENCY_TIMEZONES = {"OMR": "Asia/Muscat", "AED": "Asia/Dubai", "GBP": "Europe/London"}
 
 DISPLAY_CALENDAR_KEY = "display_calendar"
 SUPPORTED_CALENDARS = frozenset({"gregorian", "jalali"})
@@ -81,10 +83,34 @@ def get_reporting_locale(db: Session) -> str:
     return DEFAULT_LOCALE
 
 
-def book_today(db: Session) -> date:
-    """Today's date in the company's own timezone (from its locale)."""
+def _now() -> datetime:
+    """The current instant (the one clock book_today reads; tests replace it)."""
+    return datetime.now(timezone.utc)
+
+
+def book_timezone(db: Session) -> str | None:
+    """The company's IANA timezone: from its locale, else its base currency's country; None if unknown."""
     tz = LOCALE_TIMEZONES.get(get_reporting_locale(db))
-    return datetime.now(ZoneInfo(tz)).date() if tz else date.today()
+    if tz:
+        return tz
+    from app.db.tenant import get_current_company
+    cid = get_current_company()
+    if cid:
+        import uuid
+        from app.models.company import Company
+        try:
+            company = db.get(Company, uuid.UUID(str(cid)))
+        except (ValueError, TypeError):
+            company = None
+        if company is not None:
+            return CURRENCY_TIMEZONES.get((company.base_currency or "").strip().upper())
+    return None
+
+
+def book_today(db: Session) -> date:
+    """Today's date where the company is (book_timezone), else the server's local date."""
+    tz = book_timezone(db)
+    return _now().astimezone(ZoneInfo(tz) if tz else None).date()
 
 
 def set_reporting_locale(db: Session, locale: str) -> str:

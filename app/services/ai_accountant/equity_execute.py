@@ -18,13 +18,14 @@ from app.core.money import json_dumps, plain
 from app.models.ai_accountant import AIProposal
 from app.models.audit_log import AuditLog
 from app.services import equity_service as eq
+from app.services.locale_service import book_today
 
 
-def _parse_date(raw) -> _date:
+def _parse_date(raw, db: Session) -> _date:
     try:
         return _date.fromisoformat(str(raw))
     except (ValueError, TypeError):
-        return _date.today()
+        return book_today(db)
 
 
 def execute_equity_proposal(
@@ -39,7 +40,7 @@ def execute_equity_proposal(
     (transaction_id, audit_log_id)."""
     p = dict(proposal.tool_input)
     name = proposal.tool_name
-    txn_date = _parse_date(p.get("date"))
+    txn_date = _parse_date(p.get("date"), db)
 
     try:
         if name == "propose_shareholder_contribution":

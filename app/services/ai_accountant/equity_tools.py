@@ -19,13 +19,15 @@ from app.models.entity import Entity
 
 from .base import BaseTool, ToolContext, ToolError
 
+from app.services.locale_service import book_today
+
 from .card_life import PROPOSAL_TTL  # one TTL for every card
 _MAX_AMOUNT = 10**15  # digit-garbage guard (minor units)
 
 
-def _resolve_date(raw: str | None) -> str:
+def _resolve_date(raw: str | None, db) -> str:
     if not raw:
-        return _date.today().isoformat()
+        return book_today(db).isoformat()
     try:
         return _date.fromisoformat(str(raw).strip()).isoformat()
     except (ValueError, TypeError) as e:
@@ -121,7 +123,7 @@ class ProposeContribution(BaseTool):
     async def run(self, ctx: ToolContext, args: ProposeContributionInput) -> dict[str, Any]:
         amount = _check_amount(args.amount, "Contribution", db=ctx.db)
         ent = _resolve_shareholder(ctx.db, args.shareholder_name)
-        txn_date = _resolve_date(args.date)
+        txn_date = _resolve_date(args.date, ctx.db)
         payload = {"entity_id": str(ent.id), "entity_name": ent.name, "amount": amount,
                    "date": txn_date, "to_capital": bool(args.to_capital)}
         dest = "share capital" if args.to_capital else "current account"
@@ -153,7 +155,7 @@ class ProposeCapitalIncrease(BaseTool):
 
     async def run(self, ctx: ToolContext, args: ProposeCapitalIncreaseInput) -> dict[str, Any]:
         amount = _check_amount(args.amount, "Capital increase", db=ctx.db)
-        txn_date = _resolve_date(args.date)
+        txn_date = _resolve_date(args.date, ctx.db)
         payload = {"amount": amount, "source": args.source, "date": txn_date}
         src = {"retained_earnings": "retained earnings", "cash": "new cash",
                "revaluation_surplus": "revaluation surplus"}[args.source]
@@ -185,7 +187,7 @@ class ProposeDeclareDividend(BaseTool):
         from app.services import equity_service as eq
 
         amount = _check_amount(args.total_amount, "Dividend", db=ctx.db)
-        txn_date = _resolve_date(args.date)
+        txn_date = _resolve_date(args.date, ctx.db)
         try:
             allocs = eq.allocate_by_cap_table(ctx.db, amount)
         except eq.EquityError as e:
@@ -228,7 +230,7 @@ class ProposeCurrentAccount(BaseTool):
     async def run(self, ctx: ToolContext, args: ProposeCurrentAccountInput) -> dict[str, Any]:
         amount = _check_amount(args.amount, "Current-account amount", db=ctx.db)
         ent = _resolve_shareholder(ctx.db, args.shareholder_name)
-        txn_date = _resolve_date(args.date)
+        txn_date = _resolve_date(args.date, ctx.db)
         payload = {"entity_id": str(ent.id), "entity_name": ent.name, "amount": amount,
                    "date": txn_date, "direction": args.direction}
         verb = "withdrew" if args.direction == "out" else "lent to the company"

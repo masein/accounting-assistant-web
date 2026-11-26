@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import datetime as _dt
-import sys
 import uuid
 
 import pytest
@@ -17,39 +16,14 @@ INSTANT = _dt.datetime(2026, 11, 21, 21, 15, tzinfo=_dt.timezone.utc)   # server
 UTC_DAY = _dt.date(2026, 11, 21)                                        # 30 Aban 1405
 TEHRAN_DAY = _dt.date(2026, 11, 22)                                     # 1 Azar 1405
 
-_RealDate, _RealDatetime = _dt.date, _dt.datetime
 
-
-class _FrozenDate(_RealDate):
-    @classmethod
-    def today(cls):                     # a server running in UTC
-        return _RealDate(INSTANT.year, INSTANT.month, INSTANT.day)
-
-
-class _FrozenDatetime(_RealDatetime):
-    @classmethod
-    def now(cls, tz=None):
-        return INSTANT.astimezone(tz) if tz is not None else INSTANT.replace(tzinfo=None)
-
-    @classmethod
-    def utcnow(cls):
-        return INSTANT.replace(tzinfo=None)
-
-    @classmethod
-    def today(cls):
-        return INSTANT.replace(tzinfo=None)
 
 
 @pytest.fixture()
 def frozen_clock(monkeypatch):
-    for name, mod in list(sys.modules.items()):
-        if not (name == "app" or name.startswith("app.")) or mod is None:
-            continue
-        for attr, val in list(vars(mod).items()):
-            if val is _RealDate:
-                monkeypatch.setattr(mod, attr, _FrozenDate)
-            elif val is _RealDatetime:
-                monkeypatch.setattr(mod, attr, _FrozenDatetime)
+    """The instant book_today reads: 00:45 Tehran / 01:15 Muscat on the 22nd, still the 21st in UTC."""
+    from app.services import locale_service
+    monkeypatch.setattr(locale_service, "_now", lambda: INSTANT)
     yield
 
 
@@ -62,9 +36,12 @@ def books(db):
     _purge_company(db, ctx.company_id)
 
 
-def _set_locale(db, books, locale):
+def _set_locale(db, books, locale, base_currency=None):
     from app.models import Company
-    db.get(Company, uuid.UUID(books.company_id)).locale = locale
+    company = db.get(Company, uuid.UUID(books.company_id))
+    company.locale = locale
+    if base_currency:
+        company.base_currency = base_currency
     db.commit()
 
 
@@ -89,12 +66,17 @@ def test_book_today_follows_the_company_timezone(db, books, frozen_clock):
         assert book_today(db) == TEHRAN_DAY
         _set_locale(db, books, "uk")                # 21:15 GMT: still the 21st in London
         assert book_today(db) == UTC_DAY
-        _set_locale(db, books, "default")           # no country → the server's own date, as before
-        assert book_today(db) == UTC_DAY
+        _set_locale(db, books, "default", "OMR")    # an Omani book: 01:15 in Muscat
+        assert book_today(db) == TEHRAN_DAY
+        _set_locale(db, books, "default", "AED")    # an Emirati book: 01:15 in Dubai
+        assert book_today(db) == TEHRAN_DAY
+        _set_locale(db, books, "default", "USD")    # no country → the server's own date, as before
+        assert book_today(db) == INSTANT.astimezone().date()
 
 
-def test_no_day_said_after_midnight_in_tehran_takes_the_local_day(db, books, frozen_clock):
-    _set_locale(db, books, "ir")
+@pytest.mark.parametrize("locale,currency", [("ir", None), ("default", "OMR")])
+def test_no_day_said_after_midnight_takes_the_local_day(db, books, frozen_clock, locale, currency):
+    _set_locale(db, books, locale, currency)   # 00:45 in Tehran, 01:15 in Muscat
     card = _propose(db, books, "۲ ریال نان خریدم", UTC_DAY)
     assert card["preview"]["date"] == TEHRAN_DAY.isoformat()
 
@@ -112,3 +94,61 @@ def test_future_guard_uses_the_local_day(db, books, frozen_clock):
     tomorrow = TEHRAN_DAY + _dt.timedelta(days=1)
     card = _propose(db, books, f"{tomorrow.isoformat()} ۲ ریال نان خریدم", tomorrow)
     assert card["preview"]["date"] == tomorrow.isoformat()
+
+
+def test_the_model_is_told_the_local_today(db, books, frozen_clock):
+    from app.db.tenant import use_company
+    from app.services.ai_accountant.orchestrator import run_chat_turn
+    from tests.test_ai_guardrails import _FakeClient, _text
+
+    class _Seeing(_FakeClient):
+        prompts: list[str] = []
+
+        async def chat(self, *, system_prompt, **kw):
+            self.prompts.append(system_prompt)
+            return await super().chat(system_prompt=system_prompt, **kw)
+
+    _set_locale(db, books, "ir")
+    model = _Seeing([_text("بفرمایید.")])
+    with use_company(books.company_id):
+        asyncio.run(run_chat_turn(db, user_id=books.user_id, user_message="یه سوال دارم", lang="fa",
+                                  client=model, mode="personal"))
+    assert "Today: 2026-11-22 (Jalali 1405/09/01" in model.prompts[-1], model.prompts[-1][-400:]
+
+
+def _invoice(db, books):
+    from app.db.tenant import use_company
+    from app.models.entity import Entity
+    from app.services.ai_accountant.base import ToolContext
+    from app.services.ai_accountant.invoice_tools import ProposeCreateInvoice, ProposeCreateInvoiceInput
+    with use_company(books.company_id):
+        db.add(Entity(name="Acme Trading", type="client"))
+        db.commit()
+        args = ProposeCreateInvoiceInput(party="Acme Trading", currency="OMR",
+                                         lines=[{"description": "Consulting", "unit_price": "10.000"}])
+        return asyncio.run(ProposeCreateInvoice().run(
+            ToolContext(db=db, user_id=books.user_id, user_message="invoice Acme 10 rials", mode="default"), args))
+
+
+@pytest.mark.parametrize("locale,currency", [("ir", None), ("default", "OMR")])
+def test_invoice_issue_date_and_number_take_the_local_day(db, books, frozen_clock, locale, currency):
+    _set_locale(db, books, locale, currency)
+    card = _invoice(db, books)
+    assert card["preview"]["issue_date"] == TEHRAN_DAY.isoformat(), card["preview"]
+    assert card["preview"]["number"].startswith("INV-20261122-"), card["preview"]
+
+
+@pytest.mark.parametrize("locale,currency", [("ir", None), ("default", "OMR")])
+def test_currency_exchange_takes_the_local_day(db, books, frozen_clock, locale, currency):
+    from app.db.tenant import use_company
+    from app.services.ai_accountant.base import ToolContext
+    from app.services.ai_accountant.money_places import ProposeCurrencyExchange, ProposeCurrencyExchangeInput
+    from app.services.ai_eval.fixture import PRETTY_WALLET, WALL_E
+    _set_locale(db, books, locale, currency)
+    args = ProposeCurrencyExchangeInput(from_place=WALL_E, from_currency="USD", from_amount="100",
+                                        to_currency="OMR", to_amount="38.500", to_place=PRETTY_WALLET)
+    with use_company(books.company_id):
+        card = asyncio.run(ProposeCurrencyExchange().run(
+            ToolContext(db=db, user_id=books.user_id, user_message="۱۰۰ دلار چنج کردم شد ۳۸.۵ ریال عمان",
+                        mode="personal"), args))
+    assert card["preview"]["date"] == TEHRAN_DAY.isoformat(), card["preview"]

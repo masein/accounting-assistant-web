@@ -224,7 +224,7 @@ def resolve_entry_date(
     message: str | None,
     model_date: date,
     *,
-    today: date | None = None,
+    today: date,
     has_attachment: bool = False,
     scheduled: bool = False,
     earlier: list[str] | tuple[str, ...] = (),
@@ -243,7 +243,6 @@ def resolve_entry_date(
     names no day («proceed», «رقم همینه») keeps a day said there (BO3).
     ``replaced_date`` is the date of the card this one corrects (BO4).
     """
-    today = today or date.today()
     if has_attachment:
         return model_date
 

@@ -20,13 +20,14 @@ from app.core.money import Money, plain, grouped
 
 from .base import BaseTool, ToolContext, ToolError
 from .time_tools import _register
+from app.services.locale_service import book_today
 
 MONTH = r"^\d{4}-\d{2}$"
 
 
 def _this_month(ctx: ToolContext) -> str:
     from app.services.calendar_periods import company_calendar, month_key
-    return month_key(_date.today(), company_calendar(ctx.db))
+    return month_key(book_today(ctx.db), company_calendar(ctx.db))
 
 
 def _check_month(key: str) -> tuple[_date, _date]:

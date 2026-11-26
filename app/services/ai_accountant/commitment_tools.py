@@ -19,6 +19,7 @@ from app.models.commitment import OPEN_STATUSES, Commitment
 
 from .base import BaseTool, ToolContext, ToolError, Replaceable
 from .time_tools import _register
+from app.services.locale_service import book_today
 
 
 def _row(c: Commitment, today: _date) -> dict[str, Any]:
@@ -71,7 +72,7 @@ class ListCommitments(BaseTool):
     InputSchema = ListCommitmentsInput
 
     async def run(self, ctx: ToolContext, args: ListCommitmentsInput) -> dict[str, Any]:
-        today = _date.today()
+        today = book_today(ctx.db)
         q = select(Commitment)
         if args.kind:
             q = q.where(Commitment.kind == args.kind.strip().lower())
@@ -109,7 +110,7 @@ class ProposeSettleCommitment(BaseTool):
             raise ToolError(f"{c.title} was already settled on {c.settled_on}", code="already_settled")
         if c.status in ("returned", "endorsed", "cancelled"):
             raise ToolError(f"{c.title} is {c.status}; it cannot clear.", code="not_open")
-        when = args.date or _date.today()
+        when = args.date or book_today(ctx.db)
         payload = {"commitment_id": str(c.id), "title": c.title, "amount": plain(c.amount or 0), "date": when.isoformat(),
                    "direction": c.direction, "kind": c.kind}
         token = _register(ctx, self.name, payload)
@@ -224,7 +225,7 @@ class ProposeChequeStep(BaseTool):
         allowed = {"deposit": ("pending", "bounced"), "return": ("pending", "bounced"), "endorse": ("pending",)}[action]
         if c.status not in allowed or (action in ("deposit", "endorse") and c.direction != "receive"):
             raise ToolError(f"'{c.title}' ({c.direction}, {c.status}) cannot be {action}ed.", code="bad_step")
-        when = args.date or _date.today()
+        when = args.date or book_today(ctx.db)
         payload = {"commitment_id": str(c.id), "title": c.title, "amount": plain(c.amount or 0), "action": action,
                    "date": when.isoformat(), "to": args.to, "account_code": args.account_code}
         if action == "endorse":

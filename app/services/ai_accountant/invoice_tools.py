@@ -20,6 +20,7 @@ from app.models.invoice import Invoice
 
 from .base import BaseTool, ToolContext, ToolError, Replaceable
 from .time_tools import _find_entity, _register
+from app.services.locale_service import book_today
 from app.core.money import Money, plain, round_amount, to_decimal, grouped
 
 
@@ -166,7 +167,7 @@ class ProposeRecordInvoicePayment(BaseTool):
         if inv.status in ("voided", "canceled", "draft"):
             raise ToolError(f"Invoice {inv.number} is {inv.status}; it cannot take a payment.", code="invoice_not_payable")
         _paid, _cred, balance, _over = _totals(ctx, inv)
-        when = args.date or _date.today()
+        when = args.date or book_today(ctx.db)
         excess = max(0, args.amount - balance)
         payload = {"invoice_id": str(inv.id), "invoice_number": inv.number, "amount": args.amount,
                    "date": when.isoformat(), "method": args.method, "bank_account_code": args.bank_account_code,
@@ -249,7 +250,7 @@ class ProposeCreateInvoice(BaseTool):
             raise ToolError(f"No {'customer' if kind == 'sales' else 'supplier'} named {args.party!r} — create the party first.", code="entity_not_found")
         from datetime import timedelta
         from app.services.fx_service import get_reporting_currency
-        issue = args.issue_date or _date.today()
+        issue = args.issue_date or book_today(ctx.db)
         due = args.due_date or issue + timedelta(days=30)
         currency = (args.currency or get_reporting_currency(ctx.db) or "IRR").upper()
         number = (args.number or f"{'INV' if kind == 'sales' else 'BILL'}-{issue.strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}").strip()

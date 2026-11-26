@@ -539,6 +539,7 @@ async def ocr_import_invoice(
     db: Session = Depends(get_db),
 ) -> InvoiceOCRResult:
     k = _validate_kind(kind)
+    _assert_entity(db, entity_id)
     content_type = (file.content_type or "").strip().lower()
     if content_type not in ALLOWED_IMPORT_TYPES:
         raise HTTPException(status_code=400, detail="Unsupported file type. Use JPG, PNG, WEBP, or PDF.")
@@ -677,6 +678,15 @@ def _assert_number_free(db: Session, number: str, kind: str, *, exclude_id=None)
         raise HTTPException(status_code=409, detail=f"{kind.capitalize()} invoice number '{number}' already exists (id {twin.id}).")
 
 
+def _assert_entity(db: Session, entity_id) -> None:
+    """The party must be one of the caller's company's entities: ``db.get`` is
+    tenant-scoped, so another company's id (or an unknown one) comes back None.
+    Without this an invoice — and its ledger entry — stored a cross-company
+    reference (#14)."""
+    if entity_id is not None and db.get(Entity, entity_id) is None:
+        raise HTTPException(status_code=422, detail="Entity not found.")
+
+
 def insert_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
     """Validate, insert and (when issued) recognise an invoice — flushed but
     NOT committed, so a caller can create an invoice as part of a larger unit
@@ -686,6 +696,7 @@ def insert_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
     if not number:
         raise HTTPException(status_code=422, detail="Invoice number is empty.")
     _assert_number_free(db, number, kind)
+    _assert_entity(db, payload.entity_id)
     row = Invoice(
         number=number,
         kind=kind,
@@ -828,6 +839,7 @@ def update_invoice(invoice_id: UUID, payload: InvoiceUpdate, db: Session = Depen
     if payload.description is not None:
         row.description = payload.description.strip() or None
     if payload.entity_id is not None:
+        _assert_entity(db, payload.entity_id)
         row.entity_id = payload.entity_id
     if payload.scheduled_payment_date is not None:
         row.scheduled_payment_date = payload.scheduled_payment_date

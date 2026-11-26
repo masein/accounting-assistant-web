@@ -18,6 +18,7 @@ from sqlalchemy import select
 
 from .base import BaseTool, ToolContext, ToolError
 from .time_tools import _register
+from app.services.locale_service import book_today
 
 
 class EntryDate(BaseModel):
@@ -57,7 +58,7 @@ class ProposeChangeDate(BaseTool):
         from app.models.transaction import Transaction
         from app.services.calendar_periods import company_calendar
         from app.services.ledger_posting import assert_transaction_mutable
-        today = _date.today()
+        today = book_today(ctx.db)
         persian = _persian(ctx.user_message or "")
         jalali = company_calendar(ctx.db) == "jalali"
         rows, seen = [], set()

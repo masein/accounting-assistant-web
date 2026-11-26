@@ -168,7 +168,10 @@ class ProposeLogTime(BaseTool):
     async def run(self, ctx: ToolContext, args: ProposeLogTimeInput) -> dict[str, Any]:
         from app.services import time_billing_service as tbs
 
-        work_date = resolve_entry_date(ctx.user_message, args.date or _date.today(), has_attachment=False, scheduled=False)
+        from app.services.locale_service import book_today
+        today = book_today(ctx.db)  # the book's local day (#13)
+        work_date = resolve_entry_date(ctx.user_message, args.date or today, today=today,
+                                       has_attachment=False, scheduled=False)
         worker = _find_entity(ctx, args.employee, ("employee", "supplier"))
         client = _find_entity(ctx, args.client, ("client",))
         project = _find_project(ctx, client.id if client else None, args.project) if (client and args.project) else None

@@ -29,6 +29,7 @@ from app.core.money import Money, grouped, plain
 
 from .base import BaseTool, ToolContext, ToolError
 from .time_tools import _register
+from app.services.locale_service import book_today
 
 CASH, BANK, OPENING = "1120", "1110", "3110"
 
@@ -111,7 +112,7 @@ class ProposeMoneyPlace(BaseTool):
                 "needs a source: then ask where it came from (income, a transfer from another place…).",
                 code="already_started")
         code = existing.code if existing is not None else suggest_code(ctx.db, parent)
-        on = args.date or _date.today()
+        on = args.date or book_today(ctx.db)
         description = f"{args.place.strip()} — موجودی اولیه" if _persian(args.place) else f"{args.place.strip()} — starting balance"
         payload = {"place": args.place.strip(), "kind": args.kind, "parent_code": parent_code, "account_code": code,
                    "new_account": existing is None, "currency": ccy, "amount": plain(args.amount), "date": on.isoformat(),
@@ -254,7 +255,7 @@ class ProposeEmptyPlace(BaseTool):
                 persian = _persian((ctx.user_message or "") + src.name)
                 payload = {"place": src.name, "account_code": src.code, "close": True, "lines": [],
                            "description": f"{src.name} بسته شد" if persian else f"{src.name} closed",
-                           "date": (args.date or _date.today()).isoformat()}
+                           "date": (args.date or book_today(ctx.db)).isoformat()}
                 token = _register(ctx, self.name, payload)
                 return {"confirmation_token": str(token), "status": "pending", "preview": payload,
                         "summary": f"Close {src.code} {src.name}: it holds nothing; it is no longer listed."}
@@ -300,7 +301,7 @@ class ProposeEmptyPlace(BaseTool):
         sep = "، " if persian else ", "
         description = args.description or (f"{src.name} خالی شد: " if persian else f"{src.name} emptied: ") + sep.join(parts)
         payload = {"place": src.name, "account_code": src.code, "currency": ccy, "balance": plain(balance),
-                   "rest": rest, "amount": plain(balance), "date": (args.date or _date.today()).isoformat(),
+                   "rest": rest, "amount": plain(balance), "date": (args.date or book_today(ctx.db)).isoformat(),
                    "description": description[:255], "lines": lines, **({"close": True} if args.close else {})}
         token = _register(ctx, self.name, payload)
         return {"confirmation_token": str(token), "status": "pending", "preview": payload,
@@ -395,7 +396,7 @@ class ProposeCountedPlace(BaseTool):
         description = (args.description or default)[:255]
         payload = {"place": src.name, "account_code": src.code, "currency": ccy, "balance": balance,
                    "counted": counted, "difference": diff, "gap_code": gap.code, "gap_name": gap.name,
-                   "amount": amount, "date": (args.date or _date.today()).isoformat(), "description": description,
+                   "amount": amount, "date": (args.date or book_today(ctx.db)).isoformat(), "description": description,
                    "lines": lines}
         token = _register(ctx, self.name, payload)
         return {"confirmation_token": str(token), "status": "pending", "preview": payload,
@@ -477,7 +478,7 @@ class ProposeCurrencyExchange(BaseTool):
         where = source.name if target.id == source.id else f"{source.name} → {target.name}"
         description = (f"تبدیل {gave} به {got} — {where}" if persian else f"Changed {gave} into {got} — {where}")
         rate = plain(args.to_amount) / plain(args.from_amount)
-        on = args.date or _date.today()
+        on = args.date or book_today(ctx.db)
         payload = {"from_code": source.code, "from_name": source.name, "from_currency": give,
                    "from_amount": plain(args.from_amount), "to_code": target.code, "to_name": target.name,
                    "to_currency": get, "to_amount": plain(args.to_amount), "rate": f"{rate:.6g}",

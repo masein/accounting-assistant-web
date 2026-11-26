@@ -1760,9 +1760,9 @@ async def run_chat_turn(
     # company displays the Jalali calendar.
     from datetime import date as _date
 
-    from app.services.locale_service import get_display_calendar
+    from app.services.locale_service import book_today, get_display_calendar
 
-    today = _date.today()
+    today = book_today(db)  # the book's local day, not the server's UTC one (#13)
     today_str = today.isoformat()
     jalali_books = False
     try:

@@ -43,6 +43,8 @@ from app.models.ai_accountant import AIProposal
 from app.models.entity import Entity
 
 from .base import BaseTool, ToolContext, ToolError, Replaceable
+from app.services.locale_service import book_today
+
 from .date_resolver import resolve_entry_date
 from .entity_create import (
     EntityCreateError,
@@ -1016,6 +1018,7 @@ class ProposeCreateTransaction(BaseTool):
         from app.models.entity import Entity as _Entity
         banks = tuple(n for (n,) in ctx.db.execute(select(_Entity.name).where(_Entity.type == "bank")).all())
         scheduled = _mentions_scheduled(ctx.user_message, banks)
+        today = book_today(ctx.db)  # the book's local day, not the server's UTC one (#13)
         statement_row = None
         if args.bank_statement_row_id:
             # Posting a bank-statement row: the bank's date is the truth — not
@@ -1054,7 +1057,7 @@ class ProposeCreateTransaction(BaseTool):
             _anchor_bank_leg(ctx.db, statement_row, args.lines)
         else:
             args.date = resolve_entry_date(
-                ctx.user_message, args.date,
+                ctx.user_message, args.date, today=today,
                 has_attachment=bool(getattr(ctx, "attachment_ids", None)),
                 scheduled=scheduled,
                 earlier=_earlier_user_messages(ctx),
@@ -1065,7 +1068,7 @@ class ProposeCreateTransaction(BaseTool):
         # model judged "future" against its training-era clock and wrongly
         # refused valid past dates). A past/today date always records; reject
         # only a date >1 day ahead that the user didn't say is scheduled.
-        if args.date > _date.today() + timedelta(days=1) and not scheduled:
+        if args.date > today + timedelta(days=1) and not scheduled:
             raise ToolError(
                 f"{args.date.isoformat()} is in the future. I can only record past or "
                 f"present dates unless you say it's scheduled (e.g. 'schedule it for …').",
@@ -1714,7 +1717,7 @@ class ProposeReverseTransaction(BaseTool):
             })
 
         payload = {
-            "date": _date.today().isoformat(),
+            "date": book_today(ctx.db).isoformat(),
             "reference": rev_ref,
             "description": f"Reversal of {txn.reference or str(txn.id)[:8]} — {(txn.description or '')}"[:2000],
             "currency": txn.currency or "IRR",

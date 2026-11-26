@@ -8,6 +8,9 @@ Stored in AppSetting under the `reporting_locale` key.
 """
 from __future__ import annotations
 
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,6 +19,11 @@ from app.models.app_setting import AppSetting
 REPORTING_LOCALE_KEY = "reporting_locale"
 DEFAULT_LOCALE = "default"
 SUPPORTED_LOCALES = frozenset({"default", "ir", "uk"})
+
+# The book's own clock: "today" for an entry is the day where the company is, not the server's (UTC)
+# day — an Iranian entry said at 00:45 Tehran time otherwise lands on the previous day, Jalali month or
+# VAT season (#13). A locale with no country ("default") keeps the server's date.
+LOCALE_TIMEZONES = {"ir": "Asia/Tehran", "uk": "Europe/London"}
 
 DISPLAY_CALENDAR_KEY = "display_calendar"
 SUPPORTED_CALENDARS = frozenset({"gregorian", "jalali"})
@@ -71,6 +79,12 @@ def get_reporting_locale(db: Session) -> str:
     if row and (row.value or "").strip() in SUPPORTED_LOCALES:
         return row.value.strip()
     return DEFAULT_LOCALE
+
+
+def book_today(db: Session) -> date:
+    """Today's date in the company's own timezone (from its locale)."""
+    tz = LOCALE_TIMEZONES.get(get_reporting_locale(db))
+    return datetime.now(ZoneInfo(tz)).date() if tz else date.today()
 
 
 def set_reporting_locale(db: Session, locale: str) -> str:

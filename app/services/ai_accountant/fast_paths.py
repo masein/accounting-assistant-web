@@ -99,6 +99,26 @@ _INTENTS: list[tuple[str, re.Pattern]] = [
         re.IGNORECASE)),
 ]
 
+# The spending answer is this month's and nothing else, so it is given only when nothing is left of the question
+# but the spending words, "this month" and filler: «ماه گذشته چقدر خرج کردم؟» was told «خرج این ماه تا امروز: ۰ ریال»
+# with 7,000,000 spent in Aban (issue #20). Any other word may name a period («ماه قبلی», «تابستون», «تا حالا»,
+# "recently", "in total") and goes to the model, whose spending tool takes the period. "So far" only with this month.
+_THIS_MONTH = re.compile(r"\b((in|for|during) )?this month\b|((در|توی|تو) )?این[‌ ]?ماه|\beste mes\b|هذا الشهر",
+                         re.IGNORECASE)
+_SO_FAR = re.compile(r"\bso far\b|\bup to now\b|تا (الان|حالا|به حال)|\bhasta ahora\b|حتى الآن", re.IGNORECASE)
+_SPENDING_WORDS = frozenset((
+    "how much did have i we spend spent what spending "
+    "چقدر چقدره خرج خرجِ کردم کردیم هزینه هزینه‌ها هزینه‌های ها های من ما "
+    "cuánto cuanto gastamos gasté gaste hemos gastado gastos de "
+    "كم أنفقنا أنفقت صرفنا صرفت مصاريف").split())
+
+
+def _this_months_spending(text: str) -> bool:
+    rest, named = _THIS_MONTH.subn(" ", text)
+    if named:
+        rest = _SO_FAR.sub(" ", rest)
+    return all(w in _SPENDING_WORDS for w in re.split(r"[\s?؟!.,،;:¿¡]+", rest.lower()) if w)
+
 
 # The forecast is about the future by nature, so it is matched before the
 # future words send a question to the model; a what-if stays with the model.
@@ -124,6 +144,8 @@ def match(message: str) -> str | None:
         if name == "categories" and _SPENT.search(_FOR_SPENDING.sub(" ", text)):
             continue                                  # what was spent in them is the model's (or spending's)
         if pattern.search(text):
+            if name == "spending" and not _this_months_spending(text):
+                return None                           # maybe another period than this month: the model's
             return name
     return None
 

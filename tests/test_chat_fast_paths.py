@@ -174,3 +174,68 @@ def test_n32_a_gregorian_company_dates_in_the_readers_language():
     assert display_date("2026-10-05", "gregorian", "es") == "5 oct 2026"
     assert display_date("2026-10-05", "gregorian", "en") == "5 Oct 2026"
     assert display_date("2026-10-10", "jalali", "fa") == "۱۸ مهر ۱۴۰۵"
+
+
+# Issue #20: the spending fast path only knows this month, so a question naming another period went
+# unanswered as «خرج این ماه تا امروز: ۰ ریال» (Aban 1405 had 7,000,000). Another period is the model's.
+@pytest.mark.parametrize("message", [
+    "ماه گذشته چقدر خرج کردم؟",
+    "ماه قبل چقدر خرج کردم؟",
+    "ماه پیش چقدر خرج کردیم؟",
+    "آبان چقدر خرج کردم؟",
+    "آبان‌ماه چقدر خرج کردم؟",
+    "مهر چقدر خرج کردیم؟",
+    "دی چقدر خرج کردم؟",
+    "سه ماه اخیر چقدر خرج کردم؟",
+    "این فصل چقدر خرج کردم؟",
+    "امسال چقدر خرج کردم؟",
+    "پارسال چقدر خرج کردم؟",
+    "این هفته چقدر خرج کردم؟",
+    "دیروز چقدر خرج کردم؟",
+    "امروز چقدر خرج کردم؟",
+    "how much did I spend last month?",
+    "how much did we spend in October?",
+    "how much did I spend this year?",
+    "how much did I spend this quarter?",
+    "what did we spend over the past three months?",
+    "how much did I spend yesterday?",
+    "ماه قبلی چقدر خرج کردم؟",
+    "ماه پیشین چقدر خرج کردم؟",
+    "اخیراً چقدر خرج کردم؟",
+    "تابستون چقدر خرج کردم؟",
+    "تابستان چقدر خرج کردیم؟",
+    "بهار چقدر خرج کردم؟",
+    "پاییز چقدر خرج کردم؟",
+    "زمستون چقدر خرج کردم؟",
+    "تا حالا چقدر خرج کردم؟",
+    "کلا چقدر خرج کردم؟",
+    "از اول چقدر خرج کردم؟",
+    "در مجموع چقدر خرج کردم؟",
+    "how much did I spend the month before?",
+    "how much did I spend recently?",
+    "how much have I spent lately?",
+    "how much did we spend in the summer?",
+    "how much did I spend over the weekend?",
+    "how much did we spend in the first half?",
+    "how much have I spent in total?",
+    "how much have we spent overall?",
+    "how much have I spent so far?",
+])
+def test_issue20_spending_in_another_period_goes_to_the_model(message):
+    assert match(message) is None
+
+
+@pytest.mark.parametrize("message", [
+    "چقدر خرج کردم؟",
+    "این ماه چقدر خرج کردم؟",
+    "خرج این ماه چقدره؟",
+    "how much did I spend?",
+    "how much did we spend this month?",
+    "how much have I spent so far this month?",
+    "what did we spend this month?",
+    "این ماه تا الان چقدر خرج کردم؟",
+    "خرجِ این ماه چقدره؟",
+    "هزینه‌های این ماه چقدره؟",
+])
+def test_issue20_this_month_spending_still_answered_from_the_books(message):
+    assert match(message) == "spending"

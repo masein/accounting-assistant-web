@@ -99,21 +99,25 @@ _INTENTS: list[tuple[str, re.Pattern]] = [
         re.IGNORECASE)),
 ]
 
-# The spending answer is this month's and nothing else, so a question naming another period goes to the model,
-# whose spending tool takes any period: «ماه گذشته چقدر خرج کردم؟» was told «خرج این ماه تا امروز: ۰ ریال»
-# with 7,000,000 spent in Aban (issue #20). Month names too: «آبان», "October" are not this month by default.
-_OTHER_PERIOD = re.compile(
-    r"\b(گذشته|قبل|پیش|اخیر|پارسال|امسال|سال|هفته|فصل|دیروز|امروز|(یک|دو|سه|چهار|شش|چند) ?ماه"
-    r"|(فروردین|اردیبهشت|خرداد|تیر|مرداد|شهریور|مهر|آبان|آذر|دی|بهمن|اسفند)(‌?ماه)?"
-    r"|ژانویه|فوریه|مارس|آوریل|مه|ژوئن|ژوئیه|اوت|سپتامبر|اکتبر|نوامبر|دسامبر)\b"
-    r"|\b(last|previous|past|prior|ago|yesterday|today|weeks?|years?|months|quarter|season|since"
-    r"|january|february|march|april|may|june|july|august|september|october|november|december"
-    r"|jan|feb|mar|apr|jun|jul|aug|sept?|oct|nov|dec)\b"
-    r"|\b(pasado|anterior|semana|año|trimestre|ayer|hoy|enero|febrero|marzo|abril|mayo|junio|julio|agosto"
-    r"|septiembre|octubre|noviembre|diciembre)\b"
-    r"|الماضي|السابق|الأسبوع|السنة|العام|الربع|أمس|اليوم|يناير|فبراير|مارس|أبريل|مايو|يونيو|يوليو|أغسطس"
-    r"|سبتمبر|أكتوبر|نوفمبر|ديسمبر",
-    re.IGNORECASE)
+# The spending answer is this month's and nothing else, so it is given only when nothing is left of the question
+# but the spending words, "this month" and filler: «ماه گذشته چقدر خرج کردم؟» was told «خرج این ماه تا امروز: ۰ ریال»
+# with 7,000,000 spent in Aban (issue #20). Any other word may name a period («ماه قبلی», «تابستون», «تا حالا»,
+# "recently", "in total") and goes to the model, whose spending tool takes the period. "So far" only with this month.
+_THIS_MONTH = re.compile(r"\b((in|for|during) )?this month\b|((در|توی|تو) )?این[‌ ]?ماه|\beste mes\b|هذا الشهر",
+                         re.IGNORECASE)
+_SO_FAR = re.compile(r"\bso far\b|\bup to now\b|تا (الان|حالا|به حال)|\bhasta ahora\b|حتى الآن", re.IGNORECASE)
+_SPENDING_WORDS = frozenset((
+    "how much did have i we spend spent what spending "
+    "چقدر چقدره خرج خرجِ کردم کردیم هزینه هزینه‌ها هزینه‌های ها های من ما "
+    "cuánto cuanto gastamos gasté gaste hemos gastado gastos de "
+    "كم أنفقنا أنفقت صرفنا صرفت مصاريف").split())
+
+
+def _this_months_spending(text: str) -> bool:
+    rest, named = _THIS_MONTH.subn(" ", text)
+    if named:
+        rest = _SO_FAR.sub(" ", rest)
+    return all(w in _SPENDING_WORDS for w in re.split(r"[\s?؟!.,،;:¿¡]+", rest.lower()) if w)
 
 
 # The forecast is about the future by nature, so it is matched before the
@@ -140,8 +144,8 @@ def match(message: str) -> str | None:
         if name == "categories" and _SPENT.search(_FOR_SPENDING.sub(" ", text)):
             continue                                  # what was spent in them is the model's (or spending's)
         if pattern.search(text):
-            if name == "spending" and _OTHER_PERIOD.search(text):
-                return None                           # another period than this month: the model's
+            if name == "spending" and not _this_months_spending(text):
+                return None                           # maybe another period than this month: the model's
             return name
     return None
 

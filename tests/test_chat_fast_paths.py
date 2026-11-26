@@ -199,6 +199,27 @@ def test_n32_a_gregorian_company_dates_in_the_readers_language():
     "how much did I spend this quarter?",
     "what did we spend over the past three months?",
     "how much did I spend yesterday?",
+    "ماه قبلی چقدر خرج کردم؟",
+    "ماه پیشین چقدر خرج کردم؟",
+    "اخیراً چقدر خرج کردم؟",
+    "تابستون چقدر خرج کردم؟",
+    "تابستان چقدر خرج کردیم؟",
+    "بهار چقدر خرج کردم؟",
+    "پاییز چقدر خرج کردم؟",
+    "زمستون چقدر خرج کردم؟",
+    "تا حالا چقدر خرج کردم؟",
+    "کلا چقدر خرج کردم؟",
+    "از اول چقدر خرج کردم؟",
+    "در مجموع چقدر خرج کردم؟",
+    "how much did I spend the month before?",
+    "how much did I spend recently?",
+    "how much have I spent lately?",
+    "how much did we spend in the summer?",
+    "how much did I spend over the weekend?",
+    "how much did we spend in the first half?",
+    "how much have I spent in total?",
+    "how much have we spent overall?",
+    "how much have I spent so far?",
 ])
 def test_issue20_spending_in_another_period_goes_to_the_model(message):
     assert match(message) is None
@@ -210,6 +231,11 @@ def test_issue20_spending_in_another_period_goes_to_the_model(message):
     "خرج این ماه چقدره؟",
     "how much did I spend?",
     "how much did we spend this month?",
+    "how much have I spent so far this month?",
+    "what did we spend this month?",
+    "این ماه تا الان چقدر خرج کردم؟",
+    "خرجِ این ماه چقدره؟",
+    "هزینه‌های این ماه چقدره؟",
 ])
 def test_issue20_this_month_spending_still_answered_from_the_books(message):
     assert match(message) == "spending"

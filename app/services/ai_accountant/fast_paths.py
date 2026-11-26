@@ -99,6 +99,22 @@ _INTENTS: list[tuple[str, re.Pattern]] = [
         re.IGNORECASE)),
 ]
 
+# The spending answer is this month's and nothing else, so a question naming another period goes to the model,
+# whose spending tool takes any period: «ماه گذشته چقدر خرج کردم؟» was told «خرج این ماه تا امروز: ۰ ریال»
+# with 7,000,000 spent in Aban (issue #20). Month names too: «آبان», "October" are not this month by default.
+_OTHER_PERIOD = re.compile(
+    r"\b(گذشته|قبل|پیش|اخیر|پارسال|امسال|سال|هفته|فصل|دیروز|امروز|(یک|دو|سه|چهار|شش|چند) ?ماه"
+    r"|(فروردین|اردیبهشت|خرداد|تیر|مرداد|شهریور|مهر|آبان|آذر|دی|بهمن|اسفند)(‌?ماه)?"
+    r"|ژانویه|فوریه|مارس|آوریل|مه|ژوئن|ژوئیه|اوت|سپتامبر|اکتبر|نوامبر|دسامبر)\b"
+    r"|\b(last|previous|past|prior|ago|yesterday|today|weeks?|years?|months|quarter|season|since"
+    r"|january|february|march|april|may|june|july|august|september|october|november|december"
+    r"|jan|feb|mar|apr|jun|jul|aug|sept?|oct|nov|dec)\b"
+    r"|\b(pasado|anterior|semana|año|trimestre|ayer|hoy|enero|febrero|marzo|abril|mayo|junio|julio|agosto"
+    r"|septiembre|octubre|noviembre|diciembre)\b"
+    r"|الماضي|السابق|الأسبوع|السنة|العام|الربع|أمس|اليوم|يناير|فبراير|مارس|أبريل|مايو|يونيو|يوليو|أغسطس"
+    r"|سبتمبر|أكتوبر|نوفمبر|ديسمبر",
+    re.IGNORECASE)
+
 
 # The forecast is about the future by nature, so it is matched before the
 # future words send a question to the model; a what-if stays with the model.
@@ -124,6 +140,8 @@ def match(message: str) -> str | None:
         if name == "categories" and _SPENT.search(_FOR_SPENDING.sub(" ", text)):
             continue                                  # what was spent in them is the model's (or spending's)
         if pattern.search(text):
+            if name == "spending" and _OTHER_PERIOD.search(text):
+                return None                           # another period than this month: the model's
             return name
     return None
 

@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.credit_note import CreditNote
 from app.models.invoice import Invoice
+from app.services.credit_note_vat import posted_vats
 from app.services.tax_ir import _share
 from app.services.tax_service import _line_tax, _notional_tax, half_even_vat
 from app.services.uk_mtd.periods import VatPeriod
@@ -74,12 +75,15 @@ def vat_return(db: Session, period: VatPeriod, *, currency: str) -> dict[str, An
             box7 += s["base"]
     notes = db.execute(select(CreditNote).where(CreditNote.date >= period.start, CreditNote.date <= period.end,
                                                 CreditNote.note_type == "reduction")).scalars().all()
+    posted = posted_vats(db, notes)      # the VAT each note's entry reversed (issue #39)
     for cn in notes:
         if (cn.currency or currency).upper() != currency:
             continue
         inv = db.get(Invoice, cn.invoice_id) if cn.invoice_id else None
         vat = 0
-        if inv is not None:
+        if inv is not None and cn.id in posted:
+            vat = posted[cn.id]
+        elif inv is not None:
             s = _split(inv)
             vat = _share(s["vat"], s["base"] + s["vat"], plain(cn.amount or 0), exponent(currency))
         side = inv.kind if inv is not None else ("purchase" if cn.kind == "purchase" else "sales")

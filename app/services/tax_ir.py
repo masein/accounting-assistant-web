@@ -183,6 +183,38 @@ def _season_returns(db: Session, s: Season) -> list[CreditNote]:
     ).scalars().all()
 
 
+def _return_vats(db: Session, notes: list[CreditNote]) -> dict[Any, int]:
+    """The VAT inside each reduction note against an invoice: what the note's
+    journal entry posted (fixed once, when it posted — issue #39), so the
+    return matches the ledger. A note recorded without an entry carries the
+    invoice's VAT share of everything credited up to and including it, less
+    its share of what was credited before it (earlier seasons too)."""
+    from app.services.credit_note_vat import posted_vats
+    posted = posted_vats(db, notes)
+    if all(cn.id in posted for cn in notes):
+        return posted
+    ids = {cn.invoice_id for cn in notes if cn.invoice_id}
+    if not ids:
+        return {}
+    history = db.execute(
+        select(CreditNote).where(CreditNote.invoice_id.in_(ids), CreditNote.note_type == "reduction")
+        .order_by(CreditNote.date, CreditNote.created_at, CreditNote.id)
+    ).scalars().all()
+    vats: dict[Any, int] = {}
+    credited: dict[Any, int] = defaultdict(int)
+    for cn in history:
+        inv = db.get(Invoice, cn.invoice_id)
+        if inv is None:
+            continue
+        split = invoice_split(inv)
+        gross = split["base"] + split["vat"]
+        before = credited[inv.id]
+        credited[inv.id] = before + int(cn.amount or 0)
+        vats[cn.id] = _share(split["vat"], gross, credited[inv.id]) - _share(split["vat"], gross, before)
+    vats.update(posted)
+    return vats
+
+
 def _return_kind(cn: CreditNote, inv: Invoice | None) -> str:
     """A reduction note belongs to the side of its invoice; a standalone one
     to the side it was recorded on."""
@@ -259,6 +291,7 @@ def quarterly_report(db: Session, s: Season, *, include_moadian: bool = False) -
             g["vat"] += split["vat"]
         details.append(detail)
 
+    return_vats = _return_vats(db, returns)
     for cn in returns:
         inv = by_id.get(cn.invoice_id) if cn.invoice_id else None
         if inv is None and cn.invoice_id:
@@ -268,12 +301,7 @@ def quarterly_report(db: Session, s: Season, *, include_moadian: bool = False) -
         if inv is not None and inv.kind == "sales" and inv.moadian_status == "confirmed" and not include_moadian:
             continue  # the return of a مؤدیان invoice goes to مؤدیان as a return invoice
         # The VAT inside a return is the credited share of its invoice's VAT.
-        if inv is not None:
-            split = invoice_split(inv)
-            gross = split["base"] + split["vat"]
-            vat = _share(split["vat"], gross, int(cn.amount or 0))
-        else:
-            vat = 0
+        vat = return_vats.get(cn.id, 0) if inv is not None else 0
         g = group(_return_kind(cn, inv), cn.entity_id or (inv.entity_id if inv else None))
         g["returns_vat"] += vat
         g["returns_base"] += int(cn.amount or 0) - vat
@@ -327,14 +355,13 @@ def vat_return(db: Session, s: Season) -> dict[str, Any]:
         side["exempt_base"] += split["exempt_base"]
         side["vat"] += split["vat"]
         side["invoice_count"] += 1
-    for cn in _season_returns(db, s):
+    returns = _season_returns(db, s)
+    return_vats = _return_vats(db, returns)
+    for cn in returns:
         if (cn.currency or REPORT_CURRENCY).upper() != REPORT_CURRENCY:
             continue
         inv = db.get(Invoice, cn.invoice_id) if cn.invoice_id else None
-        vat = 0
-        if inv is not None:
-            split = invoice_split(inv)
-            vat = _share(split["vat"], split["base"] + split["vat"], int(cn.amount or 0))
+        vat = return_vats.get(cn.id, 0) if inv is not None else 0
         side = out["sales" if _return_kind(cn, inv) == "sales" else "purchases"]
         side["returns_vat"] += vat
         side["returns_base"] += int(cn.amount or 0) - vat

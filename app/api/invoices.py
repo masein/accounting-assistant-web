@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import DataError
 from sqlalchemy.orm import Session, object_session, selectinload
 
+from app.api.entity_guard import assert_entity as _assert_entity
 from app.core.http_headers import content_disposition
 from app.db.session import get_db
 from app.models.account import Account
@@ -676,15 +677,6 @@ def _assert_number_free(db: Session, number: str, kind: str, *, exclude_id=None)
     twin = db.execute(q).scalars().first()
     if twin is not None:
         raise HTTPException(status_code=409, detail=f"{kind.capitalize()} invoice number '{number}' already exists (id {twin.id}).")
-
-
-def _assert_entity(db: Session, entity_id) -> None:
-    """The party must be one of the caller's company's entities: ``db.get`` is
-    tenant-scoped, so another company's id (or an unknown one) comes back None.
-    Without this an invoice — and its ledger entry — stored a cross-company
-    reference (#14)."""
-    if entity_id is not None and db.get(Entity, entity_id) is None:
-        raise HTTPException(status_code=422, detail="Entity not found.")
 
 
 def insert_invoice(db: Session, payload: InvoiceCreate) -> Invoice:

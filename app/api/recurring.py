@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.entity_guard import assert_entity
 from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.recurring import RecurringRule
@@ -107,6 +108,7 @@ def _check_places(db: Session, amount) -> None:
 @router.post("", response_model=RecurringRuleRead, status_code=201)
 def create_rule(payload: RecurringRuleCreate, db: Session = Depends(get_db)) -> RecurringRuleRead:
     _check_places(db, payload.amount)
+    assert_entity(db, payload.entity_id)
     row = RecurringRule(
         name=payload.name.strip(),
         direction=payload.direction.strip().lower(),
@@ -172,6 +174,7 @@ def update_rule(rule_id: UUID, payload: RecurringRuleUpdate, db: Session = Depen
     if not row:
         raise HTTPException(status_code=404, detail="Recurring rule not found")
     _check_places(db, payload.amount)
+    assert_entity(db, payload.entity_id)
     for field in (
         "name", "direction", "frequency", "amount", "start_date", "next_run_date",
         "entity_id", "bank_name", "reference_prefix", "note", "status"

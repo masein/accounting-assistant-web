@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import DataError
 from sqlalchemy.orm import Session, object_session, selectinload
 
+from app.api.entity_guard import assert_entity as _assert_entity
 from app.core.http_headers import content_disposition
 from app.db.session import get_db
 from app.models.account import Account
@@ -678,15 +679,6 @@ def _assert_number_free(db: Session, number: str, kind: str, *, exclude_id=None)
         raise HTTPException(status_code=409, detail=f"{kind.capitalize()} invoice number '{number}' already exists (id {twin.id}).")
 
 
-def _assert_entity(db: Session, entity_id) -> None:
-    """The party must be one of the caller's company's entities: ``db.get`` is
-    tenant-scoped, so another company's id (or an unknown one) comes back None.
-    Without this an invoice — and its ledger entry — stored a cross-company
-    reference (#14)."""
-    if entity_id is not None and db.get(Entity, entity_id) is None:
-        raise HTTPException(status_code=422, detail="Entity not found.")
-
-
 def insert_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
     """Validate, insert and (when issued) recognise an invoice — flushed but
     NOT committed, so a caller can create an invoice as part of a larger unit
@@ -1010,6 +1002,23 @@ def _vat_share(inv: Invoice, gross):
     return quantize(to_decimal(tax_total) * to_decimal(gross) / to_decimal(grand_total), inv.currency)
 
 
+def _credited_vat(db: Session, inv: Invoice, credited, amount):
+    """The VAT inside a credit of ``amount`` on top of ``credited`` already:
+    the invoice's VAT share of everything credited so far, less what its
+    earlier notes reversed. Rounding never piles up, so notes that credit an
+    invoice in full reverse exactly its VAT (367 + 367 + 366 of 1,100 reverse
+    33 + 34 + 33 of 100, issue #39). Fixed here, once: the VAT returns read
+    it back from the note's entry (app/services/credit_note_vat)."""
+    from app.services.credit_note_vat import posted_vats
+    earlier = db.execute(select(CreditNote).where(
+        CreditNote.invoice_id == inv.id, CreditNote.note_type == "reduction")).scalars().all()
+    posted = posted_vats(db, earlier)
+    already = sum((to_decimal(posted[cn.id]) if cn.id in posted else to_decimal(_vat_share(inv, cn.amount or 0))
+                   for cn in earlier), Decimal(0))
+    vat = to_decimal(_vat_share(inv, credited + amount)) - already
+    return plain(min(max(vat, Decimal(0)), to_decimal(amount)))
+
+
 def _assert_rate_on(db: Session, currency: str | None, on: date) -> None:
     """Stock is kept in the base currency: goods back on a foreign bill need the day's rate."""
     from app.services.fx_base import base_currency, rate_to_base
@@ -1084,7 +1093,7 @@ def add_credit_note(invoice_id: UUID, payload: CreditNoteCreate, db: Session = D
         _assert_rate_on(db, inv.currency, on)
     to_balance = min(amount, balance_due)
     excess = amount - to_balance
-    vat = _vat_share(inv, amount)
+    vat = _credited_vat(db, inv, credited, amount)
     # Sales: DR sales returns (contra-revenue) + DR output VAT / CR trade
     # debtors (what was still owed) + CR customer credit (the rest).
     # Purchase: DR trade creditors + DR supplier advance / CR purchases + CR input VAT.

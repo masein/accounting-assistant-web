@@ -220,3 +220,31 @@ def test_every_invoice_page_reads_pence(uk):
         if r.status_code >= 500:
             failed[path] = r.status_code
     assert failed == {}, failed
+
+
+def test_a_sale_credited_in_parts_reverses_its_vat_to_the_penny(uk, db):
+    """Issue #39 (UK): 12.00 gross / 2.00 VAT credited 4 + 4 + 4 — each note
+    alone would reverse 0.67 (2.01 in all); posted cumulatively they reverse
+    0.67 + 0.66 + 0.67 = 2.00, and Boxes 1 and 6 read what posted."""
+    api, cid = uk
+    from app.db.tenant import use_company
+    from app.services.credit_note_vat import posted_vats
+    from app.models.credit_note import CreditNote
+    from app.services.uk_mtd import periods as P
+    from app.services.uk_mtd.vat import vat_return
+    from sqlalchemy import select
+    import uuid
+    aria = _entity(api, "client", "Aria Design Ltd")
+    inv = _invoice(api, "sales", aria, [{"product_name": "Pen", "quantity": 1, "unit_price": 10, "tax_rate": 20}],
+                   number="INV-PARTS")
+    for _ in range(3):
+        r = api.post(f"/invoices/{inv['id']}/credit-notes", json={"amount": "4.00", "date": "2026-05-20", "reason": "x"})
+        assert r.status_code == 201, r.text
+    with use_company(cid):
+        notes = db.execute(select(CreditNote).where(CreditNote.invoice_id == uuid.UUID(inv["id"]),
+                                                    CreditNote.note_type == "reduction")).scalars().all()
+        posted = posted_vats(db, notes)
+        r = vat_return(db, P.vat_period_ending(date(2026, 6, 30), 1), currency="GBP")
+    assert sorted(posted.values()) == [Decimal("0.66"), Decimal("0.67"), Decimal("0.67")]
+    assert sum(posted.values()) == Decimal("2")
+    assert (r["boxes"]["1"], r["boxes"]["6"]) == (0, 0)

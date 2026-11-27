@@ -225,3 +225,53 @@ def test_vat_return_reminder(db, uk):
     uk["company"].locale = "ir"
     db.commit()
     assert _refresh(db, uk, deadline - timedelta(days=3)) == {}
+
+
+# --- the tax summary agrees with the return (bug #26) ------------------------------------------
+
+def _summary(db, uk, start=date(2026, 4, 1), end=date(2026, 6, 30)):
+    from app.services.tax_service import compute_tax_summary
+    with use_company(uk["company"].id):
+        return compute_tax_summary(db, start, end, currency="GBP")
+
+
+def _credit(db, uk, inv, amount, *, day=date(2026, 6, 1)):
+    with use_company(uk["company"].id):
+        db.add(CreditNote(invoice_id=inv.id, kind=inv.kind, date=day, amount=amount, currency="GBP",
+                          note_type="reduction"))
+        db.commit()
+
+
+def test_tax_summary_nets_credit_notes_like_box_1(db, uk):
+    """Bug #26: /reports/tax-summary counted a credited sale's full VAT while
+    box 1 deducted the VAT inside the credit note."""
+    sale = _inv(db, uk, "sales", [(100, 20, "standard")], day=date(2026, 5, 10))
+    _credit(db, uk, sale, 60)                     # £60 gross of £120 → £10 VAT back
+    b, s = _ret(db, uk)["boxes"], _summary(db, uk)
+    assert b["1"] == 10
+    assert s["output_tax"] == b["1"] == 10
+    assert s["net_tax"] == 10
+    assert s["by_rate"]["20"]["output"] == 10
+    assert s["by_treatment"]["standard"]["output"] == 10
+    assert s["by_treatment"]["standard"]["base"] == 100 - (60 - 10) == b["6"]
+
+
+def test_tax_summary_credit_notes_mixed_rates_and_purchases(db, uk):
+    from decimal import Decimal as D
+    sale = _inv(db, uk, "sales", [(1000, 20, "standard"), (500, 5, "standard"), (300, 0, "exempt")])  # £2,025 gross
+    bill = _inv(db, uk, "purchase", [(400, 20, "standard")])
+    _credit(db, uk, sale, 100)                    # 100 × 225 / 2,025 → £11.11 VAT back, £88.89 ex VAT
+    _credit(db, uk, bill, 48)                     # £48 of a £480 bill → £8 input VAT back
+    _credit(db, uk, sale, 50, day=date(2026, 7, 2))   # next period: not netted here
+    b, s = _ret(db, uk)["boxes"], _summary(db, uk)
+    assert s["output_tax"] == b["1"] == D("213.89")
+    assert s["input_tax"] == b["4"] == 72
+    assert s["net_tax"] == b["1"] - b["4"]
+    # the credit's VAT spread over the invoice's rates, its base over its treatments, to the penny
+    assert s["by_rate"]["20"] == {"output": D("190.12"), "input": 72, "base": 0}
+    assert s["by_rate"]["5"]["output"] == D("23.77")
+    assert s["by_treatment"]["standard"]["output"] == D("213.89")
+    assert s["by_treatment"]["standard"]["input"] == 72
+    assert s["by_treatment"]["standard"]["base"] == D("1425.93") + 360
+    assert s["by_treatment"]["exempt"]["base"] == D("285.18")
+    assert int(s["by_treatment"]["standard"]["base"] + s["by_treatment"]["exempt"]["base"] - 360) == b["6"]

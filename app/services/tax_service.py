@@ -16,6 +16,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.models.credit_note import CreditNote
 from app.models.invoice import Invoice
 from app.core.money import exponent, issued_half_even, plain, quantize, tax_on, to_decimal
 
@@ -69,6 +70,21 @@ def _notional_tax(line_total, tax_rate, currency: str | None = None, half_even: 
     return tax_on(line_total, rate, currency, half_even=half_even)
 
 
+def _allocate(total, weights: dict, places: int) -> dict:
+    """``total`` split pro rata over ``weights``, each part half-up to
+    ``places``; the rounding left over goes to the largest weight, so the parts
+    add up to ``total`` exactly."""
+    from app.services.tax_ir import _share
+    whole = sum(weights.values())
+    if not whole:
+        return {}
+    parts = {k: _share(w, whole, total, places) for k, w in weights.items()}
+    biggest = max(weights, key=lambda k: weights[k])
+    parts[biggest] = plain(to_decimal(parts[biggest]) + to_decimal(total)
+                           - sum(to_decimal(p) for p in parts.values()))
+    return parts
+
+
 def default_period_start(db: Session, today: date) -> date:
     """Start of the current VAT period, the default for a tax summary: the
     Jalali season (Farvardin/Tir/Mehr/Dey 1) for an Iranian company — the
@@ -89,7 +105,9 @@ def compute_tax_summary(
 ) -> dict[str, Any]:
     """Output/input/net tax for invoices issued in [from_date, to_date].
 
-    Counts recognised invoices (excludes draft/canceled). Returns the figures,
+    Counts recognised invoices (excludes draft/canceled), less the VAT inside
+    the reduction credit notes dated in the period — netted as the UK VAT
+    return nets them (app/services/uk_mtd/vat.py). Returns the figures,
     the distinct rates seen (the assumptions used), and the mandatory caveat.
     """
     q = (
@@ -150,6 +168,54 @@ def compute_tax_summary(
                 _bucket(by_treatment, treatment, "output", notional)
                 _bucket(by_treatment, treatment, "input", notional)
                 reverse_charge_notional += notional
+
+    # Reduction credit notes dated in the period give back their share of the
+    # credited invoice's VAT (and the rest off its ex-VAT base), exactly as
+    # boxes 1/4 and 6/7 of the VAT return net them: the share is the note's
+    # amount × the invoice's standard-rated VAT / its gross, to the currency's
+    # places. The breakdowns get the same figures, spread over the invoice's
+    # rates and treatments.
+    from app.services.tax_ir import _share
+    cq = select(CreditNote).where(CreditNote.date >= from_date, CreditNote.date <= to_date,
+                                  CreditNote.note_type == "reduction")
+    if currency:
+        cq = cq.where(CreditNote.currency == currency.strip().upper())
+    for cn in db.execute(cq).scalars().all():
+        inv = db.get(Invoice, cn.invoice_id) if cn.invoice_id else None
+        if inv is None or inv.kind not in ("sales", "purchase"):
+            continue  # no invoice to take VAT back from (the return takes none either)
+        side = "output" if inv.kind == "sales" else "input"
+        places = exponent(cn.currency or inv.currency)
+        amount = plain(cn.amount or 0)
+        old = half_even_vat(inv)
+        items = list(inv.items or [])
+        rate_vat: dict[str, Any] = {}
+        treatment_base: dict[str, Any] = {}
+        inv_base = inv_vat = 0
+        for it in items:
+            total = plain(it.line_total or 0)
+            inv_base += total
+            treatment = (getattr(it, "tax_treatment", "standard") or "standard")
+            treatment_base[treatment] = treatment_base.get(treatment, 0) + total
+            if treatment == "standard":
+                t = _line_tax(total, it.tax_rate, it.taxable, inv.currency, old)
+                if t:
+                    key = f"{float(it.tax_rate or 0):g}"
+                    rate_vat[key] = rate_vat.get(key, 0) + t
+                    inv_vat += t
+        if not items:
+            inv_base = plain(inv.amount or 0)
+        vat = _share(inv_vat, inv_base + inv_vat, amount, places)
+        if side == "output":
+            output_tax -= vat
+        else:
+            input_tax -= vat
+        if vat:
+            _bucket(by_treatment, "standard", side, -vat)
+            for key, part in _allocate(vat, rate_vat, places).items():
+                _bucket(by_rate, key, side, -part)
+        for key, part in _allocate(plain(to_decimal(amount) - to_decimal(vat)), treatment_base, places).items():
+            _bucket(by_treatment, key, "base", -part)
 
     rates_sorted = sorted(rates)
     if rates_sorted:

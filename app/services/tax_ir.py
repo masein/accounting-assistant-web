@@ -184,11 +184,15 @@ def _season_returns(db: Session, s: Season) -> list[CreditNote]:
 
 
 def _return_vats(db: Session, notes: list[CreditNote]) -> dict[Any, int]:
-    """The VAT inside each reduction note against an invoice: the invoice's VAT
-    share of everything credited up to and including the note, less its share
-    of what was credited before it (earlier seasons too). Rounding is then
-    never repeated, and the notes that credit an invoice in full give back
-    exactly its VAT — 367 + 367 + 366 of 1,100 return 33 + 34 + 33 of 100."""
+    """The VAT inside each reduction note against an invoice: what the note's
+    journal entry posted (fixed once, when it posted — issue #39), so the
+    return matches the ledger. A note recorded without an entry carries the
+    invoice's VAT share of everything credited up to and including it, less
+    its share of what was credited before it (earlier seasons too)."""
+    from app.services.credit_note_vat import posted_vats
+    posted = posted_vats(db, notes)
+    if all(cn.id in posted for cn in notes):
+        return posted
     ids = {cn.invoice_id for cn in notes if cn.invoice_id}
     if not ids:
         return {}
@@ -207,6 +211,7 @@ def _return_vats(db: Session, notes: list[CreditNote]) -> dict[Any, int]:
         before = credited[inv.id]
         credited[inv.id] = before + int(cn.amount or 0)
         vats[cn.id] = _share(split["vat"], gross, credited[inv.id]) - _share(split["vat"], gross, before)
+    vats.update(posted)
     return vats
 
 

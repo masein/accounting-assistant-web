@@ -387,3 +387,77 @@ def test_credits_in_an_earlier_season_count_towards_the_share(db, co):
     assert summer_ret["sales"]["returns_vat"] == 33
     assert autumn_ret["sales"]["returns_vat"] == 67 and autumn_ret["sales"]["returns_base"] == 733 - 67
     assert autumn_rep["totals"]["sales"]["returns_vat"] == 67
+
+
+# --- credit notes posted through the API: the ledger and the return agree (issue #39) -------------
+
+@pytest.fixture()
+def ir_api(client, db):
+    from tests.test_admin_audit import _purge_company
+    from tests.test_statement_export import _company
+    api, cid = _company(client, db, "ir", "IRR")
+    yield api, cid
+    client.cookies.clear()
+    _purge_company(db, cid)
+
+
+def _vat_ledger(db, cid, inv_number):
+    """(VAT the invoice's credit notes debited to output VAT, output VAT balance of the books)."""
+    from sqlalchemy import func
+    from app.models.account import Account
+    from app.models.transaction import Transaction, TransactionLine
+    from app.services.account_resolver import resolve_account_code
+    with use_company(cid):
+        code = resolve_account_code(db, "vat_output")
+        q = (select(func.coalesce(func.sum(TransactionLine.debit), 0), func.coalesce(func.sum(TransactionLine.credit), 0))
+             .join(Account, Account.id == TransactionLine.account_id)
+             .join(Transaction, Transaction.id == TransactionLine.transaction_id).where(Account.code == code))
+        notes = db.execute(select(CreditNote.transaction_id).join(Invoice, Invoice.id == CreditNote.invoice_id)
+                           .where(Invoice.number == inv_number, CreditNote.note_type == "reduction")).scalars().all()
+        reversed_, _ = db.execute(q.where(Transaction.id.in_(notes))).one()
+        dr, cr = db.execute(q).one()
+    return reversed_, cr - dr
+
+
+def _api_invoice(c, base, number):
+    r = c.post("/invoices", json={"number": number, "kind": "sales", "status": "issued", "amount": 0,
+                                  "issue_date": _j(1405, 5, 10).isoformat(), "due_date": _j(1405, 5, 10).isoformat(),
+                                  "items": [{"product_name": "svc", "quantity": 1, "unit_price": base, "tax_rate": 10}]})
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+def _api_credit(c, inv, amount, day=(1405, 6, 1)):
+    r = c.post(f"/invoices/{inv['id']}/credit-notes", json={"amount": amount, "date": _j(*day).isoformat(), "reason": "t"})
+    assert r.status_code == 201, r.text
+
+
+@pytest.mark.parametrize("base,notes", [(1_000, (367, 367, 366)), (10, (3, 3, 3, 2))])
+def test_credit_notes_posted_in_parts_reverse_all_the_vat_in_the_ledger_and_the_return(db, ir_api, base, notes):
+    """Each note posts the cumulative VAT share less what earlier notes reversed;
+    the return reads that posted VAT, so ledger = return = invoice VAT."""
+    c, cid = ir_api
+    inv = _api_invoice(c, base, f"P{base}")
+    assert inv["tax_total"] == base // 10
+    for amount in notes:
+        _api_credit(c, inv, amount)
+    reversed_, balance = _vat_ledger(db, cid, inv["number"])
+    ret = c.get("/tax/ir/vat-return?year=1405&season=2").json()
+    assert reversed_ == ret["sales"]["returns_vat"] == inv["tax_total"]
+    assert ret["sales"]["returns_base"] == base and ret["reconciliation"]["matches"] is True
+    assert balance == 0
+
+
+def test_a_backdated_credit_note_leaves_a_later_seasons_vat_alone(db, ir_api):
+    """A note's VAT is fixed when it posts: one backdated into summer does not
+    move the VAT of an autumn note already on the autumn return."""
+    c, cid = ir_api
+    inv = _api_invoice(c, 1_000, "PBACK")                       # gross 1,100, VAT 100
+    _api_credit(c, inv, 367, day=(1405, 7, 5))                  # autumn: 33
+    autumn = c.get("/tax/ir/vat-return?year=1405&season=3").json()["sales"]["returns_vat"]
+    _api_credit(c, inv, 367, day=(1405, 6, 1))                  # summer, posted later: 67 − 33 = 34
+    _api_credit(c, inv, 366, day=(1405, 7, 6))                  # autumn: 100 − 67 = 33
+    summer = c.get("/tax/ir/vat-return?year=1405&season=2").json()["sales"]["returns_vat"]
+    autumn2 = c.get("/tax/ir/vat-return?year=1405&season=3").json()["sales"]["returns_vat"]
+    assert autumn == 33 and summer == 34 and autumn2 == 33 + 33
+    assert _vat_ledger(db, cid, "PBACK") == (100, 0)

@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.entity_guard import assert_entity
 from app.core.http_headers import content_disposition
 from app.db.session import get_db
 from app.models.commitment import NOTES, OPEN_STATUSES, PAY, PENDING, Commitment
@@ -182,6 +183,7 @@ def create_plan(payload: InstallmentPlanCreate, db: Session = Depends(get_db)) -
 
 @router.post("/cheques", response_model=CommitmentRead, status_code=201)
 def create_cheque(payload: ChequeCreate, db: Session = Depends(get_db)) -> CommitmentRead:
+    assert_entity(db, payload.entity_id)
     row = svc.create_cheque(
         db, title=payload.title, amount=payload.amount, due_date=payload.due_date,
         direction=payload.direction, reference=payload.reference, bank_name=payload.bank_name,

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.api.entity_guard import assert_entity
 from app.db.session import get_db
 from app.models.fixed_asset import FixedAsset
 from app.services import fixed_assets as svc
@@ -106,6 +107,7 @@ def list_categories(db: Session = Depends(get_db)) -> dict:
 
 @router.post("", status_code=201)
 def create_asset(body: AssetCreate, db: Session = Depends(get_db)) -> dict:
+    assert_entity(db, body.entity_id)
     a = svc.create_asset(db, body.model_dump())
     log_audit_event(db, action="create", entity_type="fixed_asset", entity_id=str(a.id),
                     detail=f"{a.number} {a.name}")
@@ -154,6 +156,7 @@ def update_asset(asset_id: UUID, body: AssetUpdate, db: Session = Depends(get_db
                            plain(a.opening_accumulated or 0))
     if "name" in changes and not (changes["name"] or "").strip():
         raise HTTPException(status_code=422, detail="An asset needs a name.")
+    assert_entity(db, changes.get("entity_id"))
     for key in ("name", "serial_number", "location", "description", "entity_id"):
         if key in changes:
             setattr(a, key, changes[key].strip() if key == "name" else changes[key])

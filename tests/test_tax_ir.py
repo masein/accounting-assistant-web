@@ -351,3 +351,39 @@ def test_no_reminders_without_trade_or_outside_iran(db, co):
     db.commit()
     _refresh(db, co, s.vat_deadline - timedelta(days=3))
     assert _tax_notes(db, co) == {}
+
+
+@pytest.mark.parametrize("base,notes", [(1_000, (367, 367, 366)), (10, (3, 3, 3, 2))])
+def test_an_invoice_credited_in_parts_reverses_all_of_its_vat(db, co, base, notes):
+    """Issue #39: each note's VAT is its share of the cumulative credit, so the
+    parts add up to the invoice's VAT (1,100 gross / 100 VAT; 11 gross / 1 VAT)."""
+    a = _party(db, co, "Alpha Ltd")
+    inv = _invoice(db, co, entity=a, base=base)
+    for amount in notes:
+        _credit(db, co, inv, amount)
+    vat = base // 10
+    with use_company(co["company"].id):
+        ret = tax_ir.vat_return(db, SUMMER_1405)
+        rec = tax_ir.reconciliation(db, SUMMER_1405)
+    assert ret["sales"]["returns_vat"] == vat and ret["sales"]["returns_base"] == base
+    assert ret["sales"]["net_vat"] == 0
+    r = _report(db, co)["sales"][0]
+    assert (r["returns_base"], r["returns_vat"], r["net_base"], r["net_vat"]) == (base, vat, 0, 0)
+    assert rec["matches"] is True
+
+
+def test_credits_in_an_earlier_season_count_towards_the_share(db, co):
+    """The rounding of a note credited last season is carried, not repeated."""
+    a = _party(db, co, "Alpha Ltd")
+    inv = _invoice(db, co, entity=a, base=1_000)                 # gross 1,100, VAT 100
+    _credit(db, co, inv, 367)                                    # summer: 33.36… → 33 VAT
+    _credit(db, co, inv, 367, day=(1405, 7, 5))                  # autumn: the remaining 67 VAT
+    _credit(db, co, inv, 366, day=(1405, 7, 6))
+    autumn = Season(1405, 3)
+    with use_company(co["company"].id):
+        summer_ret = tax_ir.vat_return(db, SUMMER_1405)
+        autumn_ret = tax_ir.vat_return(db, autumn)
+        autumn_rep = tax_ir.quarterly_report(db, autumn)
+    assert summer_ret["sales"]["returns_vat"] == 33
+    assert autumn_ret["sales"]["returns_vat"] == 67 and autumn_ret["sales"]["returns_base"] == 733 - 67
+    assert autumn_rep["totals"]["sales"]["returns_vat"] == 67

@@ -111,4 +111,23 @@ object AppIcons {
     val ChevronDown: ImageVector = icon("ChevronDown") {
         stroke { moveTo(7f, 10f); lineTo(12f, 15f); lineTo(17f, 10f) }
     }
+
+    /** ←: back to the chat. Turned round in a right-to-left layout. */
+    val Back: ImageVector = ImageVector.Builder(
+        name = "Back", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f, autoMirror = true,
+    ).apply {
+        stroke { moveTo(19f, 12f); lineTo(5f, 12f); moveTo(11f, 6f); lineTo(5f, 12f); lineTo(11f, 18f) }
+    }.build()
+
+    /** A headset: support, as the web's button beside the bell. */
+    val Headset: ImageVector = icon("Headset") {
+        stroke {
+            moveTo(4f, 15f); lineTo(4f, 12f); curveTo(4f, 7.6f, 7.6f, 4f, 12f, 4f)
+            curveTo(16.4f, 4f, 20f, 7.6f, 20f, 12f); lineTo(20f, 15f)
+            moveTo(4f, 14f); lineTo(6f, 14f); curveTo(7.1f, 14f, 8f, 14.9f, 8f, 16f); lineTo(8f, 18f)
+            curveTo(8f, 19.1f, 7.1f, 20f, 6f, 20f); lineTo(5f, 20f); curveTo(4.4f, 20f, 4f, 19.6f, 4f, 19f); close()
+            moveTo(20f, 14f); lineTo(18f, 14f); curveTo(16.9f, 14f, 16f, 14.9f, 16f, 16f); lineTo(16f, 18f)
+            curveTo(16f, 19.1f, 16.9f, 20f, 18f, 20f); lineTo(19f, 20f); curveTo(19.6f, 20f, 20f, 19.6f, 20f, 19f); close()
+        }
+    }
 }

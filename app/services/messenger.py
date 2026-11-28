@@ -65,7 +65,7 @@ import httpx
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.models.messenger import MessengerLink, MessengerSignIn, MessengerUpdate
+from app.models.messenger import MessengerLink, MessengerOutbox, MessengerSignIn, MessengerUpdate
 from app.core.money import json_dumps
 
 log = logging.getLogger("app.messenger")
@@ -95,7 +95,7 @@ TEXTS = {
         "login_button": "🔑 Sign in", "signup_button": "✨ New account",
         "linked": "Signed in to {company} as {user}. Tell me what you spent or earned — for example "
                   "\"paid 20 for lunch from the card\" — or send a voice note, a photo of a receipt or a file. /new "
-                  "starts a new conversation, /stop signs this chat out.",
+                  "starts a new conversation, /support writes to the support desk, /stop signs this chat out.",
         "bad_code": "That link has expired or was already used — make a new one in the app, or /login here.",
         "unlinked": "This chat is signed out. /login to sign in again.",
         "signed_out": "This chat was signed out (a new password, or signed out everywhere). /login to sign in again.",
@@ -139,6 +139,11 @@ TEXTS = {
         "unavailable": "The assistant isn't available right now — try again in a little while.",
         "file_caption": "📎 {name}",
         "approval_note": "⚠ Above the approval limit: confirming sends it to someone who can approve it.",
+        "support_on": "You're writing to support now: say what went wrong — a screenshot helps. The reply comes "
+                      "here. /done goes back to the assistant.",
+        "support_sent": "Sent to support — the reply comes here.",
+        "support_off": "Back to the assistant.",
+        "support_reply": "💬 Support: {text}",
     },
     "fa": {
         "hello": "سلام! من دستیار حسابداری شما هستم. با /login وارد حسابتان شوید؛ با /signup حساب تازه بسازید. "
@@ -147,7 +152,7 @@ TEXTS = {
                            "از برنامه هم وصل کنید: منوی حساب ← «تلگرام / بله».)",
         "login_button": "🔑 ورود", "signup_button": "✨ حساب تازه",
         "linked": "به {company} با کاربر {user} وارد شدید. بگویید چه خرج یا دریافتی داشتید — مثلاً «۵۰ هزار تومن نون "
-                  "از کارت» — یا پیام صوتی، عکس رسید یا فایل بفرستید. /new گفتگوی جدید، /stop خروج این گفتگو.",
+                  "از کارت» — یا پیام صوتی، عکس رسید یا فایل بفرستید. /new گفتگوی جدید، /support نوشتن به پشتیبانی، /stop خروج این گفتگو.",
         "bad_code": "این لینک منقضی شده یا قبلاً استفاده شده است — در برنامه لینک جدیدی بسازید، یا همین‌جا /login.",
         "unlinked": "این گفتگو از حساب خارج است. برای ورود دوباره /login.",
         "signed_out": "این گفتگو از حساب خارج شد (رمز تازه، یا خروج از همه‌جا). برای ورود دوباره /login.",
@@ -189,6 +194,11 @@ TEXTS = {
         "unavailable": "دستیار الان در دسترس نیست — کمی بعد دوباره امتحان کنید.",
         "file_caption": "📎 {name}",
         "approval_note": "⚠ بالاتر از سقف تأیید: با تأیید، برای کسی فرستاده می‌شود که اجازهٔ تأییدش را دارد.",
+        "support_on": "حالا به پشتیبانی می‌نویسید: بگویید چه مشکلی پیش آمد — تصویر صفحه کمک می‌کند. پاسخ همین‌جا "
+                      "می‌آید. /done برمی‌گردد به دستیار.",
+        "support_sent": "برای پشتیبانی فرستاده شد — پاسخ همین‌جا می‌آید.",
+        "support_off": "برگشتید به دستیار.",
+        "support_reply": "💬 پشتیبانی: {text}",
     },
 }
 
@@ -618,6 +628,11 @@ async def handle_update(db: Session, platform: str, update: dict[str, Any], *,
             log.warning("could not forget a failed update", exc_info=True)
         raise
     _end_update(db, platform, update_id, done=True)
+    if deliver and cfg.get("token"):
+        try:                                           # a support reply that couldn't go before goes now
+            await flush_outbox(db, platform)
+        except Exception:  # noqa: BLE001
+            db.rollback()
     if reply is None or not deliver:
         return reply
     for msg in reply.messages:
@@ -707,9 +722,14 @@ async def _on_message(db: Session, platform: str, cfg: dict, message: dict) -> _
         reply.say(_t(lang, "unlinked"))
         return reply
     if cmd == "/new":
-        link.session_id = None
+        link.session_id, link.mode = None, None
         db.commit()
         reply.say(_t(lang, "new"))
+        return reply
+    if cmd == "/done":                                  # back from the support desk to the assistant (DA9)
+        link.mode = None
+        db.commit()
+        reply.say(_t(lang, "support_off"))
         return reply
     if cmd in ("/login", "/signin", "/signup", "/register"):
         reply.say(_t(lang, "already_in", user=_username_of(db, link)))
@@ -720,6 +740,14 @@ async def _on_message(db: Session, platform: str, cfg: dict, message: dict) -> _
         _forget_link(db, link)                                # the chat is out: /login works again
         reply.say(_t(lang, why))
         return reply
+    if cmd == "/support":                               # the support desk, from the chat (DA9)
+        link.mode = "support"
+        db.commit()
+        rest = text.split(maxsplit=1)[1].strip() if len(text.split(maxsplit=1)) > 1 else ""
+        if not rest:
+            reply.say(_t(lang, "support_on"))
+            return reply
+        text, cmd = rest, ""
 
     attachment_ids: list[str] = []
     media = _document_of(message)
@@ -742,8 +770,92 @@ async def _on_message(db: Session, platform: str, cfg: dict, message: dict) -> _
     if not text and not attachment_ids:
         reply.say(_t(lang, "only_text"))
         return reply
+    if link.mode == "support":
+        if why:
+            reply.say(_t(lang, why))
+            return reply
+        _to_support(db, platform, link, su, text, attachment_ids, lang, reply)
+        return reply
     await _run_turn(db, platform, link, text, lang, reply, attachment_ids=attachment_ids)
     return reply
+
+
+def _to_support(db: Session, platform: str, link: MessengerLink, su, text: str, attachment_ids: list[str],
+                lang: str, reply: _Reply) -> None:
+    """A message for the support desk rather than the assistant: the person's support conversation, with this
+    chat to answer in (app/services/support_desk.py)."""
+    from app.services import support_desk as S
+    try:
+        with _as_user(su):
+            S.post(db, user_id=su.user_id, text=text, attachment_ids=attachment_ids,
+                   context={"page": "bot", "platform": platform, "language": lang}, channel=platform,
+                   chat=(platform, str(link.chat_id)))
+            db.commit()
+    except (S.SupportLimit, S.SupportError) as e:
+        db.rollback()
+        from app.core.messages import localize_detail
+        reply.say(localize_detail(str(e), lang))
+        return
+    reply.say(_t(lang, "support_sent"))
+
+
+# --- the outbox: the support desk's replies, outside any update (DA9) --------------------------------------------
+
+def queue_support_reply(db: Session, platform: str, chat_id: str, text: str, user_id: str) -> None:
+    """The desk's reply for a chat: sent now by a bot on a webhook, fetched by the relay otherwise."""
+    from app.db.tenant import tenant_bypass
+    from app.models.user import User
+    if platform not in PLATFORMS or not chat_id:
+        return
+    with tenant_bypass():
+        user = db.get(User, uuid.UUID(str(user_id)))
+    lang = ((user.preferred_language if user else None) or "en").lower()
+    lang = lang if lang in TEXTS else "en"
+    for part in _chunks(_t(lang, "support_reply", text=text)):
+        db.add(MessengerOutbox(platform=platform, chat_id=str(chat_id), text=part))
+    db.commit()
+    cfg = load_settings(db).get(platform) or {}
+    if cfg.get("token") and cfg.get("mode") != "relay":
+        try:
+            import asyncio
+            asyncio.get_running_loop()
+        except RuntimeError:                              # no loop here (a sync route): send it now
+            import asyncio
+            asyncio.run(flush_outbox(db, platform))
+
+
+def _waiting(db: Session, platform: str, limit: int = 20) -> list[MessengerOutbox]:
+    return db.execute(select(MessengerOutbox).where(MessengerOutbox.platform == platform,
+                                                    MessengerOutbox.sent_at.is_(None))
+                      .order_by(MessengerOutbox.created_at).limit(limit)).scalars().all()
+
+
+async def flush_outbox(db: Session, platform: str) -> int:
+    """A bot on a webhook: send what waits (oldest first); one that fails waits for the next try."""
+    cfg = load_settings(db).get(platform) or {}
+    if not cfg.get("token"):
+        return 0
+    sent = 0
+    for row in _waiting(db, platform):
+        try:
+            await api(platform, cfg["token"], "sendMessage", chat_id=row.chat_id, text=row.text)
+        except Exception:  # noqa: BLE001 — kept for the next try
+            log.warning("could not send a support reply on %s", platform, exc_info=True)
+            break
+        row.sent_at = datetime.now(timezone.utc)
+        sent += 1
+    db.commit()
+    return sent
+
+
+def relay_outbox(db: Session, platform: str) -> list[dict[str, Any]]:
+    """What the relay sends for us (it fetches every few seconds): the waiting messages, marked sent."""
+    rows = _waiting(db, platform)
+    now = datetime.now(timezone.utc)
+    for row in rows:
+        row.sent_at = now
+    db.commit()
+    return [{"method": "sendMessage", "params": {"chat_id": r.chat_id, "text": r.text}} for r in rows]
 
 
 def _forget_link(db: Session, link: MessengerLink) -> None:

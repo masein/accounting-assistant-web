@@ -1464,6 +1464,7 @@ The owner wants a support button: someone who meets a problem writes to support,
 | DA6 | The desk reads a screenshot | The desk downloads an attachment | Only a file attached to a support message; any other id is a 404 |
 | DA7 | The desk key | Settings → Support desk (platform admin) | **Make a desk key** shows the key once (only its hash is kept); a new key stops the old one; **Turn off** stops the desk. Owners and everyone else can't reach it. The key survives a deploy (it was moved into the Default company by the boot's backfill: the desk got 404 after every deploy) |
 | DA8 | From a phone | The phone apps' Support | The same conversation; the message says it came from Android or iOS; replies are unread until seen there or on the web |
+| DA9 | From the Telegram/Bale bot | In a signed-in chat: `/support`, then "the VAT report is empty" (or a screenshot, or a voice note); or `/support the VAT report is empty` in one line | It goes to the same support conversation, not the assistant ("Sent to support — the reply comes here"). The desk's reply comes back to the chat as «💬 Support: …» — at once from a bot on a webhook, within seconds through the relay (it fetches the server's outbox). `/done` goes back to the assistant. A person who then writes from the web gets the next reply on the web only |
 
 ## DB. Support on Android (2026-11-28)
 

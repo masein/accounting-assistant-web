@@ -47,6 +47,8 @@ class MessengerLink(Base, TenantMixin):
     token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     # how the chat got in: "code" (the app's link), "password" (signed in in the chat) or "signup"
     via: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # "support" while the chat writes to the support desk (/support … /done); empty: the assistant (DA9)
+    mode: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
 
 class MessengerUpdate(Base):
@@ -82,3 +84,18 @@ class MessengerSignIn(Base):
     lang: Mapped[str] = mapped_column(String(8), default="en")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MessengerOutbox(Base):
+    """A message for a chat that no update is being answered for: the support desk's reply (DA9). A bot on a
+    webhook sends it at once; a relay fetches it (``/bots/<platform>/relay/outbox``) — the server can't reach
+    Telegram itself."""
+    __tablename__ = "messenger_outbox"
+    __table_args__ = (Index("ix_messenger_outbox_waiting", "platform", "sent_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    platform: Mapped[str] = mapped_column(String(16))
+    chat_id: Mapped[str] = mapped_column(String(64))
+    text: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

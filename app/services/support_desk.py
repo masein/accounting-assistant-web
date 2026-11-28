@@ -177,8 +177,10 @@ def sent_today(db: Session, thread: SupportThread) -> int:
 
 
 def post(db: Session, *, user_id: str, text: str, attachment_ids: list[str] | None = None,
-         context: dict | None = None, channel: str = "web") -> SupportMessage:
-    """A person's message to the desk. Raises SupportLimit, SupportError. The caller commits."""
+         context: dict | None = None, channel: str = "web", chat: tuple[str, str] | None = None) -> SupportMessage:
+    """A person's message to the desk. ``chat``: the Telegram/Bale (platform, chat id) it was written in — the
+    desk's reply goes there too, while they write from it (DA9). Raises SupportLimit, SupportError. The caller
+    commits."""
     text = (text or "").strip()[:MAX_TEXT]
     attachments = _attachments_of_person(db, attachment_ids)
     if not text and not attachments:
@@ -190,6 +192,7 @@ def post(db: Session, *, user_id: str, text: str, attachment_ids: list[str] | No
     channel = channel if channel in CHANNELS else "web"
     now = _now()
     thread.channel, thread.last_user_at = channel, now
+    thread.chat_platform, thread.chat_id = chat if chat else (None, None)
     msg = SupportMessage(thread_id=thread.id, author="user", channel=channel, text=text,
                          attachment_ids=attachments or None, context=_clean_context(context) or None, created_at=now)
     db.add(msg)
@@ -382,6 +385,8 @@ def reply(db: Session, *, thread_id: str, text: str) -> SupportMessage:
         db.commit()
         db.refresh(msg)
         _push_now(db)
+        if thread.chat_platform and thread.chat_id:
+            _to_chat(db, thread, text)
     return msg
 
 
@@ -392,6 +397,15 @@ def _push_now(db: Session) -> None:
         web_push.deliver_pending(db)
         db.commit()
     except Exception:  # noqa: BLE001 — the reply is kept either way; the scheduler pushes it later
+        db.rollback()
+
+
+def _to_chat(db: Session, thread: SupportThread, text: str) -> None:
+    """The reply in the Telegram/Bale chat the person wrote from (app/services/messenger.py's outbox)."""
+    try:
+        from app.services import messenger
+        messenger.queue_support_reply(db, thread.chat_platform, thread.chat_id, text, str(thread.user_id))
+    except Exception:  # noqa: BLE001 — the app has the reply either way
         db.rollback()
 
 

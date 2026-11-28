@@ -248,8 +248,11 @@ extension ChatCoreTests {
             watching.cancel()
             await watching.value
             #expect(!support.isOpen)
+            // a request already on its way when it closed is recorded a moment later (CI's runner was slower than
+            // this Mac: 8 against 7); let those land, then nothing more may come
+            try await Task.sleep(for: .milliseconds(100))
             let asked = Stub.seen.count
-            try await Task.sleep(for: .milliseconds(80))
+            try await Task.sleep(for: .milliseconds(120))
             #expect(Stub.seen.count == asked)                                      // closed: it stops asking
         }
 

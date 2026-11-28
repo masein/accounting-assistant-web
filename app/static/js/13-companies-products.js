@@ -567,7 +567,7 @@
           const tbl = document.createElement('table');
           tbl.className = 'mini-table';
           const hasCode = keys.includes('code') || keys.includes('account_code');
-          tbl.innerHTML = '<thead><tr>' + keys.map(k => `<th>${escapeHtml(localizeReportFieldName(k))}</th>`).join('') + '</tr></thead><tbody>'
+          tbl.innerHTML = '<thead><tr>' + keys.map(k => `<th scope="col">${escapeHtml(localizeReportFieldName(k))}</th>`).join('') + '</tr></thead><tbody>'
             + item.map((row, ri) => {
               const code = row.code || row.account_code || '';
               return `<tr style="${hasCode ? 'cursor:pointer;' : ''}" ${hasCode ? `data-account-code="${escapeHtml(code)}" data-account-name="${escapeHtml(row.name || row.account_name || '')}"` : ''}>` + keys.map(k => {
@@ -604,7 +604,7 @@
           tbl.className = 'mini-table';
           const keys = Object.keys(item);
           const vals = Object.values(item);
-          tbl.innerHTML = '<thead><tr>' + keys.map(k => `<th>${escapeHtml(localizeReportFieldName(k))}</th>`).join('') + '</tr></thead><tbody><tr>' + vals.map((v, i) => {
+          tbl.innerHTML = '<thead><tr>' + keys.map(k => `<th scope="col">${escapeHtml(localizeReportFieldName(k))}</th>`).join('') + '</tr></thead><tbody><tr>' + vals.map((v, i) => {
             const k = keys[i];
             const isClickable = (k === 'metric' || k === 'category') && item._drillParams;
             const drillKey = v === 'Revenue' ? 'revenue' : v === 'Expenses' ? 'expense' : null;
@@ -723,7 +723,7 @@
           ? [t('invoiceCurrencyLabel'), t('tableDebit'), t('tableCredit')]
           : [t('tableDebit'), t('tableCredit')];
         const headers = [...baseHeaders, ...amtHeaders, t('navEntities')];
-        wrap.innerHTML = `<table class="mini-table"><thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${
+        wrap.innerHTML = `<table class="mini-table"><thead><tr>${headers.map(h => `<th scope="col">${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${
           data.rows.map(r => {
             const ccy = (r.currency || 'IRR').toUpperCase();
             const debitCell = r.debit ? formatMoney(r.debit, ccy) : '—';
@@ -796,7 +796,7 @@
           w.document.write(`<html lang="${document.documentElement.lang}" dir="${document.documentElement.dir || 'ltr'}"><head><title>${escapeHtml(title)}</title><style>body{font-family:sans-serif;padding:20px;font-size:11px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 6px;text-align:start}.num{text-align:end}h2{margin:0 0 8px}</style></head><body>
             <h2>${escapeHtml(title)}</h2>
             <p>${escapeHtml(tf('drillPrintSummary', { count: data.total_count, debit: formatAmount(data.total_debit), credit: formatAmount(data.total_credit) }))}</p>
-            <table><thead><tr><th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelReference'))}</th><th>${escapeHtml(t('labelDescription'))}</th><th>${escapeHtml(t('tableCode'))}</th><th>${escapeHtml(t('fieldAccount'))}</th><th class="num">${escapeHtml(t('tableDebit'))}</th><th class="num">${escapeHtml(t('tableCredit'))}</th><th>${escapeHtml(t('fieldEntities'))}</th></tr></thead><tbody>
+            <table><thead><tr><th scope="col">${escapeHtml(t('labelDate'))}</th><th scope="col">${escapeHtml(t('labelReference'))}</th><th scope="col">${escapeHtml(t('labelDescription'))}</th><th scope="col">${escapeHtml(t('tableCode'))}</th><th scope="col">${escapeHtml(t('fieldAccount'))}</th><th scope="col" class="num">${escapeHtml(t('tableDebit'))}</th><th scope="col" class="num">${escapeHtml(t('tableCredit'))}</th><th scope="col">${escapeHtml(t('fieldEntities'))}</th></tr></thead><tbody>
             ${rows.map(r=>`<tr><td>${escapeHtml(formatDisplayDate(r.date))}</td><td>${escapeHtml(r.reference||'')}</td><td>${escapeHtml(r.description||'')}</td><td>${escapeHtml(localCode(r.account_code))}</td><td>${escapeHtml(r.account_name||'')}</td><td class="num">${formatAmount(r.debit||0)}</td><td class="num">${formatAmount(r.credit||0)}</td><td>${(r.entity_names||[]).join(', ')}</td></tr>`).join('')}
             </tbody></table></body></html>`);
           w.document.close();
@@ -821,7 +821,7 @@
         if (!w) { showAlert(t('allowPopupsPdf'), true); return; }
         w.document.write(`<html lang="${document.documentElement.lang}" dir="${document.documentElement.dir || 'ltr'}"><head><title>${escapeHtml(title)}</title><style>body{font-family:sans-serif;padding:20px;font-size:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:5px 7px;text-align:start}h2{margin:0 0 8px}</style></head><body>
           <h2>${escapeHtml(title)}</h2>
-          <table><thead><tr>${headers.map(h=>`<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>
+          <table><thead><tr>${headers.map(h=>`<th scope="col">${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>
           ${rows.map(r=>`<tr>${r.map(c=>`<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}
           </tbody></table></body></html>`);
         w.document.close();
@@ -908,7 +908,7 @@
         <div style="max-height:400px;overflow:auto;">
         <table class="mini-table">
           <thead><tr>
-            <th>${t('fieldProduct')}</th><th>${escapeHtml(t('labelSKU'))}</th><th>${t('fieldRevenue')}</th><th>${t('fieldCost')}</th><th>${t('fieldProfit')}</th><th>${t('fieldMarginPct')}</th><th>${t('fieldClientCount')}</th><th>${t('fieldSupplierCount')}</th>
+            <th scope="col">${t('fieldProduct')}</th><th scope="col">${escapeHtml(t('labelSKU'))}</th><th scope="col">${t('fieldRevenue')}</th><th scope="col">${t('fieldCost')}</th><th scope="col">${t('fieldProfit')}</th><th scope="col">${t('fieldMarginPct')}</th><th scope="col">${t('fieldClientCount')}</th><th scope="col">${t('fieldSupplierCount')}</th>
           </tr></thead>
           <tbody>${data.items.map(p => `
             <tr style="cursor:pointer;" data-product="${escapeHtml(p.product_name)}">
@@ -964,21 +964,21 @@
 
           ${d.clients.length ? `
             <h4 style="margin:0.75rem 0 0.3rem;">${escapeHtml(tf('prodClientsN', { n: d.clients.length }))}</h4>
-            <table class="mini-table"><thead><tr><th>${t('labelName')}</th><th>${t('fieldRevenue')}</th><th>${t('fieldInvoiceCount')}</th></tr></thead><tbody>
+            <table class="mini-table"><thead><tr><th scope="col">${t('labelName')}</th><th scope="col">${t('fieldRevenue')}</th><th scope="col">${t('fieldInvoiceCount')}</th></tr></thead><tbody>
               ${d.clients.map(c => `<tr><td>${escapeHtml(c.name)}</td><td>${formatAmount(c.revenue)}</td><td>${c.invoice_count}</td></tr>`).join('')}
             </tbody></table>
           ` : ''}
 
           ${d.suppliers.length ? `
             <h4 style="margin:0.75rem 0 0.3rem;">${escapeHtml(tf('prodSuppliersN', { n: d.suppliers.length }))}</h4>
-            <table class="mini-table"><thead><tr><th>${t('labelName')}</th><th>${t('fieldCost')}</th><th>${t('fieldInvoiceCount')}</th></tr></thead><tbody>
+            <table class="mini-table"><thead><tr><th scope="col">${t('labelName')}</th><th scope="col">${t('fieldCost')}</th><th scope="col">${t('fieldInvoiceCount')}</th></tr></thead><tbody>
               ${d.suppliers.map(s => `<tr><td>${escapeHtml(s.name)}</td><td>${formatAmount(s.cost)}</td><td>${s.invoice_count}</td></tr>`).join('')}
             </tbody></table>
           ` : ''}
 
           ${d.monthly_series.length ? `
             <h4 style="margin:0.75rem 0 0.3rem;">${escapeHtml(t('prodMonthlyTrend'))}</h4>
-            <table class="mini-table"><thead><tr><th>${t('fieldWeek')}</th><th>${t('fieldRevenue')}</th><th>${t('fieldCost')}</th></tr></thead><tbody>
+            <table class="mini-table"><thead><tr><th scope="col">${t('fieldWeek')}</th><th scope="col">${t('fieldRevenue')}</th><th scope="col">${t('fieldCost')}</th></tr></thead><tbody>
               ${d.monthly_series.map(m => `<tr><td>${escapeHtml(m.month)}</td><td>${formatAmount(m.revenue)}</td><td>${formatAmount(m.cost)}</td></tr>`).join('')}
             </tbody></table>
           ` : ''}
@@ -986,7 +986,7 @@
           ${d.invoices.length ? `
             <h4 style="margin:0.75rem 0 0.3rem;">${escapeHtml(tf('prodInvoicesN', { n: d.invoices.length }))}</h4>
             <div style="max-height:250px;overflow:auto;">
-            <table class="mini-table"><thead><tr><th>#</th><th>${t('labelType')}</th><th>${t('labelDate')}</th><th>${t('fieldEntityName')}</th><th>${t('labelQuantity')}</th><th>${t('prodPrice')}</th><th>${t('tableTotal')}</th></tr></thead><tbody>
+            <table class="mini-table"><thead><tr><th scope="col">#</th><th scope="col">${t('labelType')}</th><th scope="col">${t('labelDate')}</th><th scope="col">${t('fieldEntityName')}</th><th scope="col">${t('labelQuantity')}</th><th scope="col">${t('prodPrice')}</th><th scope="col">${t('tableTotal')}</th></tr></thead><tbody>
               ${d.invoices.map(inv => `<tr>
                 <td>${escapeHtml(inv.number)}</td>
                 <td><span class="alert-chip ${inv.kind === 'sales' ? 'low' : 'medium'}">${escapeHtml(inv.kind)}</span></td>
@@ -1035,7 +1035,7 @@
         <div style="max-height:450px;overflow:auto;">
         <table class="mini-table">
           <thead><tr>
-            <th>${t('fieldEntityName')}</th><th>${t('labelEntityType')}</th><th>${t('prodProductsCol')}</th><th>${valLabel}</th>${isClient ? `<th>${t('fieldProfit')}</th>` : ''}
+            <th scope="col">${t('fieldEntityName')}</th><th scope="col">${t('labelEntityType')}</th><th scope="col">${t('prodProductsCol')}</th><th scope="col">${valLabel}</th>${isClient ? `<th scope="col">${t('fieldProfit')}</th>` : ''}
           </tr></thead>
           <tbody>${data.relationships.map(r => `
             <tr>
@@ -1086,7 +1086,7 @@
         <h4 style="margin:0.5rem 0 0.3rem;">${escapeHtml(t('prodByProduct'))}</h4>
         <div style="max-height:300px;overflow:auto;">
         <table class="mini-table">
-          <thead><tr><th>${escapeHtml(t('fieldProduct'))}</th><th>${t('fieldRevenue')}</th><th>${t('fieldCost')}</th><th>${t('fieldProfit')}</th><th>${t('fieldMarginPct')}</th><th>${escapeHtml(t('fieldTopClient'))}</th></tr></thead>
+          <thead><tr><th scope="col">${escapeHtml(t('fieldProduct'))}</th><th scope="col">${t('fieldRevenue')}</th><th scope="col">${t('fieldCost')}</th><th scope="col">${t('fieldProfit')}</th><th scope="col">${t('fieldMarginPct')}</th><th scope="col">${escapeHtml(t('fieldTopClient'))}</th></tr></thead>
           <tbody>${data.by_product.map(p => `
             <tr>
               <td><strong>${escapeHtml(p.product_name)}</strong></td>
@@ -1104,7 +1104,7 @@
           <h4 style="margin:0.75rem 0 0.3rem;">${escapeHtml(t('prodByClientProduct'))}</h4>
           <div style="max-height:250px;overflow:auto;">
           <table class="mini-table">
-            <thead><tr><th>${escapeHtml(t('labelClient'))}</th><th>${escapeHtml(t('fieldProduct'))}</th><th>${t('fieldRevenue')}</th><th>${t('fieldCost')}</th><th>${t('fieldProfit')}</th></tr></thead>
+            <thead><tr><th scope="col">${escapeHtml(t('labelClient'))}</th><th scope="col">${escapeHtml(t('fieldProduct'))}</th><th scope="col">${t('fieldRevenue')}</th><th scope="col">${t('fieldCost')}</th><th scope="col">${t('fieldProfit')}</th></tr></thead>
             <tbody>${data.by_client_product.slice(0, 50).map(cp => `
               <tr>
                 <td>${escapeHtml(cp.client_name)}</td>
@@ -1227,130 +1227,6 @@
       } catch (e) { showAlert(t('auditThresholdFailed'), true); }
     });
 
-    // ═══════ Enhanced Manager Report (product filter + cash flow periods + AP) ═══════
-    const mgrProductFilterEl = document.getElementById('mgr-product-filter');
-    const mgrPeriodGranularityEl = document.getElementById('mgr-period-granularity');
-
-    // Override runManagerReport to support new report types and filters
-    const _origRunManagerReport = runManagerReport;
-    runManagerReport = async function() {
-      const type = (mgrReportTypeEl.value || '').trim();
-
-      // Accounts payable handler
-      if (type === 'accounts_payable') {
-        try {
-          const q = new URLSearchParams();
-          // Aging is as of the 'to' date: every open invoice, however old.
-          
-          if (mgrToDateEl.value) q.set('to_date', mgrToDateEl.value);
-          mgrRunBtn.disabled = true;
-          const res = await fetch(API + '/manager-reports/operational/accounts-payable?' + q.toString());
-          const data = await res.json();
-          if (!res.ok) { showAlert(data.detail || t('msgFailed'), true); return; }
-          lastManagerReport = data;
-          const items = data.items || [];
-          const heads = ['fieldInvoice', 'labelSupplier', 'fieldBalance', 'labelDueDate', 'usersStatus', 'fieldAging', 'fieldDaysOverdue'];
-          let html = `<div class="report-preview-wrap"><table class="mini-table"><thead><tr>${heads.map(k => `<th>${escapeHtml(t(k))}</th>`).join('')}</tr></thead><tbody>`;
-          items.forEach(it => {
-            const overColor = it.days_overdue > 60 ? '#c62828' : it.days_overdue > 30 ? '#f57f17' : 'var(--text)';
-            const bucket = it.aging_bucket === 'current' ? t('fieldCurrent') : it.aging_bucket;
-            html += `<tr><td>${escapeHtml(it.invoice_number || '')}</td><td><bdi>${escapeHtml(it.vendor)}</bdi></td><td>${formatAmount(it.balance_due != null ? it.balance_due : it.amount)}</td><td>${escapeHtml(it.due_date ? formatDisplayDate(it.due_date) : '—')}</td><td><span class="badge">${escapeHtml(({ issued: t('optionStatusIssued'), partially_paid: t('optionStatusPartiallyPaid') })[it.status] || it.status)}</span></td><td>${escapeHtml(bucket)}</td><td style="color:${overColor};font-weight:600;">${it.days_overdue}</td></tr>`;
-          });
-          html += '</tbody></table></div>';
-          html += `<div style="margin-top:0.5rem;font-size:0.9rem;"><strong>${escapeHtml(t('apTotalPayable'))}:</strong> ${formatAmount(data.total)} (${escapeHtml(tf('apItems', { n: data.count }))})</div>`;
-          mgrReportPreviewEl.innerHTML = html;
-          mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
-          // AP chart by aging
-          if (typeof Chart !== 'undefined' && items.length) {
-            const buckets = {};
-            items.forEach(it => { buckets[it.aging_bucket] = (buckets[it.aging_bucket] || 0) + (it.balance_due != null ? it.balance_due : it.amount); });
-            const chartPanel = document.getElementById('mgr-report-chart-panel');
-            chartPanel.style.display = 'block';
-            if (managerReportChart) try { managerReportChart.destroy(); } catch(_){}
-            managerReportChart = new Chart(document.getElementById('mgr-report-chart'), {
-              type: 'doughnut', data: {
-                labels: Object.keys(buckets).map(b => b === 'current' ? t('fieldCurrent') : b),
-                datasets: [{ label: t('panelAPAging'), data: Object.values(buckets), backgroundColor: ['#0f766e', '#eab308', '#f57f17', '#c62828', '#8b5cf6'] }]
-              }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, title: { display: true, text: t('panelAPAging') } },
-                onClick: (e, els) => { if (els.length) { const key = Object.keys(buckets)[els[0].index]; showChartDrilldown('AP Aging', key, { bucket: key, amount: buckets[key] }); } }
-              }
-            });
-          }
-          if (mgrExportJsonBtn) mgrExportJsonBtn.disabled = false;
-          if (mgrExportCsvBtn) mgrExportCsvBtn.disabled = false;
-        } catch (err) { showAlert(tf('errorWithMessage', { message: err.message }), true); }
-        finally { mgrRunBtn.disabled = false; }
-        return;
-      }
-
-      // For sales/purchase reports, append product_name filter
-      if (type.includes('sales') || type.includes('purchase')) {
-        const filterVal = (mgrProductFilterEl.value || '').trim();
-        if (filterVal) {
-          const origFetch = window.fetch;
-          const patchedFetch = (url, opts) => {
-            if (typeof url === 'string' && url.includes('/manager-reports/')) {
-              const sep = url.includes('?') ? '&' : '?';
-              url += sep + 'product_name=' + encodeURIComponent(filterVal);
-            }
-            return origFetch(url, opts);
-          };
-          window.fetch = patchedFetch;
-          try { await _origRunManagerReport(); } finally { window.fetch = origFetch; }
-          return;
-        }
-      }
-
-      await _origRunManagerReport();
-    };
-
-    // ═══════ Clickable Charts Enhancement ═══════
-    // Override renderReportChart to add click handlers
-    const _origRenderReportChart = renderReportChart;
-    renderReportChart = function(canvas, report, existingChart) {
-      const chart = _origRenderReportChart(canvas, report, existingChart);
-      if (chart && report) {
-        // Extract date filters from the report period OR from the form fields
-        const rp = report.period || {};
-        const _fromDate = rp.from_date || mgrFromDateEl.value || '';
-        const _toDate = rp.to_date || mgrToDateEl.value || '';
-        chart.options.onClick = (e, els) => {
-          if (!els.length) return;
-          const idx = els[0].index;
-          const dsIdx = els[0].datasetIndex;
-          const label = chart.data.labels ? chart.data.labels[idx] : '';
-          const rt = (report.report_type || '').toLowerCase();
-          const rows = report.rows || [];
-          const matchRow = rows[idx];
-          if (matchRow && matchRow.account_code) {
-            showTransactionDrilldown(label || matchRow.account_name || rt, { account_code: matchRow.account_code, from_date: _fromDate, to_date: _toDate });
-          } else if (rt.includes('balance_sheet')) {
-            const bsPrefixMap = { 'Assets': '11,12,13,14,15', 'Liabilities': '21,22,23,24', 'Equity': '31,32,33' };
-            const sectionLabel = label || (matchRow && matchRow.section) || '';
-            const prefix = bsPrefixMap[sectionLabel]
-              || bsPrefixMap[Object.keys(bsPrefixMap).find(k => t('section' + k).toLowerCase() === sectionLabel.toLowerCase())]
-              || ['11,12,13,14,15', '21,22,23,24', '31,32,33'][idx]
-              || '';
-            if (prefix) showTransactionDrilldown(sectionLabel || t('msgBalanceSheet'), { account_code_prefix: prefix, to_date: _toDate });
-            else showChartDrilldown(rt, label, matchRow || {});
-          } else if (rt.includes('income')) {
-            // Map each bar to its specific account prefix
-            const incPrefixes = ['41,42,43', '51', '61', '62', '41,42,43,51,61,62'];
-            const prefix = incPrefixes[idx] || '41,42,43,51,52,53,61,62';
-            showTransactionDrilldown(label || rt, { account_code_prefix: prefix, from_date: _fromDate, to_date: _toDate });
-          } else if (rt.includes('cash_flow')) {
-            showTransactionDrilldown(label || rt, { account_code_prefix: '1110', from_date: _fromDate, to_date: _toDate });
-          } else {
-            const value = chart.data.datasets[dsIdx] ? chart.data.datasets[dsIdx].data[idx] : 0;
-            const dsLabel = chart.data.datasets[dsIdx] ? chart.data.datasets[dsIdx].label : '';
-            showChartDrilldown(rt, label, { label, dataset: dsLabel, value });
-          }
-        };
-        chart.update();
-      }
-      return chart;
-    };
-
     // ═══════ Stock value, reorder, recipes and production (roadmap §4.4) ═══════
     let _stockItems = [];
     async function loadStockPanel() {
@@ -1389,7 +1265,7 @@
         low: v.totals.below_reorder });
       if (!v.rows.length) { table.innerHTML = '<p class="fc-note">' + escapeHtml(t('stockNone')) + '</p>'; return; }
       const head = ['stockColItem', 'stockColOnHand', 'stockColUnitCost', 'stockColValue', 'stockColCogs', 'stockReorderLevel', '']
-        .map((k) => '<th>' + (k ? escapeHtml(t(k)) : '') + '</th>').join('');
+        .map((k) => '<th scope="col">' + (k ? escapeHtml(t(k)) : '') + '</th>').join('');
       table.innerHTML = '<table class="mini-table"><thead><tr>' + head + '</tr></thead><tbody>' + v.rows.map((r) => {
         const chip = r.oversold ? '<span class="alert-chip high">' + escapeHtml(t('stockOversold')) + '</span>'
           : (r.below_reorder ? '<span class="alert-chip medium">' + escapeHtml(t('stockReorderNow')) + '</span>' : '');
@@ -1536,8 +1412,8 @@
         return;
       }
       sheet.innerHTML = `<table class="results-table"><thead><tr>
-          <th>${escapeHtml(t('countItem'))}</th><th>${escapeHtml(t('countOnHand'))}</th>
-          <th>${escapeHtml(t('countCounted'))}</th><th>${escapeHtml(t('countDiff'))}</th></tr></thead><tbody>${
+          <th scope="col">${escapeHtml(t('countItem'))}</th><th scope="col">${escapeHtml(t('countOnHand'))}</th>
+          <th scope="col">${escapeHtml(t('countCounted'))}</th><th scope="col">${escapeHtml(t('countDiff'))}</th></tr></thead><tbody>${
         _countRows.map((r, i) => `<tr>
           <td dir="auto">${escapeHtml(r.name)}${r.sku ? ' <span class="fc-note">' + escapeHtml(r.sku) + '</span>' : ''}</td>
           <td>${escapeHtml(formatNum(Number(r.on_hand)))} ${escapeHtml(r.unit || '')}</td>

@@ -143,14 +143,14 @@ def test_figures_the_page_writes_are_in_its_digits():
 def test_the_small_layout_and_wording_fixes():
     page = INDEX.read_text(encoding="utf-8")
     # the contacts list's column is «کد», not the form's «کد (اختیاری)»
-    assert '<th data-i18n="tableCode">Code</th><th data-i18n="usersActions">Actions</th>' in page
+    assert '<th scope="col" data-i18n="tableCode">Code</th><th scope="col" data-i18n="usersActions">Actions</th>' in page
     assert "setTextSel('#entities-table thead th:nth-child(3)', 'tableCode');" in _js("02-i18n.js")
     # the SMS example reads left to right, its placeholders in the page's language
     assert '<pre id="sms-auto-example" dir="ltr" style="text-align:left;' in page
     assert "<${t('smsExampleKey')}>" in _js("10-forms-fx-bank.js")
     assert 'data-i18n-placeholder="mailSendersPlaceholder"' in page
     # the empty invoice list spans all eight columns
-    assert "'<tr><td colspan=\"8\" class=\"empty-state\">' + escapeHtml(t('noInvoicesYet'))" in _js("06-vouchers.js")
+    assert "'<tr><td colspan=\"8\" class=\"empty-state\">' + escapeHtml(t('noInvoicesYet'))" in _js("08-entities-invoices.js")
     # «whole amounts» only for a currency without places
     assert "tf(moneyPlaces(ccy) ? 'equityAmountHintPlaces' : 'equityAmountHint'," in _js("12-ops.js")
     # each tax bracket says «up to»

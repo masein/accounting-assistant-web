@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="/static/css/app.css">
 </head>
 <body>
+  <a class="skip-link" href="#main-content" data-action="skip-to-content" data-i18n="skipToContent">Skip to main content</a>
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-head">
       <span class="brand-logo" id="sidebar-brand-logo" aria-hidden="true">
@@ -133,7 +134,7 @@
 
     <div id="alert" class="alert" role="alert" style="display: none;"></div>
 
-    <main id="main-content" role="main">
+    <main id="main-content" role="main" tabindex="-1">
     <div class="card" data-page="entities">
       <h2 id="entities-title" data-i18n="entitiesTitle">Entities (clients, banks, employees)</h2>
       <p id="entities-subtitle" data-i18n="entitiesSubtitle" style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 0.75rem 0;">Add parties you do business with. Link them to vouchers when saving to run reports like &quot;all transactions with client X&quot;.</p>
@@ -171,9 +172,9 @@
         <div class="table-scroll">
           <table class="results-table" id="party-accounts-table">
             <thead><tr>
-              <th><input type="checkbox" id="pa-all" data-i18n-aria-label="paAll" aria-label="Tick every account"></th>
-              <th data-i18n="paAccount">Account</th><th data-i18n="labelName">Name</th><th data-i18n="paUnder">Under</th>
-              <th class="num" data-i18n="paBalance">Balance</th><th data-i18n="labelType">Type</th>
+              <th scope="col"><input type="checkbox" id="pa-all" data-i18n-aria-label="paAll" aria-label="Tick every account"></th>
+              <th scope="col" data-i18n="paAccount">Account</th><th scope="col" data-i18n="labelName">Name</th><th scope="col" data-i18n="paUnder">Under</th>
+              <th scope="col" class="num" data-i18n="paBalance">Balance</th><th scope="col" data-i18n="labelType">Type</th>
             </tr></thead>
             <tbody id="party-accounts-tbody"></tbody>
           </table>
@@ -200,7 +201,7 @@
         </div>
       </div>
       <table class="results-table" id="entities-table">
-        <thead><tr><th data-i18n="labelType">Type</th><th data-i18n="labelName">Name</th><th data-i18n="tableCode">Code</th><th data-i18n="usersActions">Actions</th><th></th></tr></thead>
+        <thead><tr><th scope="col" data-i18n="labelType">Type</th><th scope="col" data-i18n="labelName">Name</th><th scope="col" data-i18n="tableCode">Code</th><th scope="col" data-i18n="usersActions">Actions</th><th scope="col"></th></tr></thead>
         <tbody id="entities-tbody"><tr><td colspan="5" class="empty-state" data-i18n="loading">Loading…</td></tr></tbody>
       </table>
     </div>
@@ -254,15 +255,15 @@
         <div style="overflow-x:auto;">
           <table class="results-table" id="inv-items-table" style="min-width:900px;">
             <thead><tr>
-              <th data-i18n="ibDescription">Description</th>
-              <th class="ir-col" style="width:130px;" data-i18n="ibGoodsId" title="سامانه مؤدیان">Goods/service ID</th>
-              <th style="width:70px; text-align:end;" data-i18n="ibQty">Qty</th>
-              <th style="width:120px; text-align:end;" data-i18n="ibUnitPrice">Unit price</th>
-              <th style="width:215px;" data-i18n="ibTaxCode">Tax code</th>
-              <th style="width:74px; text-align:end;" data-i18n="ibTaxPct">Tax %</th>
-              <th style="width:150px;" data-i18n="ibTreatment">Treatment</th>
-              <th style="width:120px; text-align:end;" data-i18n="ibLineTotal">Line total</th>
-              <th style="width:36px;"></th>
+              <th scope="col" data-i18n="ibDescription">Description</th>
+              <th scope="col" class="ir-col" style="width:130px;" data-i18n="ibGoodsId" title="سامانه مؤدیان">Goods/service ID</th>
+              <th scope="col" style="width:70px; text-align:end;" data-i18n="ibQty">Qty</th>
+              <th scope="col" style="width:120px; text-align:end;" data-i18n="ibUnitPrice">Unit price</th>
+              <th scope="col" style="width:215px;" data-i18n="ibTaxCode">Tax code</th>
+              <th scope="col" style="width:74px; text-align:end;" data-i18n="ibTaxPct">Tax %</th>
+              <th scope="col" style="width:150px;" data-i18n="ibTreatment">Treatment</th>
+              <th scope="col" style="width:120px; text-align:end;" data-i18n="ibLineTotal">Line total</th>
+              <th scope="col" style="width:36px;"></th>
             </tr></thead>
             <tbody id="inv-items-body"></tbody>
           </table>
@@ -299,7 +300,7 @@
       </div>
       <div class="table-scroll">  <!-- a wide list scrolls in its own box, not the page (tablets) -->
       <table class="results-table" id="invoices-table">
-        <thead><tr><th data-i18n="tableNo">No.</th><th data-i18n="labelType">Type</th><th data-i18n="usersStatus">Status</th><th data-i18n="labelAmount">Amount</th><th data-i18n="invPaid">Paid</th><th data-i18n="invBalanceDue">Balance</th><th data-i18n="labelDueDate">Due</th><th data-i18n="usersActions">Actions</th></tr></thead>
+        <thead><tr><th scope="col" data-i18n="tableNo">No.</th><th scope="col" data-i18n="labelType">Type</th><th scope="col" data-i18n="usersStatus">Status</th><th scope="col" data-i18n="labelAmount">Amount</th><th scope="col" data-i18n="invPaid">Paid</th><th scope="col" data-i18n="invBalanceDue">Balance</th><th scope="col" data-i18n="labelDueDate">Due</th><th scope="col" data-i18n="usersActions">Actions</th></tr></thead>
         <tbody id="invoices-tbody"><tr><td colspan="8" class="empty-state" data-i18n="loading">Loading…</td></tr></tbody>
       </table>
       </div>
@@ -320,7 +321,7 @@
           </select></div>
       </div>
       <table class="results-table" id="quotes-table">
-        <thead><tr><th data-i18n="tableNo">No.</th><th data-i18n="qtCustomer">Customer</th><th data-i18n="usersStatus">Status</th><th data-i18n="labelAmount">Amount</th><th data-i18n="qtValidUntil">Valid until</th><th data-i18n="usersActions">Actions</th></tr></thead>
+        <thead><tr><th scope="col" data-i18n="tableNo">No.</th><th scope="col" data-i18n="qtCustomer">Customer</th><th scope="col" data-i18n="usersStatus">Status</th><th scope="col" data-i18n="labelAmount">Amount</th><th scope="col" data-i18n="qtValidUntil">Valid until</th><th scope="col" data-i18n="usersActions">Actions</th></tr></thead>
         <tbody id="quotes-tbody"><tr><td colspan="6" class="empty-state" data-i18n="qtNone">No quotes yet.</td></tr></tbody>
       </table>
 
@@ -354,7 +355,7 @@
         </div>
         <div style="overflow-x:auto;">
           <table class="results-table" id="mo-table">
-            <thead><tr><th><input type="checkbox" id="mo-all" aria-label="Select all"></th><th data-i18n="tableNo">No.</th><th data-i18n="labelIssueDate">Issue date</th><th data-i18n="qtCustomer">Customer</th><th data-i18n="labelAmount">Amount</th><th data-i18n="moDeadlineCol">Deadline</th><th data-i18n="usersStatus">Status</th><th data-i18n="moReadiness">Ready?</th><th data-i18n="usersActions">Actions</th></tr></thead>
+            <thead><tr><th scope="col"><input type="checkbox" id="mo-all" aria-label="Select all"></th><th scope="col" data-i18n="tableNo">No.</th><th scope="col" data-i18n="labelIssueDate">Issue date</th><th scope="col" data-i18n="qtCustomer">Customer</th><th scope="col" data-i18n="labelAmount">Amount</th><th scope="col" data-i18n="moDeadlineCol">Deadline</th><th scope="col" data-i18n="usersStatus">Status</th><th scope="col" data-i18n="moReadiness">Ready?</th><th scope="col" data-i18n="usersActions">Actions</th></tr></thead>
             <tbody id="mo-tbody"><tr><td colspan="9" class="empty-state" data-i18n="moNone">Nothing to show.</td></tr></tbody>
           </table>
         </div>
@@ -453,7 +454,7 @@
       </div>
       <p style="color:var(--text-muted);font-size:0.78rem;margin:0 0 0.5rem;" data-i18n="riHint">Uses the customer, currency and lines from the invoice form above. The first invoice is dated on the form's issue date, and the gap to its due date becomes the payment terms.</p>
       <table class="results-table" id="ri-table">
-        <thead><tr><th data-i18n="qtCustomer">Customer</th><th data-i18n="riRepeat">Repeat</th><th data-i18n="riNext">Next invoice</th><th data-i18n="labelAmount">Amount</th><th data-i18n="riIssued">Issued</th><th data-i18n="usersStatus">Status</th><th data-i18n="usersActions">Actions</th></tr></thead>
+        <thead><tr><th scope="col" data-i18n="qtCustomer">Customer</th><th scope="col" data-i18n="riRepeat">Repeat</th><th scope="col" data-i18n="riNext">Next invoice</th><th scope="col" data-i18n="labelAmount">Amount</th><th scope="col" data-i18n="riIssued">Issued</th><th scope="col" data-i18n="usersStatus">Status</th><th scope="col" data-i18n="usersActions">Actions</th></tr></thead>
         <tbody id="ri-tbody"><tr><td colspan="7" class="empty-state" data-i18n="riNone">No recurring invoices yet.</td></tr></tbody>
       </table>
 
@@ -490,8 +491,8 @@
         </div>
         <table class="data-table" style="margin-top:0.5rem;">
           <thead><tr>
-            <th data-i18n="taxCodeLabel">Tax code</th><th data-i18n="taxJurisdiction">Jurisdiction</th>
-            <th data-i18n="labelTaxRate">Tax %</th><th data-i18n="taxEffectiveFrom">From</th><th data-i18n="taxEffectiveTo">To</th>
+            <th scope="col" data-i18n="taxCodeLabel">Tax code</th><th scope="col" data-i18n="taxJurisdiction">Jurisdiction</th>
+            <th scope="col" data-i18n="labelTaxRate">Tax %</th><th scope="col" data-i18n="taxEffectiveFrom">From</th><th scope="col" data-i18n="taxEffectiveTo">To</th>
           </tr></thead>
           <tbody id="tr-list-body"></tbody>
         </table>
@@ -549,7 +550,7 @@
         </div>
       </details>
       <table class="results-table" id="recurring-table">
-        <thead><tr><th data-i18n="labelName">Name</th><th data-i18n="tableDirection">Direction</th><th data-i18n="tableFrequency">Frequency</th><th data-i18n="labelAmount">Amount</th><th data-i18n="recBankLabel">Bank account</th><th data-i18n="recCounterLabel">Expense / income account</th><th data-i18n="tableNextRun">Next run</th><th data-i18n="recAutoCol">Auto</th><th data-i18n="usersStatus">Status</th><th></th></tr></thead>
+        <thead><tr><th scope="col" data-i18n="labelName">Name</th><th scope="col" data-i18n="tableDirection">Direction</th><th scope="col" data-i18n="tableFrequency">Frequency</th><th scope="col" data-i18n="labelAmount">Amount</th><th scope="col" data-i18n="recBankLabel">Bank account</th><th scope="col" data-i18n="recCounterLabel">Expense / income account</th><th scope="col" data-i18n="tableNextRun">Next run</th><th scope="col" data-i18n="recAutoCol">Auto</th><th scope="col" data-i18n="usersStatus">Status</th><th scope="col"></th></tr></thead>
         <tbody id="recurring-tbody"><tr><td colspan="10" class="empty-state" data-i18n="loading">Loading…</td></tr></tbody>
       </table>
     </div>
@@ -592,7 +593,8 @@
           </div>
           <div id="ai-acct-dropzone" class="ai-dropzone" data-i18n="chatDropHint">Drop files to attach</div>
           <div class="ai-messages-wrap">
-            <div id="ai-acct-messages" class="chat-messages ai-messages" aria-live="polite"></div>
+            <div id="ai-acct-messages" class="chat-messages ai-messages"></div>
+            <div id="ai-acct-announce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
             <button type="button" id="ai-acct-scroll-bottom" class="ai-scroll-bottom" hidden aria-label="Scroll to latest" data-i18n-aria-label="aiChatScrollBottom">↓</button>
           </div>
           <div class="chat-quick-actions ai-chips" id="ai-acct-quick-actions">
@@ -722,11 +724,11 @@
               <table id="excel-import-mapping-table" class="data-table" style="font-size: 0.8rem;">
                 <thead>
                   <tr>
-                    <th data-i18n="xiTitle1">Title 1 (category)</th>
-                    <th data-i18n="xiTitle2">Title 2 (sub-category)</th>
-                    <th data-i18n="xiTitle3">Title 3 (detail)</th>
-                    <th data-i18n="tableAccountCode">Account code</th>
-                    <th data-i18n="usersStatus">Status</th>
+                    <th scope="col" data-i18n="xiTitle1">Title 1 (category)</th>
+                    <th scope="col" data-i18n="xiTitle2">Title 2 (sub-category)</th>
+                    <th scope="col" data-i18n="xiTitle3">Title 3 (detail)</th>
+                    <th scope="col" data-i18n="tableAccountCode">Account code</th>
+                    <th scope="col" data-i18n="usersStatus">Status</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -822,11 +824,11 @@
           <table class="lines-table">
             <thead>
               <tr>
-                <th class="col-code" data-i18n="tableAccountCode">Account code</th>
-                <th data-i18n="tableDebit">Debit</th>
-                <th data-i18n="tableCredit">Credit</th>
-                <th data-i18n="tableLineDescription">Line description</th>
-                <th></th>
+                <th scope="col" class="col-code" data-i18n="tableAccountCode">Account code</th>
+                <th scope="col" data-i18n="tableDebit">Debit</th>
+                <th scope="col" data-i18n="tableCredit">Credit</th>
+                <th scope="col" data-i18n="tableLineDescription">Line description</th>
+                <th scope="col"></th>
               </tr>
             </thead>
             <tbody id="lines-tbody">
@@ -1027,8 +1029,8 @@
           <div><label for="cm-pl-font_size" data-i18n="cmPrintFont">Font size (pt)</label><input type="number" id="cm-pl-font_size" step="0.5"></div>
         </div>
         <div style="overflow-x:auto;"><table class="mini-table" id="cm-pl-fields"><thead><tr>
-          <th data-i18n="cmPrintField">Field</th><th data-i18n="cmPrintX">From left (mm)</th>
-          <th data-i18n="cmPrintY">From top (mm)</th><th data-i18n="cmPrintW">Width (mm)</th>
+          <th scope="col" data-i18n="cmPrintField">Field</th><th scope="col" data-i18n="cmPrintX">From left (mm)</th>
+          <th scope="col" data-i18n="cmPrintY">From top (mm)</th><th scope="col" data-i18n="cmPrintW">Width (mm)</th>
         </tr></thead><tbody></tbody></table></div>
         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.6rem;">
           <button type="button" class="btn btn-primary" id="cm-pl-save" data-i18n="cmPrintSave">Save layout</button>
@@ -1048,9 +1050,9 @@
           </select></div>
       </div>
       <div style="overflow-x:auto;"><table class="mini-table cm-table"><thead><tr>
-        <th data-i18n="cmColDue">Due</th><th data-i18n="cmColWhat">What</th>
-        <th data-i18n="cmColAmount">Amount</th><th data-i18n="cmColStatus">Status</th>
-        <th data-i18n="cmColActions">Actions</th>
+        <th scope="col" data-i18n="cmColDue">Due</th><th scope="col" data-i18n="cmColWhat">What</th>
+        <th scope="col" data-i18n="cmColAmount">Amount</th><th scope="col" data-i18n="cmColStatus">Status</th>
+        <th scope="col" data-i18n="cmColActions">Actions</th>
       </tr></thead><tbody id="cm-rows"></tbody></table></div>
     </div>
 
@@ -1320,12 +1322,12 @@
         <table class="results-table" id="results-table">
           <thead>
             <tr>
-              <th data-i18n="tableCode">Code</th>
-              <th data-i18n="labelName">Name</th>
-              <th class="num" data-i18n="tableDebitTurnover">Debit turnover</th>
-              <th class="num" data-i18n="tableCreditTurnover">Credit turnover</th>
-              <th class="num" data-i18n="tableDebitBalance">Debit balance</th>
-              <th class="num" data-i18n="tableCreditBalance">Credit balance</th>
+              <th scope="col" data-i18n="tableCode">Code</th>
+              <th scope="col" data-i18n="labelName">Name</th>
+              <th scope="col" class="num" data-i18n="tableDebitTurnover">Debit turnover</th>
+              <th scope="col" class="num" data-i18n="tableCreditTurnover">Credit turnover</th>
+              <th scope="col" class="num" data-i18n="tableDebitBalance">Debit balance</th>
+              <th scope="col" class="num" data-i18n="tableCreditBalance">Credit balance</th>
             </tr>
           </thead>
           <tbody id="results-tbody">
@@ -1727,7 +1729,7 @@
         <div id="mail-log-wrap" style="display:none;margin-top:0.6rem;">
           <h4 style="margin:0 0 0.3rem;" data-i18n="mailLogTitle">Messages read</h4>
           <div style="overflow-x:auto;"><table class="results-table" id="mail-log-table"><thead><tr>
-            <th data-i18n="mailThReceived">Received</th><th data-i18n="mailThFrom">From</th><th data-i18n="mailThSubject">Subject</th><th data-i18n="mailThResult">Result</th>
+            <th scope="col" data-i18n="mailThReceived">Received</th><th scope="col" data-i18n="mailThFrom">From</th><th scope="col" data-i18n="mailThSubject">Subject</th><th scope="col" data-i18n="mailThResult">Result</th>
           </tr></thead><tbody id="mail-log-body"></tbody></table></div>
         </div>
       </details>
@@ -1735,7 +1737,7 @@
       <div id="bs-list-wrap">
         <h3 data-i18n="bsRecentStatements">Recent Statements</h3>
         <table class="results-table" id="bs-list-table"><thead><tr>
-          <th data-i18n="thBank">Bank</th><th data-i18n="thFile">File</th><th data-i18n="labelType">Type</th><th data-i18n="thRows">Rows</th><th data-i18n="thPosted">Posted</th><th data-i18n="thMatched">Matched</th><th data-i18n="usersStatus">Status</th><th data-i18n="usersActions">Actions</th>
+          <th scope="col" data-i18n="thBank">Bank</th><th scope="col" data-i18n="thFile">File</th><th scope="col" data-i18n="labelType">Type</th><th scope="col" data-i18n="thRows">Rows</th><th scope="col" data-i18n="thPosted">Posted</th><th scope="col" data-i18n="thMatched">Matched</th><th scope="col" data-i18n="usersStatus">Status</th><th scope="col" data-i18n="usersActions">Actions</th>
         </tr></thead><tbody id="bs-list-body"></tbody></table>
       </div>
       <div id="bs-detail-wrap" style="display:none;margin-top:1rem;">
@@ -1753,8 +1755,8 @@
         <div id="bs-recon-summary" style="display:none;padding:0.5rem;background:#e8f5e9;border-radius:6px;margin-bottom:0.75rem;font-size:0.85rem;"></div>
         <div style="overflow-x:auto;">
           <table class="results-table" id="bs-rows-table"><thead><tr>
-            <th>#</th><th data-i18n="labelDate">Date</th><th data-i18n="labelDescription">Description</th><th data-i18n="tableDebit">Debit</th><th data-i18n="tableCredit">Credit</th><th data-i18n="fieldBalance">Balance</th>
-            <th data-i18n="labelCategory">Category</th><th data-i18n="bsConfidence">Confidence</th><th data-i18n="usersStatus">Status</th><th data-i18n="thAction">Action</th>
+            <th scope="col">#</th><th scope="col" data-i18n="labelDate">Date</th><th scope="col" data-i18n="labelDescription">Description</th><th scope="col" data-i18n="tableDebit">Debit</th><th scope="col" data-i18n="tableCredit">Credit</th><th scope="col" data-i18n="fieldBalance">Balance</th>
+            <th scope="col" data-i18n="labelCategory">Category</th><th scope="col" data-i18n="bsConfidence">Confidence</th><th scope="col" data-i18n="usersStatus">Status</th><th scope="col" data-i18n="thAction">Action</th>
           </tr></thead><tbody id="bs-rows-body"></tbody></table>
         </div>
       </div>
@@ -1787,10 +1789,10 @@
       </div>
       <table class="data-table">
         <thead><tr>
-          <th data-i18n="expDate">Date</th><th data-i18n="timeWorker">Worker</th>
-          <th data-i18n="timeClient">Client</th><th data-i18n="timeProject">Project</th>
-          <th data-i18n="timeHours">Hours</th><th data-i18n="poUnitPrice">Rate</th>
-          <th data-i18n="usersStatus">Status</th><th></th>
+          <th scope="col" data-i18n="expDate">Date</th><th scope="col" data-i18n="timeWorker">Worker</th>
+          <th scope="col" data-i18n="timeClient">Client</th><th scope="col" data-i18n="timeProject">Project</th>
+          <th scope="col" data-i18n="timeHours">Hours</th><th scope="col" data-i18n="poUnitPrice">Rate</th>
+          <th scope="col" data-i18n="usersStatus">Status</th><th scope="col"></th>
         </tr></thead>
         <tbody id="tm-entries-body"></tbody>
       </table>
@@ -1799,8 +1801,8 @@
       <h3 style="margin-top:1.25rem;" data-i18n="timeReadyTitle">Ready to invoice</h3>
       <table class="data-table">
         <thead><tr>
-          <th data-i18n="timeClient">Client</th><th data-i18n="timeHours">Hours</th>
-          <th data-i18n="poTotal">Value</th><th data-i18n="timeOldest">Oldest</th><th></th>
+          <th scope="col" data-i18n="timeClient">Client</th><th scope="col" data-i18n="timeHours">Hours</th>
+          <th scope="col" data-i18n="poTotal">Value</th><th scope="col" data-i18n="timeOldest">Oldest</th><th scope="col"></th>
         </tr></thead>
         <tbody id="tm-ready-body"></tbody>
       </table>
@@ -1811,8 +1813,8 @@
         <p class="fx-hint" data-i18n="timeBudgetsHint">Hours are everything logged on the project; fees are billable time at the rate billed, or today's rate for time not yet invoiced.</p>
         <table class="data-table">
           <thead><tr>
-            <th data-i18n="timeProject">Project</th><th data-i18n="timeClient">Client</th>
-            <th data-i18n="timeBudgetHours">Hours</th><th data-i18n="timeBudgetFees">Fees</th><th></th>
+            <th scope="col" data-i18n="timeProject">Project</th><th scope="col" data-i18n="timeClient">Client</th>
+            <th scope="col" data-i18n="timeBudgetHours">Hours</th><th scope="col" data-i18n="timeBudgetFees">Fees</th><th scope="col"></th>
           </tr></thead>
           <tbody id="tm-budgets-body"></tbody>
         </table>
@@ -1840,13 +1842,13 @@
         <div style="overflow-x:auto;">
           <table class="data-table">
             <thead><tr>
-              <th data-i18n="myPayColPeriod">Period</th>
-              <th class="num" data-i18n="myPayColGross">Gross</th>
-              <th class="num" data-i18n="myPayColNet">Net</th>
-              <th data-i18n="myPayColPayDate">Pay date</th>
-              <th data-i18n="myPayColStatus">Status</th>
-              <th data-i18n="myPayColPaidTo">Paid to</th>
-              <th></th>
+              <th scope="col" data-i18n="myPayColPeriod">Period</th>
+              <th scope="col" class="num" data-i18n="myPayColGross">Gross</th>
+              <th scope="col" class="num" data-i18n="myPayColNet">Net</th>
+              <th scope="col" data-i18n="myPayColPayDate">Pay date</th>
+              <th scope="col" data-i18n="myPayColStatus">Status</th>
+              <th scope="col" data-i18n="myPayColPaidTo">Paid to</th>
+              <th scope="col"></th>
             </tr></thead>
             <tbody id="my-pay-body"></tbody>
           </table>
@@ -1885,8 +1887,8 @@
       <h3 style="margin-top:1.25rem;" data-i18n="expQueueTitle">Approvals queue</h3>
       <table class="data-table">
         <thead><tr>
-          <th data-i18n="expEmployee">Employee</th><th data-i18n="expDate">Date</th>
-          <th data-i18n="expDistance">Distance</th><th data-i18n="poTotal">Amount</th><th></th>
+          <th scope="col" data-i18n="expEmployee">Employee</th><th scope="col" data-i18n="expDate">Date</th>
+          <th scope="col" data-i18n="expDistance">Distance</th><th scope="col" data-i18n="poTotal">Amount</th><th scope="col"></th>
         </tr></thead>
         <tbody id="exp-queue-body"></tbody>
       </table>
@@ -1894,8 +1896,8 @@
       <h3 style="margin-top:1.25rem;" data-i18n="expClaimsTitle">All claims</h3>
       <table class="data-table">
         <thead><tr>
-          <th data-i18n="expEmployee">Employee</th><th data-i18n="expDate">Date</th>
-          <th data-i18n="poTotal">Amount</th><th data-i18n="usersStatus">Status</th><th></th>
+          <th scope="col" data-i18n="expEmployee">Employee</th><th scope="col" data-i18n="expDate">Date</th>
+          <th scope="col" data-i18n="poTotal">Amount</th><th scope="col" data-i18n="usersStatus">Status</th><th scope="col"></th>
         </tr></thead>
         <tbody id="exp-claims-body"></tbody>
       </table>
@@ -1914,8 +1916,8 @@
       </div>
       <table class="data-table" style="margin-top:0.5rem;">
         <thead><tr>
-          <th data-i18n="poDescription">Description</th><th data-i18n="poOrderedQty">Ordered qty</th>
-          <th data-i18n="poUnitPrice">Unit price</th><th></th>
+          <th scope="col" data-i18n="poDescription">Description</th><th scope="col" data-i18n="poOrderedQty">Ordered qty</th>
+          <th scope="col" data-i18n="poUnitPrice">Unit price</th><th scope="col"></th>
         </tr></thead>
         <tbody id="po-lines-body"></tbody>
       </table>
@@ -1927,9 +1929,9 @@
       <h3 style="margin-top:1.25rem;" data-i18n="poListTitle">Purchase orders</h3>
       <table class="data-table">
         <thead><tr>
-          <th data-i18n="poNumber">PO #</th><th data-i18n="poSupplier">Supplier</th>
-          <th data-i18n="poOrderDate">Order date</th><th data-i18n="poTotal">Total</th>
-          <th data-i18n="usersStatus">Status</th><th></th>
+          <th scope="col" data-i18n="poNumber">PO #</th><th scope="col" data-i18n="poSupplier">Supplier</th>
+          <th scope="col" data-i18n="poOrderDate">Order date</th><th scope="col" data-i18n="poTotal">Total</th>
+          <th scope="col" data-i18n="usersStatus">Status</th><th scope="col"></th>
         </tr></thead>
         <tbody id="po-list-body"></tbody>
       </table>
@@ -1938,9 +1940,9 @@
         <h3 id="po-detail-title" data-i18n="poDetail">Purchase order</h3>
         <table class="data-table">
           <thead><tr>
-            <th data-i18n="poDescription">Description</th><th data-i18n="poOrderedQty">Ordered</th>
-            <th data-i18n="poReceivedQty">Received</th><th data-i18n="poBilledQty">Billed</th><th data-i18n="poUnitPrice">Unit price</th>
-            <th data-i18n="poReceiveCol">Receive</th>
+            <th scope="col" data-i18n="poDescription">Description</th><th scope="col" data-i18n="poOrderedQty">Ordered</th>
+            <th scope="col" data-i18n="poReceivedQty">Received</th><th scope="col" data-i18n="poBilledQty">Billed</th><th scope="col" data-i18n="poUnitPrice">Unit price</th>
+            <th scope="col" data-i18n="poReceiveCol">Receive</th>
           </tr></thead>
           <tbody id="po-detail-lines"></tbody>
         </table>
@@ -2008,9 +2010,9 @@
       <p id="pr-taxmode-hint" style="color:var(--text-muted);font-size:0.8rem;margin:0.4rem 0 0;display:none;" data-i18n="payrollTaxModeHint">Statutory mode ignores the flat rates: gross gets the fixed allowances, insurance is computed on the capped insurable wage, and income tax follows the monthly brackets of the rule set in force for the pay period.</p>
       <table class="data-table" style="margin-top:0.75rem;">
         <thead><tr>
-          <th data-i18n="payrollEmployee">Employee</th><th data-i18n="payrollPayType">Pay type</th>
-          <th data-i18n="payrollPayCol">Pay</th><th data-i18n="payrollIncomeTaxRate">Income tax %</th>
-          <th data-i18n="payrollSocialRate">Social %</th><th data-i18n="payrollPensionRate">Pension %</th>
+          <th scope="col" data-i18n="payrollEmployee">Employee</th><th scope="col" data-i18n="payrollPayType">Pay type</th>
+          <th scope="col" data-i18n="payrollPayCol">Pay</th><th scope="col" data-i18n="payrollIncomeTaxRate">Income tax %</th>
+          <th scope="col" data-i18n="payrollSocialRate">Social %</th><th scope="col" data-i18n="payrollPensionRate">Pension %</th>
         </tr></thead>
         <tbody id="pr-profiles-body"></tbody>
       </table>
@@ -2069,9 +2071,9 @@
       <h3 style="margin-top:1.25rem;" data-i18n="payrollRunsTitle">Pay runs</h3>
       <table class="data-table">
         <thead><tr>
-          <th data-i18n="payrollPeriod">Period</th><th data-i18n="payrollPayDate">Pay date</th>
-          <th data-i18n="payrollGross">Gross</th><th data-i18n="payrollNet">Net</th>
-          <th data-i18n="usersStatus">Status</th><th></th>
+          <th scope="col" data-i18n="payrollPeriod">Period</th><th scope="col" data-i18n="payrollPayDate">Pay date</th>
+          <th scope="col" data-i18n="payrollGross">Gross</th><th scope="col" data-i18n="payrollNet">Net</th>
+          <th scope="col" data-i18n="usersStatus">Status</th><th scope="col"></th>
         </tr></thead>
         <tbody id="pr-runs-body"></tbody>
       </table>
@@ -2080,11 +2082,11 @@
         <h3 id="pr-run-detail-title" data-i18n="payrollRunDetail">Run detail</h3>
         <table class="data-table">
           <thead><tr>
-            <th data-i18n="payrollEmployee">Employee</th><th data-i18n="payrollGross">Gross</th>
-            <th data-i18n="payrollAllowances">Allowances</th>
-            <th data-i18n="payrollIncomeTax">Income tax</th><th data-i18n="payrollSocial">Social</th>
-            <th data-i18n="payrollEmployerShare">Employer share</th>
-            <th data-i18n="payrollDeductions">Deductions</th><th data-i18n="payrollNet">Net</th><th></th>
+            <th scope="col" data-i18n="payrollEmployee">Employee</th><th scope="col" data-i18n="payrollGross">Gross</th>
+            <th scope="col" data-i18n="payrollAllowances">Allowances</th>
+            <th scope="col" data-i18n="payrollIncomeTax">Income tax</th><th scope="col" data-i18n="payrollSocial">Social</th>
+            <th scope="col" data-i18n="payrollEmployerShare">Employer share</th>
+            <th scope="col" data-i18n="payrollDeductions">Deductions</th><th scope="col" data-i18n="payrollNet">Net</th><th scope="col"></th>
           </tr></thead>
           <tbody id="pr-run-lines-body"></tbody>
         </table>
@@ -2122,13 +2124,13 @@
       <div style="overflow-x:auto;">
         <table class="data-table" id="equity-captable">
           <thead><tr>
-            <th data-i18n="equityColShareholder">Shareholder</th>
-            <th class="num" data-i18n="equityColPercent">%</th>
-            <th class="num" data-i18n="equityColShares">Shares</th>
-            <th class="num" data-i18n="equityColPaidIn">Paid-in</th>
-            <th class="num" data-i18n="equityColDivDeclared">Dividends declared</th>
-            <th class="num" data-i18n="equityColDivOutstanding">Outstanding</th>
-            <th></th>
+            <th scope="col" data-i18n="equityColShareholder">Shareholder</th>
+            <th scope="col" class="num" data-i18n="equityColPercent">%</th>
+            <th scope="col" class="num" data-i18n="equityColShares">Shares</th>
+            <th scope="col" class="num" data-i18n="equityColPaidIn">Paid-in</th>
+            <th scope="col" class="num" data-i18n="equityColDivDeclared">Dividends declared</th>
+            <th scope="col" class="num" data-i18n="equityColDivOutstanding">Outstanding</th>
+            <th scope="col"></th>
           </tr></thead>
           <tbody id="equity-captable-body"><tr><td colspan="7" class="empty-state" data-i18n="loading">Loading…</td></tr></tbody>
         </table>
@@ -2221,7 +2223,7 @@
         </div>
         <div id="petty-pending-wrap" style="margin-bottom:0.7rem;"></div>
         <table class="results-table">
-          <thead><tr><th data-i18n="pettyHolder">Holder</th><th data-i18n="pettyBalance">Balance</th><th data-i18n="pettyPendingCol">Pending</th><th></th></tr></thead>
+          <thead><tr><th scope="col" data-i18n="pettyHolder">Holder</th><th scope="col" data-i18n="pettyBalance">Balance</th><th scope="col" data-i18n="pettyPendingCol">Pending</th><th scope="col"></th></tr></thead>
           <tbody id="petty-admin-tbody"><tr><td colspan="4" class="empty-state">—</td></tr></tbody>
         </table>
       </div>
@@ -2245,7 +2247,7 @@
             <button type="button" class="btn btn-primary btn-sm" id="petty-exp-submit" data-i18n="pettyExpSubmit">Record expense</button>
           </div>
           <table class="results-table">
-            <thead><tr><th data-i18n="labelDate">Date</th><th data-i18n="pettyKind">Type</th><th data-i18n="labelAmount">Amount</th><th data-i18n="labelDescription">Description</th><th data-i18n="usersStatus">Status</th></tr></thead>
+            <thead><tr><th scope="col" data-i18n="labelDate">Date</th><th scope="col" data-i18n="pettyKind">Type</th><th scope="col" data-i18n="labelAmount">Amount</th><th scope="col" data-i18n="labelDescription">Description</th><th scope="col" data-i18n="usersStatus">Status</th></tr></thead>
             <tbody id="petty-own-tbody"><tr><td colspan="5" class="empty-state">—</td></tr></tbody>
           </table>
         </div>
@@ -2345,12 +2347,12 @@
       <div style="margin-top:1.5rem;">
         <h3 data-i18n="auditTrail">Audit Trail</h3>
         <table class="results-table"><thead><tr>
-          <th data-i18n="thTime">Time</th><th data-i18n="thAction">Action</th><th data-i18n="labelType">Type</th><th data-i18n="thEntity">Entity</th><th data-i18n="thUser">User</th><th data-i18n="thDetail">Detail</th>
+          <th scope="col" data-i18n="thTime">Time</th><th scope="col" data-i18n="thAction">Action</th><th scope="col" data-i18n="labelType">Type</th><th scope="col" data-i18n="thEntity">Entity</th><th scope="col" data-i18n="thUser">User</th><th scope="col" data-i18n="thDetail">Detail</th>
         </tr></thead><tbody id="audit-log-body"></tbody></table>
       </div>
     </div>
     <!-- Audit drill-down modal -->
-    <div id="audit-drilldown-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;" data-overlay-close>
+    <div id="audit-drilldown-modal" role="dialog" aria-modal="true" aria-labelledby="audit-modal-title" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;" data-overlay-close>
       <div style="background:white;max-width:600px;margin:5vh auto;border-radius:12px;padding:1.5rem;position:relative;">
         <button type="button" data-action="hide" data-target="audit-drilldown-modal" data-i18n-aria-label="btnClose" aria-label="Close" style="position:absolute;top:0.75rem;right:0.75rem;background:none;border:none;font-size:1.2rem;cursor:pointer;">&times;</button>
         <h3 id="audit-modal-title" data-i18n="auditFindingTitle">Finding details</h3>
@@ -2364,7 +2366,7 @@
       </div>
     </div>
     <!-- Chart drill-down modal -->
-    <div id="chart-drilldown-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;" data-overlay-close>
+    <div id="chart-drilldown-modal" role="dialog" aria-modal="true" aria-labelledby="chart-modal-title" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;" data-overlay-close>
       <div style="background:white;max-width:900px;margin:4vh auto;border-radius:12px;padding:1.5rem;position:relative;">
         <button type="button" data-action="hide" data-target="chart-drilldown-modal" data-i18n-aria-label="btnClose" aria-label="Close" style="position:absolute;top:0.75rem;right:0.75rem;background:none;border:none;font-size:1.2rem;cursor:pointer;">&times;</button>
         <h3 id="chart-modal-title" data-i18n="chartDetailTitle">Chart detail</h3>
@@ -3075,15 +3077,15 @@
       </div>
       <table class="results-table" id="companies-table">
         <thead><tr>
-          <th data-i18n="companiesName">Company</th>
-          <th data-i18n="companiesLocale">Locale</th>
-          <th data-i18n="companiesKind">Type</th>
-          <th data-i18n="companiesCurrency">Currency</th>
-          <th data-i18n="companiesLoginUser">Login</th>
-          <th data-i18n="companiesStatus">Status</th>
-          <th data-i18n="companiesAi">AI · 24 h</th>
-          <th data-i18n="companiesAiReview">AI review</th>
-          <th data-i18n="companiesActions">Actions</th>
+          <th scope="col" data-i18n="companiesName">Company</th>
+          <th scope="col" data-i18n="companiesLocale">Locale</th>
+          <th scope="col" data-i18n="companiesKind">Type</th>
+          <th scope="col" data-i18n="companiesCurrency">Currency</th>
+          <th scope="col" data-i18n="companiesLoginUser">Login</th>
+          <th scope="col" data-i18n="companiesStatus">Status</th>
+          <th scope="col" data-i18n="companiesAi">AI · 24 h</th>
+          <th scope="col" data-i18n="companiesAiReview">AI review</th>
+          <th scope="col" data-i18n="companiesActions">Actions</th>
         </tr></thead>
         <tbody id="companies-tbody"></tbody>
       </table>
@@ -3230,7 +3232,7 @@
         <p id="cn-returns-hint" class="fc-note" style="margin-top:0;"></p>
         <div style="overflow-x:auto;">
           <table class="results-table" id="cn-returns-table">
-            <thead><tr><th data-i18n="cnReturnsItem">Item</th><th data-i18n="cnReturnsMoved">On the invoice</th><th data-i18n="cnReturnsBack">Already back</th><th data-i18n="cnReturnsQty">Coming back</th></tr></thead>
+            <thead><tr><th scope="col" data-i18n="cnReturnsItem">Item</th><th scope="col" data-i18n="cnReturnsMoved">On the invoice</th><th scope="col" data-i18n="cnReturnsBack">Already back</th><th scope="col" data-i18n="cnReturnsQty">Coming back</th></tr></thead>
             <tbody id="cn-returns-body"></tbody>
           </table>
         </div>

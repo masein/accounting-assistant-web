@@ -221,14 +221,19 @@ def test_a_bot_turn_is_kept_with_its_channel(db, co, sampling, monkeypatch):
     from app.services import messenger
     from app.services.ai_accountant import orchestrator
 
+    from app.api import ai_accountant as api_mod
+
     async def fake_turn(db, **kw):
         return _result(None, text="ok")
     monkeypatch.setattr(orchestrator, "run_chat_turn", fake_turn)
+    monkeypatch.setattr(api_mod, "run_chat_turn", fake_turn)          # the bot runs the web chat's handler (CU7)
+    co["accountant"].preferred_language = "fa"                         # the bot speaks the user's language
     with use_company(co["cid"]):
-        link = MessengerLink(platform="telegram", user_id=co["accountant"].id, status="active", chat_id="777")
+        link = MessengerLink(platform="telegram", user_id=co["accountant"].id, status="active", chat_id="777",
+                             token_version=int(co["accountant"].token_version or 0))
         db.add(link)
         db.commit()
-    asyncio.run(messenger._run_turn(db, link, "۵۰ هزار نان", "fa", messenger._Reply("777")))
+    asyncio.run(messenger._run_turn(db, "telegram", link, "۵۰ هزار نان", "fa", messenger._Reply("777")))
     with use_company(co["cid"]):
         s = db.execute(select(AIReviewSample)).scalars().one()
     assert (s.channel, s.lang, s.user_message) == ("telegram", "fa", "۵۰ هزار نان")

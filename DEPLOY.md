@@ -422,16 +422,39 @@ or production keeps up to 4 GB of changes for it. To remove the copy entirely:
 drop the slot, delete the `replicator` role, the `pg_hba.conf` line and the key's
 line in `authorized_keys`, then `docker compose down -v` on the Mac.
 
-## 14. Telegram through a relay
+## 14. Telegram and Bale: the bot, and Telegram through a relay
+
+The bot lives on the server (`app/services/messenger.py`). Someone who only
+uses Telegram or Bale needs nothing else (scenarios CU1–CU9):
+
+- **Signing in in the chat:** `/login` (or the greeting's **Sign in** button)
+  asks for the username, then the password, then the two-factor code when it's
+  on. Every answer — the password and the code above all — is deleted from the chat as soon
+  as they're read; the checks are the web's and the phone's own — per-username
+  and per-chat limits, a suspended company, an address still to confirm, the
+  first password's lock — and each sign-in is an audit row (`login`, "Telegram
+  chat (password)"). A chat can also still be linked from the app's account menu
+  with a one-time code.
+- **A new account in the chat:** `/signup` makes a person's own books, as the
+  sign-up page does, when `ALLOW_SELF_SIGNUP` is on. With mail set up
+  (`SMTP_HOST`) it also asks for an e-mail address, and the chat signs in only
+  after it's confirmed. Business companies are still made by a super-admin.
+- **Signing out:** `/stop`. A password change, "sign out everywhere", or a
+  suspended company ends the chat's sign-in too, as it ends a browser's.
+- **What it does:** a message is a turn of the web chat's own handler, as that
+  user (company, role, language, AI budget): the quick answers, a statement's
+  steps and a receipt's reading are the same. Voice notes are transcribed; a
+  photo or a file (PDF, CSV, Excel, 20 MB at most) goes in as the web's
+  attachments, its caption as the message. Each card comes with Confirm /
+  Cancel. A file the reply has — an invoice's or a payslip's PDF, or through the
+  assistant's `get_file` the journal's Excel sheet or a month's close pack — is
+  sent as a document.
 
 Telegram is filtered where production runs, so the server can't reach
-api.telegram.org to set a webhook or send a reply. The bot still lives on the
-server: linking a chat to a login, the same assistant as the web chat, voice
-notes, and Confirm / Cancel (`app/services/messenger.py`). Its Telegram side
-runs on a machine that can reach Telegram: the **relay**, in
-[`ops/telegram-relay/`](ops/telegram-relay/README.md). On the owner's Mac it
-runs from `/Users/masein/Development/accounting/telegram-relay`, next to the
-live copy (§13).
+api.telegram.org to set a webhook or send a reply. Its Telegram side runs on a
+machine that can reach Telegram: the **relay**, in
+[`ops/telegram-relay/`](ops/telegram-relay/README.md), on the owner's Mac next to
+the live copy (§13).
 
 ```
 Telegram  ⇄  relay (getUpdates; sends the replies)  ⇄  POST /bots/telegram/relay/update  →  the bot, on the server
@@ -440,24 +463,33 @@ Telegram  ⇄  relay (getUpdates; sends the replies)  ⇄  POST /bots/telegram/r
 - **Turning it on:** a platform admin goes to Settings → Messenger bots →
   Telegram → **Use a relay**, which makes a *relay key*, shown once
   (`POST /admin/messenger-bots/telegram/relay`). The server keeps only its
-  hash, and no bot token at all. The relay's `.env` holds the key and the bot
-  token.
+  hash, and no bot token at all. The relay's `.env` holds the key; its
+  `token.env` holds the bot token, alone, because the watchdog (§15) reads it.
 - **The relay's two calls:** `…/relay/hello` (on start and every 10 minutes:
   the bot's username, for the links the app shows, and when the relay was last
-  seen) and `…/relay/update` (one update, plus a voice note's audio, which the
-  server can't fetch). The answer is the Bot API calls to make. A wrong key
-  gets a plain 404, as a wrong webhook secret does.
+  seen) and `…/relay/update` (one update, plus a voice note's, a photo's or a
+  file's bytes, which the server can't fetch — as a multipart form). The answer
+  is the Bot API calls to make; a document comes with its bytes, and the relay
+  uploads it. A wrong key gets a plain 404, as a wrong webhook secret does.
+- **Nothing lost:** the server marks an update handled only at the end, so one
+  it stopped half way through is handled again on the next try; when the server
+  doesn't answer, the relay keeps its offset and sends the same updates again on
+  its next round.
 - **Webhooks:** relay mode replaces a webhook setup for that bot. Bale, which is
   reachable from Iran, stays on its webhook.
 - **A new key:** clicking "New relay key" replaces the old one. The relay then
   stops with `the server doesn't know this relay key` until its `.env` has the
   new one.
+- **Updating:** the server first, then the relay (`docker compose up -d
+  --build` in its folder). A relay from 2026-11-28 sends files as a multipart
+  form, which older servers don't read; an older relay works with a newer
+  server, without photos, files or documents.
 
 The relay is a single Python file with httpx, in Docker. It handles updates in
 order per chat and different chats at the same time, keeps its offset across
 restarts, retries the server three times, and never logs the token. Tests:
-`tests/test_telegram_relay.py` and the relay cases in
-`tests/test_messenger_bot.py`. For a local end-to-end run without an AI key,
+`tests/test_telegram_relay.py`, `tests/test_messenger_bot.py` and
+`tests/test_messenger_sign_in.py`. For a local end-to-end run without an AI key,
 `tests_e2e/fake_llm.py` stands in for the AI.
 
 ## 15. The watchdog

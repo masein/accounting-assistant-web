@@ -4,14 +4,17 @@ assistant as the web chat, under that user's company, role and AI budget.
 
 A link starts ``pending`` with a one-time ``code`` (10 minutes) the user opens
 as ``https://t.me/<bot>?start=<code>`` / ``https://ble.ir/<bot>?start=<code>``;
-the bot's ``/start <code>`` fills ``chat_id`` and makes it ``active``.
+the bot's ``/start <code>`` fills ``chat_id`` and makes it ``active``. A chat can
+also sign in on its own — username, password and the two-factor code typed in
+the chat — or make a new account there (``MessengerSignIn`` keeps where that
+conversation is), so someone who only uses Telegram or Bale never needs the app.
 """
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Index, String, func, text
+from sqlalchemy import BigInteger, DateTime, Index, Integer, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -39,6 +42,11 @@ class MessengerLink(Base, TenantMixin):
     session_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # the user's token_version when the chat got in: a password change, "sign out everywhere" or a suspended
+    # company ends the chat's sign-in as it ends a browser's and a phone's (scenario CU6)
+    token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # how the chat got in: "code" (the app's link), "password" (signed in in the chat) or "signup"
+    via: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
 
 class MessengerUpdate(Base):
@@ -50,3 +58,27 @@ class MessengerUpdate(Base):
     platform: Mapped[str] = mapped_column(String(16))
     update_id: Mapped[int] = mapped_column(BigInteger)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # handled to the end; empty while it is handled — or when the server stopped half way, and then the platform's
+    # (or the relay's) next try is handled again instead of lost (scenario CU9)
+    done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class MessengerSignIn(Base):
+    """A chat in the middle of signing in or making an account: which step it is at. Not a company's (it has
+    none yet). Gone once the chat is in, cancelled, or ten minutes old. The password is never kept: it is the
+    last thing asked, and checked (or used) the moment it comes, then its message is deleted from the chat."""
+    __tablename__ = "messenger_sign_ins"
+    __table_args__ = (Index("uq_messenger_sign_ins_chat", "platform", "chat_id", unique=True),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    platform: Mapped[str] = mapped_column(String(16))
+    chat_id: Mapped[str] = mapped_column(String(64))
+    purpose: Mapped[str] = mapped_column(String(16))                 # login | signup
+    step: Mapped[str] = mapped_column(String(16))                    # username | email | password | code
+    username: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    # the signed five-minute two-factor challenge the password step gave (app/core/two_factor.py)
+    challenge: Mapped[str | None] = mapped_column(Text, nullable=True)
+    lang: Mapped[str] = mapped_column(String(8), default="en")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

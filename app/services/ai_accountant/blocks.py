@@ -438,6 +438,8 @@ RENDERERS = {
     "get_budget_status": _budget_table,
     "get_spending_summary": _spending_table,
     "get_invoice": _invoice_file,
+    # the journal's Excel sheet or a month's close pack, handed over (files_out.py, scenario CU8)
+    "get_file": lambda result, **_: dict(result["file"]) if isinstance(result.get("file"), dict) else None,
 }
 
 
@@ -489,6 +491,24 @@ def build_blocks(db: Session, *, text: str | None, proposals: list | None, tool_
             said["choices"] = [str(o) for o in options][:4]
         blocks.append(said)
     return blocks
+
+
+def made_document(db: Session, audit_log_id: str | None) -> dict | None:
+    """The document a posting made, for the phone to open or share and the bot to send: an invoice's PDF (its
+    audit row names the invoice)."""
+    from app.models.audit_log import AuditLog
+    from app.models.invoice import Invoice
+    try:
+        row = db.get(AuditLog, uuid.UUID(str(audit_log_id)))
+    except (ValueError, TypeError):
+        return None
+    if row is None or row.entity_type != "invoice" or not row.entity_id:
+        return None
+    try:
+        inv = db.get(Invoice, uuid.UUID(str(row.entity_id)))
+    except (ValueError, TypeError):
+        return None
+    return invoice_file(inv.id, inv.number) if inv is not None else None
 
 
 def posted_block(*, token: str, transaction_id: str | None, audit_log_id: str, voucher: str | None,

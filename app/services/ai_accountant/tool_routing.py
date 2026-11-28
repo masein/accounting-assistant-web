@@ -58,6 +58,7 @@ GROUPS: dict[str, tuple[str, tuple[str, ...]]] = {
                     "propose_create_recurring_rule", "get_petty_cash", "get_exchange_rates")),
     "close": ("month end: the close checklist, locking a period, the audit trail",
               ("get_close_checklist", "propose_lock_period", "get_audit_trail")),
+    "files": ("a file sent with the reply: the journal as one Excel sheet, a month's close pack", ("get_file",)),
     "memory": ("remembering a standing choice ('always', 'from now on')", ("propose_remember_preference",)),
     "dates": ("giving entries already in the books the date they really had", ("propose_change_date",)),
 }
@@ -108,6 +109,10 @@ KEYWORDS: dict[str, re.Pattern] = {
         r"activo fijo|inventario|tipo de cambio|مخزون|استهلاك)\b", _I),
     "close": re.compile(
         r"بستن|قفل|حسابرسی|تاریخچه|پایان ماه|\b(close|closing|lock\w*|audit\w*|checklist|cierre|إقفال|تدقيق)\b", _I),
+    "files": re.compile(
+        r"فایل|اکسل|روزنامه|بسته|پی[‌ ]?دی[‌ ]?اف|بفرست|دانلود|"
+        r"\b(files?|excel|xlsx|spreadsheet|journal|close ?pack|pdf|zip|download\w*|send me|archivo|descarg\w*|"
+        r"diario|ملف|تنزيل|إكسل)\b", _I),
     "memory": re.compile(r"همیشه|از این به بعد|از حالا|یادت باشه|\b(always|from now on|remember|siempre|دائما)\b", _I),
     "dates": re.compile(r"تاریخ|\b(dates?|dated|re-?date|fecha|تاريخ)\b", _I),
     "counting": re.compile(
@@ -136,7 +141,7 @@ def route(message: str | None, *, recent_tools: Iterable[str] = (), attachments:
     if attachments:
         picked |= {"invoices", "statements", "parties"}
     if personal:
-        picked -= {"invoices", "time", "equity", "payroll", "operations", "close"}   # not a person's
+        picked -= {"invoices", "time", "equity", "payroll", "operations", "close", "files"}   # not a person's
     return picked
 
 

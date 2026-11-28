@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.services.messenger import (MAX_VOICE_BYTES, PLATFORMS, check_secret, handle_update, relay_calls,
+from app.services.messenger import (MAX_FILE_BYTES, PLATFORMS, check_secret, handle_update, relay_calls,
                                     relay_config, relay_hello)
 
 log = logging.getLogger("app.messenger")
@@ -79,8 +79,45 @@ class RelayHello(BaseModel):
 
 class RelayUpdate(BaseModel):
     update: dict
-    # a voice note's audio, base64, by file_id: the server can't fetch it from the platform
+    # a voice note's, a photo's or a file's bytes, base64, by file_id: the server can't fetch them from the platform
     files: dict[str, str] = Field(default_factory=dict, max_length=2)
+
+
+async def _relayed(request: Request) -> tuple[dict, dict[str, bytes]]:
+    """The update and its files, as the relay sends them: a multipart form (the update as JSON in ``update``,
+    each file a part named ``f:<file_id>``), or — from a relay before 2026-11-28 — JSON with base64 files.
+    A file over the limit is left out; the turn says so."""
+    import json
+
+    from starlette.datastructures import UploadFile as StarletteUpload
+    files: dict[str, bytes] = {}
+    if (request.headers.get("content-type") or "").lower().startswith("multipart/form-data"):
+        form = await request.form(max_files=2, max_fields=4)
+        try:
+            update = json.loads(str(form.get("update") or ""))
+        except ValueError:
+            raise HTTPException(status_code=422, detail="update is not JSON")
+        for key, value in form.multi_items():
+            if key.startswith("f:") and isinstance(value, StarletteUpload):
+                data = await value.read(MAX_FILE_BYTES + 1)
+                if len(data) <= MAX_FILE_BYTES:
+                    files[key[2:]] = data
+    else:
+        try:
+            payload = RelayUpdate.model_validate(await request.json())
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Not an update")
+        update = payload.update
+        for file_id, b64 in payload.files.items():
+            if len(b64) > (MAX_FILE_BYTES * 4) // 3 + 8:
+                continue                                      # too large: the turn says so
+            try:
+                files[file_id] = base64.b64decode(b64, validate=True)
+            except (binascii.Error, ValueError):
+                continue
+    if not isinstance(update, dict):
+        raise HTTPException(status_code=422, detail="Not an update")
+    return update, files
 
 
 @router.post("/{platform}/relay/hello", include_in_schema=False)
@@ -95,18 +132,11 @@ def relay_check_in(platform: str, payload: RelayHello, request: Request, db: Ses
 
 
 @router.post("/{platform}/relay/update", include_in_schema=False)
-async def relay_update(platform: str, payload: RelayUpdate, request: Request, db: Session = Depends(get_db)) -> dict:
+async def relay_update(platform: str, request: Request, db: Session = Depends(get_db)) -> dict:
     _relay_cfg(platform, request, db)
-    files: dict[str, bytes] = {}
-    for file_id, b64 in payload.files.items():
-        if len(b64) > (MAX_VOICE_BYTES * 4) // 3 + 8:
-            continue                                          # too large: the turn says so
-        try:
-            files[file_id] = base64.b64decode(b64, validate=True)
-        except (binascii.Error, ValueError):
-            continue
+    update, files = await _relayed(request)
     try:
-        reply = await handle_update(db, platform, payload.update, files=files, deliver=False)
+        reply = await handle_update(db, platform, update, files=files, deliver=False)
     except Exception:  # noqa: BLE001 — the relay gets an answer either way
         db.rollback()
         log.exception("relayed update failed platform=%s", platform)

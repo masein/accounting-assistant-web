@@ -478,6 +478,8 @@ for _m, _p in [
 _reads(["/api/mobile/v1/threads", "/api/mobile/v1/threads/{thread_id}/messages", "/api/mobile/v1/summary"], Perm.BOOKS_READ)
 _reads(["/api/mobile/v1/documents/invoices/{invoice_id}"], frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
 _reads(["/api/mobile/v1/documents/payslips/{run_id}/{entity_id}"], Perm.PAYROLL_READ)
+# the journal's Excel and a close pack, as the manager reports' own downloads (get_file, scenario CU8)
+_reads(["/api/mobile/v1/documents/journal", "/api/mobile/v1/documents/close-pack"], Perm.REPORTS_READ)
 for _m, _p in [
     ("POST", "/api/mobile/v1/chat"), ("POST", "/api/mobile/v1/chat/stream"),
     ("POST", "/api/mobile/v1/proposals/{token}/confirm"),

@@ -15,6 +15,9 @@ separate module wired in via the orchestrator (next chunk of work).
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
+
 import json
 import time
 import uuid
@@ -105,6 +108,20 @@ class ReplyTo(BaseModel):
     role: str = Field(default="assistant", max_length=16)
     text: str = Field(default="", max_length=4000)
     token: str | None = Field(default=None, max_length=64)
+
+
+# Where a turn came from, for the owner's review queue: the web, or the Telegram/Bale bot that runs this same
+# handler (app/services/messenger.py).
+_CHANNEL: ContextVar[str] = ContextVar("chat_channel", default="web")
+
+
+@contextmanager
+def chat_channel(name: str):
+    token = _CHANNEL.set(name)
+    try:
+        yield
+    finally:
+        _CHANNEL.reset(token)
 
 
 class ChatPayload(BaseModel):
@@ -640,7 +657,7 @@ async def chat(
     # about one turn in ten, for the owner's review queue (roadmap §5.5)
     from app.services import ai_review
     ai_review.maybe_sample(db, result, user_id=user.user_id, username=user.username, message=payload.message,
-                           lang=_user_language(db, user), channel="web",
+                           lang=_user_language(db, user), channel=_CHANNEL.get(),
                            latency_ms=int((time.perf_counter() - turn_started) * 1000),
                            personal=user.role == Role.PERSONAL)
     from app.services.ai_accountant.orchestrator import turn_language

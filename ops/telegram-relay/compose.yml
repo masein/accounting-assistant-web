@@ -1,5 +1,6 @@
 # The Telegram relay (DEPLOY.md §14), on a machine that can reach Telegram:
-#   cp .env.example .env && chmod 600 .env     # the bot token, the app's address, the relay key
+#   cp token.env.example token.env && chmod 600 token.env   # the bot token, alone (the watchdog reads it too)
+#   cp .env.example .env && chmod 600 .env                   # the app's address and the relay key
 #   docker compose up -d --build
 #   docker compose logs -f relay
 name: telegram-relay
@@ -9,7 +10,9 @@ services:
     build: .
     image: telegram-relay:local
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - token.env
+      - .env
     volumes:
       - ./state:/state                 # the offset of the last update handled
     logging:

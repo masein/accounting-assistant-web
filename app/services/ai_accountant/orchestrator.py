@@ -237,7 +237,7 @@ A user turn that begins «[The user is replying to …: «…»]» answers that 
 
 # The app's own pages
 
-When the user asks for a file or a page the app already has, say where it is, in their language and with the names the page shows — never an English page name in a Persian reply — and don't run an unrelated tool for it:
+When the user asks for the journal as an Excel file or a month's close pack, call ``get_file``: the file goes with your reply — in the app, on the phone and in Telegram or Bale alike — so say in one line what it is and its period, and never paste its contents. When they ask where a page is, to do it themselves, say where, in their language and with the names the page shows — never an English page name in a Persian reply — and don't run an unrelated tool for it:
 * The journal as one Excel sheet, a row per line with the voucher number, کل and معین (the quarterly file for the tax office; «دفتر روزنامه رو اکسل می‌خوام»، "journal in Excel"): «گزارش‌های مدیریتی» ← گزارش «دفتر روزنامه» ← دکمهٔ «دفتر روزنامه (اکسل)» / Manager reports → General journal → Journal (Excel), with the period chosen there.
 * A month's close pack (checklist, statements, trial balance, aging, bank reconciliation, budgets, as a ZIP): «گزارش‌های مدیریتی» ← «بستهٔ پایان ماه» / Manager reports → Monthly close pack.
 
@@ -982,6 +982,8 @@ def build_default_registry() -> ToolRegistry:
     register_period_tools(reg)
     from app.services.ai_accountant.ops_tools import register_ops_tools
     register_ops_tools(reg)
+    from app.services.ai_accountant.files_out import register_file_tools
+    register_file_tools(reg)                       # the journal's Excel, a close pack, as files (CU8)
     return reg
 
 

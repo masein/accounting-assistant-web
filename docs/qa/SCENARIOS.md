@@ -1271,7 +1271,7 @@ From production: Omani rials in replies as «۱٫۷» or «۶۲۹» where the ap
 
 ## CJ. Deploys from two registries (2026-11-16)
 
-The server pulled the api only from docker.netixsystem.com through Watchtower; the mirror answered 502 for days and production stayed thirteen merges behind while GHCR had every image. Now the `deployer` service (`scripts/deploy.sh`, DEPLOY.md §5) takes each new image from whichever registry answers. Checked by hand against a throwaway registry and a registry that doesn't exist.
+The server pulled the api only from the mirror registry through Watchtower; the mirror answered 502 for days and production stayed thirteen merges behind while GHCR had every image. Now the `deployer` service (`scripts/deploy.sh`, DEPLOY.md §5) takes each new image from whichever registry answers. Checked by hand against a throwaway registry and a registry that doesn't exist.
 
 | ID | Scenario | Steps | Expected |
 |----|----------|-------|----------|

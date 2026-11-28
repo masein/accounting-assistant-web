@@ -293,8 +293,8 @@
             <td>${canDelete(row) ? `<button class="btn btn-secondary btn-sm fx-del-rate" data-id="${escapeHtml(row.id)}">${escapeHtml(t('btnDelete'))}</button>` : ''}</td>
           </tr>`;
       const more = shared.length - showShared.length;
-      wrap.innerHTML = (rows.length ? '<table class="mini-table"><thead><tr><th>' + escapeHtml(t('fxFrom')) + '</th><th>' + escapeHtml(t('fxTo')) +
-          '</th><th>' + escapeHtml(t('fxRateCol')) + '</th><th>' + escapeHtml(t('fxEffective')) + '</th><th>' + escapeHtml(t('fxNote')) + '</th><th></th></tr></thead><tbody>' +
+      wrap.innerHTML = (rows.length ? '<table class="mini-table"><thead><tr><th scope="col">' + escapeHtml(t('fxFrom')) + '</th><th scope="col">' + escapeHtml(t('fxTo')) +
+          '</th><th scope="col">' + escapeHtml(t('fxRateCol')) + '</th><th scope="col">' + escapeHtml(t('fxEffective')) + '</th><th scope="col">' + escapeHtml(t('fxNote')) + '</th><th scope="col"></th></tr></thead><tbody>' +
           own.map(line).join('') + showShared.map(line).join('') + '</tbody></table>'
           : '<p class="empty-state" style="padding:0.4rem;">' + escapeHtml(t('fxNoRatesMatch')) + '</p>') +
         (more > 0 ? `<button type="button" class="btn btn-secondary btn-sm" id="fx-rates-more" style="margin-top:0.4rem;">${escapeHtml(tf('fxShowAllShared', { n: shared.length }))}</button>` : '');
@@ -395,7 +395,7 @@
           </div>
           <div class="fx-feed-items fx-stack">
             ${(f.items || []).length ? '' : '<p class="fx-hint" style="margin:0 0 0.3rem 0;">' + escapeHtml(t('fxFeedsNoItems')) + '</p>'}
-            <table class="mini-table"${(f.items || []).length ? '' : ' hidden'}><thead><tr><th>${escapeHtml(t('fxFeedsUnit'))}</th><th>${escapeHtml(t('fxFeedsPricedIn'))}</th><th>${escapeHtml(t('fxFeedsPath'))}</th><th>×</th><th></th></tr></thead>
+            <table class="mini-table"${(f.items || []).length ? '' : ' hidden'}><thead><tr><th scope="col">${escapeHtml(t('fxFeedsUnit'))}</th><th scope="col">${escapeHtml(t('fxFeedsPricedIn'))}</th><th scope="col">${escapeHtml(t('fxFeedsPath'))}</th><th scope="col">×</th><th scope="col"></th></tr></thead>
             <tbody>${(f.items || []).map((it, j) => `<tr data-j="${j}">
               <td class="fx-code" data-label="${escapeHtml(t('fxFeedsUnit'))}"><input type="text" data-ik="unit" dir="ltr" maxlength="16" value="${escapeHtml(it.unit || '')}" placeholder="GOLDG" aria-label="${escapeHtml(t('fxFeedsUnit'))}"></td>
               <td class="fx-code" data-label="${escapeHtml(t('fxFeedsPricedIn'))}"><input type="text" data-ik="to" dir="ltr" maxlength="16" value="${escapeHtml(it.to || '')}" placeholder="IRR" aria-label="${escapeHtml(t('fxFeedsPricedIn'))}"></td>

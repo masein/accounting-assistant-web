@@ -3181,6 +3181,7 @@ window.I18N_PACKS.fa = Object.assign({
         aiChatExample2: 'ماه گذشته چقدر خرج کردیم؟',
         aiChatExample3: 'ترازنامه را نشان بده',
         aiChatScrollBottom: 'رفتن به آخرین پیام',
+        skipToContent: 'رفتن به محتوای اصلی',
         aiChatAttachTitle: 'پیوست فاکتور یا رسید (JPG، PNG، WEBP، PDF)',
         aiChatNewTitle: 'شروع گفتگوی جدید',
         aiChatRemoveAttachment: 'حذف پیوست',

@@ -25,6 +25,13 @@
       const t = _byIdOrClosest(el, el.dataset.target);
       if (t) t.style.display = t.style.display === 'none' ? 'block' : 'none';
     });
+    // "Skip to main content": focus <main> without following the link — a
+    // #main-content hash would be read as a page name by the hash router.
+    registerAction('skip-to-content', (el, e) => {
+      e.preventDefault();
+      const main = document.getElementById('main-content');
+      if (main) main.focus();
+    });
     document.addEventListener('click', (e) => {
       // A dimmed backdrop that closes when clicked outside its card.
       if (e.target instanceof Element && e.target.hasAttribute('data-overlay-close')) {
@@ -411,14 +418,10 @@
     const submitBtn = document.getElementById('submit-btn');
     const resultsTbody = document.getElementById('results-tbody');
     const resultsFoot = document.getElementById('results-foot');
-    const chatMessagesEl = document.getElementById('chat-messages');
-    const chatInput = document.getElementById('chat-input');
-    const chatSendBtn = document.getElementById('chat-send');
     const attachmentInput = document.getElementById('attachment-input');
     const attachmentUploadBtn = document.getElementById('attachment-upload-btn');
     const attachmentGrid = document.getElementById('attachment-grid');
     const openAiChatInlineBtn = document.getElementById('open-ai-chat-inline');
-    const voucherChatInlineEl = document.getElementById('voucher-chat-inline');
     const invoicesTbody = document.getElementById('invoices-tbody');
     const recurringTbody = document.getElementById('recurring-tbody');
     const budgetWrap = document.getElementById('budget-wrap');
@@ -593,11 +596,11 @@
         wrap.innerHTML = `
           <table class="results-table" style="font-size:0.85rem;">
             <thead><tr>
-              <th>${escapeHtml(t('apiKeysLabel'))}</th><th>${escapeHtml(t('apiKeysPrefix'))}</th>
-              <th>${escapeHtml(t('apiKeysScopes'))}</th>
-              <th>${escapeHtml(t('apiKeysCreated'))}</th><th>${escapeHtml(t('apiKeysLastUsed'))}</th>
-              <th>${escapeHtml(t('apiKeysExpiry'))}</th>
-              <th>${escapeHtml(t('usersStatus'))}</th><th></th>
+              <th scope="col">${escapeHtml(t('apiKeysLabel'))}</th><th scope="col">${escapeHtml(t('apiKeysPrefix'))}</th>
+              <th scope="col">${escapeHtml(t('apiKeysScopes'))}</th>
+              <th scope="col">${escapeHtml(t('apiKeysCreated'))}</th><th scope="col">${escapeHtml(t('apiKeysLastUsed'))}</th>
+              <th scope="col">${escapeHtml(t('apiKeysExpiry'))}</th>
+              <th scope="col">${escapeHtml(t('usersStatus'))}</th><th scope="col"></th>
             </tr></thead>
             <tbody>${keys.map(k => `
               <tr>
@@ -672,6 +675,8 @@
     const mgrReportTypeEl = document.getElementById('mgr-report-type');
     const mgrFromDateEl = document.getElementById('mgr-from-date');
     const mgrToDateEl = document.getElementById('mgr-to-date');
+    const mgrProductFilterEl = document.getElementById('mgr-product-filter');
+    const mgrPeriodGranularityEl = document.getElementById('mgr-period-granularity');
     const mgrAccountCodeEl = document.getElementById('mgr-account-code');
     const mgrRunBtn = document.getElementById('mgr-run-btn');
     const mgrReportJsonEl = document.getElementById('mgr-report-json');
@@ -706,8 +711,6 @@
     const invReportChartEl = document.getElementById('inv-report-chart');
     const invReportChartTitleEl = document.getElementById('inv-report-chart-title');
 
-    let chatHistory = [];
-    let lastEntityMentions = null;
     let entityOptions = { client: [], bank: [], payee: [], supplier: [] };  // payee uses type "employee"
     let selectedAttachments = [];
     let entityTransactionsCache = [];

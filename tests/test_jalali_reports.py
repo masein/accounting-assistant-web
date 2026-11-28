@@ -208,8 +208,8 @@ def test_the_budget_pickers_follow_the_display_calendar():
     assert "new Date().toISOString().slice(0, 10)" not in forms                    # UTC: a day early in Tehran
     from tests.i18n_source import i18n_text
     i18n = i18n_text()
-    vouchers = (JS / "06-vouchers.js").read_text(encoding="utf-8")
-    assert "<th>Actual</th>" not in vouchers and "t('budgetColActual')" in vouchers
+    budgets = (JS / "08-entities-invoices.js").read_text(encoding="utf-8")
+    assert "<th>Actual</th>" not in budgets and "t('budgetColActual')" in budgets
     assert i18n.count("budgetColActual: ") == 4 and i18n.count("budgetNoRows: ") == 4
     assert "setLabel('budget-month', 'labelMonth')" in i18n and "forId + '-jalali\"]'" in i18n
 

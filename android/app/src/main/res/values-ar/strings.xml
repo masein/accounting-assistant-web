@@ -246,4 +246,15 @@
     <string name="update_title">حدّث التطبيق</string>
     <string name="update_body">هذا الإصدار من التطبيق قديم ولا يصل إلى دفاترك. ثبّت أحدث إصدار للمتابعة؛ الرسائل التي كتبتها محفوظة وستُرسل بعد التحديث.</string>
     <string name="update_version">يلزم الإصدار %1$s أو أحدث.</string>
+    <!-- support: a chat with the support desk, the same as the web's support panel (scenarios DB1–DB8) -->
+    <string name="support_title">الدعم</string>
+    <string name="support_intro">أخبرنا بما حدث أو بما تريد فعله: الشاشة، وما فعلته، وما توقعته. لقطة الشاشة تساعد. ما يحتاج إلى إصلاح يُصلَح، وتصلك الإجابة هنا.</string>
+    <string name="support_online">● متصل — يرد عادةً خلال دقائق</string>
+    <string name="support_offline">غير متاح الآن — تُحفظ رسالتك ويُرد عليها فور عودة الدعم</string>
+    <string name="support_hint">ما المشكلة؟ أي شاشة، ماذا فعلت، وماذا توقعت</string>
+    <string name="support_attach">إرفاق لقطة شاشة</string>
+    <string name="support_file">اختيار ملف (صورة أو PDF)</string>
+    <string name="support_failed">تعذّر الإرسال — حاول مرة أخرى.</string>
+    <string name="support_too_large">هذا الملف أكبر من 20 ميغابايت.</string>
+    <string name="support_replied">رد الدعم</string>
 </resources>

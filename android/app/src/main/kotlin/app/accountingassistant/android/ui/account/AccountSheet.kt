@@ -9,11 +9,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
@@ -43,12 +46,14 @@ import app.accountingassistant.android.data.CurrencyOption
 import app.accountingassistant.android.data.DeviceDto
 import app.accountingassistant.android.sms.BankText
 import app.accountingassistant.android.sms.SmsSender
+import app.accountingassistant.android.ui.components.AppIcons
 import app.accountingassistant.android.ui.theme.LocalAccountantColors
 import app.accountingassistant.android.util.Numbers
 
 /**
- * Behind the avatar: who you are and in which books, the phones signed in
- * (sign a lost one out from here), the app lock, and signing out.
+ * Behind the avatar: who you are and in which books, Support (with the
+ * replies not read yet), the phones signed in (sign a lost one out from
+ * here), the app lock, and signing out.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,12 +74,14 @@ fun AccountSheet(
     onNotify: (Boolean) -> Unit = {},
     sms: SmsSection? = null,
     currency: CurrencySection? = null,
+    onSupport: (() -> Unit)? = null,
+    supportUnread: Int = 0,
 ) {
     val c = LocalAccountantColors.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberBottomSheetState(SheetValue.Hidden, setOf(SheetValue.Hidden, SheetValue.Expanded)),
                      containerColor = c.surface) {
         AccountSheetContent(username, booksName, role, devices, lockAvailable, lockOn, onLock, onRevoke, onSignOut,
-                            crashesOn, onCrashes, notifyOn, onNotify, sms, currency)
+                            crashesOn, onCrashes, notifyOn, onNotify, sms, currency, onSupport, supportUnread)
     }
 }
 
@@ -86,6 +93,9 @@ fun AccountSheetContent(
     notifyOn: Boolean = false, onNotify: (Boolean) -> Unit = {},
     sms: SmsSection? = null,
     currency: CurrencySection? = null,
+    /** Support (scenario DB1): the conversation with the support desk; null leaves the row out. */
+    onSupport: (() -> Unit)? = null,
+    supportUnread: Int = 0,
 ) {
     val c = LocalAccountantColors.current
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding()
@@ -97,6 +107,7 @@ fun AccountSheetContent(
                  color = c.muted, fontSize = 13.sp)
         }
         HorizontalDivider(color = c.line)
+        if (onSupport != null) SupportRow(supportUnread, onSupport)
         if (currency != null) BooksCurrencySetting(currency)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -148,6 +159,26 @@ fun AccountSheetContent(
         }
         OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth(), border = BorderStroke(1.dp, c.line)) {
             Text(stringResource(R.string.sign_out), color = c.pomegranate, fontWeight = FontWeight(700))
+        }
+    }
+}
+
+/** Support, with how many of its replies wait: «پشتیبانی ۲». */
+@Composable
+private fun SupportRow(unread: Int, onOpen: () -> Unit) {
+    val c = LocalAccountantColors.current
+    val lang = LocalConfiguration.current.locales[0].language
+    Surface(onClick = onOpen, shape = RoundedCornerShape(14.dp), color = c.surface,
+            border = BorderStroke(1.dp, if (unread > 0) c.firouzeh else c.line)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(AppIcons.Headset, contentDescription = null, tint = c.firouzeh, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(10.dp))
+            Text(stringResource(R.string.support_title), color = c.ink, fontSize = 15.sp, fontWeight = FontWeight(700),
+                 modifier = Modifier.weight(1f))
+            if (unread > 0) Surface(shape = CircleShape, color = c.pomegranate) {
+                Text(Numbers.digits(if (unread > 9) "9+" else unread.toString(), lang), color = c.surface, fontSize = 12.sp,
+                     fontWeight = FontWeight(700), modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
+            }
         }
     }
 }

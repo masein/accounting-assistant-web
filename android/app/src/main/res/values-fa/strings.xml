@@ -218,4 +218,15 @@
     <string name="update_title">برنامه را به‌روز کنید</string>
     <string name="update_body">این نسخهٔ برنامه برای دسترسی به دفاترتان قدیمی است. برای ادامه، آخرین نسخه را نصب کنید؛ پیام‌هایی که نوشته‌اید نگه داشته می‌شوند و پس از به‌روزرسانی ارسال می‌شوند.</string>
     <string name="update_version">نسخهٔ %1$s یا جدیدتر لازم است.</string>
+    <!-- support: a chat with the support desk, the same as the web's support panel (scenarios DB1–DB8) -->
+    <string name="support_title">پشتیبانی</string>
+    <string name="support_intro">بگویید چه مشکلی پیش آمد یا چه کاری می‌خواهید انجام دهید: کدام صفحه، چه کردید و انتظار داشتید چه شود. تصویر صفحه خیلی کمک می‌کند. هر چه نیاز به اصلاح داشته باشد اصلاح می‌شود و پاسخش را همین‌جا می‌گیرید.</string>
+    <string name="support_online">● آنلاین — معمولاً ظرف چند دقیقه پاسخ می‌دهد</string>
+    <string name="support_offline">الان در دسترس نیست — پیامتان می‌ماند و به محض بازگشت پشتیبانی پاسخ داده می‌شود</string>
+    <string name="support_hint">چه مشکلی پیش آمد؟ کدام صفحه، چه کردید، چه انتظاری داشتید</string>
+    <string name="support_attach">پیوست تصویر صفحه</string>
+    <string name="support_file">انتخاب فایل (تصویر یا PDF)</string>
+    <string name="support_failed">ارسال نشد — دوباره امتحان کنید.</string>
+    <string name="support_too_large">این فایل بیش از ۲۰ مگابایت است.</string>
+    <string name="support_replied">پشتیبانی پاسخ داد</string>
 </resources>

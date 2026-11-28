@@ -218,4 +218,15 @@
     <string name="update_title">Update the app</string>
     <string name="update_body">This version of the app is too old to reach your books. Install the latest version to keep going: messages you\'ve typed are kept and will be sent after the update.</string>
     <string name="update_version">Version %1$s or later is needed.</string>
+    <!-- support: a chat with the support desk, the same as the web's support panel (scenarios DB1–DB8) -->
+    <string name="support_title">Support</string>
+    <string name="support_intro">Tell us what went wrong or what you\'d like to do: the screen, what you did and what you expected. A screenshot helps. What needs fixing is fixed, and you\'ll hear back here.</string>
+    <string name="support_online">● Online — usually answers within a few minutes</string>
+    <string name="support_offline">Away right now — your message is kept and answered as soon as support is back</string>
+    <string name="support_hint">What went wrong? Which screen, what you did, what you expected</string>
+    <string name="support_attach">Attach a screenshot</string>
+    <string name="support_file">Choose a file (a picture or a PDF)</string>
+    <string name="support_failed">Couldn\'t send it — try again.</string>
+    <string name="support_too_large">That file is over 20 MB.</string>
+    <string name="support_replied">Support replied</string>
 </resources>

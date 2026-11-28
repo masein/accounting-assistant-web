@@ -3177,6 +3177,7 @@ window.I18N_PACKS.ar = Object.assign({
         aiChatExample2: 'كم أنفقنا الشهر الماضي؟',
         aiChatExample3: 'أظهر الميزانية',
         aiChatScrollBottom: 'الانتقال إلى الأحدث',
+        skipToContent: 'الانتقال إلى المحتوى الرئيسي',
         aiChatAttachTitle: 'إرفاق فاتورة أو إيصال (JPG، PNG، WEBP، PDF)',
         aiChatNewTitle: 'بدء محادثة جديدة',
         aiChatRemoveAttachment: 'إزالة المرفق',

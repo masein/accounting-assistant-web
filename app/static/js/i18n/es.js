@@ -3177,6 +3177,7 @@ window.I18N_PACKS.es = Object.assign({
         aiChatExample2: '¿Cuánto gastamos el mes pasado?',
         aiChatExample3: 'Muestra el balance',
         aiChatScrollBottom: 'Ir al último mensaje',
+        skipToContent: 'Saltar al contenido principal',
         aiChatAttachTitle: 'Adjuntar una factura o recibo (JPG, PNG, WEBP, PDF)',
         aiChatNewTitle: 'Iniciar una nueva conversación',
         aiChatRemoveAttachment: 'Quitar adjunto',

@@ -96,7 +96,7 @@ async def _relayed(request: Request) -> tuple[dict, dict[str, bytes]]:
         try:
             update = json.loads(str(form.get("update") or ""))
         except ValueError:
-            raise HTTPException(status_code=422, detail="update is not JSON")
+            raise HTTPException(status_code=422, detail="Not JSON")
         for key, value in form.multi_items():
             if key.startswith("f:") and isinstance(value, StarletteUpload):
                 data = await value.read(MAX_FILE_BYTES + 1)

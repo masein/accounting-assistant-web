@@ -24,8 +24,11 @@ chmod 755 "$DEST/watchdog.sh"
 cp "$SRC/watchdog.env.example" "$DEST/watchdog.env.example"
 if [ ! -f "$DEST/watchdog.env" ]; then
   cp "$SRC/watchdog.env.example" "$DEST/watchdog.env"
-  echo "Wrote $DEST/watchdog.env: set ALERT_USERNAME (or ALERT_CHAT_ID), RELAY_DIR and COPY_DIR, then run this again."
+  echo "Wrote $DEST/watchdog.env: set APP_URL, ALERT_USERNAME (or ALERT_CHAT_ID), RELAY_DIR and COPY_DIR, then run this again."
 fi
+# Only this user may read it: it names the server and who is told. An older install left it world-readable,
+# so this is applied on every run, not only when the file is first written (review 2026-11-28).
+chmod 600 "$DEST/watchdog.env"
 
 mkdir -p "$HOME/Library/LaunchAgents"
 cat > "$PLIST" <<PLIST

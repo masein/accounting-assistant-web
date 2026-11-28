@@ -1,12 +1,14 @@
 name: Mirror sync
 
-# The production server pulls the API image from the legacy mirror (docker.netixsystem.com). The publish job copies
-# each new image there, but only tries for a minute: from 2026-11-14 the mirror answered 502 for days, every publish
-# skipped it, and production stayed on an older image with nothing saying so. Every hour this job checks whether the
-# mirror's `latest` is GHCR's `latest` and copies it over when it isn't — so once the mirror is back, the server's
-# Watchtower picks up the newest image within the hour, with no one re-running anything.
+# The server's deployer (scripts/deploy.sh, DEPLOY.md §5) takes each new API image from GHCR, or from the mirror
+# when GHCR doesn't answer. The publish job copies each new image to the mirror, but only tries for a minute: from
+# 2026-11-14 the mirror answered 502 for days, every publish skipped it, and the mirror fell behind with nothing
+# saying so. Every hour this job checks whether the mirror's `latest` is GHCR's `latest` and copies it over when it
+# isn't — so once the mirror is back, a server that deploys from it gets the newest image within the hour, with no
+# one re-running anything.
 #
-# Turn it off with the repo variable MIRROR_ENABLED = "false" (as for the publish job's mirror step).
+# The mirror's host is the repository variable MIRROR_REGISTRY (e.g. registry.example.com); while it is unset this
+# job is skipped. Turn it off with MIRROR_ENABLED = "false" (as for the publish job's mirror step).
 
 on:
   schedule:
@@ -23,13 +25,13 @@ concurrency:
 
 env:
   GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/accounting-assistant-api
-  MIRROR_REGISTRY: docker.netixsystem.com
-  MIRROR_IMAGE: ${{ vars.IMAGE_NAME || 'docker.netixsystem.com/accounting-assistant-api' }}
+  MIRROR_REGISTRY: ${{ vars.MIRROR_REGISTRY }}
+  MIRROR_IMAGE: ${{ vars.IMAGE_NAME || format('{0}/accounting-assistant-api', vars.MIRROR_REGISTRY) }}
 
 jobs:
   sync:
     name: Copy GHCR latest to the mirror when it is behind
-    if: ${{ vars.MIRROR_ENABLED != 'false' }}
+    if: ${{ vars.MIRROR_ENABLED != 'false' && vars.MIRROR_REGISTRY != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

@@ -18,7 +18,9 @@ CONF=${WATCHDOG_ENV:-"$HERE/watchdog.env"}
 # shellcheck disable=SC1090
 [ -f "$CONF" ] && . "$CONF"
 
-APP_URL=${APP_URL:-https://accounting.netixsystem.com}
+# production's address, from watchdog.env: no built-in default, so the public repository names no server. Unset,
+# the prod check fails and says so (review 2026-11-28).
+APP_URL=${APP_URL:-}
 RELAY_DIR=${RELAY_DIR:-"$HERE/../telegram-relay"}
 COPY_DIR=${COPY_DIR:-"$HERE/../prod-replica"}
 TOKEN_FILE=${TOKEN_FILE:-"$RELAY_DIR/token.env"}
@@ -66,7 +68,7 @@ say() {   # say KEY ARG…: the message in ALERT_LANG
   local key=$1; shift
   if [ "$ALERT_LANG" = fa ]; then
     case $key in
-      prod)        printf '⚠️ سایت حسابداری جواب نمی‌دهد (%s): %s' "$APP_URL" "$1" ;;
+      prod)        printf '⚠️ سایت حسابداری جواب نمی‌دهد (%s): %s' "${APP_URL:-?}" "$1" ;;
       relay)       printf '⚠️ ربات تلگرام کار نمی‌کند: رلهٔ روی این مک %s. پیام‌ها به ربات جواب نمی‌گیرند.' "$1" ;;
       copy_link)   printf '⚠️ نسخهٔ زندهٔ پایگاه داده روی این مک از سرور جدا شده: %s.' "$1" ;;
       copy_files)  printf '⚠️ فایل‌های سرور روی این مک به‌روز نمی‌شوند: %s.' "$1" ;;
@@ -85,7 +87,7 @@ say() {   # say KEY ARG…: the message in ALERT_LANG
     esac
   else
     case $key in
-      prod)        printf "⚠️ The accounting site isn't answering (%s): %s" "$APP_URL" "$1" ;;
+      prod)        printf "⚠️ The accounting site isn't answering (%s): %s" "${APP_URL:-?}" "$1" ;;
       relay)       printf "⚠️ The Telegram bot is down: the relay on this Mac %s. Messages to the bot get no answer." "$1" ;;
       copy_link)   printf "⚠️ The live copy of the database on this Mac has lost the server: %s." "$1" ;;
       copy_files)  printf "⚠️ The server's files aren't being copied to this Mac: %s." "$1" ;;
@@ -153,6 +155,7 @@ send() {
 
 check_prod() {
   local out
+  if [ -z "$APP_URL" ]; then printf 'APP_URL is not set in %s' "$CONF"; return; fi
   out=$(curl -sS -m 20 "$APP_URL/health" 2>&1) || { printf '%s' "${out:-no answer}" | head -c 160; return; }
   printf '%s' "$out" | grep -q '"status":"ok"' || { printf 'health says %s' "$(printf '%s' "$out" | head -c 160)"; return; }
   printf '%s' "$out" | grep -q '"database":"connected"' || printf 'its database is not connected'

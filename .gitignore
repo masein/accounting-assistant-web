@@ -1,7 +1,8 @@
 # local env / secrets
 .env
 .env.*
-!.env.example
+# the examples are meant to be committed (.env.example, .env.prod.example)
+!.env*.example
 
 # python
 __pycache__/
@@ -45,3 +46,10 @@ e2e-artifacts/
 # local tool state: never committed (review 2026-11-16)
 .claude/settings.local.json
 .coverage
+
+# secrets and state of the ops tools when run from inside the repository (review 2026-11-28):
+# the relay's bot token, the watchdog's settings and its state, the live copy's settings
+ops/telegram-relay/token.env
+ops/watchdog/watchdog.env
+ops/watchdog/state/
+ops/live-copy/.env

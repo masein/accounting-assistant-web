@@ -2,10 +2,14 @@
 # with the last good run. A scenario that used to pass and now fails — or any
 # failure of a critical one — fails this job, and GitHub mails the failure.
 #
-# Needs a repository secret AI_EVAL_API_KEY (a Metis key; without it the job
-# says so and stops). Optional repository variables: AI_EVAL_MODEL (default
-# gpt-4.1-mini, the production chat model) and AI_EVAL_REPEAT (default 3).
-# Costs a few cents a night: ~17 scenarios × 3 runs.
+# Needs a repository secret AI_EVAL_API_KEY (a Metis key). Without it the
+# "AI eval" job is SKIPPED, not green: the "Eval key" job decides first and
+# leaves a notice saying why (review 2026-11-28 — before, every step was skipped
+# inside the job and the run showed a passing eval that never ran). Optional
+# repository variables: AI_EVAL_MODEL (default gpt-4.1-mini, the production chat
+# model) and AI_EVAL_REPEAT (default 3). Each night runs every scenario in
+# app/services/ai_eval/scenarios.json (49 on 2026-11-28) × REPEAT, so the cost
+# grows with that file.
 name: AI eval
 
 on:
@@ -33,8 +37,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Secrets can't be read in a job's `if:`, so this small job reads it and the
+  # eval job runs only when it said yes.
+  key:
+    name: Eval key
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.key.outputs.run }}
+    steps:
+      - name: Is AI_EVAL_API_KEY set?
+        id: key
+        env:
+          KEY: ${{ secrets.AI_EVAL_API_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::notice title=AI eval not run::AI_EVAL_API_KEY is not set, so the eval job is skipped. Add it under Settings → Secrets and variables → Actions to run the nightly eval."
+            echo "**AI eval not run:** the repository secret \`AI_EVAL_API_KEY\` is not set." >> "$GITHUB_STEP_SUMMARY"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   eval:
     name: AI eval
+    needs: key
+    if: needs.key.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     services:
@@ -57,47 +85,31 @@ jobs:
       METIS_MODEL: ${{ inputs.model || vars.AI_EVAL_MODEL || 'gpt-4.1-mini' }}
       REPEAT: ${{ inputs.repeat || vars.AI_EVAL_REPEAT || '3' }}
     steps:
-      - name: Need an eval key
-        id: key
-        run: |
-          if [ -z "$METIS_API_KEY" ]; then
-            echo "::notice::AI_EVAL_API_KEY is not set — add it under Settings → Secrets → Actions to run the nightly eval."
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Check out code
-        if: steps.key.outputs.run == 'true'
         uses: actions/checkout@v4
 
       - name: Set up Python 3.12
-        if: steps.key.outputs.run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
 
       - name: Install WeasyPrint system libraries
-        if: steps.key.outputs.run == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 libffi-dev fonts-dejavu-core
 
       - name: Install dependencies
-        if: steps.key.outputs.run == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install --require-hashes -r requirements.lock
 
       - name: Bootstrap the scratch database
-        if: steps.key.outputs.run == 'true'
         run: python -m app.prestart
 
       # The last good run's report (saved below); the newest cache wins.
       - name: Restore the previous report
-        if: steps.key.outputs.run == 'true'
         uses: actions/cache/restore@v4
         with:
           path: ai-eval-baseline
@@ -105,7 +117,6 @@ jobs:
           restore-keys: ai-eval-report-
 
       - name: Run the eval
-        if: steps.key.outputs.run == 'true'
         run: |
           mkdir -p ai-eval-baseline ai-eval-out
           python -m scripts.ai_eval run --repeat "$REPEAT" \
@@ -113,18 +124,18 @@ jobs:
             --summary "$GITHUB_STEP_SUMMARY" --fail-on-regression
 
       - name: Keep the report for the next run
-        if: steps.key.outputs.run == 'true' && (success() || inputs.accept)
+        if: success() || inputs.accept
         run: cp ai-eval-out/report.json ai-eval-baseline/report.json
 
       - name: Save it as the new baseline
-        if: steps.key.outputs.run == 'true' && (success() || inputs.accept)
+        if: success() || inputs.accept
         uses: actions/cache/save@v4
         with:
           path: ai-eval-baseline
           key: ai-eval-report-${{ github.run_id }}
 
       - name: Upload the report
-        if: always() && steps.key.outputs.run == 'true'
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ai-eval-report

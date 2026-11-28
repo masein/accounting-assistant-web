@@ -311,9 +311,12 @@ def test_the_nightly_job_is_gated_on_its_secret_and_keeps_the_last_good_run():
     job = wf["jobs"]["eval"]
     assert job["env"]["METIS_API_KEY"] == "${{ secrets.AI_EVAL_API_KEY }}"
     assert "aa_eval_scratch" in job["env"]["DATABASE_URL"]      # passes the CLI's scratch guard
+    # the key is checked by a job of its own, so without it the eval job shows as skipped, not passed
+    # (review 2026-11-28, scenario CW4)
+    [gate] = wf["jobs"]["key"]["steps"]
+    assert "exit 0" not in gate["run"] and 'run=false' in gate["run"]
+    assert job["needs"] == "key" and job["if"] == "needs.key.outputs.run == 'true'"
     steps = {s["name"]: s for s in job["steps"]}
-    assert "exit 0" not in steps["Need an eval key"]["run"] and 'run=false' in steps["Need an eval key"]["run"]
-    assert all(s.get("if", "").find("steps.key.outputs.run == 'true'") >= 0 for n, s in steps.items() if n != "Need an eval key")
     run = steps["Run the eval"]["run"]
     assert "--fail-on-regression" in run and "--previous ai-eval-baseline/report.json" in run
     # only a good run (or one accepted by hand) becomes the next baseline

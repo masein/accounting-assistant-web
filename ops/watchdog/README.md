@@ -34,8 +34,9 @@ ops/watchdog/install.sh /path/to/watchdog      # copies it there, keeps watchdog
 ops/watchdog/install.sh --remove               # stops it (launchd); the folder stays
 ```
 
-The first install writes `watchdog.env` from `watchdog.env.example`: set `ALERT_USERNAME` (or `ALERT_CHAT_ID`),
-`RELAY_DIR` and `COPY_DIR`, then run `install.sh` again. `ALERT_LANG=fa` says it in Persian. It runs under launchd
+The first install writes `watchdog.env` from `watchdog.env.example` (readable only by you, `chmod 600`): set
+`APP_URL` (production's address; there is no default, and the `prod` check fails while it's empty),
+`ALERT_USERNAME` (or `ALERT_CHAT_ID`), `RELAY_DIR` and `COPY_DIR`, then run `install.sh` again. `ALERT_LANG=fa` says it in Persian. It runs under launchd
 (`~/Library/LaunchAgents/app.accountingassistant.watchdog.plist`) while the user is logged in, as OrbStack does, and
 right after waking. Its log: `state/watchdog.log`; what launchd saw: `state/launchd.log`.
 

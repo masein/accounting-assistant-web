@@ -4,11 +4,15 @@
 #   sh scripts/deploy.sh          one check now: pull the newest api image, deploy it if it's new
 #   sh scripts/deploy.sh loop     a check every DEPLOY_INTERVAL seconds — what the `deployer` service runs
 #
-# CI publishes every green build of main to GitHub's registry (ghcr.io) and copies it to the mirror
-# (docker.netixsystem.com). Each check takes the image from the first registry in DEPLOY_REGISTRIES that
-# answers — so when one is down (the mirror answered 502 for days in 2026-11; ghcr.io can be out of reach
+# CI publishes every green build of main to GitHub's registry (ghcr.io) and copies it to a mirror (the
+# repository variable MIRROR_REGISTRY). Each check takes the image from the first registry in DEPLOY_REGISTRIES
+# that answers — so when one is down (the mirror answered 502 for days in 2026-11; ghcr.io can be out of reach
 # from some networks) the other one deploys, with no one changing anything. A registry that failed is left
 # alone for DEPLOY_RETRY_AFTER seconds, so a dead one doesn't slow every check.
+#
+# DEPLOY_REGISTRIES defaults to GHCR alone: this public file names no other server. A server that also deploys
+# from the mirror sets it in .env (space-separated, tried left to right), e.g.
+#   DEPLOY_REGISTRIES=ghcr.io/<owner>/accounting-assistant-api registry.example.com/accounting-assistant-api
 #
 # The api runs the local tag accounting-assistant-api:deployed. A new image is tagged there, the api is
 # recreated, and the script waits for its health check. If it isn't healthy within DEPLOY_HEALTH_TIMEOUT the
@@ -17,7 +21,7 @@
 # Runs on the server itself or in the `deployer` container (docker CLI + compose), from the stack's folder.
 set -u
 
-REGISTRIES=${DEPLOY_REGISTRIES-"ghcr.io/masein/accounting-assistant-api docker.netixsystem.com/accounting-assistant-api"}
+REGISTRIES=${DEPLOY_REGISTRIES-"ghcr.io/masein/accounting-assistant-api"}
 TAG=${DEPLOY_TAG:-latest}
 LOCAL=${DEPLOY_LOCAL_IMAGE:-accounting-assistant-api}
 SERVICE=${DEPLOY_SERVICE:-api}

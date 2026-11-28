@@ -176,8 +176,46 @@ def build(db: Session, inv: Invoice, *, serial: int | None = None, shared: Share
 
 
 def next_serial(db: Session) -> int:
+    """One above the company's highest serial: a guess for a preview. Only
+    ``assign_serial`` hands a serial out."""
     top = db.execute(select(func.max(Invoice.moadian_serial))).scalar()
     return int(top or 0) + 1
+
+
+class SerialBusy(Exception):
+    """Every attempt met a serial another export had just taken."""
+
+
+SERIAL_ATTEMPTS = 10
+
+
+def assign_serial(db: Session, inv: Invoice) -> int:
+    """Give ``inv`` its serial, once and for good.
+
+    ``next_serial`` is max + 1 with no lock: two exports at the same moment
+    read the same top and handed one serial (one tax number) to two invoices
+    (review 2026-11-28, scenario CV5). The database now refuses a second
+    invoice with the same serial in a company
+    (``uq_invoices_company_moadian_serial``), so each try is written inside a
+    savepoint: when another export got there first, ours is undone and the
+    next try reads the new top. On PostgreSQL the losing write waits for the
+    winner's commit before it fails, so the retry sees the serial taken.
+    """
+    from sqlalchemy.exc import IntegrityError
+    if inv.moadian_serial is not None:
+        return int(inv.moadian_serial)
+    for _ in range(SERIAL_ATTEMPTS):
+        serial = next_serial(db)
+        try:
+            with db.begin_nested():
+                inv.moadian_serial = serial
+                db.flush()
+            return serial
+        except IntegrityError as e:
+            if "moadian_serial" not in str(getattr(e, "orig", e)):
+                raise
+            # the savepoint's rollback expired ``inv``: it reads back with no serial
+    raise SerialBusy("Another export kept taking the next serial; try again.")
 
 
 def deadline(db: Session, inv: Invoice, conf: dict | None = None) -> date:

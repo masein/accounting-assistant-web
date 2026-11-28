@@ -100,6 +100,11 @@ EXACT: dict[str, dict[str, str]] = {
                                                        "es": "Vuelve a empezar la configuración: primero escanea un código nuevo.",
                                                        "ar": "ابدأ الإعداد من جديد — امسح رمزاً جديداً أولاً."},
     "That code is not right.": {"fa": "این کد درست نیست.", "es": "Ese código no es correcto.", "ar": "هذا الرمز غير صحيح."},
+    # a Moadian export skipped because other exports kept taking the next serial (scenario CV5)
+    "Another export kept taking the next serial; try again.": {
+        "fa": "خروجی‌های دیگر پیاپی شماره سریال بعدی را گرفتند؛ دوباره امتحان کنید.",
+        "es": "Otras exportaciones tomaron una y otra vez el siguiente número de serie; inténtalo de nuevo.",
+        "ar": "أخذت عمليات تصدير أخرى الرقم التسلسلي التالي مراراً؛ حاول مرة أخرى."},
     "That code is not right. Check the time on your phone and try again.": {
         "fa": "این کد درست نیست. ساعت گوشی را بررسی کنید و دوباره امتحان کنید.",
         "es": "Ese código no es correcto. Revisa la hora de tu teléfono e inténtalo de nuevo.",
@@ -930,6 +935,11 @@ PATTERNS: list[_Pattern] = [
              {"fa": "شماره فاکتور {kind} «{number}» قبلاً ثبت شده است (شناسه {id}).",
               "es": "Ya existe una factura de {kind} con el número «{number}» (id {id}).",
               "ar": "رقم فاتورة {kind} «{number}» موجود بالفعل (المعرّف {id})."}, values={"kind": _INVOICE_KIND}),
+    # the same, when two requests raced and the database's unique index answered (scenario CV4)
+    _Pattern(r"^(?P<kind>Sales|Purchase) invoice number '(?P<number>[^']*)' already exists\.$",
+             {"fa": "شماره فاکتور {kind} «{number}» قبلاً ثبت شده است.",
+              "es": "Ya existe una factura de {kind} con el número «{number}».",
+              "ar": "رقم فاتورة {kind} «{number}» موجود بالفعل."}, values={"kind": _INVOICE_KIND}),
     _Pattern(r"^Could not post the payment — (?P<reason>.+)$",
              {"fa": "پرداخت ثبت نشد — {reason}", "es": "No se pudo registrar el pago — {reason}", "ar": "تعذّر ترحيل الدفعة — {reason}"},
              nested=("reason",)),

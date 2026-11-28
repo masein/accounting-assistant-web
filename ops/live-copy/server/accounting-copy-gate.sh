@@ -1,5 +1,5 @@
 #!/bin/sh
-# The only command the live copy's SSH key may run on the server (DEPLOY.md §13). In root's authorized_keys:
+# The only command the live copy's SSH key may run on the server (DEPLOY.md §13). In the SSH user's authorized_keys:
 #   restrict,command="/usr/local/bin/accounting-copy-gate" ssh-ed25519 AAAA… accounting-replica
 # `restrict` turns off forwarding, a terminal and the rest; this script allows three things, and logs each request:
 #   db-pipe                 one database connection: stdin/stdout ⇄ the db container's port 5432 (busybox nc)

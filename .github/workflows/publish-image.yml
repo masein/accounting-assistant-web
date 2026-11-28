@@ -3,17 +3,24 @@ name: Publish image
 # Builds the API Docker image and publishes it so a server can pull + deploy it.
 #
 # Primary registry: GitHub Container Registry (ghcr.io) — reliable, needs no
-# extra secrets (uses the built-in GITHUB_TOKEN). The second registry
-# (docker.netixsystem.com, behind ArvanCloud) is a BEST-EFFORT mirror: it flaps
-# with 502s, so it can never fail the publish — but a server that can't reach
-# ghcr.io deploys from it (DEPLOY.md §5), so it is kept in step.
+# extra secrets (uses the built-in GITHUB_TOKEN). The second registry is a
+# BEST-EFFORT mirror: it flaps with 502s, so it can never fail the publish — but
+# a server that can't reach ghcr.io deploys from it (DEPLOY.md §5), so it is
+# kept in step.
 #
-#  - CI green on `main`  → tags `latest` and `sha-<short-sha>` (never before CI passes)
-#  - push a tag `v1.2.3` → tags `1.2.3`, `1.2`, `1` (and `latest`)
-#  - manual run          → tags `latest` (+ sha)
+# `latest` is what the server's deployer ships to production within minutes, so
+# only a commit whose CI passed on `main` ever gets it (review 2026-11-28):
+#  - CI green on `main`         → `latest` and `sha-<short-sha>` (never before CI passes)
+#  - push a tag `v1.2.3`        → `1.2.3`, `1.2`, `1` only — never `latest` (a tag skips CI;
+#                                 pin it on a server with DEPLOY_TAG=1.2.3)
+#  - manual run on `main`       → `latest` and `sha-<short-sha>`, only when CI passed on that
+#                                 exact commit (checked first; the run fails otherwise)
+#  - manual run on another ref  → `sha-<short-sha>` only, for a test server to pin
 #
-# Optional repo variable IMAGE_NAME overrides the mirror image path. To turn the
-# mirror off entirely, set the repo variable MIRROR_ENABLED to "false".
+# The mirror's host comes from the repository variable MIRROR_REGISTRY (e.g.
+# registry.example.com); while it is unset the mirror steps are skipped. Optional
+# IMAGE_NAME overrides the mirror image path (default MIRROR_REGISTRY/
+# accounting-assistant-api). MIRROR_ENABLED = "false" turns the mirror off.
 
 on:
   # Publish the main image ONLY after the CI workflow has passed on that commit
@@ -34,9 +41,10 @@ concurrency:
 env:
   # Primary: GitHub Container Registry.
   GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/accounting-assistant-api
-  # Best-effort legacy mirror (docker.netixsystem.com behind ArvanCloud).
-  MIRROR_REGISTRY: docker.netixsystem.com
-  MIRROR_IMAGE: ${{ vars.IMAGE_NAME || 'docker.netixsystem.com/accounting-assistant-api' }}
+  # Best-effort mirror: its host is a repository variable, so this public file
+  # names no server. Empty → the mirror steps are skipped.
+  MIRROR_REGISTRY: ${{ vars.MIRROR_REGISTRY }}
+  MIRROR_IMAGE: ${{ vars.IMAGE_NAME || format('{0}/accounting-assistant-api', vars.MIRROR_REGISTRY) }}
 
 jobs:
   build-push:
@@ -53,10 +61,31 @@ jobs:
             && github.event.workflow_run.head_branch == 'main'
             && github.event.workflow_run.head_repository.full_name == github.repository) }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write        # push to ghcr.io for this repo's owner
+      actions: read          # a manual run on main looks up that commit's CI run
     steps:
+      # A manual run used to publish `latest` from any branch with no CI at all,
+      # and the deployer put it on production within minutes. From main it now
+      # needs a green CI run of that exact commit (a push to main, in this
+      # repository); from any other ref it publishes only sha-<short> (below).
+      - name: A manual run on main needs a green CI run of that commit
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          green=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&branch=main&event=push&status=success&per_page=1" \
+                    --jq '.total_count')
+          if [ "${green:-0}" -lt 1 ]; then
+            echo "::error::CI has not passed on $SHA (a push to main). Wait for CI, or re-run it; nothing was published."
+            exit 1
+          fi
+          echo "CI passed on $SHA — publishing it as latest."
+
       - name: Check out the tested commit
         uses: actions/checkout@v4
         with:
@@ -81,6 +110,7 @@ jobs:
       # failed the whole job before the required GHCR push — production, which
       # pulls from GHCR, got nothing.
       - name: Log in to the mirror registry (if credentials are set)
+        if: ${{ vars.MIRROR_ENABLED != 'false' && vars.MIRROR_REGISTRY != '' }}
         continue-on-error: true
         env:
           REG_USER: ${{ secrets.REGISTRY_USERNAME }}
@@ -98,9 +128,13 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.GHCR_IMAGE }}
+          # The action adds `latest` to a semver tag push on its own (latest=auto);
+          # off, so only the rule below decides it.
+          flavor: |
+            latest=false
           tags: |
-            # main (via a green CI run) and manual runs → latest + sha-<short>
-            type=raw,value=latest,enable=${{ github.event_name != 'push' }}
+            # latest: a green CI run of main, or a manual run on main (CI checked above)
+            type=raw,value=latest,enable=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') }}
             type=raw,value=sha-${{ steps.sha.outputs.short }},enable=${{ github.event_name != 'push' }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -142,10 +176,10 @@ jobs:
           echo "::error::GHCR push failed after 3 attempts"; exit 1
 
       # Best-effort mirror to the legacy registry. Copies the manifest+blobs
-      # from GHCR (fast, no rebuild). NEVER fails the job — if ArvanCloud is
-      # down it's simply skipped.
+      # from GHCR (fast, no rebuild). NEVER fails the job — if the mirror is
+      # down it's simply skipped, and so is a repository without MIRROR_REGISTRY.
       - name: Mirror to legacy registry (best-effort)
-        if: ${{ vars.MIRROR_ENABLED != 'false' }}
+        if: ${{ vars.MIRROR_ENABLED != 'false' && vars.MIRROR_REGISTRY != '' }}
         continue-on-error: true
         env:
           TAGS: ${{ steps.meta.outputs.tags }}

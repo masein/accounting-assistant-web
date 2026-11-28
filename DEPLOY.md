@@ -1,10 +1,11 @@
 # Deployment
 
 CI builds the API Docker image and publishes it to **GitHub Container Registry**
-(`ghcr.io/<owner>/accounting-assistant-api`) and copies it to the
-`docker.netixsystem.com` mirror (behind ArvanCloud) — best-effort, so a mirror
-outage never blocks a release. The server runs it with `docker-compose.prod.yml`,
-and its `deployer` takes each new image from **whichever registry answers** (§5).
+(`ghcr.io/<owner>/accounting-assistant-api`) and copies it to a mirror registry
+(the repository variable `MIRROR_REGISTRY`, e.g. `registry.example.com`) —
+best-effort, so a mirror outage never blocks a release. The server runs it with
+`docker-compose.prod.yml`, and its `deployer` takes each new image from
+**whichever registry answers** (§5).
 
 ## 1. One-time GitHub setup
 
@@ -17,8 +18,9 @@ Optional **Variables** (Settings → Secrets and variables → Actions → Varia
 
 | Variable | Purpose |
 | --- | --- |
-| `MIRROR_ENABLED` | set to `false` to skip the `docker.netixsystem.com` mirror entirely |
-| `IMAGE_NAME` | override the mirror image path (e.g. Harbor project) |
+| `MIRROR_REGISTRY` | the mirror's host, e.g. `registry.example.com`. Kept out of the (public) workflow files on purpose; while it is unset the publish job's mirror steps and the hourly **Mirror sync** are skipped |
+| `MIRROR_ENABLED` | set to `false` to skip the mirror entirely |
+| `IMAGE_NAME` | override the mirror image path (default `<MIRROR_REGISTRY>/accounting-assistant-api`; e.g. a Harbor project) |
 
 Optional **Secrets** — only if the mirror registry is behind auth:
 `REGISTRY_USERNAME` / `REGISTRY_PASSWORD`.
@@ -30,12 +32,17 @@ The **Publish image** workflow (`.github/workflows/publish-image.yml`) runs:
 - on every green CI run of `main` → tags `latest` and `sha-<short-sha>`, on GHCR
   and (best-effort) on the mirror; **Mirror sync** (`.github/workflows/mirror-sync.yml`)
   checks hourly that the mirror's `latest` is GHCR's and copies it if not
-- on a version tag → the semver tags. Cut a release:
+- on a version tag → the semver tags only. Cut a release:
   ```bash
   git tag v1.0.0 && git push origin v1.0.0
   ```
-  → publishes `…/accounting-assistant-api:1.0.0`, `:1.0`, `:1`, `:latest`.
-- manually from the **Actions** tab (Run workflow).
+  → publishes `…/accounting-assistant-api:1.0.0`, `:1.0`, `:1` — **not** `:latest`:
+  a tag push doesn't wait for CI, and `latest` is what the deployer ships to
+  production. Pin a release on a server with `DEPLOY_TAG=1.0.0` (§4).
+- manually from the **Actions** tab (Run workflow). On `main` it publishes
+  `latest` + `sha-<short-sha>` only when CI passed on that exact commit (the run
+  fails and publishes nothing otherwise). On any other branch it publishes only
+  `sha-<short-sha>` — for a test server to pin with `DEPLOY_TAG`, never `latest`.
 
 ## 3. Run it on the server
 
@@ -52,7 +59,7 @@ The **Publish image** workflow (`.github/workflows/publish-image.yml`) runs:
 cd /opt/accounting
 cp .env.prod.example .env && $EDITOR .env
 
-sh scripts/deploy.sh      # the first image, from ghcr.io or (if that doesn't answer) the mirror
+sh scripts/deploy.sh      # the first image, from ghcr.io or (if that doesn't answer) a mirror in DEPLOY_REGISTRIES
 docker compose up -d      # db, api, deployer, backup  (.env sets COMPOSE_FILE=docker-compose.prod.yml)
 ```
 
@@ -95,17 +102,26 @@ redeploys in named volumes.
 
 Every green build of `main` is published to **two registries** (§2):
 `ghcr.io/masein/accounting-assistant-api` (GitHub's, the primary) and
-`docker.netixsystem.com/accounting-assistant-api` (the mirror; the hourly
-**Mirror sync** workflow copies anything the publish couldn't). Either one can be
-out — the mirror answered 502 for days in November 2026, and ghcr.io can be out
-of reach from some networks — so the server takes each new image from **whichever
-answers**, on its own.
+`registry.example.com/accounting-assistant-api` (the mirror, whose host is the
+repository variable `MIRROR_REGISTRY`; the hourly **Mirror sync** workflow copies
+anything the publish couldn't). Either one can be out — the mirror answered 502
+for days in November 2026, and ghcr.io can be out of reach from some networks —
+so the server takes each new image from **whichever answers**, on its own.
+
+`DEPLOY_REGISTRIES` lists them. Its default is **GHCR alone**, because the
+public repository names no other server. **A server that deploys from the
+mirror too must set it in `.env`** (mirror second), then
+`docker compose up -d deployer`:
+
+```bash
+DEPLOY_REGISTRIES=ghcr.io/masein/accounting-assistant-api registry.example.com/accounting-assistant-api
+```
 
 The `deployer` service in `docker-compose.prod.yml` runs `scripts/deploy.sh loop`.
 Every `DEPLOY_INTERVAL` seconds (default 120) it:
 
 1. pulls `:DEPLOY_TAG` (default `latest`) from the first registry in
-   `DEPLOY_REGISTRIES` that answers — GHCR, then the mirror. A registry that
+   `DEPLOY_REGISTRIES` that answers — GHCR, then the mirror if listed. A registry that
    failed is skipped for `DEPLOY_RETRY_AFTER` seconds (default 30 minutes), so a
    dead one doesn't slow every check; then it's tried first again;
 2. stops there if that image is the one running;
@@ -205,7 +221,13 @@ Every day at `BACKUP_HOUR` (default 02, server time) it writes
 - `private-uploads-<stamp>.tgz` — the `private_uploads` volume (period-close snapshots)
 
 into `BACKUP_DIR` (default `./backups` next to the compose file) and deletes
-copies older than `BACKUP_KEEP_DAYS` (14). **Copy that folder off the server**
+copies older than `BACKUP_KEEP_DAYS` (14). Each file is written as `NAME.tmp`
+and renamed only when complete. If any part fails (the database dump, either
+tar, the clean-up) the backup counts as failed: `docker compose logs backup`
+shows `[backup] FAILED`, the half-written `.tmp` is removed, and it is tried
+again every hour until one works. A `.tmp` left by a container stopped mid-dump
+is removed after 6 hours. `docker compose run --rm backup once` takes one now
+and exits non-zero if it failed. **Copy that folder off the server**
 (rclone to object storage, scp to another box, …) — a backup on the same disk
 only protects against mistakes, not against losing the machine.
 
@@ -381,7 +403,9 @@ and rebuild it. In short:
   forwarding (`AllowTcpForwarding no`, left so), so each database connection is
   carried by its own SSH session to `nc` on the server.
 - **Files:** `rsync` every 5 minutes of the uploads, the private uploads and
-  `/opt/accounting/backups`.
+  `/opt/accounting/backups`. `data/files/.last-sync` is stamped only when every
+  folder synced: a round that couldn't reach the server leaves it, so the
+  watchdog (§15) notices an outage.
 - **Dumps:** hourly (kept 7 days) and daily (kept 90 days). A live copy alone
   isn't a backup: a mistaken delete reaches it within a second.
 
@@ -396,12 +420,14 @@ select pg_reload_conf();
 
 ```bash
 # pg_hba.conf, in the accounting_pgdata volume: only from the server's own end of the stack's network
-echo 'host replication replicator 172.18.0.1/32 scram-sha-256' | \
+GW=$(docker network inspect accounting_default -f '{{(index .IPAM.Config 0).Gateway}}')   # that end's address
+echo "host replication replicator $GW/32 scram-sha-256" | \
   docker exec -i accounting-db-1 sh -c 'cat >> /var/lib/postgresql/data/pg_hba.conf'
 docker exec accounting-db-1 psql -U postgres -c 'select pg_reload_conf()'
 ```
 
-The copy's SSH key in `/root/.ssh/authorized_keys` can run only
+The copy's SSH key, in the SSH user's `~/.ssh/authorized_keys` on the server (an
+account that can run `docker` and read the volumes), can run only
 `/usr/local/bin/accounting-copy-gate`
 ([`ops/live-copy/server/accounting-copy-gate.sh`](ops/live-copy/server/accounting-copy-gate.sh)):
 
@@ -413,7 +439,7 @@ restrict,command="/usr/local/bin/accounting-copy-gate" ssh-ed25519 AAAA… accou
 database connection (`db-pipe`), checking for a synced folder (`has <name>`),
 and `rsync` *sending* those three folders, so the key can't change anything on the
 server. Every request goes into `/var/log/accounting-copy-gate.log`, refusals as
-`DENIED`. Server admin is done as root with its password, not with this key.
+`DENIED`. Server admin uses its own credentials, never this key.
 
 The replication slot is `mac_replica`. Watch it with
 `select slot_name, active, wal_status from pg_replication_slots;`. A copy that's
@@ -469,9 +495,13 @@ relay's container and heartbeat, the copy's link to production, its files and
 hourly dumps, and the Mac's free disk. It tells the owner on Telegram, through
 the same bot, when a check has failed two rounds in a row, every six hours while
 it stays failed, and when it is right again. A Mac that slept or was off says so
-when it wakes. On the owner's Mac it runs from
-`/Users/masein/Development/accounting/watchdog` under launchd, and tells the
-Telegram chat `masein` linked in the app.
+when it wakes. On the owner's Mac it runs from a folder beside the relay and the
+live copy (for example `~/accounting/watchdog`) under launchd, and tells the
+Telegram chat the owner linked in the app (`ALERT_USERNAME`).
+
+Its settings are in `watchdog.env` beside it (`chmod 600`; `install.sh` sets
+that). `APP_URL` — production's address, e.g. `https://app.example.com` — has no
+default: while it's empty the `prod` check fails and says so.
 
 ```bash
 ops/watchdog/install.sh /path/to/watchdog     # install or update; then set watchdog.env

@@ -1,6 +1,6 @@
 # Mail setup
 
-Connecting the app to the DirectAdmin mailbox on `netixsystem.com` so it can send
+Connecting the app to a DirectAdmin mailbox on your domain (`example.com` below) so it can send
 account-confirmation links and operator alerts. ~30 minutes, most of it waiting
 for DNS.
 
@@ -26,19 +26,19 @@ erroring. Nothing breaks if you stop halfway.
 
 ## 1. Create the mailbox
 
-DirectAdmin → **Email Manager → Email Accounts** for `netixsystem.com`. Give the
-app its own mailbox rather than reusing a person's; `noreply@netixsystem.com` is
+DirectAdmin → **Email Manager → Email Accounts** for `example.com`. Give the
+app its own mailbox rather than reusing a person's; `noreply@example.com` is
 the usual choice.
 
 ```bash
 openssl rand -base64 24     # generate the password, don't invent one
 ```
 
-Note four things: the outgoing host (usually `mail.netixsystem.com`), the port,
+Note four things: the outgoing host (usually `mail.example.com`), the port,
 the **full address** as the username, and the password.
 
 > **Most common failure:** on DirectAdmin the SMTP username is the whole address
-> (`noreply@netixsystem.com`), not the short form (`noreply`). Getting this wrong
+> (`noreply@example.com`), not the short form (`noreply`). Getting this wrong
 > shows up as an authentication error in step 4.
 
 ## 2. DNS — do this before testing
@@ -50,9 +50,9 @@ DirectAdmin normally creates SPF and DKIM when mail is enabled for a domain.
 Confirm they exist, then add DMARC, which it does not create.
 
 ```bash
-dig +short TXT netixsystem.com | grep spf1        # SPF
-dig +short TXT x._domainkey.netixsystem.com       # DKIM (default selector: x)
-dig +short TXT _dmarc.netixsystem.com             # DMARC — likely empty
+dig +short TXT example.com | grep spf1        # SPF
+dig +short TXT x._domainkey.example.com       # DKIM (default selector: x)
+dig +short TXT _dmarc.example.com             # DMARC — likely empty
 dig +short -x <server-ip>                         # PTR — must not be empty
 ```
 
@@ -64,7 +64,7 @@ Add DMARC as a TXT record, starting in monitoring mode:
 
 | Type | Name | Value |
 | --- | --- | --- |
-| `TXT` | `_dmarc` | `v=DMARC1; p=none; rua=mailto:postmaster@netixsystem.com` |
+| `TXT` | `_dmarc` | `v=DMARC1; p=none; rua=mailto:postmaster@example.com` |
 
 Tighten `p=none` to `p=quarantine` after a week of clean reports — a later task,
 not part of this setup.
@@ -78,20 +78,20 @@ Everything lives in the `.env` next to the compose file you deploy with — see
 `.env.prod.example` for the block to copy.
 
 ```bash
-SMTP_HOST=mail.netixsystem.com
+SMTP_HOST=mail.example.com
 SMTP_PORT=587
-SMTP_USER=noreply@netixsystem.com      # the FULL address
+SMTP_USER=noreply@example.com      # the FULL address
 SMTP_PASSWORD=…                        # from step 1
 SMTP_STARTTLS=true
 SMTP_USE_SSL=false
-SMTP_FROM=noreply@netixsystem.com
+SMTP_FROM=noreply@example.com
 SMTP_FROM_NAME=Accounting Assistant
 
 # The address people actually browse to. Used to build the link inside
 # confirmation emails — a localhost URL is useless in an inbox.
 APP_PUBLIC_URL=https://your-app-domain
 
-SMTP_TO=ops@netixsystem.com            # optional: operator alerts
+SMTP_TO=ops@example.com            # optional: operator alerts
 ```
 
 **If outbound 587 is blocked**, switch to implicit SSL — three lines change:
@@ -184,6 +184,6 @@ reason to roll back a deploy.
 ---
 
 **Caveat.** The mail code is tested against a stubbed SMTP server; no message has
-yet been sent through `netixsystem.com` from this app. Step 4 is the first real
+yet been sent through a real mail host from this app. Step 4 is the first real
 send, so treat an error there as configuration to work through rather than
 evidence something is broken.

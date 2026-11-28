@@ -2,7 +2,8 @@
 
 The real script runs here against stand-in ``docker`` and ``curl`` commands: production, the relay, the copy's link,
 files and dumps, and Telegram each made to fail and come back, the clock moved with WATCHDOG_NOW. What it sends to
-Telegram is what the stand-in curl was asked to post.
+Telegram is what the stand-in curl was asked to post. Production's address comes only from watchdog.env and that file
+is private (review 2026-11-28, scenario CW6).
 """
 from __future__ import annotations
 
@@ -184,7 +185,7 @@ def test_an_alert_that_reached_nobody_is_tried_again(dog):
 
 def test_the_chat_the_user_linked_and_kept_when_the_copy_is_down(dog):
     dog.env.pop("ALERT_CHAT_ID")
-    dog.env["ALERT_USERNAME"] = "masein"
+    dog.env["ALERT_USERNAME"] = "owner"
     dog.run(T0, STUB_PROD="down", STUB_CHAT="4242")
     [(chat, _)] = dog.run(T0 + 300, STUB_PROD="down", STUB_CHAT="4242")
     assert chat == "4242"
@@ -214,3 +215,44 @@ def test_status_and_test(dog):
     assert "Telegram chat 777" in dog.stdout
     [(chat, text)] = dog.run(T0, "--test")
     assert chat == "777" and text.startswith("✅ Test message")
+
+
+def test_production_address_from_watchdog_env(dog, tmp_path):
+    """CW6: APP_URL is read from watchdog.env; the script names no server of its own."""
+    dog.env.pop("APP_URL")
+    conf = tmp_path / "watchdog.env"
+    conf.write_text("APP_URL=https://from-the-env-file.example\n")
+    dog.env["WATCHDOG_ENV"] = str(conf)
+    dog.run(T0, "--status")
+    assert "curl -sS -m 20 https://from-the-env-file.example/health" in dog.argv_file.read_text()
+    assert "APP_URL=${APP_URL:-}\n" in SCRIPT.read_text(encoding="utf-8")         # no built-in default
+
+
+def test_no_production_address_is_said_not_guessed(dog):
+    """CW6: no APP_URL anywhere → the prod check fails saying so (and alerts like any failed check); nothing is
+    fetched."""
+    dog.env.pop("APP_URL")
+    dog.run(T0, "--status")
+    assert "prod        APP_URL is not set in " in dog.stdout
+    assert "/health" not in (dog.argv_file.read_text() if dog.argv_file.exists() else "")
+    dog.run(T0)
+    [(_, text)] = dog.run(T0 + 300)
+    assert text.startswith("⚠️ The accounting site isn't answering (?): APP_URL is not set in ")
+
+
+def test_install_keeps_watchdog_env_private(dog, tmp_path):
+    """CW6: the settings file install.sh writes (and one an older install left world-readable) is chmod 600."""
+    stub = tmp_path / "bin" / "launchctl"
+    stub.write_text("#!/bin/sh\nexit 0\n")
+    stub.chmod(0o755)
+    dest = tmp_path / "installed"
+    env = {**dog.env, "WATCHDOG_ENV": str(dest / "watchdog.env")}
+    install = SCRIPT.parent / "install.sh"
+    out = subprocess.run(["bash", str(install), str(dest)], env=env, capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    assert "set APP_URL" in out.stdout
+    assert (dest / "watchdog.env").stat().st_mode & 0o777 == 0o600
+    (dest / "watchdog.env").chmod(0o644)
+    out = subprocess.run(["bash", str(install), str(dest)], env=env, capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    assert (dest / "watchdog.env").stat().st_mode & 0o777 == 0o600

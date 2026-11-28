@@ -196,7 +196,7 @@ def test_chart_export_without_migration_role_is_context_only(db, tmp_path):
 
 
 def test_path_only_message_asks_for_real_upload(auth_client, db):
-    resp = _chat(auth_client, "/Users/masein/Downloads/حساب معين.xls")
+    resp = _chat(auth_client, "/Users/owner/Downloads/حساب معين.xls")
     assert resp.status_code == 200
     body = resp.json()
     assert body["stop_reason"] == "intake"

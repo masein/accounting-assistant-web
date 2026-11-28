@@ -9,8 +9,10 @@
 # registry answers (DEPLOY.md §5).
 #
 # Configure via a .env file next to this one (see .env.prod.example). On start
-# the API builds the schema and applies migrations automatically (its lifespan
-# runs create_all → alembic stamp/upgrade → seed), so a fresh DB boots ready.
+# the api container's entrypoint (entrypoint.sh) runs a one-shot pre-start —
+# wait for the DB, create_all → alembic stamp/upgrade → seed — and only then
+# starts the web server, so a fresh DB boots ready and a failed migration stops
+# the container loudly instead of serving a half-migrated app (DEPLOY.md §3).
 services:
   db:
     image: postgres:16
@@ -37,7 +39,7 @@ services:
 
   api:
     # A local tag the deployer sets (scripts/deploy.sh): the newest image from
-    # ghcr.io, or from the docker.netixsystem.com mirror when ghcr.io doesn't
+    # ghcr.io, or from a mirror listed in DEPLOY_REGISTRIES when ghcr.io doesn't
     # answer. Compose never pulls it — the deployer does. Pin a release with
     # DEPLOY_TAG=1.2.3 in .env (DEPLOY.md §4).
     image: accounting-assistant-api:deployed
@@ -146,14 +148,16 @@ services:
           cpus: '2'
           memory: 2G
 
-  # Zero-touch deploy from two registries (DEPLOY.md §5): every DEPLOY_INTERVAL
-  # seconds scripts/deploy.sh pulls :latest from the first registry in
-  # DEPLOY_REGISTRIES that answers — ghcr.io, then the docker.netixsystem.com
-  # mirror — and, when it's new, recreates the api on it, waits for its health
-  # check and puts the previous image back if it doesn't pass. Only the api is
-  # touched, never the DB. No inbound access needed: the server pulls. Both
-  # registries allow anonymous pulls. The stack's folder is mounted at the same
-  # path as on the host (DEPLOY_DIR), so compose in here is the same project.
+  # Zero-touch deploy from one or more registries (DEPLOY.md §5): every
+  # DEPLOY_INTERVAL seconds scripts/deploy.sh pulls :latest from the first
+  # registry in DEPLOY_REGISTRIES that answers and, when it's new, recreates the
+  # api on it, waits for its health check and puts the previous image back if it
+  # doesn't pass. Only the api is touched, never the DB. No inbound access
+  # needed: the server pulls. The default is GHCR alone; a server that also
+  # deploys from a mirror lists it in .env, e.g.
+  #   DEPLOY_REGISTRIES=ghcr.io/<owner>/accounting-assistant-api registry.example.com/accounting-assistant-api
+  # The stack's folder is mounted at the same path as on the host (DEPLOY_DIR),
+  # so compose in here is the same project.
   deployer:
     image: docker:27.5.1-cli   # pinned: this container holds the Docker socket
     restart: unless-stopped
@@ -163,7 +167,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - .:${DEPLOY_DIR:-/opt/accounting}
     environment:
-      DEPLOY_REGISTRIES: ${DEPLOY_REGISTRIES-ghcr.io/masein/accounting-assistant-api docker.netixsystem.com/accounting-assistant-api}
+      DEPLOY_REGISTRIES: ${DEPLOY_REGISTRIES-ghcr.io/masein/accounting-assistant-api}
       DEPLOY_TAG: ${DEPLOY_TAG:-latest}
       DEPLOY_INTERVAL: ${DEPLOY_INTERVAL:-120}          # seconds between checks
       DEPLOY_HEALTH_TIMEOUT: ${DEPLOY_HEALTH_TIMEOUT:-300}
@@ -179,9 +183,11 @@ services:
   # Daily backups (security review 2026-09-24, H5: there were none). Every day at
   # BACKUP_HOUR (server time) it writes a pg_dump custom-format archive and a tar
   # of the uploads volume into BACKUP_DIR on the host, then prunes copies older
-  # than BACKUP_KEEP_DAYS. Copy that folder off the box (rclone / scp / an S3
-  # bucket) — a backup on the same disk is not a backup. Run one now with
-  # `scripts/backup.sh`; restore with `scripts/restore.sh`.
+  # than BACKUP_KEEP_DAYS. A backup that fails part-way is logged as FAILED and
+  # tried again every hour until one works. Copy that folder off the box (rclone /
+  # scp / an S3 bucket) — a backup on the same disk is not a backup. Run one now
+  # with `scripts/backup.sh` (or `docker compose run --rm backup once`); restore
+  # with `scripts/restore.sh`.
   backup:
     image: postgres:16
     restart: unless-stopped

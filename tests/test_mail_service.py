@@ -19,9 +19,9 @@ def smtp_configured():
     original = {k: getattr(settings, k) for k in
                 ("smtp_host", "smtp_port", "smtp_user", "smtp_password",
                  "smtp_from", "smtp_from_name", "smtp_use_ssl", "smtp_starttls")}
-    settings.smtp_host = "mail.netixsystem.com"
+    settings.smtp_host = "mail.example.com"
     settings.smtp_port = 587
-    settings.smtp_user = "assistant@netixsystem.com"
+    settings.smtp_user = "assistant@example.com"
     settings.smtp_password = "s3cr3t-not-logged"
     settings.smtp_from = None
     settings.smtp_from_name = "Accounting Assistant"
@@ -99,13 +99,13 @@ def test_the_message_carries_subject_sender_and_recipient(smtp_configured):
     msg = mail.build_message(to="user@example.com", subject="Hello", text="Body")
     assert msg["Subject"] == "Hello"
     assert msg["To"] == "user@example.com"
-    assert "assistant@netixsystem.com" in msg["From"]
+    assert "assistant@example.com" in msg["From"]
     assert "Accounting Assistant" in msg["From"]
 
 
 def test_smtp_from_overrides_the_login_address(smtp_configured):
-    settings.smtp_from = "noreply@netixsystem.com"
-    assert "noreply@netixsystem.com" in mail.build_message(
+    settings.smtp_from = "noreply@example.com"
+    assert "noreply@example.com" in mail.build_message(
         to="u@e.com", subject="s", text="t")["From"]
 
 
@@ -130,9 +130,9 @@ def test_html_is_added_as_an_alternative_keeping_the_text_part(smtp_configured):
 def test_a_configured_send_logs_in_and_delivers(smtp_configured, fake_smtp):
     assert mail.send_email(to="user@example.com", subject="Hi", text="There") is True
     server = fake_smtp.instances[0]
-    assert server.host == "mail.netixsystem.com" and server.port == 587
+    assert server.host == "mail.example.com" and server.port == 587
     assert server.started_tls is True
-    assert server.logged_in_as == "assistant@netixsystem.com"
+    assert server.logged_in_as == "assistant@example.com"
     assert len(server.sent) == 1
 
 

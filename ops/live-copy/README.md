@@ -11,13 +11,13 @@ Run it from a folder **outside the repository**, because it keeps a password and
 cp -R ops/live-copy ~/accounting-live-copy && cd ~/accounting-live-copy
 cp .env.example .env && chmod 600 .env                 # fill in REPL_PASSWORD and SSH_HOST
 ssh-keygen -t ed25519 -N "" -C "accounting-replica" -f ~/.ssh/accounting_replica
-# put the public key in production's /root/.ssh/authorized_keys behind the gate (DEPLOY.md §13), then:
+# put the public key in the SSH user's ~/.ssh/authorized_keys on production, behind the gate (DEPLOY.md §13), then:
 ssh-keyscan -t ed25519 <SSH_HOST> > known_hosts && chmod 600 known_hosts   # check its fingerprint on the server
 docker compose up -d                                   # the first start copies production (pg_basebackup)
 sh status.sh
 ```
 
-The live copy on the owner's Mac runs from `/Users/masein/Development/accounting/prod-replica`.
+On the owner's Mac it runs from a folder beside the relay and the watchdog (for example `~/accounting/prod-replica`).
 
 ## What runs
 

@@ -1,6 +1,6 @@
 # QA results — production run, 2026-09-24
 
-Target: `https://accounting.netixsystem.com` (release 2026.09.22, assets `d2af8974`).
+Target: production, `https://app.example.com` (release 2026.09.22, assets `d2af8974`).
 Tenants: `QA Test Co` (Iran locale, IRR, users qa_owner / qa_accountant / qa_viewer /
 qa_employee) and `QA Personal` (personal), created for the run via the Companies
 console. Method: driven from the in-app browser pane at phone width (377 px) plus the

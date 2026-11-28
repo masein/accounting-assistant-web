@@ -855,38 +855,31 @@ def build_ceo_report(db: Session, currency: str | None = None, lang: str = "en")
     from app.services.reporting.common import classify_account_code, ASSET, LIABILITY, EQUITY
     accounts = db.execute(select(AccountModel)).scalars().all()
     period_result = 0
-    from app.services.reporting.repository import amount_columns, sums_base
-    dr_col, cr_col = amount_columns(currency)
-    lines_q = select(
-        TransactionLine.account_id,
-        func.coalesce(func.sum(dr_col), 0),
-        func.coalesce(func.sum(cr_col), 0),
-    ).join(Transaction, TransactionLine.transaction_id == Transaction.id)
-    if not sums_base(currency):
-        lines_q = lines_q.where(Transaction.currency == currency)
-    lines_q = lines_q.group_by(TransactionLine.account_id)
+    # the same turnovers as the Management balance sheet: to today, deleted
+    # entries out. Summing every line ever written counted future-dated
+    # entries here and nowhere else, so the two disagreed (#35)
+    from app.services.reporting.repository import account_turnovers_upto
+    from app.services.reporting.financial_statement_service import build_balance_sheet
+    as_of = date.today()
     acc_by_id = {a.id: a for a in accounts}
     assets_map: dict[str, dict] = {}
     liabilities_map: dict[str, dict] = {}
     equity_map: dict[str, dict] = {}
-    for account_id, td, tc in db.execute(lines_q).all():
+    for account_id, td, tc in account_turnovers_upto(db, as_of, currency=currency):
         acc = acc_by_id.get(account_id)
         if not acc:
             continue
         acc_type = classify_account_code(acc.code)
         if acc_type == ASSET:
             bal = plain((td or 0) - (tc or 0))     # ints when whole (PostgreSQL sums are decimals), pence kept
-            report.total_assets += bal
             if bal != 0:
                 assets_map[acc.code] = {"code": acc.code, "name": acc.name, "balance": bal}
         elif acc_type == LIABILITY:
             bal = plain((tc or 0) - (td or 0))
-            report.total_liabilities += bal
             if bal != 0:
                 liabilities_map[acc.code] = {"code": acc.code, "name": acc.name, "balance": bal}
         elif acc_type == EQUITY:
             bal = plain((tc or 0) - (td or 0))
-            report.total_equity += bal
             if bal != 0:
                 equity_map[acc.code] = {"code": acc.code, "name": acc.name, "balance": bal}
         elif acc_type in (REVENUE, EXPENSE):
@@ -894,8 +887,13 @@ def build_ceo_report(db: Session, currency: str | None = None, lang: str = "en")
             # into retained earnings; left out, the summary didn't balance
             period_result += plain((tc or 0) - (td or 0))
     if period_result:
-        report.total_equity += period_result
         equity_map["period_result"] = {"code": "", "name": _s(lang, "bs_period_result"), "balance": period_result}
+
+    # the totals are the balance sheet's own, so CEO Mode can't show the board a different one
+    bs_totals = build_balance_sheet(db, to_date=as_of, currency=currency).totals
+    report.total_assets = bs_totals["assets"]
+    report.total_liabilities = bs_totals["liabilities"]
+    report.total_equity = bs_totals["equity"]
 
     report.assets_breakdown = sorted(assets_map.values(), key=lambda x: abs(x["balance"]), reverse=True)
     report.liabilities_breakdown = sorted(liabilities_map.values(), key=lambda x: abs(x["balance"]), reverse=True)

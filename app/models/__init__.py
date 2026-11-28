@@ -19,7 +19,7 @@ from app.models.entity import Entity, TransactionEntity
 from app.models.equity import EquityEvent, Shareholding
 from app.models.exchange_rate import ExchangeRate
 from app.models.learned_preference import LearnedPreference
-from app.models.messenger import MessengerLink, MessengerSignIn, MessengerUpdate
+from app.models.messenger import MessengerLink, MessengerOutbox, MessengerSignIn, MessengerUpdate
 from app.models.support import SupportMessage, SupportThread
 from app.models.mobile_device import MobileDevice
 from app.models.mobile_turn import MobileTurn
@@ -81,6 +81,7 @@ __all__ = [
     "ExchangeRate",
     "LearnedPreference",
     "MessengerLink",
+    "MessengerOutbox",
     "MessengerSignIn",
     "MobileDevice",
     "MobileTurn",

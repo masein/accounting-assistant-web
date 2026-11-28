@@ -42,6 +42,8 @@ from before 2026-11-28 don't read.
   along with the update; the server can't fetch them itself.
 - **Documents back:** an invoice's PDF, the journal's Excel or a close pack the server answers with comes with its
   bytes, and is uploaded to the chat from here.
+- **The outbox:** what the server sends outside an update — the support desk's replies to `/support` — is fetched
+  every 5 seconds (`/bots/telegram/relay/outbox`) and sent, once each.
 - **Restarts:** the offset of the last update handled is kept in `state/`, so a restart neither loses nor repeats
   updates. The server also ignores an update it has already handled.
 - **The server not answering:** each update is tried three times; then the round stops without moving the offset,

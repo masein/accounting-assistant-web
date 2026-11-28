@@ -92,6 +92,10 @@ class World:
         path = request.url.path.rsplit("/", 1)[-1]
         if path == "update":
             body.setdefault("files", {})
+        if path == "outbox":
+            self.app_calls.append((path, body, dict(request.headers)))
+            out, self.outbox = getattr(self, "outbox", []), []
+            return httpx.Response(200, json={"ok": True, "calls": out})
         self.app_calls.append((path, body, dict(request.headers)))
         if path == "hello":
             return httpx.Response(200, json={"ok": True})
@@ -231,3 +235,14 @@ def test_the_server_side_and_the_relay_agree():
     assert "TELEGRAM_BOT_TOKEN=" in (ROOT / "ops/telegram-relay/token.env.example").read_text(encoding="utf-8")
     assert "token.env" in (ROOT / "ops/telegram-relay/compose.yml").read_text(encoding="utf-8")
     assert {".env", "token.env", "state/"} <= set((ROOT / "ops/telegram-relay/.gitignore").read_text().split())
+
+
+def test_the_outbox_is_fetched_and_sent(tmp_path):
+    """DA9: the support desk's reply waits on the server; the relay fetches it and sends it, once."""
+    w = World(tmp_path)
+    w.outbox = [_call("💬 Support: Which period?", 7)]
+    r = w.relay()
+    assert asyncio.run(r.outbox_once()) == 1
+    assert [b["text"] for b in w.sent()] == ["💬 Support: Which period?"]
+    assert asyncio.run(r.outbox_once()) == 0                                  # handed over once
+    assert [p for p, _, h in w.app_calls if p == "outbox" and h["authorization"] == f"Bearer {KEY}"]

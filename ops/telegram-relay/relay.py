@@ -36,6 +36,7 @@ MAX_VOICE_BYTES = 10 * 1024 * 1024       # as the server's (MAX_VOICE_BYTES in a
 MAX_FILE_BYTES = 20 * 1024 * 1024        # a photo or a file: the server's MAX_FILE_BYTES, and what getFile allows
 APP_TIMEOUT = 300.0                      # an assistant turn can take a while
 APP_ATTEMPTS = 3
+OUTBOX_EVERY = 5.0                       # how often to fetch what the server sends outside an update
 
 
 class TelegramError(RuntimeError):
@@ -73,6 +74,7 @@ class Config:
     hello_every: float = 600.0
     typing_every: float = 4.0
     retry_pause: float = 5.0
+    outbox_every: float = OUTBOX_EVERY
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -286,6 +288,33 @@ class Relay:
                 out[media["file_id"]] = data
         return out
 
+    # --- the outbox: what the server sends outside any update (the support desk's replies) -------------------
+
+    async def outbox_once(self) -> int:
+        """Fetch the server's waiting messages and send them. Returns how many were sent."""
+        answer = await self.app("outbox", {}, timeout=30.0)
+        sent = 0
+        for call in answer.get("calls") or []:
+            try:
+                await self.tg(call["method"], **(call.get("params") or {}))
+                sent += 1
+            except (TelegramError, httpx.HTTPError, KeyError) as exc:
+                log.warning("outbox: %s failed: %s", call.get("method"), exc)
+        return sent
+
+    async def outbox_loop(self) -> None:
+        pause = self.cfg.outbox_every
+        while True:
+            await asyncio.sleep(pause)
+            try:
+                await self.outbox_once()
+                pause = self.cfg.outbox_every
+            except PermissionError:
+                pause = 300.0                             # a server before 2026-11-28 has no outbox: ask rarely
+            except (httpx.HTTPError, ValueError) as exc:
+                log.warning("outbox: the server didn't answer: %s", exc)
+                pause = min(60.0, pause * 2)
+
     # --- the loop --------------------------------------------------------------------------------------------
 
     async def run(self) -> None:
@@ -299,6 +328,7 @@ class Relay:
             except (TelegramError, httpx.HTTPError) as exc:
                 log.warning("couldn't start: %s — retrying in 30 s", exc)
                 await asyncio.sleep(30)
+        self._outbox = asyncio.create_task(self.outbox_loop())   # the support desk's replies, alongside the updates
         pause = 0.0
         while True:
             try:

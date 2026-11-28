@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.services.messenger import (MAX_FILE_BYTES, PLATFORMS, check_secret, handle_update, relay_calls,
-                                    relay_config, relay_hello)
+                                    relay_config, relay_hello, relay_outbox)
 
 log = logging.getLogger("app.messenger")
 router = APIRouter(prefix="/bots", tags=["bots"])
@@ -142,3 +142,11 @@ async def relay_update(platform: str, request: Request, db: Session = Depends(ge
         log.exception("relayed update failed platform=%s", platform)
         return {"ok": False, "calls": []}
     return {"ok": True, "calls": relay_calls(reply)}
+
+
+@router.post("/{platform}/relay/outbox", include_in_schema=False)
+def relay_outbox_calls(platform: str, request: Request, db: Session = Depends(get_db)) -> dict:
+    """What the relay sends for the server outside any update — the support desk's replies (DA9). It asks every
+    few seconds; each message is handed over once."""
+    _relay_cfg(platform, request, db)
+    return {"ok": True, "calls": relay_outbox(db, platform)}

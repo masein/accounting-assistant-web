@@ -1,6 +1,7 @@
 # Accounting Chat — iPhone, iPad and Mac
 
-The assistant's chat as a native app, and nothing else: sign in, the conversations, and the chat with its cards.
+The assistant's chat as a native app, and nothing else: sign in, the conversations, the chat with its cards, and
+Support.
 It is the same assistant as the web chat, the Android app and the Telegram/Bale bot. Nothing is recorded until
 Confirm.
 
@@ -33,6 +34,15 @@ Confirm.
   pieces of up to 1 MB that grow on a fast line (`/uploads/begin`, `PUT /uploads/{id}?offset=`), going on from
   where the server stands after a dropped connection; its id goes with the words as `attachment_ids`.
 - **Voice:** hold the microphone to talk; let go and the words (`/transcribe`) go into the composer to check.
+- **Support:** the toolbar's headset (beside Approvals) opens the chat with the support desk — Claude in the owner's
+  Nightshift, on their Mac, which answers; the night shift fixes what it reports. It's the same conversation as the
+  web page's headset button (`/api/mobile/v1/support`, `app/api/support.py`, DEPLOY.md §16). The person's messages
+  on the trailing side, the desk's on the leading side, each with its time; "● Online" or "Away right now"; a few
+  words on what helps while it's empty. A screenshot (a photo) or a PDF goes with a message (uploaded first,
+  20 MB at most). Each message carries what the app knew: where the person was, the app's version, the language,
+  the window's size, and the last ten calls the server refused with their `x-request-id`. While it shows, the
+  replies are marked seen and what's new comes every five seconds; shut, the headset counts the unread replies,
+  asked every minute. Past 30 messages a day the server's refusal is shown, in the person's language.
 - **Too old:** a server that refuses this version (426) gets a screen saying to update, in the user's language.
 - **Language:** English, Persian, Arabic and Spanish, following the user's own setting on the server. Persian and
   Arabic are right to left, and a Persian message reads right to left in an English app too.
@@ -57,7 +67,7 @@ editing a card, replying to a message, the morning briefing, bank SMS, the widge
 **Without Xcode** — the Command Line Tools are enough for the Mac app and every test:
 
 ```bash
-apple/test.sh                           # 60 tests (Swift Testing): the client, the chat's state, the contract recordings
+apple/test.sh                           # 73 tests (Swift Testing): the client, the chat's state, support, the contract recordings
 apple/build-mac.sh                      # → apple/build/AccountingChat.app, signed to run on this Mac
 open apple/build/AccountingChat.app
 ```
@@ -74,7 +84,8 @@ On a phone: open the project in Xcode, choose your team under Signing & Capabili
 
 Two things keep the no-Xcode build working — keep them so:
 - **No `@State`** in the screens: SwiftUI's `@State` is a macro whose plugin ships only with Xcode. The screens keep
-  their few switches in small `ObservableObject`s (`LoginFields`, `ChatScreenState`, `ComposerState`, `CardPrompts`).
+  their few switches in small `ObservableObject`s (`LoginFields`, `ChatScreenState`, `ComposerState`, `CardPrompts`;
+  Support's sheet is `SupportModel.presented`).
 - **No `defaultLocalization`** in Package.swift: with the Command Line Tools it stops the Swift Testing macros from
   loading. The app's words are in code (`L10n`), not in `.lproj` folders.
 
@@ -93,14 +104,19 @@ the no-Xcode Mac build and both Xcode builds when `apple/`, the contract or the 
 
 Against a local server (the dev stack on `localhost:18000`) with `tests_e2e/fake_llm.py` standing in for the AI.
 A debug build runs a script from its launch environment — signs in, opens the latest conversation (`AC_OPEN=1`) and
-its page before, sends (a shot while the streamed answer is under way), confirms or cancels the first card — and
-saves its own window after each step (no screen-recording permission needed):
+its page before, sends (a shot while the streamed answer is under way), confirms or cancels the first card, opens
+Support (`AC_SUPPORT=1`, or messages to send to the desk; `AC_SUPPORT_FILE` a screenshot to attach,
+`AC_SUPPORT_WAIT` seconds to wait for the desk's reply) — and saves its own window (or its sheet) after each step
+(no screen-recording permission needed):
 
 ```bash
 apple/build-mac.sh debug
 AC_SERVER=http://localhost:18000 AC_USER=admin AC_PASS=… AC_SEND="hi|paid 20 for lunch" AC_CONFIRM=1 \
 AC_SNAPSHOT_DIR=/tmp/shots apple/build/AccountingChat.app/Contents/MacOS/AccountingChat
 ```
+
+To play the desk meanwhile: a platform admin's desk key (Settings → Support desk), then `POST /desk/pending` and
+`POST /desk/reply` (`{"thread_id", "text"}`) with `Authorization: Bearer <key>`.
 
 On the iPhone: run it in the Simulator and sign in to `http://localhost:18000`.
 
@@ -112,7 +128,10 @@ On the iPhone: run it in the Simulator and sign in to `http://localhost:18000`.
 | Confirm: recorded, with Undo for two minutes | A Persian user: right to left; Cancel saves nothing |
 | ![Cards, opened again](../docs/screenshots/apple/mac-5-persian-cards.png) | ![Tables](../docs/screenshots/apple/mac-6-tables.png) |
 | Opened again: undone, waiting for a second approval, an approval to decide; the streamed answer's step | Budgets and invoices as tables; a message sent with a photo |
-| ![Documents](../docs/screenshots/apple/mac-7-documents.png) | |
-| An employee's pay, a payslip and an invoice's PDF to open or share | |
+| ![Documents](../docs/screenshots/apple/mac-7-documents.png) | ![Support's badge](../docs/screenshots/apple/mac-8-support-badge.png) |
+| An employee's pay, a payslip and an invoice's PDF to open or share | The headset beside Approvals: two replies from the desk unread |
+| ![Support](../docs/screenshots/apple/mac-9-support.png) | ![Support in Persian](../docs/screenshots/apple/mac-10-support-persian.png) |
+| Support: a screenshot sent, the desk's reply within seconds, the desk online | Persian: right to left, the person's messages on the trailing side; an English reply reads left to right |
 
-Shots 5–7 were served from the contract recordings (`docs/contracts/conversations/`) by a stand-in for the server.
+Shots 5–7 and 10 were served by a stand-in for the server (5–7 from the contract recordings,
+`docs/contracts/conversations/`); 8–9 by the dev stack, with the desk played from its door (`/desk/…`).

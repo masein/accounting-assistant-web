@@ -9,6 +9,8 @@ final class Stub: URLProtocol {
     struct Seen {
         let method: String; let path: String; let headers: [String: String]; let body: [String: Any]
         var query: [String: String] = [:]; var raw = Data()
+        /// the query as it went on the wire (percent-encoded)
+        var rawQuery = ""
     }
     nonisolated(unsafe) static var seen: [Seen] = []
     nonisolated(unsafe) static var handler: ((URLRequest, [String: Any]) -> (Int, Data, [String: String])) = { _, _ in (404, Data(), [:]) }
@@ -32,7 +34,7 @@ final class Stub: URLProtocol {
         Stub.seen.append(Seen(method: request.httpMethod ?? "GET", path: request.url?.path ?? "",
                               headers: request.allHTTPHeaderFields ?? [:], body: body,
                               query: Dictionary(items.map { ($0.name, $0.value ?? "") }, uniquingKeysWith: { a, _ in a }),
-                              raw: bodyData ?? Data()))
+                              raw: bodyData ?? Data(), rawQuery: request.url?.query(percentEncoded: true) ?? ""))
         let (status, data, headers) = Stub.rawHandler?(request, bodyData ?? Data()) ?? Stub.handler(request, body)
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: headers)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)

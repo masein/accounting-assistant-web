@@ -14,6 +14,8 @@ public final class AppModel: ObservableObject {
     @Published public var error: String?
     @Published public var serverAddress: String
     @Published public private(set) var chat: ChatModel?
+    /// the conversation with the support desk (the toolbar's headset)
+    @Published public private(set) var support: SupportModel?
 
     public static let defaultServer = "https://accounting.netixsystem.com"
     private let defaults: UserDefaults
@@ -98,7 +100,7 @@ public final class AppModel: ObservableObject {
     public func startFresh(server: String) {
         serverAddress = server
         if let url = serverURL(server) { makeTokens(url).clear() }
-        api = nil; chat = nil; user = nil; company = nil
+        api = nil; chat = nil; support = nil; user = nil; company = nil
         phase = .signedOut
     }
 
@@ -109,7 +111,7 @@ public final class AppModel: ObservableObject {
 
     public func signOut() async {
         await api?.signOut()
-        api = nil; chat = nil; user = nil; company = nil
+        api = nil; chat = nil; support = nil; user = nil; company = nil
         phase = .signedOut
     }
 
@@ -125,6 +127,10 @@ public final class AppModel: ObservableObject {
             self?.phase = .updateRequired
         }
         self.chat = chat
+        let support = SupportModel(api: api, language: l10n.language)
+        support.onSessionEnded = chat.onSessionEnded
+        support.onUpdateRequired = chat.onUpdateRequired
+        self.support = support
         phase = .signedIn
     }
 

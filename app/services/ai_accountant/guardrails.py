@@ -9,7 +9,10 @@
   currency) is not executed by the requester's Confirm. It waits for someone
   else who can approve (``approvals:write`` — owner, CFO, manager), who
   executes or rejects it. An amount that can't be converted to the base
-  currency counts as over the threshold.
+  currency counts as over the threshold. The expense approval threshold
+  (Settings → Expenses) is honoured too: whichever limit is crossed first
+  applies (``approval_limits``), and the card's "needs approval" comes from the
+  same check Confirm runs.
 * **Tool budget** — at most ``tool_calls_per_message`` tool calls and
   ``proposals_per_message`` proposals per chat message (platform
   ``ai_limits``); past them the model is told to answer with what it has.
@@ -33,6 +36,7 @@ from app.core.money import json_dumps, plain
 
 SETTINGS_KEY = "ai_guardrails"
 APPROVAL_TTL = timedelta(days=7)
+APPROVAL_LINE_MARK = "⚠ Over the approval threshold"      # the card's line, added once by ``review``
 
 # Proposals that change the books, and the payload key holding the posting date
 # (None → it posts today).
@@ -158,14 +162,57 @@ def proposal_amount(db: Session, tool_name: str, payload: dict, result: dict | N
     return _to_base(db, gross, ccy, on)
 
 
-def needs_approval(db: Session, proposal: AIProposal) -> bool:
-    threshold = get_settings(db)["approval_threshold"]
-    if not threshold or proposal.tool_name in _NON_POSTING:
-        return False
+def approval_limits(db: Session) -> dict:
+    """The company's two approval limits, in the base currency (None = not set).
+
+    A company can set a limit in two places: the assistant's own
+    (``ai_guardrails.approval_threshold``, Settings → AI assistant: a proposal
+    moving that much **or more** waits for a second person) and the expense one
+    (``expense_approval_threshold``, Settings → Expenses: an expense **above**
+    it is routed for approval). The chat card used to read the expense limit
+    and say "needs approval" while Confirm only checked the assistant's, so the
+    card promised a review and the entry posted anyway (review 2026-11-28,
+    scenario CV1). Now both feed one check: a proposal needs approval when it
+    crosses either limit — in practice the lower one that is set decides — and
+    each keeps the boundary its own settings page promises.
+    """
+    from app.services.expense_settings import get_approval_threshold
+    try:
+        expense = get_approval_threshold(db)
+    except Exception:          # a broken expense setting must not block (or unblock) the assistant's own limit
+        expense = None
+    return {"assistant": get_settings(db)["approval_threshold"], "expense": expense if expense and expense > 0 else None}
+
+
+def crossed_limit(db: Session, amount):
+    """The lowest limit ``amount`` (base currency) crosses, or None when it is
+    under every limit that is set. An amount that can't be converted to the base
+    currency (None) crosses any limit that is set."""
+    limits = approval_limits(db)
+    crossed = []
+    if limits["assistant"] and (amount is None or amount >= limits["assistant"]):
+        crossed.append(limits["assistant"])
+    if limits["expense"] and (amount is None or amount > limits["expense"]):
+        crossed.append(limits["expense"])
+    return min(crossed) if crossed else None
+
+
+def _approval_limit_for(db: Session, proposal: AIProposal):
+    if proposal.tool_name in _NON_POSTING:
+        return None
+    limits = approval_limits(db)
+    if not (limits["assistant"] or limits["expense"]):
+        return None
     amount = proposal.amount
     if amount is None:
         amount = proposal_amount(db, proposal.tool_name, dict(proposal.tool_input or {}))
-    return amount is None or amount >= threshold
+    return crossed_limit(db, amount)
+
+
+def needs_approval(db: Session, proposal: AIProposal) -> bool:
+    """The one rule both the card (``review``) and Confirm (``execute_service``)
+    follow, so a card that says it needs approval always goes to approval."""
+    return _approval_limit_for(db, proposal) is not None
 
 
 # --- the orchestrator's check ------------------------------------------------------------------------------------
@@ -194,12 +241,22 @@ def review(db: Session, result: dict) -> dict:
     proposal.summary = (str(result.get("summary") or "")[:4000]) or proposal.summary
     proposal.amount = proposal_amount(db, proposal.tool_name, payload, result)
     db.commit()
-    threshold = get_settings(db)["approval_threshold"]
-    if needs_approval(db, proposal):
-        return {"needs_approval": True, "approval_threshold": threshold, "amount_in_base": proposal.amount,
-                "approval_note": ("Above the company's approval limit: confirming sends it to someone who "
-                                  "can approve (owner, CFO or manager) — it is not recorded until they do.")}
-    return {}
+    threshold = _approval_limit_for(db, proposal)
+    if threshold is None:
+        return {}
+    out = {"needs_approval": True, "approval_threshold": threshold, "amount_in_base": proposal.amount,
+           "approval_note": ("Above the company's approval limit: confirming sends it to someone who "
+                             "can approve (owner, CFO or manager) — it is not recorded until they do.")}
+    # The card's own line comes from this same check (scenario CV1), never from a tool's guess.
+    summary = str(result.get("summary") or "")
+    if summary and APPROVAL_LINE_MARK not in summary:
+        from app.core.money import grouped
+        from app.services.fx_base import base_currency
+        out["summary"] = (summary + f"\n  {APPROVAL_LINE_MARK} ({grouped(threshold)} {base_currency(db)}) — "
+                          "needs approval before it is posted.")
+        proposal.summary = out["summary"][:4000]
+        db.commit()
+    return out
 
 
 # --- approval steps -------------------------------------------------------------------------------------------------

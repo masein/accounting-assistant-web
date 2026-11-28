@@ -1873,6 +1873,7 @@ window.I18N_PACKS.es = Object.assign({
         auditEnt_cheque_print_layout: 'Formato de impresión de cheques',
         auditEnt_company_profile: 'Perfil de la empresa',
         auditEnt_shareholding: 'Participación accionaria',
+        auditEnt_support_desk: 'Mesa de soporte',
         auditAct_upsert: 'Guardado',
         auditAct_void: 'Anulado',
         auditEnt_chart: "Plan de cuentas",

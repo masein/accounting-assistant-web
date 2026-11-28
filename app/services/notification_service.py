@@ -51,6 +51,7 @@ KIND_ROLES = {
     "bank_mail": ("owner", "cfo", "accountant", "personal"),
     "reminder": (),  # always personal
     "review": (),    # a reader's own (user_id): the app's weekly and monthly reviews, its nudge
+    "support": (),   # a reader's own: the support desk answered (app/services/support_desk.py)
 }
 
 
@@ -664,6 +665,7 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
         pass
 
     _reviews(db, seen)
+    _support(db, seen)
 
     _store(db, seen.pending)
 
@@ -680,6 +682,18 @@ def _refresh_once(db: Session, *, today: date | None = None) -> int:
             open_count += 1
     db.commit()
     return open_count
+
+
+def _support(db: Session, seen: set[str]) -> None:
+    """The support desk's unread replies, one line per person: kept while unread, gone once read (DA4)."""
+    try:
+        from app.services.support_desk import bell_lines
+        for line in bell_lines(db):
+            _upsert(db, seen, dedupe_key=line["dedupe_key"], kind="support", level="info", title="Support replied",
+                    message=line["snippet"], link_page="support", user_id=line["user_id"],
+                    text_key="support_reply", params={"snippet": line["snippet"]})
+    except Exception:  # noqa: BLE001 — support must never break the bell
+        pass
 
 
 def _reviews(db: Session, seen: set[str]) -> None:

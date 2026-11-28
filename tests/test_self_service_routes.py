@@ -16,6 +16,15 @@ from app.core.permissions import ROUTE_PERMISSIONS, role_can
 SELF_SERVICE_ROLES = ("employee", "manager")
 
 REVIEWED = {
+    # support (DA1–DA8): a person's own conversation with the support desk, looked up by the session's user only
+    ("GET", "/support"): "the session user's own support conversation",
+    ("POST", "/support/messages"): "a message in the session user's own conversation; attachments must be theirs",
+    ("POST", "/support/attachments"): "a screenshot for the user's next support message, never a voucher's",
+    ("POST", "/support/seen"): "marks the session user's own replies read",
+    ("GET", "/api/mobile/v1/support"): "the session user's own support conversation, on a phone",
+    ("POST", "/api/mobile/v1/support/messages"): "a message in the session user's own conversation, on a phone",
+    ("POST", "/api/mobile/v1/support/attachments"): "a screenshot for the user's next support message, on a phone",
+    ("POST", "/api/mobile/v1/support/seen"): "marks the session user's own replies read, on a phone",
     # shared reference data, the same for every user of the company
     ("GET", "/admin/company-profile/logo"): "the company's logo, shown in every header",
     ("GET", "/admin/display-calendar"): "the company's calendar setting",

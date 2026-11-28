@@ -1873,6 +1873,7 @@ window.I18N_PACKS.ar = Object.assign({
         auditEnt_cheque_print_layout: 'تخطيط طباعة الشيك',
         auditEnt_company_profile: 'ملف الشركة',
         auditEnt_shareholding: 'حصة المساهمة',
+        auditEnt_support_desk: 'مكتب الدعم',
         auditAct_upsert: 'حفظ',
         auditAct_void: 'إبطال',
         auditEnt_chart: "دليل الحسابات",

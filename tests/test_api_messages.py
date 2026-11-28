@@ -15,7 +15,9 @@ APP = Path(__file__).resolve().parents[1] / "app"
 # a password rule)
 REASONS = {"PayrollInputError", "PasswordPolicyError",
            # a proposal refused on the phone (app/api/mobile_chat.py says str(e))
-           "EditRefused", "ProposalCancelled", "PermissionDenied", "ProposalExpired", "ProposalNotFound"}
+           "EditRefused", "ProposalCancelled", "PermissionDenied", "ProposalExpired", "ProposalNotFound",
+           # the support desk's refusals (app/api/support.py says str(e))
+           "SupportError", "SupportLimit"}
 # wrappers that raise an HTTPException with their first argument as the detail
 REFUSERS = {"_refuse"}
 # a statement row's problem, "Row {n}: {reason}" (app/api/brain.py): the reason
@@ -154,6 +156,8 @@ API_ONLY_LITERAL = {
     "Unknown platform": "the bot settings page only sends the platforms it lists",
     "Invalid session_id": "the chat page sends its own session id",
     "Invalid confirmation_token format": "the chat page sends the token it was given",
+    "An empty reply.": "the support desk on the owner's Mac (/desk/reply), not a page",
+    "No such conversation.": "the support desk on the owner's Mac (/desk/reply), not a page",
 }
 
 

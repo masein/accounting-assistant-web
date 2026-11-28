@@ -1917,6 +1917,7 @@ window.I18N_PACKS.fa = Object.assign({
         auditEnt_cheque_print_layout: 'قالب چاپ چک',
         auditEnt_company_profile: 'مشخصات شرکت',
         auditEnt_shareholding: 'سهام‌داری',
+        auditEnt_support_desk: 'میز پشتیبانی',
         auditAct_upsert: 'ذخیره',
         auditAct_void: 'ابطال',
         auditEnt_chart: "کدینگ حساب‌ها",

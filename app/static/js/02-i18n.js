@@ -1922,6 +1922,7 @@
         auditEnt_cheque_print_layout: 'Cheque print layout',
         auditEnt_company_profile: 'Company profile',
         auditEnt_shareholding: 'Shareholding',
+        auditEnt_support_desk: 'Support desk',
         auditAct_upsert: 'Saved',
         auditAct_void: 'Voided',
         auditEnt_chart: "Chart of accounts",

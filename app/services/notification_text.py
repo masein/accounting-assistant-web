@@ -61,6 +61,9 @@ def _both(title: dict[str, str], message: dict[str, str]) -> dict[str, dict[str,
 
 
 TEXT: dict[str, dict[str, dict[str, str]]] = {
+    "support_reply": _both(
+        {"en": "Support replied", "fa": "پشتیبانی پاسخ داد", "es": "Soporte respondió", "ar": "رد الدعم"},
+        {"en": "{snippet}", "fa": "{snippet}", "es": "{snippet}", "ar": "{snippet}"}),
     "invoice_overdue": _both(
         {"en": "Invoice {number} overdue", "fa": "فاکتور {number} سررسید گذشته", "es": "Factura {number} vencida",
          "ar": "الفاتورة {number} متأخرة"},

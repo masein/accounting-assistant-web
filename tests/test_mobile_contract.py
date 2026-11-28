@@ -298,6 +298,11 @@ MOBILE_ROUTES = {
     ("POST", "/api/mobile/v1/auth/refresh"): PUBLIC,
     # the account and its phones: everyone signed in
     ("GET", "/api/mobile/v1/me"): ALL,
+    # support (DA8): everyone signed in writes to the support desk
+    ("GET", "/api/mobile/v1/support"): ALL,
+    ("POST", "/api/mobile/v1/support/messages"): ALL,
+    ("POST", "/api/mobile/v1/support/attachments"): ALL,
+    ("POST", "/api/mobile/v1/support/seen"): ALL,
     ("PUT", "/api/mobile/v1/me/language"): ALL,
     ("DELETE", "/api/mobile/v1/session"): ALL,
     ("GET", "/api/mobile/v1/devices"): ALL,

@@ -320,6 +320,7 @@ def pending(db: Session, *, limit: int = 20) -> list[dict[str, Any]]:
                 "thread_id": str(thread.id),
                 "person": {
                     "user_id": str(thread.user_id), "username": user.username if user else None,
+                    "name": _display_name(db, user, company),
                     "role": (user.role if user else None) or "owner",
                     "language": ((user.preferred_language if user else None) or "en"),
                     "email": user.email if user else None,
@@ -334,6 +335,25 @@ def pending(db: Session, *, limit: int = 20) -> list[dict[str, Any]]:
                 break
         db.commit()
     return out
+
+
+def _display_name(db: Session, user, company) -> str | None:
+    """What the desk calls the person ("Dear Sara"): the party a login is tied to (an employee), a person's own
+    books' name, or a username that reads as a name — never "e2e_owner". None: the desk greets without a name."""
+    import re
+    if user is None:
+        return None
+    if user.entity_id:
+        from app.models.entity import Entity
+        entity = db.get(Entity, user.entity_id)
+        if entity is not None and (entity.name or "").strip():
+            return entity.name.strip()[:60]
+    if company is not None and getattr(company, "kind", None) == "personal" and (company.name or "").strip() \
+            and company.name.strip().lower() != (user.username or "").lower():
+        return company.name.strip()[:60]
+    if re.fullmatch(r"[^\W\d_]{2,30}", user.username or ""):
+        return user.username.capitalize()
+    return None
 
 
 def reply(db: Session, *, thread_id: str, text: str) -> SupportMessage:

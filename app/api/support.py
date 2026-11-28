@@ -44,6 +44,8 @@ class SupportPost(BaseModel):
 def _after(value: str | None) -> datetime | None:
     if not value:
         return None
+    # a "+00:00" sent unencoded arrives as " 00:00" (a query string's + is a space): read it as meant
+    value = value.strip().replace(" ", "+")
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:

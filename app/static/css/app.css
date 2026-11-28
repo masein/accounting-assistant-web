@@ -1027,7 +1027,12 @@
       #ai-acct-session-list { max-height: 18vh; }
       .container { max-width: 100%; padding-inline: .9rem; }
       h1 { font-size: 1.45rem; margin-bottom: 0.25rem; }
-      .page-title { font-size: 1.15rem; }
+      /* a long page title shortens instead of pushing the top bar's buttons (support, bell, account) past a
+         phone's width ("Bank statements", "Equity" ran 8–13px wide at 390px once support joined them, DA1) */
+      .page-title { font-size: 1.15rem; min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis;
+        white-space: nowrap; }
+      .topbar-right { flex-shrink: 0; gap: .4rem; }
+      #company-badge { max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .card { padding: 0.9rem; border-radius: 12px; }
       .ai-runtime-bar { grid-template-columns: 1fr; }
       .btn { min-height: 40px; }

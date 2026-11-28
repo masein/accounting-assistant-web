@@ -55,6 +55,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 	<key>LSApplicationCategoryType</key><string>public.app-category.finance</string>
 	<key>NSHighResolutionCapable</key><true/>
 	<key>NSPrincipalClass</key><string>NSApplication</string>
+	<key>NSMicrophoneUsageDescription</key><string>Hold the microphone to say what you spent or earned; your words are written into the message for you to check.</string>
+	<key>NSPhotoLibraryUsageDescription</key><string>Attach a photo of a receipt or an invoice to a message.</string>
 	<!-- https only, except this machine: a test server on localhost (AppModel.serverURL refuses plain http elsewhere) -->
 	<key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
 </dict>

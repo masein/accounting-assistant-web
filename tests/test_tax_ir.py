@@ -461,3 +461,31 @@ def test_a_backdated_credit_note_leaves_a_later_seasons_vat_alone(db, ir_api):
     autumn2 = c.get("/tax/ir/vat-return?year=1405&season=3").json()["sales"]["returns_vat"]
     assert autumn == 33 and summer == 34 and autumn2 == 33 + 33
     assert _vat_ledger(db, cid, "PBACK") == (100, 0)
+
+
+@pytest.mark.parametrize("base,notes", [(1_000, (367, 367, 366)), (10, (3, 3, 3, 2)),
+                                        (333_333, (333_333, 333_333, 333_332, 100_000))])
+def test_tax_summary_takes_back_the_vat_the_credit_notes_posted(db, ir_api, base, notes):
+    """/reports/tax-summary nets each reduction note's posted VAT, as the
+    return does, so an invoice credited in full by several notes nets to 0."""
+    c, cid = ir_api
+    q = f"/reports/tax-summary?from={_j(1405, 5, 1).isoformat()}&to={_j(1405, 6, 31).isoformat()}"
+    before = c.get(q).json()
+    if base == 333_333:  # three lines: VAT 3 × 33,333 = 99,999, gross 1,099,998
+        r = c.post("/invoices", json={"number": "P3L", "kind": "sales", "status": "issued", "amount": 0,
+                                      "issue_date": _j(1405, 5, 10).isoformat(), "due_date": _j(1405, 5, 10).isoformat(),
+                                      "items": [{"product_name": "svc", "quantity": 1, "unit_price": base,
+                                                 "tax_rate": 10}] * 3})
+        assert r.status_code == 201, r.text
+        inv = r.json()
+        assert inv["tax_total"] == 99_999
+    else:
+        inv = _api_invoice(c, base, f"S{base}")
+    for amount in notes:
+        _api_credit(c, inv, amount)
+    after = c.get(q).json()
+    ret = c.get("/tax/ir/vat-return?year=1405&season=2").json()
+    reversed_, _ = _vat_ledger(db, cid, inv["number"])
+    assert after["output_tax"] - before["output_tax"] == 0
+    assert after["by_rate"]["10"]["output"] - before.get("by_rate", {}).get("10", {}).get("output", 0) == 0
+    assert after["output_tax"] == ret["output_vat"] and reversed_ == inv["tax_total"]

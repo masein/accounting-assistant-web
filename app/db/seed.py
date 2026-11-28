@@ -347,6 +347,11 @@ def initial_admin_password() -> str:
 def seed_admin_user_if_missing(session: "Session") -> int:
     """
     Ensure the default admin user exists for first login.
+
+    Only while the platform has no super-admin (a fresh install, or one locked
+    out of its console): an operator who renamed ``admin`` or deleted it once
+    another super-admin existed used to get a fresh ``admin`` back on the next
+    boot, with the initial password (review 2026-11-28, scenario CV3).
     """
     from sqlalchemy import func, select
 
@@ -356,6 +361,8 @@ def seed_admin_user_if_missing(session: "Session") -> int:
         .first()
     )
     if existing:
+        return 0
+    if session.execute(select(User.id).where(User.is_superadmin.is_(True)).limit(1)).first() is not None:
         return 0
     password_hash, password_salt = hash_password(initial_admin_password())
     session.add(
@@ -417,33 +424,67 @@ def ensure_default_company(engine) -> None:
     steps — create the Default company, attach every orphan tenant row + user to
     it, and promote ``admin`` to super-admin — never run. This performs them.
 
-    Everything is guarded (``ON CONFLICT``, ``WHERE company_id IS NULL``), so on
-    an already-migrated DB it is a harmless no-op. Runs on a raw connection to
-    bypass the ORM tenant-scoping listeners.
+    The two steps on people are one-time backfills, not rules re-applied on
+    every boot (review 2026-11-28, scenario CV3). Every start used to make
+    ``admin`` a super-admin in Default again — so taking the flag away never
+    stuck — and pulled every company-less login into Default, a platform
+    super-admin included. Now:
+
+    * company-less users join Default, and ``admin`` is promoted, only on the
+      boot that creates the Default company (a fresh install);
+    * ``admin`` is promoted on a later boot only when the platform has no
+      super-admin at all (a lock-out, never a decision someone made);
+    * a company-less login that is NOT a super-admin still joins Default on any
+      boot: with no company its requests run unscoped (``app/db/tenant``) and
+      would read every company's books. Nothing else can make one — this only
+      repairs a row that should not exist.
+
+    Orphan tenant *rows* are still attached on every boot: the seeds above run
+    company-less and the step is a no-op once the tenant guards are installed.
+
+    The Default company is UK/GBP (as migration 015 made it on every migrated
+    install) while a fresh install seeds the Iranian SME chart before it exists.
+    That mix is left as it is on purpose: posting accounts are resolved by
+    category with a fallback across both charts (``account_resolver``), the
+    reporting locale can be switched at any time, and production's Default and
+    the browser suite are built on exactly this shape. Real companies get the
+    chart of their own locale from ``provision_company``.
+
+    Runs on a raw connection to bypass the ORM tenant-scoping listeners.
     """
     from sqlalchemy import text
     from app.db.tenant import tenant_model_tablenames
 
     with engine.begin() as conn:
-        conn.execute(
+        created = conn.execute(
             text(
                 "INSERT INTO companies "
                 "(id, name, slug, locale, base_currency, status, token_version, created_at) "
-                "VALUES (:id, 'Default', 'default', 'uk', 'GBP', 'active', 0, now()) "
+                "VALUES (:id, 'Default', 'default', 'uk', 'GBP', 'active', 0, CURRENT_TIMESTAMP) "
                 "ON CONFLICT (id) DO NOTHING"
             ),
             {"id": DEFAULT_COMPANY_ID},
-        )
+        ).rowcount == 1
         for sql, params in orphan_backfill_statements(sorted(tenant_model_tablenames())):
             conn.execute(text(sql), params)
-        conn.execute(
-            text("UPDATE users SET company_id = :cid WHERE company_id IS NULL"),
-            {"cid": DEFAULT_COMPANY_ID},
-        )
-        conn.execute(
-            text(
-                "UPDATE users SET is_superadmin = true, company_id = :cid "
-                "WHERE username = 'admin'"
-            ),
-            {"cid": DEFAULT_COMPANY_ID},
-        )
+        if created:
+            conn.execute(
+                text("UPDATE users SET company_id = :cid WHERE company_id IS NULL"),
+                {"cid": DEFAULT_COMPANY_ID},
+            )
+        else:
+            conn.execute(
+                text("UPDATE users SET company_id = :cid WHERE company_id IS NULL AND is_superadmin = false"),
+                {"cid": DEFAULT_COMPANY_ID},
+            )
+        no_superadmin = conn.execute(
+            text("SELECT 1 FROM users WHERE is_superadmin = true LIMIT 1")
+        ).first() is None
+        if created or no_superadmin:
+            conn.execute(
+                text(
+                    "UPDATE users SET is_superadmin = true, company_id = COALESCE(company_id, :cid) "
+                    "WHERE username = 'admin'"
+                ),
+                {"cid": DEFAULT_COMPANY_ID},
+            )

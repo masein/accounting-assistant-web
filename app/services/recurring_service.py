@@ -141,6 +141,10 @@ def materialize_due_rules(db: Session, *, today: date | None = None) -> dict:
                     try:
                         txn = _create_transaction_from_payload(db, payload)
                         db.flush()
+                        # an entry posted by a rule, from the page or the scheduler (scenario CV7)
+                        from app.services.audit_service import log_audit_event
+                        log_audit_event(db, action="create", entity_type="transaction", entity_id=str(txn.id),
+                                        detail=f"Recurring rule '{rule.name}' ({rule.id}) for {run_date.isoformat()}")
                         posted.append({"rule_id": str(rule.id), "name": rule.name,
                                        "date": run_date.isoformat(), "reference": ref,
                                        "transaction_id": str(txn.id), "amount": rule.amount})

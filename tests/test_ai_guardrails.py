@@ -355,3 +355,57 @@ def test_the_chat_response_carries_the_approval_flag(client, db, co, monkeypatch
     assert r.status_code == 200, r.text
     card = r.json()["proposals"][0]
     assert card["needs_approval"] is True and card["approval_threshold"] == 1_000 and card["amount_in_base"] == 2_500
+
+
+# ─── One rule for the card and for Confirm (review 2026-11-28, CV1) ──────────
+
+def _expense_threshold(db, co, amount):
+    from app.services.expense_settings import set_expense_settings
+    with use_company(co["cid"]):
+        set_expense_settings(db, approval_threshold=amount)
+
+
+def test_cv1_the_expense_threshold_alone_sends_it_for_approval(client, db, co):
+    """CV1: with only Settings → Expenses' threshold set, the card said "needs
+    approval before it is posted" and Confirm posted it anyway."""
+    _expense_threshold(db, co, 1_000)
+    card = _chat(db, co, _calls(_txn(5_000, desc="Printer paper")), _text("Drafted.")).proposals[0]
+    assert card["needs_approval"] is True and card["approval_threshold"] == 1_000
+    assert card["summary"].count("needs approval before it is posted") == 1
+    assert "(1,000 IRR)" in card["summary"]
+    r = _login(client, co["cid"], co["owner"]).post("/ai-accountant/execute",
+                                                    json={"confirmation_token": card["confirmation_token"]})
+    assert r.status_code == 202 and r.json()["status"] == "awaiting_approval", r.text
+    with use_company(co["cid"]):
+        assert db.execute(select(Transaction).where(Transaction.description == "Printer paper")).first() is None
+    assert "needs approval" in _proposal(db, co, card["confirmation_token"]).summary
+
+
+def test_cv1_at_the_expense_threshold_it_posts_and_the_card_says_nothing(client, db, co):
+    """CV1: the expense limit routes amounts *above* it, as on its own page."""
+    _expense_threshold(db, co, 1_000)
+    card = _chat(db, co, _calls(_txn(1_000)), _text("Drafted.")).proposals[0]
+    assert not card.get("needs_approval") and "approval" not in card["summary"]
+    r = _login(client, co["cid"], co["owner"]).post("/ai-accountant/execute",
+                                                    json={"confirmation_token": card["confirmation_token"]})
+    assert r.status_code == 200 and r.json()["transaction_id"]
+
+
+@pytest.mark.parametrize("assistant,expense,amount,limit", [
+    (10_000, 2_000, 5_000, 2_000),       # the expense limit is lower: it decides
+    (3_000, 50_000, 5_000, 3_000),       # the assistant's is lower: it decides
+    (3_000, 50_000, 3_000, 3_000),       # the assistant's catches that much or more
+    (3_000, 50_000, 2_999, None),        # under both
+])
+def test_cv1_the_lower_limit_that_is_set_applies(db, co, assistant, expense, amount, limit):
+    """CV1: both settings feed guardrails.needs_approval, which Confirm runs too."""
+    _threshold(db, co, assistant)
+    _expense_threshold(db, co, expense)
+    card = _chat(db, co, _calls(_txn(amount)), _text("Drafted.")).proposals[0]
+    if limit is None:
+        assert not card.get("needs_approval") and "approval" not in card["summary"]
+    else:
+        assert card["needs_approval"] is True and card["approval_threshold"] == limit
+    with use_company(co["cid"]):
+        p = _proposal(db, co, card["confirmation_token"])
+        assert guardrails.needs_approval(db, p) is (limit is not None)

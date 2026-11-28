@@ -25,7 +25,10 @@ class Company(Base):
     kind: Mapped[str] = mapped_column(String(16), default="business", server_default="business")
     base_currency: Mapped[str] = mapped_column(String(8), default="IRR")
     status: Mapped[str] = mapped_column(String(16), default="active", index=True)  # active | suspended
-    # Bumped on suspend / password reset to invalidate existing session tokens.
+    # Bumped on each status change, as a count only: no session reads it. A
+    # suspension ends sessions by bumping each of the company's users'
+    # ``token_version``, which every session is checked against
+    # (app/api/companies._end_sessions, scenario CV2).
     token_version: Mapped[int] = mapped_column(Integer, default=0)
     # Registered/authorised share capital (minor units) — raised by capital
     # increases and paid-in contributions; surfaced on the cap table.

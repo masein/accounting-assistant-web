@@ -226,8 +226,8 @@ def test_frontend_wiring_for_the_lows():
     assert "bsFindDuplicateSame" in open("app/static/js/10-forms-fx-bank.js", encoding="utf-8").read()
     assert "excelAlreadyImported" in open("app/static/js/14-excel-import.js", encoding="utf-8").read()
     # an overpayment is the party's credit, worded per side (#280: it was "credit on account")
-    vouchers = open("app/static/js/06-vouchers.js", encoding="utf-8").read()
-    assert "invCreditToCustomer" in vouchers and "invCreditFromSupplier" in vouchers
+    invoices = open("app/static/js/08-entities-invoices.js", encoding="utf-8").read()
+    assert "invCreditToCustomer" in invoices and "invCreditFromSupplier" in invoices
     from tests.i18n_source import i18n_text
     i18n = i18n_text()
     for key in ("invCreditToCustomer:", "invCreditFromSupplier:", "excelAlreadyImported:", "bsFindDuplicateSame:"):

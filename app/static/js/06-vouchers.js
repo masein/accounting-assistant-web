@@ -117,6 +117,167 @@
       if (typeof updateVoucherBalanceBar === 'function') updateVoucherBalanceBar();
     }
 
+    // Voucher balance bar live updater
+    function updateVoucherBalanceBar() {
+      const rows = document.querySelectorAll('#lines-tbody tr');
+      let totalDebit = 0, totalCredit = 0;
+      rows.forEach(r => {
+        totalDebit = addMoney(totalDebit, parseMoney(r.querySelector('.line-debit')?.value));
+        totalCredit = addMoney(totalCredit, parseMoney(r.querySelector('.line-credit')?.value));
+      });
+      const dEl = document.getElementById('bal-debit');
+      const cEl = document.getElementById('bal-credit');
+      const diffEl = document.getElementById('bal-diff');
+      if (dEl) dEl.textContent = tf('voucherBarDebit', { amount: formatAmount(totalDebit) });
+      if (cEl) cEl.textContent = tf('voucherBarCredit', { amount: formatAmount(totalCredit) });
+      if (diffEl) {
+        const diff = totalDebit - totalCredit;
+        if (diff === 0) {
+          diffEl.textContent = t('voucherBarBalanced');
+          diffEl.className = 'balance-diff balanced';
+        } else {
+          diffEl.textContent = tf('voucherBarDiff', { amount: formatAmount(diff) });
+          diffEl.className = 'balance-diff unbalanced';
+        }
+      }
+    }
+    document.getElementById('lines-tbody').addEventListener('input', updateVoucherBalanceBar);   // first drawn by applyLanguage
+
+    // The names of the chart's accounts, for a confirmation that says more than codes.
+    async function accountNamesByCode() {
+      try {
+        const r = await fetch(API + '/accounts');
+        const list = r.ok ? await r.json() : [];
+        return Object.fromEntries((Array.isArray(list) ? list : []).map(a => [a.code, a.name]));
+      } catch (_) { return {}; }
+    }
+
+    function buildConfirmationSummary(date, description, lines, currency, names = {}) {
+      // in the user's words and calendar, each account by its name too — it was
+      // "Date: 2026-09-29 … Debit entries: 6112: 1,000 IRR" in a Persian, Jalali company
+      const acct = (code) => code + (names[code] ? ' ' + names[code] : '');
+      const money = (n) => currency ? formatMoney(n, currency) : formatAmount(n);
+      const row = (l, amount) => '  ' + acct(l.account_code) + ': ' + money(amount) + (l.line_description ? ' (' + l.line_description + ')' : '');
+      let summary = tf('voucherConfirmDate', { date: formatDisplayDate(date) }) + '\n';
+      if (description) summary += tf('voucherConfirmDescription', { text: description }) + '\n';
+      summary += '\n' + t('voucherConfirmDebits') + '\n' + lines.filter(l => l.debit > 0).map(l => row(l, l.debit)).join('\n') + '\n';
+      summary += '\n' + t('voucherConfirmCredits') + '\n' + lines.filter(l => l.credit > 0).map(l => row(l, l.credit)).join('\n') + '\n';
+      summary += '\n' + tf('voucherConfirmTotal', { amount: money(lines.reduce((s, l) => s + l.debit, 0)) });
+      return summary;
+    }
+
+    // A voucher in another currency than the base one is converted at a rate
+    // (roadmap §4.6): the one typed here, else the rate on file for its date.
+    async function syncVoucherRate() {
+      const wrap = document.getElementById('txn-rate-wrap');
+      if (!wrap) return;
+      const cur = (document.getElementById('txn-currency')?.value || '').toUpperCase();
+      const base = String(baseCurrencyCode() || '').toUpperCase();
+      wrap.hidden = !cur || !base || cur === base;
+      if (wrap.hidden) { document.getElementById('txn-fx-rate').value = ''; return; }
+      document.getElementById('txn-fx-rate-pair').textContent = '1 ' + cur + ' = ? ' + base;
+      const hint = document.getElementById('txn-fx-rate-hint');
+      const input = document.getElementById('txn-fx-rate');
+      try {
+        const res = await fetch(API + '/fx/convert', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: 1, from_currency: cur, to_currency: base, strict: true,
+                                 on_date: document.getElementById('date').value || null }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (res.ok && d.rate) {
+          input.placeholder = formatRate(d.rate);
+          hint.textContent = tf('voucherRateOnFile', { rate: formatRate(d.rate) });
+        } else {
+          input.placeholder = '';
+          hint.textContent = tf('voucherRateNone', { pair: cur + '→' + base });
+        }
+      } catch (_) { hint.textContent = ''; }
+    }
+    ['txn-currency', 'date'].forEach((id) => document.getElementById(id)?.addEventListener('change', syncVoucherRate));
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const date = document.getElementById('date').value;
+      const reference = document.getElementById('reference').value.trim() || null;
+      const description = document.getElementById('description').value.trim() || null;
+      const currency = (document.getElementById('txn-currency')?.value || preferredFormCurrency());
+      const rows = Array.from(linesTbody.querySelectorAll('.line-row'));
+      const lines = rows.map(tr => ({
+        account_code: asciiDigits(tr.querySelector('.line-code').value).trim(),   // «۶۱۱۲» is 6112
+        debit: parseMoney(tr.querySelector('.line-debit').value),
+        credit: parseMoney(tr.querySelector('.line-credit').value),
+        line_description: tr.querySelector('.line-desc').value.trim() || null
+      })).filter(l => l.account_code);
+      if (lines.length < 2) {
+        showAlert(t('msgTwoLinesNeeded'), true);
+        return;
+      }
+      const totalDebit = lines.reduce((s, l) => addMoney(s, l.debit), 0);
+      const totalCredit = lines.reduce((s, l) => addMoney(s, l.credit), 0);
+      if (totalDebit !== totalCredit) {
+        showAlert(tf('msgVoucherUnbalanced', { debit: formatAmount(totalDebit), credit: formatAmount(totalCredit) }), true);
+        return;
+      }
+      // Warn if posting into a currency different from the reporting currency
+      const meta = window.__FX_META;
+      if (meta && meta.reporting_currency && currency && currency.toUpperCase() !== String(meta.reporting_currency).toUpperCase()) {
+        const proceed = await uiConfirm({
+          title: t('voucherCurrencyMismatchTitle'),
+          message: tf('voucherCurrencyMismatchMsg', { currency, reporting: meta.reporting_currency }),
+          confirmLabel: t('btnContinue'),
+        });
+        if (!proceed) return;
+      }
+      // Pre-save confirmation
+      const confirmMsg = buildConfirmationSummary(date, description, lines, currency, await accountNamesByCode());
+      if (!(await uiConfirm({ title: t('confirmSaveVoucherTitle'), message: confirmMsg, confirmLabel: t('saveVoucher') }))) return;
+
+      submitBtn.disabled = true;
+      document.getElementById('results-wrap').classList.add('loading');
+      const entity_links = [];
+      const ec = document.getElementById('entity-client').value;
+      const eb = document.getElementById('entity-bank').value;
+      const ep = document.getElementById('entity-payee').value;
+      if (ec) entity_links.push({ role: 'client', entity_id: ec });
+      if (eb) entity_links.push({ role: 'bank', entity_id: eb });
+      if (ep) entity_links.push({ role: 'payee', entity_id: ep });
+      const es = document.getElementById('entity-supplier').value;
+      if (es) entity_links.push({ role: 'supplier', entity_id: es });
+      try {
+        const res = await fetch(API + '/transactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date,
+            reference,
+            description,
+            currency,
+            fx_rate: (Number(document.getElementById('txn-fx-rate')?.value) > 0
+              ? Number(document.getElementById('txn-fx-rate').value) : null),
+            lines,
+            entity_links,
+            attachment_ids: selectedAttachments.map(a => a.id),
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showAlert(data.detail || t('msgVoucherSaveError') + res.status, true);
+          return;
+        }
+        showAlert(t('msgVoucherSaved'));
+        loadLedger();
+        loadEntities();
+        loadOwnerDashboard();
+        resetVoucherForm();
+      } catch (err) {
+        showAlert(t('msgConnectionError') + err.message, true);
+      } finally {
+        submitBtn.disabled = false;
+        document.getElementById('results-wrap').classList.remove('loading');
+      }
+    });
+
     // Primary cash/bank account of the seeded chart, used as the default
     // posting account for invoice payments. Derived from the chart itself
     // (UK chart → 1200 "Bank current account", Iranian chart → 1110) instead
@@ -211,122 +372,6 @@
       } catch (_) {}
     }
 
-    let _invoicesCache = [];
-    async function loadInvoices(highlightId) {
-      if (!onPage('invoices')) return;    // reloads when it opens (loadPageData)
-      if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
-      loadTaxRates();
-      try {
-        const res = await fetch(API + '/invoices');
-        const list = await res.json();
-        _invoicesCache = list || [];
-        invoicesTbody.innerHTML = '';
-        if (!list.length) {
-          // across all eight columns: it stopped short of «تاریخ سررسید» and «عملیات» (Persian copy review, 2026-10-31)
-          invoicesTbody.innerHTML = '<tr><td colspan="8" class="empty-state">' + escapeHtml(t('noInvoicesYet')) + '</td></tr>';
-          return;
-        }
-        list.forEach(i => {
-          const status = String(i.status || '').toLowerCase();
-          const isPaid = status === 'paid';
-          const settled = isPaid || status === 'canceled' || status === 'credited';
-          // a credit note may go against a paid invoice too (a return after payment),
-          // up to what is left to credit; never a draft, void or cancelled one
-          const credited = Number(i.credited || 0);
-          const canCredit = !['draft', 'canceled', 'voided'].includes(status) && credited < Number(i.amount || 0);
-          const ownCredit = Number(i.credit_available || 0), partyCredit = Number(i.party_credit || 0);
-          const ccy = (i.currency || 'IRR').toUpperCase();
-          const paid = Number(i.amount_paid || 0);
-          const balance = (i.balance_due != null) ? Number(i.balance_due) : Number(i.amount || 0);
-          const taxTotal = Number(i.tax_total || 0);
-          const subtotal = Number(i.subtotal || i.amount || 0);
-          const taxLine = taxTotal > 0
-            ? `<div style="font-size:0.72rem;color:var(--text-muted);">${t('invSubtotal')}: ${formatMoney(subtotal, ccy)} + ${t('invTax')}: ${formatMoney(taxTotal, ccy)}</div>`
-            : '';
-          const tr = document.createElement('tr');
-          tr.dataset.invoiceId = i.id;
-          tr.innerHTML = `
-            <td class="nowrap"><bdi>${escapeHtml(i.number)}</bdi></td>
-            <td>${escapeHtml(t(i.kind === 'purchase' ? 'optionPurchase' : 'optionSales'))}</td>
-            <td>${escapeHtml(invoiceStatusLabel(i.status))}</td>
-            <td>${formatMoney(i.amount, ccy)}${String(ccy).toUpperCase() !== String(baseCurrencyCode() || '').toUpperCase() ? ` <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span>` : ''}${taxLine}${credited > 0 ? `<div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(tf('invCreditedLine', { amount: formatMoney(credited, ccy) }))}</div>` : ''}</td>
-            <td>${formatMoney(paid, ccy)}${ownCredit > 0 ? '<div style="font-size:0.72rem;color:var(--text-muted);">' + escapeHtml(tf(i.kind === 'purchase' ? 'invCreditFromSupplier' : 'invCreditToCustomer', { amount: formatMoney(ownCredit, ccy) })) + '</div>' : ''}</td>
-            <td><strong>${formatMoney(balance, ccy)}</strong></td>
-            <td>${escapeHtml(formatDisplayDate(i.due_date))}</td>
-            <td class="row-actions">
-              <button type="button" class="btn btn-primary btn-sm inv-payment" data-id="${i.id}" ${settled || balance <= 0 ? 'disabled' : ''}>${escapeHtml(t('invAddPayment'))}</button>
-              <button type="button" class="btn btn-secondary btn-sm inv-edit" data-id="${i.id}" data-status="${escapeHtml(i.status)}">${escapeHtml(t('btnEdit') || 'Edit')}</button>
-              <a class="btn btn-secondary btn-sm" href="${escapeHtml(i.pdf_url || ('/invoices/' + i.id + '/pdf'))}" target="_blank" style="text-decoration:none;">PDF</a>
-              <details class="row-menu">
-                <summary class="btn btn-secondary btn-sm" aria-label="${escapeHtml(t('moreActions'))}" title="${escapeHtml(t('moreActions'))}">⋯</summary>
-                <div class="row-menu-list">
-                  <button type="button" class="btn btn-secondary btn-sm inv-credit-note" data-id="${i.id}" ${canCredit ? '' : 'disabled'}>${escapeHtml(t('invCreditNote'))}</button>
-                  ${ownCredit > 0 ? `<button type="button" class="btn btn-secondary btn-sm inv-refund-credit" data-id="${i.id}">${escapeHtml(t('invRefundCredit'))}</button>` : ''}
-                  ${partyCredit > 0 && balance > 0 && !settled ? `<button type="button" class="btn btn-secondary btn-sm inv-use-credit" data-id="${i.id}">${escapeHtml(tf('invUseCredit', { amount: formatMoney(partyCredit, ccy) }))}</button>` : ''}
-                  <button type="button" class="btn btn-secondary btn-sm inv-timeline" data-id="${i.id}">${escapeHtml(t('invHistory'))}</button>
-                  ${(i.kind === 'sales' && ['issued', 'partially_paid', 'paid'].includes(status)) ? `<button type="button" class="btn btn-secondary btn-sm inv-email" data-id="${i.id}" data-number="${escapeHtml(i.number)}" data-entity="${escapeHtml(i.entity_id || '')}">${escapeHtml(t('invEmail'))}</button>` : ''}
-                  <button type="button" class="btn btn-danger btn-sm inv-void" data-id="${i.id}" data-number="${escapeHtml(i.number)}" ${(i.status === 'voided' || i.status === 'canceled') ? 'disabled' : ''}>${escapeHtml(t('invVoid'))}</button>
-                  <button type="button" class="btn btn-danger btn-sm inv-del" data-id="${i.id}">${escapeHtml(t('btnDelete') || 'Delete')}</button>
-                </div>
-              </details>
-            </td>
-          `;
-          invoicesTbody.appendChild(tr);
-        });
-        if (highlightId) flashRow(invoicesTbody.querySelector('tr[data-invoice-id="' + CSS.escape(String(highlightId)) + '"]'));
-      } catch (err) {
-        invoicesTbody.innerHTML = '<tr><td colspan="8" class="empty-state">' + escapeHtml(t('invLoadError')) + '</td></tr>';
-      }
-      // Quotes live on the same page (08-entities-invoices.js defines it).
-      if (!highlightId && typeof loadQuotes === 'function') loadQuotes();
-      if (!highlightId && typeof loadRecurringInvoices === 'function') loadRecurringInvoices();
-    }
-
-    async function loadRecurringRules(highlightId) {
-      if (!onPage('recurring')) return;
-      if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
-      try {
-        const res = await fetch(API + '/recurring');
-        const list = await res.json();
-        recurringTbody.innerHTML = '';
-        if (!list.length) {
-          recurringTbody.innerHTML = '<tr><td colspan="10" class="empty-state">' + escapeHtml(t('recurringEmpty')) + '</td></tr>';
-          return;
-        }
-        list.forEach(r => {
-          const tr = document.createElement('tr');
-          tr.dataset.ruleId = r.id;
-          const paused = r.status === 'paused';
-          tr.innerHTML = `
-            <td>${escapeHtml(r.name)}</td>
-            <td>${escapeHtml(({ payment: t('recDirPayment'), receipt: t('recDirReceipt') })[r.direction] || r.direction)}</td>
-            <td>${escapeHtml(enumLabel('freq_', r.frequency))}</td>
-            <td>${r.amount == null ? '—' : formatAmount(r.amount)}</td>
-            <td>${escapeHtml(r.bank_account_code ? localCode(r.bank_account_code) : (r.bank_name || '—'))}</td>
-            <td>${escapeHtml(r.counter_account_code ? localCode(r.counter_account_code) : '—')}</td>
-            <td>${escapeHtml(formatDisplayDate(r.next_run_date))}</td>
-            <td>${r.auto_post ? '✓' : '—'}</td>
-            <td>${escapeHtml(enumLabel('riStatus_', r.status))}</td>
-            <td>
-              <button type="button" class="btn btn-secondary btn-sm recurring-pause" data-id="${r.id}" data-paused="${paused ? '1' : ''}">${paused ? '▶' : '⏸'}</button>
-              <button type="button" class="btn btn-danger btn-sm recurring-del" data-id="${r.id}">${escapeHtml(t('btnDelete'))}</button>
-            </td>
-          `;
-          recurringTbody.appendChild(tr);
-        });
-        recurringTbody.querySelectorAll('.recurring-pause').forEach(b => b.addEventListener('click', async () => {
-          await fetch(API + '/recurring/' + b.dataset.id, {
-            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: b.dataset.paused ? 'active' : 'paused' }),
-          }).catch(() => {});
-          loadRecurringRules();
-        }));
-        if (highlightId) flashRow(recurringTbody.querySelector('tr[data-rule-id="' + CSS.escape(String(highlightId)) + '"]'));
-      } catch (err) {
-        recurringTbody.innerHTML = '<tr><td colspan="10" class="empty-state">' + escapeHtml(t('recurringLoadError')) + '</td></tr>';
-      }
-    }
-
     async function loadMissingReferences() {
       const wrap = document.getElementById('missing-refs-wrap');
       try {
@@ -339,7 +384,7 @@
         }
         wrap.innerHTML = `
           <table class="mini-table missing-ref-table">
-            <thead><tr><th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelDescription'))}</th><th>${escapeHtml(t('labelReference'))}</th><th>${escapeHtml(t('attachReceipt'))}</th><th></th></tr></thead>
+            <thead><tr><th scope="col">${escapeHtml(t('labelDate'))}</th><th scope="col">${escapeHtml(t('labelDescription'))}</th><th scope="col">${escapeHtml(t('labelReference'))}</th><th scope="col">${escapeHtml(t('attachReceipt'))}</th><th scope="col"></th></tr></thead>
             <tbody>
               ${items.map(it => `
                 <tr>
@@ -388,100 +433,4 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'OCR failed');
       return data;
-    }
-
-    async function loadBudgets() {
-      if (!onPage('dashboard')) return;
-      const monthVal = document.getElementById('budget-month').value || currentMonthKey();
-      try {
-        const res = await fetch(API + '/budgets/actual-vs-budget?month=' + encodeURIComponent(monthVal));
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || t('msgFailed'));
-        const rows = data.rows || [];
-        // the chart's expense accounts, offered as the category is typed; a
-        // category given as a code reads with its name ("6112" alone did)
-        const names = await accountNamesByCode();
-        const classes = await accountClasses();
-        const list = document.getElementById('budget-category-list');
-        if (list && !list.options.length) {
-          list.innerHTML = Object.entries(names)
-            .filter(([code]) => { const k = classes[code] || code; return '56789'.includes(k[0]) && !k.startsWith('91'); })
-            .map(([code, name]) => `<option value="${escapeHtml(code)}">${escapeHtml(name)}</option>`).join('');
-        }
-        const category = (c) => names[c] ? c + ' — ' + names[c] : c;
-        if (!rows.length) {
-          budgetWrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('budgetNoRows')) + '</p>';
-          return;
-        }
-        budgetWrap.innerHTML = `
-          <table class="mini-table">
-            <thead><tr><th>${escapeHtml(t('labelCategory'))}</th><th>${escapeHtml(t('labelLimit'))}</th><th>${escapeHtml(t('budgetColActual'))}</th><th>${escapeHtml(t('budgetColVariance'))}</th><th>${escapeHtml(t('budgetColUsed'))}</th><th></th></tr></thead>
-            <tbody>
-              ${rows.map(r => `<tr data-id="${escapeHtml(r.id || '')}" data-limit="${escapeHtml(String(r.limit_amount))}" data-category="${escapeHtml(r.category)}">
-                <td>${escapeHtml(category(r.category))}</td>
-                <td>${formatAmount(r.limit_amount)}</td>
-                <td>${formatAmount(r.actual_amount)}</td>
-                <td>${formatAmount(r.variance)}</td>
-                <td>${escapeHtml(localDigits(r.utilization_pct + '%'))}</td>
-                <td style="white-space:nowrap;">${r.id ? `<button type="button" class="btn btn-secondary btn-sm budget-edit">${escapeHtml(t('btnEdit'))}</button>
-                  <button type="button" class="btn btn-secondary btn-sm budget-del">${escapeHtml(t('btnDelete'))}</button>` : ''}</td>
-              </tr>`).join('')}
-            </tbody>
-          </table>
-        `;
-      } catch (err) {
-        budgetWrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('budgetLoadError')) + '</p>';
-      }
-    }
-
-    // Edit / delete a budget line (roadmap §4.7); the table redraws on each load.
-    budgetWrap.addEventListener('click', async (e) => {
-      const tr = e.target.closest('tr[data-id]');
-      if (!tr || !tr.dataset.id) return;
-      const url = API + '/budgets/' + encodeURIComponent(tr.dataset.id);
-      if (e.target.closest('.budget-edit')) {
-        const v = await uiPrompt({ title: tr.dataset.category, message: t('budgetEditPrompt'), type: 'number', value: tr.dataset.limit });
-        if (v === null) return;
-        const n = parseInt(v, 10);
-        if (!Number.isFinite(n) || n <= 0) { showAlert(t('budgetEditBad'), true); return; }
-        const res = await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit_amount: n }) });
-        const d = await res.json().catch(() => ({}));
-        if (!res.ok) { showAlert(typeof d.detail === 'string' ? d.detail : t('budgetSaveFailed'), true); return; }
-        loadBudgets();
-      } else if (e.target.closest('.budget-del')) {
-        if (!(await uiConfirm({ message: tf('budgetDeleteConfirm', { category: tr.dataset.category }), confirmLabel: t('btnDelete'), danger: true }))) return;
-        const res = await fetch(url, { method: 'DELETE' });
-        if (!res.ok) { showAlert(t('budgetSaveFailed'), true); return; }
-        loadBudgets();
-      }
-    });
-
-    function setEntityDropdownsFromResponse(resolvedEntities, mentions) {
-      const byRole = { client: 'entity-client', bank: 'entity-bank', payee: 'entity-payee', supplier: 'entity-supplier' };
-      const assigned = new Set();
-      Object.keys(byRole).forEach(role => {
-        const el = document.getElementById(byRole[role]);
-        if (el) el.value = '';
-      });
-      if (resolvedEntities && resolvedEntities.length) {
-        resolvedEntities.forEach(r => {
-          const role = (r.role || '').toLowerCase();
-          const selId = byRole[role];
-          if (r.entity_id && selId) {
-            document.getElementById(selId).value = r.entity_id;
-            assigned.add(role);
-          }
-        });
-      }
-      if (!mentions || !mentions.length) return;
-      mentions.forEach(m => {
-        const role = (m.role || '').toLowerCase();
-        if (assigned.has(role)) return;
-        const name = (m.name || '').trim();
-        if (!name || !byRole[role]) return;
-        const arr = entityOptions[role] || [];
-        const found = arr.find(e => (e.name || '').toLowerCase() === name.toLowerCase());
-        const selId = byRole[role];
-        if (found && selId) document.getElementById(selId).value = found.id;
-      });
     }

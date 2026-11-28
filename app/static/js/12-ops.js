@@ -837,9 +837,9 @@
         body.innerHTML = `
           <p style="margin:0 0 0.6rem;color:var(--text-muted);font-size:0.84rem;">${escapeHtml(t('equityLedgerHint') + partSep() + t('equityColOutstandingClaim'))}: <strong>${formatAmount(data.closing_balance)}</strong></p>
           <div style="max-height:400px;overflow:auto;"><table class="detail-table"><thead><tr>
-            <th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelDescription'))}</th>
-            <th class="num">${escapeHtml(t('equityColDebit'))}</th><th class="num">${escapeHtml(t('equityColCredit'))}</th>
-            <th class="num">${escapeHtml(t('equityColBalance'))}</th></tr></thead>
+            <th scope="col">${escapeHtml(t('labelDate'))}</th><th scope="col">${escapeHtml(t('labelDescription'))}</th>
+            <th scope="col" class="num">${escapeHtml(t('equityColDebit'))}</th><th scope="col" class="num">${escapeHtml(t('equityColCredit'))}</th>
+            <th scope="col" class="num">${escapeHtml(t('equityColBalance'))}</th></tr></thead>
             <tbody>${rows || '<tr><td colspan="5" class="empty-state">' + escapeHtml(t('equityLedgerEmpty')) + '</td></tr>'}</tbody></table></div>`;
       } catch (err) {
         body.innerHTML = '<p class="empty-state">' + escapeHtml(t('equityLoadError')) + '</p>';
@@ -1407,7 +1407,7 @@
         }
         const head = ['assetColNumber', 'assetColName', 'assetFieldCategory', 'assetColInService', 'assetColTerms',
                       'assetFieldCost', 'assetColAccumulated', 'assetColNbv', 'assetColStatus', '']
-          .map((k) => '<th>' + (k ? escapeHtml(t(k)) : '') + '</th>').join('');
+          .map((k) => '<th scope="col">' + (k ? escapeHtml(t(k)) : '') + '</th>').join('');
         wrap.innerHTML = '<table class="mini-table"><thead><tr>' + head + '</tr></thead><tbody>' + rows.map((a) => '<tr>'
           + '<td>' + escapeHtml(a.number) + '</td><td dir="auto">' + escapeHtml(a.name) + '</td>'
           + '<td>' + escapeHtml(assetCategoryLabel(a.category)) + '</td>'
@@ -1448,8 +1448,8 @@
             tf('assetStartsFrom', { date: formatDisplayDate(a.depreciation_start) })])) + '</p>'
           + dispose
           + '<details style="margin-top:0.6rem;"><summary>' + escapeHtml(tf('assetScheduleTitle', { n: (a.schedule || []).length })) + '</summary>'
-          + '<table class="mini-table"><thead><tr><th>' + escapeHtml(t('assetColMonth')) + '</th><th>' + escapeHtml(t('assetColCharge'))
-          + '</th><th>' + escapeHtml(t('assetColNbv')) + '</th><th>' + escapeHtml(t('assetColPosted')) + '</th></tr></thead><tbody>'
+          + '<table class="mini-table"><thead><tr><th scope="col">' + escapeHtml(t('assetColMonth')) + '</th><th scope="col">' + escapeHtml(t('assetColCharge'))
+          + '</th><th scope="col">' + escapeHtml(t('assetColNbv')) + '</th><th scope="col">' + escapeHtml(t('assetColPosted')) + '</th></tr></thead><tbody>'
           + sched + '</tbody></table></details>';
         document.getElementById('asset-detail-close').addEventListener('click', () => { box.style.display = 'none'; box.innerHTML = ''; });
         if (a.status === 'active') {
@@ -1492,8 +1492,8 @@
         if (!res.ok) throw new Error(d.detail || 'run');
         if (!d.journals.length) { out.innerHTML = '<p class="fc-note">' + escapeHtml(t('assetRunNothing')) + '</p>'; return; }
         out.innerHTML = '<p class="fc-note">' + escapeHtml(t(preview ? 'assetRunWould' : 'assetRunDone')) + '</p>'
-          + '<table class="mini-table"><thead><tr><th>' + escapeHtml(t('assetColMonth')) + '</th><th>' + escapeHtml(t('assetColDate'))
-          + '</th><th>' + escapeHtml(t('assetColAssets')) + '</th><th>' + escapeHtml(t('assetColCharge')) + '</th></tr></thead><tbody>'
+          + '<table class="mini-table"><thead><tr><th scope="col">' + escapeHtml(t('assetColMonth')) + '</th><th scope="col">' + escapeHtml(t('assetColDate'))
+          + '</th><th scope="col">' + escapeHtml(t('assetColAssets')) + '</th><th scope="col">' + escapeHtml(t('assetColCharge')) + '</th></tr></thead><tbody>'
           + d.journals.map((j) => '<tr><td>' + escapeHtml(j.months.join(', ')) + '</td><td>' + escapeHtml(formatDisplayDate(j.date))
             + '</td><td>' + escapeHtml(String(j.assets)) + '</td><td>' + escapeHtml(formatAmount(j.amount, j.currency) + ' ' + j.currency) + '</td></tr>').join('')
           + '</tbody></table>';
@@ -1558,7 +1558,7 @@
       const rows = coaFlatten(_coaTree, 0, []).filter((n) => !q || n.code.includes(q) || foldFa(n.name).includes(q)
         || (n.source_codes || []).some((c) => c.includes(q)));
       if (!rows.length) { box.innerHTML = '<p class="fc-note">' + escapeHtml(t('coaNone')) + '</p>'; return; }
-      const head = ['coaCode', 'coaName', 'coaLevel', 'coaBalance', 'coaStatus', ''].map((k) => '<th>' + (k ? escapeHtml(t(k)) : '') + '</th>').join('');
+      const head = ['coaCode', 'coaName', 'coaLevel', 'coaBalance', 'coaStatus', ''].map((k) => '<th scope="col">' + (k ? escapeHtml(t(k)) : '') + '</th>').join('');
       box.innerHTML = '<table class="mini-table"><thead><tr>' + head + '</tr></thead><tbody>' + rows.map((n) => {
         const act = (name, label, cls) => '<button type="button" class="btn btn-' + (cls || 'secondary') + ' btn-sm" data-coa="' + name + '" data-id="' + escapeHtml(n.id) + '">' + escapeHtml(t(label)) + '</button>';
         // the everyday action on the row, the rest under ⋯ (3–4 buttons on every row were noise)
@@ -1627,6 +1627,7 @@
       const head = document.createElement('tr');
       ['coaOwnColName', 'coaOwnColApp', 'coaOwnColYours', 'coaOwnColNote'].forEach((k) => {
         const th = document.createElement('th');
+        th.scope = 'col';
         th.textContent = t(k);
         head.appendChild(th);
       });
@@ -1764,8 +1765,8 @@
         const have = {};
         (cur.lines || []).forEach((ln) => { have[ln.account_code] = ln; });
         const postable = coaFlatten(_coaTree, 0, []).filter((n) => n.level !== 'GROUP' && n.is_active);
-        grid.innerHTML = '<table class="mini-table"><thead><tr><th>' + escapeHtml(t('coaCode')) + '</th><th>' + escapeHtml(t('coaName'))
-          + '</th><th>' + escapeHtml(t('coaDebit')) + '</th><th>' + escapeHtml(t('coaCredit')) + '</th></tr></thead><tbody>'
+        grid.innerHTML = '<table class="mini-table"><thead><tr><th scope="col">' + escapeHtml(t('coaCode')) + '</th><th scope="col">' + escapeHtml(t('coaName'))
+          + '</th><th scope="col">' + escapeHtml(t('coaDebit')) + '</th><th scope="col">' + escapeHtml(t('coaCredit')) + '</th></tr></thead><tbody>'
           + postable.map((n) => {
             const ln = have[n.code] || {};
             return '<tr><td dir="ltr">' + escapeHtml(localCode(n.code)) + '</td><td dir="auto">' + escapeHtml(n.name) + '</td>'
@@ -1902,8 +1903,8 @@
         + '<div class="ji-cols">' + (r.fields || []).map(colPick).join('') + '</div>'
         + '<button type="button" class="btn btn-secondary btn-sm" id="ji-reread">' + escapeHtml(t('jiReread')) + '</button></details>';
       if ((r.accounts || []).length) {
-        html += '<h4 style="margin:0.8rem 0 0.3rem;">' + escapeHtml(t('jiAccounts')) + '</h4><div style="overflow-x:auto;"><table class="mini-table"><thead><tr><th>'
-          + escapeHtml(t('jiSourceAccount')) + '</th><th>' + escapeHtml(t('coaDebit')) + '</th><th>' + escapeHtml(t('coaCredit')) + '</th><th>'
+        html += '<h4 style="margin:0.8rem 0 0.3rem;">' + escapeHtml(t('jiAccounts')) + '</h4><div style="overflow-x:auto;"><table class="mini-table"><thead><tr><th scope="col">'
+          + escapeHtml(t('jiSourceAccount')) + '</th><th scope="col">' + escapeHtml(t('coaDebit')) + '</th><th scope="col">' + escapeHtml(t('coaCredit')) + '</th><th scope="col">'
           + escapeHtml(t('jiMapsTo')) + '</th></tr></thead><tbody>' + r.accounts.map((a) => {
             const pick = a.mapped_to || (a.suggestions[0] && a.suggestions[0].code) || '';
             // accounts the chart lacks: create them, under the parent the name points to or any group

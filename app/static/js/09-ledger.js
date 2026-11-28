@@ -292,10 +292,9 @@
         // would require a server call.
       });
     }
-    // Looked up when clicked: 13-companies-products.js wraps runManagerReport
-    // (accounts payable, the product filter) after this file has run — a
-    // reference taken here kept the unwrapped one, so "Accounts payable" ran
-    // the balance sheet and the product filter was ignored.
+    // runManagerReport (05-reports-manager.js) is the one definition, accounts
+    // payable and the product filter included; it is no longer wrapped by a later
+    // file, so taking the reference here would be safe too.
     if (mgrRunBtn) mgrRunBtn.addEventListener('click', () => runManagerReport());
     if (mgrReportTypeEl) mgrReportTypeEl.addEventListener('change', syncManagerFilterLabels);
     if (mgrExportJsonBtn) mgrExportJsonBtn.addEventListener('click', exportManagerReportJson);
@@ -338,11 +337,9 @@
         loadUsers();
       } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     });
-    if (openAiChatInlineBtn) {
-      openAiChatInlineBtn.addEventListener('click', () => {
-        toggleInlineChat();
-        if (voucherChatInlineEl && voucherChatInlineEl.classList.contains('is-open') && chatInput) chatInput.focus();
-      });
-    }
+    // The Vouchers page's "Open AI chat" opens the AI Chat page. The inline voucher
+    // chat it once toggled is gone, with its helpers and POST /transactions/chat
+    // and /transactions/suggest.
+    if (openAiChatInlineBtn) openAiChatInlineBtn.addEventListener('click', () => toggleInlineChat());
 
     document.getElementById('date').value = localIsoDate(new Date());

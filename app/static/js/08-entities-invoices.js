@@ -57,8 +57,8 @@
       const wrap = document.getElementById('acct-detail-table-wrap');
       if (!lines.length) { wrap.innerHTML = '<p style="color:var(--text-muted);padding:0.5rem;">' + t('noDataYet') + '</p>'; return; }
       wrap.innerHTML = `<table class="detail-table"><thead><tr>
-        <th>${t('labelDate')}</th><th>${t('labelReference')}</th><th>${t('labelDescription')}</th>
-        <th class="num">${t('tableDebit')}</th><th class="num">${t('tableCredit')}</th><th>${t('tableLineDescription')}</th>
+        <th scope="col">${t('labelDate')}</th><th scope="col">${t('labelReference')}</th><th scope="col">${t('labelDescription')}</th>
+        <th scope="col" class="num">${t('tableDebit')}</th><th scope="col" class="num">${t('tableCredit')}</th><th scope="col">${t('tableLineDescription')}</th>
       </tr></thead><tbody>${lines.map(l => `<tr>
         <td>${escapeHtml(formatDisplayDate(l.transaction_date))}</td>
         <td>${escapeHtml(l.reference || '—')}</td>
@@ -85,7 +85,7 @@
           <h2>${escapeHtml(localCode(m.code))} — ${escapeHtml(m.name)}</h2>
           <p>${escapeHtml(t('fieldTotalDebit'))}: ${formatAmount(m.debit_turnover)} | ${escapeHtml(t('fieldTotalCredit'))}: ${formatAmount(m.credit_turnover)}</p>
           <p>${escapeHtml(t('fieldDebitBalance'))}: ${formatAmount(m.debit_balance)} | ${escapeHtml(t('fieldCreditBalance'))}: ${formatAmount(m.credit_balance)}</p>
-          <table><thead><tr><th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelReference'))}</th><th>${escapeHtml(t('labelDescription'))}</th><th class="num">${escapeHtml(t('tableDebit'))}</th><th class="num">${escapeHtml(t('tableCredit'))}</th><th>${escapeHtml(t('tableLineDescription'))}</th></tr></thead><tbody>
+          <table><thead><tr><th scope="col">${escapeHtml(t('labelDate'))}</th><th scope="col">${escapeHtml(t('labelReference'))}</th><th scope="col">${escapeHtml(t('labelDescription'))}</th><th scope="col" class="num">${escapeHtml(t('tableDebit'))}</th><th scope="col" class="num">${escapeHtml(t('tableCredit'))}</th><th scope="col">${escapeHtml(t('tableLineDescription'))}</th></tr></thead><tbody>
           ${lines.map(l=>`<tr><td>${escapeHtml(formatDisplayDate(l.transaction_date))}</td><td>${escapeHtml(l.reference||'')}</td><td>${escapeHtml(l.description||'')}</td><td class="num">${formatAmount(l.debit)}</td><td class="num">${formatAmount(l.credit)}</td><td>${escapeHtml(l.line_description||'')}</td></tr>`).join('')}
           </tbody></table></body></html>`);
         w.document.close();
@@ -221,6 +221,79 @@
       const delBtn = e.target.closest('.delete-entity');
       if (delBtn) deleteEntity(delBtn);
     });
+
+    // ═══════ Invoices list ═══════
+    let _invoicesCache = [];
+    async function loadInvoices(highlightId) {
+      if (!onPage('invoices')) return;    // reloads when it opens (loadPageData)
+      if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
+      loadTaxRates();
+      try {
+        const res = await fetch(API + '/invoices');
+        const list = await res.json();
+        _invoicesCache = list || [];
+        invoicesTbody.innerHTML = '';
+        if (!list.length) {
+          // across all eight columns: it stopped short of «تاریخ سررسید» and «عملیات» (Persian copy review, 2026-10-31)
+          invoicesTbody.innerHTML = '<tr><td colspan="8" class="empty-state">' + escapeHtml(t('noInvoicesYet')) + '</td></tr>';
+          return;
+        }
+        list.forEach(i => {
+          const status = String(i.status || '').toLowerCase();
+          const isPaid = status === 'paid';
+          const settled = isPaid || status === 'canceled' || status === 'credited';
+          // a credit note may go against a paid invoice too (a return after payment),
+          // up to what is left to credit; never a draft, void or cancelled one
+          const credited = Number(i.credited || 0);
+          const canCredit = !['draft', 'canceled', 'voided'].includes(status) && credited < Number(i.amount || 0);
+          const ownCredit = Number(i.credit_available || 0), partyCredit = Number(i.party_credit || 0);
+          const ccy = (i.currency || 'IRR').toUpperCase();
+          const paid = Number(i.amount_paid || 0);
+          const balance = (i.balance_due != null) ? Number(i.balance_due) : Number(i.amount || 0);
+          const taxTotal = Number(i.tax_total || 0);
+          const subtotal = Number(i.subtotal || i.amount || 0);
+          const taxLine = taxTotal > 0
+            ? `<div style="font-size:0.72rem;color:var(--text-muted);">${t('invSubtotal')}: ${formatMoney(subtotal, ccy)} + ${t('invTax')}: ${formatMoney(taxTotal, ccy)}</div>`
+            : '';
+          const tr = document.createElement('tr');
+          tr.dataset.invoiceId = i.id;
+          tr.innerHTML = `
+            <td class="nowrap"><bdi>${escapeHtml(i.number)}</bdi></td>
+            <td>${escapeHtml(t(i.kind === 'purchase' ? 'optionPurchase' : 'optionSales'))}</td>
+            <td>${escapeHtml(invoiceStatusLabel(i.status))}</td>
+            <td>${formatMoney(i.amount, ccy)}${String(ccy).toUpperCase() !== String(baseCurrencyCode() || '').toUpperCase() ? ` <span class="ccy-badge ccy-${escapeHtml(ccy)}">${escapeHtml(ccy)}</span>` : ''}${taxLine}${credited > 0 ? `<div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(tf('invCreditedLine', { amount: formatMoney(credited, ccy) }))}</div>` : ''}</td>
+            <td>${formatMoney(paid, ccy)}${ownCredit > 0 ? '<div style="font-size:0.72rem;color:var(--text-muted);">' + escapeHtml(tf(i.kind === 'purchase' ? 'invCreditFromSupplier' : 'invCreditToCustomer', { amount: formatMoney(ownCredit, ccy) })) + '</div>' : ''}</td>
+            <td><strong>${formatMoney(balance, ccy)}</strong></td>
+            <td>${escapeHtml(formatDisplayDate(i.due_date))}</td>
+            <td class="row-actions">
+              <button type="button" class="btn btn-primary btn-sm inv-payment" data-id="${i.id}" ${settled || balance <= 0 ? 'disabled' : ''}>${escapeHtml(t('invAddPayment'))}</button>
+              <button type="button" class="btn btn-secondary btn-sm inv-edit" data-id="${i.id}" data-status="${escapeHtml(i.status)}">${escapeHtml(t('btnEdit') || 'Edit')}</button>
+              <a class="btn btn-secondary btn-sm" href="${escapeHtml(i.pdf_url || ('/invoices/' + i.id + '/pdf'))}" target="_blank" style="text-decoration:none;">PDF</a>
+              <details class="row-menu">
+                <summary class="btn btn-secondary btn-sm" aria-label="${escapeHtml(t('moreActions'))}" title="${escapeHtml(t('moreActions'))}">⋯</summary>
+                <div class="row-menu-list">
+                  <button type="button" class="btn btn-secondary btn-sm inv-credit-note" data-id="${i.id}" ${canCredit ? '' : 'disabled'}>${escapeHtml(t('invCreditNote'))}</button>
+                  ${ownCredit > 0 ? `<button type="button" class="btn btn-secondary btn-sm inv-refund-credit" data-id="${i.id}">${escapeHtml(t('invRefundCredit'))}</button>` : ''}
+                  ${partyCredit > 0 && balance > 0 && !settled ? `<button type="button" class="btn btn-secondary btn-sm inv-use-credit" data-id="${i.id}">${escapeHtml(tf('invUseCredit', { amount: formatMoney(partyCredit, ccy) }))}</button>` : ''}
+                  <button type="button" class="btn btn-secondary btn-sm inv-timeline" data-id="${i.id}">${escapeHtml(t('invHistory'))}</button>
+                  ${(i.kind === 'sales' && ['issued', 'partially_paid', 'paid'].includes(status)) ? `<button type="button" class="btn btn-secondary btn-sm inv-email" data-id="${i.id}" data-number="${escapeHtml(i.number)}" data-entity="${escapeHtml(i.entity_id || '')}">${escapeHtml(t('invEmail'))}</button>` : ''}
+                  <button type="button" class="btn btn-danger btn-sm inv-void" data-id="${i.id}" data-number="${escapeHtml(i.number)}" ${(i.status === 'voided' || i.status === 'canceled') ? 'disabled' : ''}>${escapeHtml(t('invVoid'))}</button>
+                  <button type="button" class="btn btn-danger btn-sm inv-del" data-id="${i.id}">${escapeHtml(t('btnDelete') || 'Delete')}</button>
+                </div>
+              </details>
+            </td>
+          `;
+          invoicesTbody.appendChild(tr);
+        });
+        if (highlightId) flashRow(invoicesTbody.querySelector('tr[data-invoice-id="' + CSS.escape(String(highlightId)) + '"]'));
+      } catch (err) {
+        invoicesTbody.innerHTML = '<tr><td colspan="8" class="empty-state">' + escapeHtml(t('invLoadError')) + '</td></tr>';
+      }
+      // Quotes and recurring invoices live on the same page (further down this file).
+      if (!highlightId && typeof loadQuotes === 'function') loadQuotes();
+      if (!highlightId && typeof loadRecurringInvoices === 'function') loadRecurringInvoices();
+    }
+
     invoicesTbody.addEventListener('click', async (e) => {
       const mailBtn = e.target.closest('.inv-email');
       if (mailBtn) {
@@ -501,6 +574,51 @@
     document.getElementById('invoice-edit-modal').addEventListener('click', (e) => {
       if (e.target.id === 'invoice-edit-modal') e.target.style.display = 'none';
     });
+
+    async function loadRecurringRules(highlightId) {
+      if (!onPage('recurring')) return;
+      if (typeof highlightId !== 'string' && typeof highlightId !== 'number') highlightId = null;
+      try {
+        const res = await fetch(API + '/recurring');
+        const list = await res.json();
+        recurringTbody.innerHTML = '';
+        if (!list.length) {
+          recurringTbody.innerHTML = '<tr><td colspan="10" class="empty-state">' + escapeHtml(t('recurringEmpty')) + '</td></tr>';
+          return;
+        }
+        list.forEach(r => {
+          const tr = document.createElement('tr');
+          tr.dataset.ruleId = r.id;
+          const paused = r.status === 'paused';
+          tr.innerHTML = `
+            <td>${escapeHtml(r.name)}</td>
+            <td>${escapeHtml(({ payment: t('recDirPayment'), receipt: t('recDirReceipt') })[r.direction] || r.direction)}</td>
+            <td>${escapeHtml(enumLabel('freq_', r.frequency))}</td>
+            <td>${r.amount == null ? '—' : formatAmount(r.amount)}</td>
+            <td>${escapeHtml(r.bank_account_code ? localCode(r.bank_account_code) : (r.bank_name || '—'))}</td>
+            <td>${escapeHtml(r.counter_account_code ? localCode(r.counter_account_code) : '—')}</td>
+            <td>${escapeHtml(formatDisplayDate(r.next_run_date))}</td>
+            <td>${r.auto_post ? '✓' : '—'}</td>
+            <td>${escapeHtml(enumLabel('riStatus_', r.status))}</td>
+            <td>
+              <button type="button" class="btn btn-secondary btn-sm recurring-pause" data-id="${r.id}" data-paused="${paused ? '1' : ''}">${paused ? '▶' : '⏸'}</button>
+              <button type="button" class="btn btn-danger btn-sm recurring-del" data-id="${r.id}">${escapeHtml(t('btnDelete'))}</button>
+            </td>
+          `;
+          recurringTbody.appendChild(tr);
+        });
+        recurringTbody.querySelectorAll('.recurring-pause').forEach(b => b.addEventListener('click', async () => {
+          await fetch(API + '/recurring/' + b.dataset.id, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: b.dataset.paused ? 'active' : 'paused' }),
+          }).catch(() => {});
+          loadRecurringRules();
+        }));
+        if (highlightId) flashRow(recurringTbody.querySelector('tr[data-rule-id="' + CSS.escape(String(highlightId)) + '"]'));
+      } catch (err) {
+        recurringTbody.innerHTML = '<tr><td colspan="10" class="empty-state">' + escapeHtml(t('recurringLoadError')) + '</td></tr>';
+      }
+    }
 
     recurringTbody.addEventListener('click', async (e) => {
       const delBtn = e.target.closest('.recurring-del');
@@ -1530,6 +1648,74 @@
         loadRecurringRules(data.id);
       } catch (err) { showAlert(t('msgConnectionError') + err.message, true); }
     });
+
+    // ═══════ Budgets (the dashboard's spend tab) ═══════
+    async function loadBudgets() {
+      if (!onPage('dashboard')) return;
+      const monthVal = document.getElementById('budget-month').value || currentMonthKey();
+      try {
+        const res = await fetch(API + '/budgets/actual-vs-budget?month=' + encodeURIComponent(monthVal));
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || t('msgFailed'));
+        const rows = data.rows || [];
+        // the chart's expense accounts, offered as the category is typed; a
+        // category given as a code reads with its name ("6112" alone did)
+        const names = await accountNamesByCode();
+        const classes = await accountClasses();
+        const list = document.getElementById('budget-category-list');
+        if (list && !list.options.length) {
+          list.innerHTML = Object.entries(names)
+            .filter(([code]) => { const k = classes[code] || code; return '56789'.includes(k[0]) && !k.startsWith('91'); })
+            .map(([code, name]) => `<option value="${escapeHtml(code)}">${escapeHtml(name)}</option>`).join('');
+        }
+        const category = (c) => names[c] ? c + ' — ' + names[c] : c;
+        if (!rows.length) {
+          budgetWrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('budgetNoRows')) + '</p>';
+          return;
+        }
+        budgetWrap.innerHTML = `
+          <table class="mini-table">
+            <thead><tr><th scope="col">${escapeHtml(t('labelCategory'))}</th><th scope="col">${escapeHtml(t('labelLimit'))}</th><th scope="col">${escapeHtml(t('budgetColActual'))}</th><th scope="col">${escapeHtml(t('budgetColVariance'))}</th><th scope="col">${escapeHtml(t('budgetColUsed'))}</th><th scope="col"></th></tr></thead>
+            <tbody>
+              ${rows.map(r => `<tr data-id="${escapeHtml(r.id || '')}" data-limit="${escapeHtml(String(r.limit_amount))}" data-category="${escapeHtml(r.category)}">
+                <td>${escapeHtml(category(r.category))}</td>
+                <td>${formatAmount(r.limit_amount)}</td>
+                <td>${formatAmount(r.actual_amount)}</td>
+                <td>${formatAmount(r.variance)}</td>
+                <td>${escapeHtml(localDigits(r.utilization_pct + '%'))}</td>
+                <td style="white-space:nowrap;">${r.id ? `<button type="button" class="btn btn-secondary btn-sm budget-edit">${escapeHtml(t('btnEdit'))}</button>
+                  <button type="button" class="btn btn-secondary btn-sm budget-del">${escapeHtml(t('btnDelete'))}</button>` : ''}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        budgetWrap.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('budgetLoadError')) + '</p>';
+      }
+    }
+
+    // Edit / delete a budget line (roadmap §4.7); the table redraws on each load.
+    budgetWrap.addEventListener('click', async (e) => {
+      const tr = e.target.closest('tr[data-id]');
+      if (!tr || !tr.dataset.id) return;
+      const url = API + '/budgets/' + encodeURIComponent(tr.dataset.id);
+      if (e.target.closest('.budget-edit')) {
+        const v = await uiPrompt({ title: tr.dataset.category, message: t('budgetEditPrompt'), type: 'number', value: tr.dataset.limit });
+        if (v === null) return;
+        const n = parseInt(v, 10);
+        if (!Number.isFinite(n) || n <= 0) { showAlert(t('budgetEditBad'), true); return; }
+        const res = await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit_amount: n }) });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { showAlert(typeof d.detail === 'string' ? d.detail : t('budgetSaveFailed'), true); return; }
+        loadBudgets();
+      } else if (e.target.closest('.budget-del')) {
+        if (!(await uiConfirm({ message: tf('budgetDeleteConfirm', { category: tr.dataset.category }), confirmLabel: t('btnDelete'), danger: true }))) return;
+        const res = await fetch(url, { method: 'DELETE' });
+        if (!res.ok) { showAlert(t('budgetSaveFailed'), true); return; }
+        loadBudgets();
+      }
+    });
+
     document.getElementById('budget-save').addEventListener('click', async () => {
       const month = document.getElementById('budget-month').value;
       const category = document.getElementById('budget-category').value.trim();
@@ -1712,12 +1898,12 @@
         body.innerHTML = toolbar + `
           <table class="detail-table ent-tx-table">
             <thead><tr>
-              <th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('labelReference'))}</th><th>${escapeHtml(t('entTxColCcy'))}</th>
-              <th>${escapeHtml(t('labelDescription'))}</th>${withFiles ? `<th>${escapeHtml(t('entTxColAttachments'))}</th>` : ''}
-              <th class="num" title="${escapeHtml(t('entTxDebtorHint'))}">${escapeHtml(t('entTxDebtor'))}</th>
-              <th class="num" title="${escapeHtml(t('entTxCreditorHint'))}">${escapeHtml(t('entTxCreditor'))}</th>
-              <th class="num" title="${escapeHtml(t('entTxRemainingHint'))}">${escapeHtml(t('entTxRemaining'))}</th>
-              <th>${escapeHtml(t('entTxColActions'))}</th>
+              <th scope="col">${escapeHtml(t('labelDate'))}</th><th scope="col">${escapeHtml(t('labelReference'))}</th><th scope="col">${escapeHtml(t('entTxColCcy'))}</th>
+              <th scope="col">${escapeHtml(t('labelDescription'))}</th>${withFiles ? `<th scope="col">${escapeHtml(t('entTxColAttachments'))}</th>` : ''}
+              <th scope="col" class="num" title="${escapeHtml(t('entTxDebtorHint'))}">${escapeHtml(t('entTxDebtor'))}</th>
+              <th scope="col" class="num" title="${escapeHtml(t('entTxCreditorHint'))}">${escapeHtml(t('entTxCreditor'))}</th>
+              <th scope="col" class="num" title="${escapeHtml(t('entTxRemainingHint'))}">${escapeHtml(t('entTxRemaining'))}</th>
+              <th scope="col">${escapeHtml(t('entTxColActions'))}</th>
             </tr></thead>
             <tbody>
               ${newestFirst.map(t0 => {
@@ -1878,7 +2064,7 @@
             <div style="grid-column:1 / -1;">
               <label>${escapeHtml(t('entTxLines'))}</label>
               <table class="detail-table" style="margin-top:0.35rem;">
-                <thead><tr><th>${escapeHtml(t('tableAccountCode'))}</th><th>${escapeHtml(t('tableDebit'))}</th><th>${escapeHtml(t('tableCredit'))}</th><th>${escapeHtml(t('tableLineDescription'))}</th><th></th></tr></thead>
+                <thead><tr><th scope="col">${escapeHtml(t('tableAccountCode'))}</th><th scope="col">${escapeHtml(t('tableDebit'))}</th><th scope="col">${escapeHtml(t('tableCredit'))}</th><th scope="col">${escapeHtml(t('tableLineDescription'))}</th><th scope="col"></th></tr></thead>
                 <tbody id="edit-tx-lines-body">
                   ${(tx.lines || []).map(txLineRowHtml).join('')}
                 </tbody>
@@ -2105,7 +2291,7 @@
         }
         alerts.innerHTML = notes.join('');
         const table = (title, rows) => `<div style="flex:1 1 22rem;"><h3 style="font-size:0.9rem;margin:0.4rem 0;">${escapeHtml(title)}</h3>
-          <table class="results-table" style="font-size:0.82rem;"><thead><tr><th>${escapeHtml(t('ttmsParty'))}</th><th>${escapeHtml(t('ttmsInvoices'))}</th><th>${escapeHtml(t('ttmsNet'))}</th><th>${escapeHtml(t('ttmsVat'))}</th></tr></thead>
+          <table class="results-table" style="font-size:0.82rem;"><thead><tr><th scope="col">${escapeHtml(t('ttmsParty'))}</th><th scope="col">${escapeHtml(t('ttmsInvoices'))}</th><th scope="col">${escapeHtml(t('ttmsNet'))}</th><th scope="col">${escapeHtml(t('ttmsVat'))}</th></tr></thead>
           <tbody>${rows.length ? rows.slice(0, 15).map(r => `<tr><td>${escapeHtml(r.name)}${r.missing.length ? ' <span title="' + escapeHtml(t('ttmsMissing')) + '">⚠</span>' : ''}</td><td dir="ltr">${escapeHtml(String(r.invoice_count))}</td><td dir="ltr">${money(r.net_base)}</td><td dir="ltr">${money(r.net_vat)}</td></tr>`).join('')
             : `<tr><td colspan="4" class="empty-state">${escapeHtml(t('ttmsNoData'))}</td></tr>`}</tbody></table></div>`;
         tables.innerHTML = table(t('ttmsSales'), rep.sales || []) + table(t('ttmsPurchases'), rep.purchases || []);
@@ -2244,7 +2430,7 @@
         const rows = (list) => list.filter(l => l.quarter || l.year_to_date).map(l => `<tr><td>${escapeHtml(mtdCat(l.category))} <code style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(l.category)}</code></td><td dir="ltr" style="text-align:end;">${money(l.quarter)}</td><td dir="ltr" style="text-align:end;">${money(l.year_to_date)}</td></tr>`).join('');
         box.innerHTML = `
           <table class="results-table" style="font-size:0.83rem;max-width:46rem;">
-            <thead><tr><th></th><th>${escapeHtml(t('mtdThisQuarter'))}</th><th>${escapeHtml(t('mtdYearToDate'))}</th></tr></thead>
+            <thead><tr><th scope="col"></th><th scope="col">${escapeHtml(t('mtdThisQuarter'))}</th><th scope="col">${escapeHtml(t('mtdYearToDate'))}</th></tr></thead>
             <tbody>
               <tr><th colspan="3" style="text-align:start;">${escapeHtml(t('mtdIncome'))}</th></tr>${rows(up.income) || `<tr><td colspan="3" class="empty-state">—</td></tr>`}
               <tr><th colspan="3" style="text-align:start;">${escapeHtml(t('mtdExpenses'))}</th></tr>${rows(up.expenses) || `<tr><td colspan="3" class="empty-state">—</td></tr>`}
@@ -2263,7 +2449,7 @@
         if (!r.ok || !(d.accounts || []).length) { wrap.innerHTML = `<p class="empty-state" style="padding:0.3rem;">${escapeHtml(t('mtdChooseSource'))}</p>`; return; }
         const cat = d.catalogue[d.source];
         const choices = [...cat.income, ...cat.expenses, d.excluded];
-        wrap.innerHTML = `<table class="results-table" style="font-size:0.8rem;"><thead><tr><th>${escapeHtml(t('tableCode'))}</th><th>${escapeHtml(t('mtdAccount'))}</th><th>${escapeHtml(t('mtdCategory'))}</th></tr></thead><tbody>
+        wrap.innerHTML = `<table class="results-table" style="font-size:0.8rem;"><thead><tr><th scope="col">${escapeHtml(t('tableCode'))}</th><th scope="col">${escapeHtml(t('mtdAccount'))}</th><th scope="col">${escapeHtml(t('mtdCategory'))}</th></tr></thead><tbody>
           ${d.accounts.map(a => `<tr><td dir="ltr">${escapeHtml(localCode(a.code))}</td><td>${escapeHtml(a.name)}</td><td>
             <select class="mtd-map" data-code="${escapeHtml(a.code)}" style="font-size:0.8rem;">
               <option value="">${escapeHtml(t('mtdDefault'))}: ${escapeHtml(mtdCat(a.default || '—'))}</option>

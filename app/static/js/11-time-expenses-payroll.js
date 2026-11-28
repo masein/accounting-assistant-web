@@ -21,9 +21,9 @@
         wrap.innerHTML = `
           <table class="results-table" style="font-size:0.85rem;">
             <thead><tr>
-              <th>${escapeHtml(t('timePendingSource'))}</th><th>${escapeHtml(t('timePendingWorker'))}</th>
-              <th>${escapeHtml(t('labelDate'))}</th><th>${escapeHtml(t('timeHours'))}</th>
-              <th>${escapeHtml(t('timePendingAssign'))}</th><th></th>
+              <th scope="col">${escapeHtml(t('timePendingSource'))}</th><th scope="col">${escapeHtml(t('timePendingWorker'))}</th>
+              <th scope="col">${escapeHtml(t('labelDate'))}</th><th scope="col">${escapeHtml(t('timeHours'))}</th>
+              <th scope="col">${escapeHtml(t('timePendingAssign'))}</th><th scope="col"></th>
             </tr></thead>
             <tbody>${rows.map(p => `
               <tr>
@@ -1329,8 +1329,3 @@
       });
     });
 
-    // Auto-load data when switching to new pages
-    const origShowPage = showPage;
-    if (typeof showPage === 'function') {
-      const _origShowPage = showPage;
-    }

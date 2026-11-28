@@ -250,8 +250,10 @@ def mark_seen(db: Session, user_id: str) -> int:
 _BELL_TITLE = {"en": "Support replied", "fa": "پشتیبانی پاسخ داد", "es": "Soporte respondió", "ar": "رد الدعم"}
 
 
-def bell_key(thread: SupportThread) -> str:
-    return f"support-{thread.id}"
+def bell_key(thread: SupportThread, reply: SupportMessage) -> str:
+    """A line per newest unread reply, not per conversation: a line once read stays dismissed, and the next
+    reply must ring (and push) again — a per-conversation line read once never came back (DA4)."""
+    return f"support-{thread.id}-{reply.id}"
 
 
 def bell_lines(db: Session) -> list[dict[str, Any]]:
@@ -263,13 +265,14 @@ def bell_lines(db: Session) -> list[dict[str, Any]]:
     latest: dict[uuid.UUID, tuple[SupportThread, SupportMessage]] = {}
     for thread, msg in rows:
         latest[thread.id] = (thread, msg)
-    return [{"dedupe_key": bell_key(t), "user_id": str(t.user_id), "snippet": (m.text or "")[:160]}
+    return [{"dedupe_key": bell_key(t, m), "user_id": str(t.user_id), "snippet": (m.text or "")[:160]}
             for t, m in latest.values()]
 
 
-def _ring(db: Session, thread: SupportThread, text: str) -> None:
+def _ring(db: Session, thread: SupportThread, reply: SupportMessage, text: str) -> None:
     from app.services.notification_service import _store
-    _store(db, {bell_key(thread): dict(kind="support", level="info", title=_BELL_TITLE["en"],
+    _clear_bell(db, thread)                           # the older reply's line: this one says the newest
+    _store(db, {bell_key(thread, reply): dict(kind="support", level="info", title=_BELL_TITLE["en"],
                                        message=(text or "")[:160], link_page="support", due_date=None,
                                        user_id=str(thread.user_id), text_key="support_reply",
                                        params={"snippet": (text or "")[:160]})})
@@ -277,9 +280,10 @@ def _ring(db: Session, thread: SupportThread, text: str) -> None:
 
 def _clear_bell(db: Session, thread: SupportThread) -> None:
     from app.models.notification import Notification
-    row = db.execute(select(Notification).where(Notification.dedupe_key == bell_key(thread))).scalars().first()
-    if row is not None and row.dismissed_at is None:
-        row.dismissed_at = _now()
+    now = _now()
+    for row in db.execute(select(Notification).where(Notification.dedupe_key.like(f"support-{thread.id}-%"),
+                                                     Notification.dismissed_at.is_(None))).scalars():
+        row.dismissed_at = now
 
 
 # --- the desk's side (across companies: the desk serves them all) ---------------------------------------------
@@ -351,9 +355,10 @@ def reply(db: Session, *, thread_id: str, text: str) -> SupportMessage:
         now = _now()
         msg = SupportMessage(thread_id=thread.id, author="desk", channel="desk", text=text, created_at=now)
         db.add(msg)
+        db.flush()
         thread = db.get(SupportThread, tid)
         thread.last_desk_at = now
-        _ring(db, thread, text)
+        _ring(db, thread, msg, text)
         db.commit()
         db.refresh(msg)
         _push_now(db)

@@ -141,6 +141,14 @@ def test_da4_a_reply_is_unread_until_seen_and_rings_the_bell(client, db, co, des
     with use_company(co["cid"]):
         refresh(db)                                                                 # and stays gone once read
     assert not _bell(_login(client, co["cid"], co["owner"]))
+    # the next reply rings again, though the last line was read (a per-conversation line never came back)
+    client.post("/desk/reply", headers=desk, json={"thread_id": item["thread_id"], "text": "One more thing"})
+    lines = _bell(_login(client, co["cid"], co["owner"]))
+    assert [n["message"] for n in lines] == ["One more thing"]
+    client.post("/desk/reply", headers=desk, json={"thread_id": item["thread_id"], "text": "And another"})
+    with use_company(co["cid"]):
+        refresh(db)
+    assert [n["message"] for n in _bell(_login(client, co["cid"], co["owner"]))] == ["And another"]   # one line, newest
 
 
 def test_da4_a_reply_to_no_conversation_is_refused(client, db, co, desk):

@@ -436,7 +436,10 @@
           el.addEventListener('click', async () => {
             await fetch(API + '/notifications/feed/' + el.dataset.id + '/read', { method: 'POST' }).catch(() => {});
             const page = el.dataset.page;
-            if (page && typeof showPage === 'function') {
+            if (page === 'support' && typeof window.openSupport === 'function') {   // support replied (DA4)
+              window.openSupport();
+              _toggleNotify(false);
+            } else if (page && typeof showPage === 'function') {
               showPage(page);
               if (typeof loadPageData === 'function') loadPageData(page);
               _toggleNotify(false);

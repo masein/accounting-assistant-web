@@ -487,6 +487,15 @@ def test_cu8_the_phone_downloads_the_same_files(client, co, db):
     assert api.get("/api/mobile/v1/documents/close-pack", params={"month": "2026-09", "format": "xlsx"}).status_code == 200
 
 
+def test_cu8_the_web_chat_links_the_file_from_the_report_page():
+    """The web chat draws a handed-over file as a download of the report's own page — never another address."""
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[1] / "app/static/js/15-ai-chat.js").read_text(encoding="utf-8")
+    assert "c.name === 'get_file'" in src and "f.web_path.startsWith('/manager-reports/')" in src
+    body = src[src.index("function appendFileLink"):src.index("// The app's own review as a card")]
+    assert "a.download" in body and "innerHTML" not in body
+
+
 def test_cu8_get_file_is_routed_for_a_company_not_a_person():
     from app.services.ai_accountant.tool_routing import route
     assert "files" in route("دفتر روزنامه رو اکسل بفرست") and "files" in route("send me the close pack for August")

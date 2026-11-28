@@ -2918,6 +2918,16 @@
         <div id="msg-bots-list"></div>
       </div>
 
+      <div id="support-desk-card" style="display:none; margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
+        <h2 style="margin-bottom:0.5rem;" data-i18n="supportDeskTitle">Support desk</h2>
+        <p class="fx-hint" data-i18n="supportDeskIntro">People write to support from the support button, the phone apps and the bot. Nightshift's support desk on your Mac answers them: make a desk key here and give it to the desk (DEPLOY.md §16). The server keeps only the key's hash.</p>
+        <p id="support-desk-state" style="font-size:0.88rem;"></p>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button type="button" class="btn btn-primary btn-sm" id="support-desk-key" data-i18n="supportDeskNewKey">Make a desk key</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="support-desk-off" data-i18n="supportDeskOff">Turn off</button>
+        </div>
+      </div>
+
       <div style="margin-top:1.2rem; border-top:1px solid var(--border); padding-top:1rem;">
         <h2 style="margin-bottom:0.5rem;" data-i18n="fxTitle">Currency &amp; FX</h2>
         <p style="color: var(--text-muted); font-size: 0.84rem; margin: 0 0 0.7rem 0;" data-i18n="fxIntro">

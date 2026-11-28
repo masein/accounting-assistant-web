@@ -203,3 +203,41 @@
       load(false);
       schedule();
     })();
+
+    // Platform admin: the support desk's key (Settings → Support desk). The desk is Nightshift on the owner's Mac;
+    // the key is shown once and the server keeps only its hash (DA7).
+    window.loadSupportDeskCard = async function loadSupportDeskCard() {
+      const card = document.getElementById('support-desk-card');
+      if (!card) return;
+      const res = await fetch(API + '/admin/support-desk').catch(() => null);
+      if (!res || !res.ok) { card.style.display = 'none'; return; }
+      const d = await res.json();
+      card.style.display = '';
+      const state = document.getElementById('support-desk-state');
+      state.textContent = !d.connected ? t('supportDeskNone')
+        : tf(d.online ? 'supportDeskOnline' : 'supportDeskAway',
+             { seen: d.seen_at && typeof formatDisplayDateTime === 'function' ? formatDisplayDateTime(d.seen_at) : '—' });
+      document.getElementById('support-desk-off').style.display = d.connected ? '' : 'none';
+    };
+    (function wireSupportDeskCard() {
+      const make = document.getElementById('support-desk-key');
+      const off = document.getElementById('support-desk-off');
+      if (!make || !off) return;
+      make.addEventListener('click', async () => {
+        if (!(await uiConfirm({ message: t('supportDeskNewKeyConfirm'), confirmLabel: t('supportDeskNewKey') }))) return;
+        make.disabled = true;
+        try {
+          const r = await fetch(API + '/admin/support-desk/key', { method: 'POST' });
+          const out = await r.json().catch(() => ({}));
+          if (!r.ok || !out.desk_key) { showAlert(t('supportFailed'), true); return; }
+          await uiPrompt({ title: t('supportDeskKeyTitle'), message: t('supportDeskKeyNote'), value: out.desk_key,
+                           confirmLabel: t('btnClose') });
+          window.loadSupportDeskCard();
+        } finally { make.disabled = false; }
+      });
+      off.addEventListener('click', async () => {
+        if (!(await uiConfirm({ message: t('supportDeskOffConfirm'), confirmLabel: t('supportDeskOff'), danger: true }))) return;
+        await fetch(API + '/admin/support-desk', { method: 'DELETE' });
+        window.loadSupportDeskCard();
+      });
+    })();

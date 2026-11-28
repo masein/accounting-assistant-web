@@ -3,8 +3,12 @@ package app.accountingassistant.android
 import android.Manifest
 import android.app.NotificationManager
 import app.accountingassistant.android.data.FeedItem
+import app.accountingassistant.android.data.SupportConversation
+import app.accountingassistant.android.data.SupportMessageDto
 import app.accountingassistant.android.notify.FeedNotifier
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -77,6 +81,54 @@ class FeedTest {
         // still in the feed, the old ones aren't forgotten either: only what left the feed longest ago
         assertEquals(0, notifier.deliver(old.takeLast(299) + approval, locked = false))
         assertEquals(1, notifier.deliver(listOf(old.first()), locked = false))      // the one made room for
+    }
+
+    private fun conversation(unread: Int, vararg replies: SupportMessageDto) =
+        SupportConversation("th1", listOf(SupportMessageDto("m0", "user", "android", "صفحهٔ دفتر کل خطا می‌دهد")) + replies,
+                            unread = unread)
+
+    private fun desk(id: String, text: String, seen: Boolean = false) = SupportMessageDto(id, "desk", "desk", text, seen = seen)
+
+    /** Scenario DB5: /feed doesn't carry support's replies; the newest unread one becomes an item, its first words the body. */
+    @Test fun theNewestUnreadReplyFromSupportIsAnItem() {
+        val title = context.getString(R.string.support_replied)
+        assertEquals("پشتیبانی پاسخ داد", title)
+        assertNull(FeedNotifier.supportItem(conversation(0, desk("m1", "درست شد.", seen = true)), title))
+        val long = "درست شد؛ " + "دفتر کل حالا با تاریخ‌های پیش از ۱۴۰۰ هم باز می‌شود ".repeat(5)
+        val item = FeedNotifier.supportItem(conversation(2, desk("m1", "اول"), desk("m2", long)), title)!!
+        assertEquals("support:m2", item.key)
+        assertEquals(FeedNotifier.SUPPORT, item.kind)
+        assertEquals(title, item.title)
+        assertTrue(item.body.endsWith("…"))
+        assertTrue(item.body.length <= 121)
+        assertTrue(long.startsWith(item.body.removeSuffix("…")))
+    }
+
+    /** Scenario DB5: a reply is told once, opens Support when tapped, and goes once read in the app. */
+    @Test fun aReplyFromSupportIsToldOnceOpensSupportAndGoesWhenRead() {
+        notifier.deliver(listOf(payroll), locked = false)                               // the first sync: silent
+        val item = FeedNotifier.supportItem(conversation(1, desk("m1", "درست شد. دوباره امتحان کنید.")),
+                                            context.getString(R.string.support_replied))!!
+        assertEquals(1, notifier.deliver(listOf(payroll, item), locked = false))
+        assertEquals(0, notifier.deliver(listOf(payroll, item), locked = false))       // told already
+        val n = shade.allNotifications.single()
+        assertEquals("پشتیبانی پاسخ داد", shadowOf(n).contentTitle)
+        assertEquals("درست شد. دوباره امتحان کنید.", shadowOf(n).contentText)
+        val opens = shadowOf(n.contentIntent).savedIntent
+        assertTrue(FeedNotifier.opensSupport(opens))
+        FeedNotifier.clearSupport(context)
+        assertEquals(0, shade.allNotifications.size)
+    }
+
+    /** Scenario DB5: behind the app lock a reply says only that support replied, never its words. */
+    @Test fun behindTheLockAReplyHidesItsWords() {
+        notifier.deliver(emptyList(), locked = true)
+        val item = FeedNotifier.supportItem(conversation(1, desk("m1", "موجودی بانک ملت ۸۰ میلیون است.")),
+                                            context.getString(R.string.support_replied))!!
+        assertEquals(1, notifier.deliver(listOf(item), locked = true))
+        val n = shadowOf(shade.allNotifications.single())
+        assertEquals("پشتیبانی پاسخ داد", n.contentTitle)
+        assertEquals("", n.contentText?.toString().orEmpty())
     }
 
     /** Scenario CX5: two things are two notifications, even when their keys' hash codes are the same. */

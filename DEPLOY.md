@@ -510,6 +510,37 @@ ops/watchdog/install.sh /path/to/watchdog     # install or update; then set watc
 /path/to/watchdog/watchdog.sh --status        # each check, now
 ```
 
+## 16. Support: the support button and the desk on the Mac
+
+Every signed-in person can write to support: the headset button beside the bell on every page (and, from the phone
+apps and the bot, the same conversation). The server keeps the conversation and nothing else — no AI and no Claude
+credentials for support. The **support desk** — Claude in Nightshift's support desk, on the owner's Mac — answers
+it, and the night shift fixes what it reports (`app/api/support.py`, `app/services/support_desk.py`;
+Nightshift's `docs/SHADOW_AND_SUPPORT.md` → "The product's own support chat"):
+
+```
+person ─► support panel ─► the server keeps it ─► POST /desk/pending (desk key) ─► the desk on the Mac
+   ▲                                                                                    │ tickets → the night shift
+   └──── panel, badge, bell line, push ◄── POST /desk/reply ◄───────────────────────────┘ → "fixed, it's live"
+```
+
+- **Turning it on:** a platform admin goes to Settings → Support desk → **Make a desk key** (shown once; the server
+  keeps only its hash). On the Mac, `~/.nightshift.env` gets `NIGHTSHIFT_SUPPORT_APP_URL` (this app's address) and
+  `NIGHTSHIFT_SUPPORT_APP_KEY` (the key); Nightshift's `[support.app]` is on; restart its bot job
+  (`launchctl kickstart -k gui/$(id -u)/ai.nightshift.bot`). The card and the support panel then say the desk is
+  online. A new key replaces the old one; **Turn off** forgets it.
+- **What a message carries:** the text, screenshots (pictures or PDFs, 20 MB), and what the page knew: the page, the
+  app's version (the scripts' `?v=`), the language, the screen, and the last ten failed requests with their
+  `x-request-id` (`window.__recentErrors`) — the id finds each in `docker compose logs api`.
+- **The desk's door** (`/desk/…`, outside the session guard, the desk key as a bearer): `hello` (online while seen in
+  the last three minutes), `pending` (the waiting messages with the person, their company and the conversation so
+  far; a message taken and not answered within ten minutes is offered again), `reply`, `attachments/{id}` (only a
+  file attached to a support message). A wrong key gets a plain 404.
+- **What the desk reads** (the owner's choice for the pilot, 2026-11-28): besides the conversation, that one
+  customer's books as files, read-only from the live copy (§13), and the app's code. It changes nothing.
+- **Limits:** 30 messages a day per person (the desk runs on the owner's Claude plan). A reply is a bell line (one per
+  newest unread reply) and a push, until read.
+
 ## Notes
 - `docker-compose.yml` (no suffix) stays the **dev** stack: it builds locally
   and bind-mounts the source for live reload. `docker-compose.prod.yml` runs the

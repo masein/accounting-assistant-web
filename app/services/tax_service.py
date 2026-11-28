@@ -173,14 +173,19 @@ def compute_tax_summary(
     # credited invoice's VAT (and the rest off its ex-VAT base), exactly as
     # boxes 1/4 and 6/7 of the VAT return net them: the share is the note's
     # amount × the invoice's standard-rated VAT / its gross, to the currency's
-    # places. The breakdowns get the same figures, spread over the invoice's
-    # rates and treatments.
+    # places. A note posted with a journal entry gives back the VAT that entry
+    # reversed (cumulative, so notes crediting an invoice in full give back
+    # exactly its VAT — issue #39), as the returns read it. The breakdowns get
+    # the same figures, spread over the invoice's rates and treatments.
+    from app.services.credit_note_vat import posted_vats
     from app.services.tax_ir import _share
     cq = select(CreditNote).where(CreditNote.date >= from_date, CreditNote.date <= to_date,
                                   CreditNote.note_type == "reduction")
     if currency:
         cq = cq.where(CreditNote.currency == currency.strip().upper())
-    for cn in db.execute(cq).scalars().all():
+    notes = db.execute(cq).scalars().all()
+    posted = posted_vats(db, notes)
+    for cn in notes:
         inv = db.get(Invoice, cn.invoice_id) if cn.invoice_id else None
         if inv is None or inv.kind not in ("sales", "purchase"):
             continue  # no invoice to take VAT back from (the return takes none either)
@@ -205,7 +210,7 @@ def compute_tax_summary(
                     inv_vat += t
         if not items:
             inv_base = plain(inv.amount or 0)
-        vat = _share(inv_vat, inv_base + inv_vat, amount, places)
+        vat = posted[cn.id] if cn.id in posted else _share(inv_vat, inv_base + inv_vat, amount, places)
         if side == "output":
             output_tax -= vat
         else:

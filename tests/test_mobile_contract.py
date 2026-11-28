@@ -330,6 +330,9 @@ MOBILE_ROUTES = {
     ("GET", "/api/mobile/v1/documents/invoices/{invoice_id}"): frozenset({"owner", "cfo", "accountant", "viewer", "personal"}),
     # a payslip: whoever reads the payroll
     ("GET", "/api/mobile/v1/documents/payslips/{run_id}/{entity_id}"): frozenset({"owner", "cfo", "accountant"}),
+    # the journal's Excel and a close pack (get_file, scenario CU8): whoever reads the reports
+    ("GET", "/api/mobile/v1/documents/journal"): frozenset({"owner", "cfo", "accountant", "viewer", "personal"}),
+    ("GET", "/api/mobile/v1/documents/close-pack"): frozenset({"owner", "cfo", "accountant", "viewer", "personal"}),
     # the second person
     ("GET", "/api/mobile/v1/approvals"): frozenset({"owner", "cfo", "manager"}),
     ("POST", "/api/mobile/v1/approvals/{token}/approve"): frozenset({"owner", "cfo", "manager"}),

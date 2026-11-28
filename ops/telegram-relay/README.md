@@ -4,9 +4,10 @@ Production can't reach Telegram, which is filtered where the server runs. So the
 a machine that can. [DEPLOY.md §14](../../DEPLOY.md) has the whole picture; this folder is the relay.
 
 The relay polls Telegram for the bot's messages and hands each one to the server (`/bots/telegram/relay/update`,
-with the relay key), then sends the server's replies back to Telegram. The bot itself stays on the server: linking a
-chat to a login, the same assistant as the web chat, voice notes, and Confirm / Cancel. The bot token lives only
-here. The server keeps only the relay key's hash.
+with the relay key), then sends the server's replies back to Telegram. The bot itself stays on the server: signing
+in (or making an account) in the chat, linking a chat from the app, the same assistant as the web chat, voice notes,
+photos and files, documents sent back, and Confirm / Cancel. The bot token lives only here. The server keeps only
+the relay key's hash.
 
 ## Set it up
 
@@ -17,14 +18,19 @@ here. The server keeps only the relay key's hash.
    repository:
    ```bash
    cp -R ops/telegram-relay ~/telegram-relay && cd ~/telegram-relay
-   cp .env.example .env && chmod 600 .env       # TELEGRAM_BOT_TOKEN, APP_URL, RELAY_KEY
+   cp token.env.example token.env && chmod 600 token.env   # TELEGRAM_BOT_TOKEN
+   cp .env.example .env && chmod 600 .env                   # APP_URL, RELAY_KEY
    docker compose up -d --build
    docker compose logs -f relay                 # "relaying @YourBot to https://…"
    ```
-4. In the app's settings the bot now reads "Connected through the relay as @YourBot". Each user links their own
-   chat from the account menu → Telegram, exactly as before.
+   The token has a file of its own because the watchdog (`ops/watchdog`) reads it to send its alerts, and has no
+   business with the relay key.
+4. In the app's settings the bot now reads "Connected through the relay as @YourBot". People sign in in the chat
+   (`/login`, or `/signup` when the server allows sign-up), or link their chat from the account menu → Telegram.
 
-On the owner's Mac the relay runs from `/Users/masein/Development/accounting/telegram-relay`.
+**Updating:** copy the new `relay.py` (and `Dockerfile`, `compose.yml`) over the old ones, then
+`docker compose up -d --build`. Update the server first: a new relay sends files as a multipart form, which servers
+from before 2026-11-28 don't read.
 
 ## How it behaves
 
@@ -32,16 +38,22 @@ On the owner's Mac the relay runs from `/Users/masein/Development/accounting/tel
   with the server. It checks in again every 10 minutes; the settings page shows when it was last seen.
 - **While the server works:** the chat shows "typing…".
 - **Order:** one chat's messages are handled in order; different chats at the same time.
-- **Voice notes:** fetched here (up to 10 MB) and sent along with the update.
+- **Voice notes, photos and files:** fetched here (voice notes up to 10 MB, photos and files up to 20 MB) and sent
+  along with the update; the server can't fetch them itself.
+- **Documents back:** an invoice's PDF, the journal's Excel or a close pack the server answers with comes with its
+  bytes, and is uploaded to the chat from here.
 - **Restarts:** the offset of the last update handled is kept in `state/`, so a restart neither loses nor repeats
-  updates. The server also ignores an update it has already seen.
-- **The server not answering:** each update is tried three times, then dropped and logged.
+  updates. The server also ignores an update it has already handled.
+- **The server not answering:** each update is tried three times; then the round stops without moving the offset,
+  and the same updates are sent again on the next round (the server skips any it had already handled). Nothing is
+  dropped while the server is down.
 - **Logs:** the token is never written; httpx's request lines show `<token>` instead.
 
 ## When something's wrong
 
 - **`the server doesn't know this relay key`:** relay mode was turned off, or a new key was made. Put the current
   key in `.env`, then run `docker compose up -d`.
+- **Files don't arrive, or the server answers 422:** the server is older than the relay; update the server first.
 - **`Conflict: terminated by other getUpdates request`:** another program is polling the same bot. Only one relay
   may run per bot.
 - **No replies, and no errors in the log:** check that the bot's settings page says it's in relay mode, and that
@@ -51,7 +63,7 @@ Tests: `tests/test_telegram_relay.py` (this program) and `tests/test_messenger_b
 
 ## Seen working (2026-11-20)
 
-These screens are from @NSAccountingbot through this relay, running on the owner's Mac, against a local test server.
+These screens are from the bot through this relay, against a local test server.
 The AI was the stand-in `tests_e2e/fake_llm.py`:
 
 | | |

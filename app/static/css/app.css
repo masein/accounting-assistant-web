@@ -1212,6 +1212,7 @@
     .ai-choices .chip { font-size: 0.85rem; padding: 0.3rem 0.8rem; border-radius: 16px; border: 1px solid var(--primary);
       color: var(--primary); background: var(--card-bg, #fff); cursor: pointer; transition: background 0.15s, color 0.15s; }
     .ai-choices .chip:hover { background: var(--primary); color: #fff; }
+    .ai-file .chip { text-decoration: none; display: inline-block; }   /* a file handed over (CU8) */
     .ai-attachments { display: none; flex-wrap: wrap; gap: 0.4rem; padding: 0.4rem 0.75rem 0; background: #fff; }
     .ai-attachment { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.6rem; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 14px; font-size: 0.8rem; max-width: min(22rem, 100%); }
     .ai-attachment .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

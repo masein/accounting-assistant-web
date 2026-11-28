@@ -1,3 +1,5 @@
 # this machine's own: the token and key, the offset
 .env
+token.env
 state/
+__pycache__/

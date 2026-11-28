@@ -11,7 +11,7 @@ import asyncio
 import json
 import logging
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
@@ -435,25 +435,7 @@ def _posted(db: Session, user: SessionUser, token: str, result) -> dict:
     return {"state": "posted", "block": B.posted_block(
         token=token, transaction_id=result.transaction_id, audit_log_id=result.audit_log_id, voucher=voucher,
         date_iso=date_iso, calendar=_calendar(db), lang=_user_language(db, user), undo_seconds=undo,
-        file=_made_document(db, result.audit_log_id))}
-
-
-def _made_document(db: Session, audit_log_id: str | None) -> dict | None:
-    """The document a posting made, for the phone to open or share: an
-    invoice's PDF (its audit row names the invoice)."""
-    from app.models.audit_log import AuditLog
-    from app.models.invoice import Invoice
-    try:
-        row = db.get(AuditLog, uuid.UUID(str(audit_log_id)))
-    except (ValueError, TypeError):
-        return None
-    if row is None or row.entity_type != "invoice" or not row.entity_id:
-        return None
-    try:
-        inv = db.get(Invoice, uuid.UUID(str(row.entity_id)))
-    except (ValueError, TypeError):
-        return None
-    return B.invoice_file(inv.id, inv.number) if inv is not None else None
+        file=B.made_document(db, result.audit_log_id))}
 
 
 @router.get("/documents/invoices/{invoice_id}")
@@ -470,6 +452,23 @@ def mobile_payslip_pdf(run_id: uuid.UUID, entity_id: uuid.UUID, db: Session = De
     to share with the employee."""
     from app.api.payroll import payslip_pdf
     return payslip_pdf(run_id=run_id, entity_id=entity_id, db=db)
+
+
+@router.get("/documents/journal")
+def mobile_journal_sheet(from_date: date | None = Query(None), to_date: date | None = Query(None),
+                         db: Session = Depends(get_db)):
+    """The journal for a period as the tax office's Excel sheet (scenarios BL1–BL7), the file the assistant's
+    ``get_file`` hands over (CU8)."""
+    from app.api.manager_reports import general_journal_export
+    return general_journal_export(from_date=from_date, to_date=to_date, currency=None, lang=None, db=db)
+
+
+@router.get("/documents/close-pack")
+def mobile_close_pack(month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$"),
+                      format: str = Query("zip", pattern="^(zip|pdf|xlsx)$"), db: Session = Depends(get_db)):
+    """A month's close pack (roadmap §4.9), as ``get_file`` hands it over (CU8)."""
+    from app.api.manager_reports import close_pack
+    return close_pack(month=month, format=format, lang=None, db=db)
 
 
 @router.post("/proposals/{token}/cancel")

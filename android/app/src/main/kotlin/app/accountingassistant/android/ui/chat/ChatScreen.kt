@@ -100,6 +100,8 @@ import app.accountingassistant.android.ui.components.currencyName
 import app.accountingassistant.android.ui.components.currencySymbol
 import app.accountingassistant.android.ui.components.priced
 import app.accountingassistant.android.ui.theme.LocalAccountantColors
+import app.accountingassistant.android.util.Dates
+import app.accountingassistant.android.util.LocalCalendar
 import app.accountingassistant.android.util.Numbers
 import kotlinx.coroutines.delay
 
@@ -251,13 +253,21 @@ fun ChatScreen(
                             Text(problemText(item.code, item.detail), color = c.ink, fontSize = 13.5.sp, lineHeight = 21.sp,
                                  modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
                         }
-                        is ChatItem.Figure -> Held(item, lang, sides, reply) { held -> Box(held) { FigureCard(
-                            label = item.label,
-                            value = (item.currency?.let { currencySymbol(it) } ?: "") +
-                                Numbers.amount(item.value, lang, Numbers.places(item.currency)),
-                            unit = item.currency?.takeIf { currencySymbol(it) == null }?.let { currencyName(it, lang) },
-                            delta = null, deltaIsBad = false,
-                            freshness = null, series = emptyList()) } }
+                        is ChatItem.Figure -> Held(item, lang, sides, reply) { held -> Box(held) {
+                            // «£12,400.75»; a currency without a sign is named beside the figure, its parts the same
+                            val sign = item.currency?.let { currencySymbol(it) }
+                            fun shown(v: java.math.BigDecimal) = (sign ?: "") + Numbers.amount(v, lang, Numbers.places(item.currency))
+                            // the day it holds on, in the books' calendar: «به‌روز ۱۸ مهر» (scenario CX4)
+                            val day = item.asOf?.let { Dates.short(it, lang, LocalCalendar.current) }?.takeIf { it.isNotBlank() }
+                            FigureCard(
+                                label = item.label,
+                                value = shown(item.value),
+                                unit = item.currency?.takeIf { sign == null }?.let { currencyName(it, lang) },
+                                // the figure block has no change or history to draw (docs/contracts/mobile-blocks.schema.json)
+                                delta = null, deltaIsBad = false,
+                                freshness = day?.let { stringResource(R.string.fresh_as_of, it) }, series = emptyList(),
+                                breakdown = item.breakdown.map { it.label to shown(it.value) })
+                        } }
                         is ChatItem.Table -> Held(item, lang, sides, reply) { held -> Box(held) { TableCard(item, lang) } }
                         // the app's own week or month, as a card that moves (scenario AL17)
                         is ChatItem.Review -> Held(item, lang, sides, reply) { held -> Box(held) { ReviewCard(item, lang, onAsk = onSuggestion) } }

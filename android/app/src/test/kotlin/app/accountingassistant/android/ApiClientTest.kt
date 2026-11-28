@@ -4,6 +4,7 @@ import app.accountingassistant.android.data.ApiClient
 import app.accountingassistant.android.data.ApiError
 import app.accountingassistant.android.data.MemorySessionStore
 import app.accountingassistant.android.data.StoredSession
+import app.accountingassistant.android.data.UpdateRequired
 import app.accountingassistant.android.data.UserDto
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
@@ -87,6 +88,66 @@ class ApiClientTest {
         val err = runCatching { api.login("m", "p", "Pixel") }.exceptionOrNull() as ApiError
         assertTrue(err.updateNeeded)
         assertEquals("upgrade_required", err.code)
+        assertEquals("0.2.0", err.minVersion)
+        assertEquals(UpdateRequired("0.2.0"), api.updateRequired.value)    // the sign-in screen gives way to the update (CX2)
+    }
+
+    /** Scenario CX2: any call answered 426 asks for the update; the session stays, good again after it. */
+    @Test fun anyCallTooOldAsksForTheUpdateAndKeepsTheSession() = runBlocking {
+        store.save(StoredSession("A1", "R1", "d1", UserDto("u1", "maryam")))
+        api.restore()
+        assertNull(api.updateRequired.value)
+        reply(426, """{"code":"upgrade_required","min_version":"0.2.0","detail":"This version of the app is too old."}""")
+        val err = runCatching { api.threads() }.exceptionOrNull() as ApiError
+        assertTrue(err.updateNeeded)
+        assertEquals(UpdateRequired("0.2.0"), api.updateRequired.value)
+        assertEquals("A1", api.session?.accessToken)
+        assertEquals("R1", store.load()?.refreshToken)
+    }
+
+    /** Scenario CX2: a renewal answered 426 asks for the update too, and doesn't sign out. */
+    @Test fun aRenewalTooOldAsksForTheUpdateWithoutSigningOut() = runBlocking {
+        store.save(StoredSession("OLD", "R1", "d1", UserDto("u1", "maryam")))
+        api.restore()
+        reply(401, """{"detail":"Authentication required","code":"session_expired"}""")
+        reply(426, """{"code":"upgrade_required","min_version":"0.2.0","detail":"This version of the app is too old."}""")
+        val err = runCatching { api.chat("hi", null) }.exceptionOrNull() as ApiError
+        assertTrue(err.updateNeeded)
+        assertEquals("0.2.0", api.updateRequired.value?.minVersion)
+        assertEquals("R1", store.load()?.refreshToken)
+        assertEquals("OLD", api.session?.accessToken)
+    }
+
+    /** Scenario CX8: refused again with the fresh token, a streamed turn ends the session as every other call does. */
+    @Test fun aStreamRefusedAfterRenewingEndsTheSession() = runBlocking {
+        store.save(StoredSession("OLD", "R1", "d1", UserDto("u1", "maryam")))
+        api.restore()
+        reply(401, """{"detail":"Authentication required","code":"session_expired"}""")
+        reply(200, """{"ok":true,"access_token":"NEW","refresh_token":"R2","device_id":"d1"}""")
+        reply(401, """{"detail":"Your session on this phone has ended. Sign in again.","code":"session_ended"}""")
+        val heard = async(start = CoroutineStart.UNDISPATCHED) { withTimeout(5000) { api.signedOut.first() } }
+        val err = runCatching { api.chatStream("x", null, emptyList(), "c-3") {} }.exceptionOrNull() as ApiError
+        assertEquals(401, err.status)
+        assertEquals("session_ended", heard.await().code)
+        assertNull(store.load())
+        assertNull(api.session)
+        server.takeRequest(); server.takeRequest()
+        assertEquals("Bearer NEW", server.takeRequest().headers["Authorization"])   // refused with the fresh token
+    }
+
+    /** Scenario CX8: the same for a document. */
+    @Test fun aDownloadRefusedAfterRenewingEndsTheSession() = runBlocking {
+        store.save(StoredSession("OLD", "R1", "d1", UserDto("u1", "maryam")))
+        api.restore()
+        reply(401, """{"detail":"Authentication required","code":"session_expired"}""")
+        reply(200, """{"ok":true,"access_token":"NEW","refresh_token":"R2","device_id":"d1"}""")
+        reply(401, """{"detail":"Your session on this phone has ended. Sign in again."}""", "X-Error-Code" to "session_ended")
+        val heard = async(start = CoroutineStart.UNDISPATCHED) { withTimeout(5000) { api.signedOut.first() } }
+        val err = runCatching { api.download("/api/mobile/v1/documents/invoices/1") }.exceptionOrNull() as ApiError
+        assertEquals(401, err.status)
+        assertEquals("session_ended", heard.await().code)
+        assertNull(store.load())
+        assertNull(api.session)
     }
 
     @Test fun aStreamedTurnSaysEachStepThenReplies() = runBlocking {

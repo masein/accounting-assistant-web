@@ -1,6 +1,9 @@
 """Installments (اقساط) and cheques (چک): what's due, and settling it — and a
 cheque's whole life: deposit, clear, bounce, deposit again, return, pass on,
-Sayad registration (roadmap 2026-09 §3.4, ``app/services/cheques.py``)."""
+Sayad registration (roadmap 2026-09 §3.4, ``app/services/cheques.py``).
+
+Every write leaves an audit row (review 2026-11-28, scenario CV7): a cheque
+moves money and its states are what a bookkeeper is asked about later."""
 from __future__ import annotations
 
 from datetime import date
@@ -18,7 +21,8 @@ from app.db.session import get_db
 from app.models.commitment import NOTES, OPEN_STATUSES, PAY, PENDING, Commitment
 from app.services import cheque_print, cheques
 from app.services import commitment_service as svc
-from app.core.money import Money
+from app.core.money import Money, json_dumps
+from app.services.audit_service import log_audit_event
 
 router = APIRouter(prefix="/commitments", tags=["commitments"])
 
@@ -169,6 +173,12 @@ def plan(plan_id: UUID, db: Session = Depends(get_db)) -> dict:
     return data
 
 
+def _audit(db: Session, action: str, row: Commitment, **extra) -> None:
+    log_audit_event(db, action=action, entity_type="commitment", entity_id=str(row.id), detail=json_dumps({
+        "kind": row.kind, "title": row.title, "amount": row.amount, "direction": row.direction,
+        "status": row.status, "due_date": row.due_date, **extra}, fallback=str))
+
+
 @router.post("/installments", response_model=list[CommitmentRead], status_code=201)
 def create_plan(payload: InstallmentPlanCreate, db: Session = Depends(get_db)) -> list[CommitmentRead]:
     rows = svc.create_installment_plan(
@@ -177,6 +187,10 @@ def create_plan(payload: InstallmentPlanCreate, db: Session = Depends(get_db)) -
         counterparty=payload.counterparty, counter_account_code=payload.counter_account_code,
         note=payload.note,
     )
+    if rows:
+        db.flush()
+        _audit(db, "create", rows[0], plan_id=rows[0].plan_id, installments=len(rows),
+               total_amount=payload.total_amount)
     db.commit()
     return _read_many(db, rows)
 
@@ -191,6 +205,8 @@ def create_cheque(payload: ChequeCreate, db: Session = Depends(get_db)) -> Commi
         note=payload.note, sayad_id=payload.sayad_id, sayad_registered_on=payload.sayad_registered_on,
         invoice_id=payload.invoice_id, entity_id=payload.entity_id, on=payload.on,
     )
+    db.flush()
+    _audit(db, "create", row, reference=row.reference, sayad_id=row.sayad_id)
     db.commit()
     return _read(db, row)
 
@@ -226,6 +242,8 @@ def read_print_layout(db: Session = Depends(get_db)) -> dict:
 @router.put("/print-layout")
 def save_print_layout(payload: PrintLayoutUpdate, db: Session = Depends(get_db)) -> dict:
     out = cheque_print.save_layout(db, payload.model_dump(exclude_none=True))
+    log_audit_event(db, action="update", entity_type="cheque_print_layout", entity_id=None,
+                    detail=json_dumps(payload.model_dump(exclude_none=True), fallback=str))
     db.commit()
     return out
 
@@ -233,6 +251,7 @@ def save_print_layout(payload: PrintLayoutUpdate, db: Session = Depends(get_db))
 @router.post("/print-layout/reset")
 def reset_print_layout(db: Session = Depends(get_db)) -> dict:
     out = cheque_print.reset_layout(db)
+    log_audit_event(db, action="update", entity_type="cheque_print_layout", entity_id=None, detail="reset")
     db.commit()
     return out
 
@@ -261,6 +280,7 @@ def settle(commitment_id: UUID, payload: SettleRequest, db: Session = Depends(ge
         row = cheques.clear(db, row, on=payload.on, post=payload.post, bank_code=payload.bank_account_code)
     else:
         row = svc.settle(db, row, on=payload.on, post=payload.post)
+    _audit(db, "settle", row, on=payload.on, posted=payload.post)
     db.commit()
     return _read(db, row)
 
@@ -271,6 +291,7 @@ def bounce(commitment_id: UUID, payload: StepRequest | None = None, db: Session 
     if row.kind != "cheque":
         raise HTTPException(status_code=400, detail="Only a cheque can bounce")
     row = cheques.bounce(db, row, on=payload.on if payload else None, note=payload.note if payload else None)
+    _audit(db, "bounce", row, note=payload.note if payload else None)
     db.commit()
     return _read(db, row)
 
@@ -278,6 +299,7 @@ def bounce(commitment_id: UUID, payload: StepRequest | None = None, db: Session 
 @router.post("/{commitment_id}/deposit", response_model=CommitmentRead)
 def deposit(commitment_id: UUID, payload: DepositRequest, db: Session = Depends(get_db)) -> CommitmentRead:
     row = cheques.deposit(db, _get(db, commitment_id), on=payload.on, bank_code=payload.bank_account_code)
+    _audit(db, "deposit", row, bank_account_code=payload.bank_account_code)
     db.commit()
     return _read(db, row)
 
@@ -285,6 +307,7 @@ def deposit(commitment_id: UUID, payload: DepositRequest, db: Session = Depends(
 @router.post("/{commitment_id}/return", response_model=CommitmentRead)
 def return_cheque(commitment_id: UUID, payload: StepRequest, db: Session = Depends(get_db)) -> CommitmentRead:
     row = cheques.return_cheque(db, _get(db, commitment_id), on=payload.on, note=payload.note)
+    _audit(db, "return", row, note=payload.note)
     db.commit()
     return _read(db, row)
 
@@ -293,6 +316,7 @@ def return_cheque(commitment_id: UUID, payload: StepRequest, db: Session = Depen
 def endorse(commitment_id: UUID, payload: EndorseRequest, db: Session = Depends(get_db)) -> CommitmentRead:
     row = cheques.endorse(db, _get(db, commitment_id), to=payload.to, on=payload.on,
                           account_code=payload.account_code, invoice_id=payload.invoice_id)
+    _audit(db, "endorse", row, to=payload.to, invoice_id=payload.invoice_id)
     db.commit()
     return _read(db, row)
 
@@ -300,6 +324,7 @@ def endorse(commitment_id: UUID, payload: EndorseRequest, db: Session = Depends(
 @router.post("/{commitment_id}/sayad", response_model=CommitmentRead)
 def register_sayad(commitment_id: UUID, payload: SayadRequest, db: Session = Depends(get_db)) -> CommitmentRead:
     row = cheques.register_sayad(db, _get(db, commitment_id), sayad_id=payload.sayad_id, on=payload.on)
+    _audit(db, "register_sayad", row, sayad_id=payload.sayad_id)
     db.commit()
     return _read(db, row)
 
@@ -316,6 +341,7 @@ def print_cheque(commitment_id: UUID, payload: PrintRequest, db: Session = Depen
     pdf = cheque_print.render_pdf(db, values, guide=payload.guide)
     if not payload.guide:
         cheques.record_print(db, row, payee=values.get("payee") or None)
+        _audit(db, "print", row, payee=values.get("payee") or None)
         db.commit()
     return _pdf(pdf, f"cheque-{row.reference or str(row.id)[:8]}.pdf")
 
@@ -334,5 +360,6 @@ def delete_commitment(commitment_id: UUID, db: Session = Depends(get_db)) -> Non
     if row.ledger_mode == NOTES and row.holding_account_code:
         raise HTTPException(status_code=409, detail=(
             "This cheque is in the books. Mark it returned instead — that reverses its entry."))
+    _audit(db, "delete", row)
     db.delete(row)
     db.commit()

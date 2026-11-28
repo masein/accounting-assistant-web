@@ -67,4 +67,25 @@ class FeedTest {
         assertEquals(0, notifier.deliver(listOf(approval, payroll), locked = false))   // a week's worth doesn't arrive at once
         assertEquals(0, shade.allNotifications.size)
     }
+
+    /** Scenario CX5: what was told is kept in order; past 300, the oldest is forgotten, never the newest. */
+    @Test fun pastThreeHundredTheOldestIsForgottenNotTheNewest() {
+        val old = (0 until 300).map { FeedItem("insight:old-$it", "insight", "t$it") }
+        notifier.deliver(old, locked = false)                                       // the first sync: silent, all seen
+        assertEquals(1, notifier.deliver(listOf(approval), locked = false))
+        assertEquals(0, notifier.deliver(listOf(approval), locked = false))         // the newest, told once
+        // still in the feed, the old ones aren't forgotten either: only what left the feed longest ago
+        assertEquals(0, notifier.deliver(old.takeLast(299) + approval, locked = false))
+        assertEquals(1, notifier.deliver(listOf(old.first()), locked = false))      // the one made room for
+    }
+
+    /** Scenario CX5: two things are two notifications, even when their keys' hash codes are the same. */
+    @Test fun twoThingsAreTwoNotificationsEvenWhenTheirKeysHashAlike() {
+        notifier.deliver(emptyList(), locked = false)
+        val one = FeedItem("insight:Aa", "insight", "یک")
+        val two = FeedItem("insight:BB", "insight", "دو")
+        assertEquals(one.key.hashCode(), two.key.hashCode())                       // the ids they had: one replaced the other
+        assertEquals(2, notifier.deliver(listOf(one, two), locked = false))
+        assertEquals(2, shade.allNotifications.size)
+    }
 }

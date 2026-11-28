@@ -23,6 +23,7 @@ class OutboxWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         if (app.api.session == null && app.api.restore() == null) return Result.success()   // signed out: nothing to send as anyone
         return when (app.outbox.flush()) {
             Outbox.Result.Offline -> Result.retry()
+            // Blocked: an update or a new sign-in first; the app sends what waits when it opens after that
             else -> Result.success()
         }
     }

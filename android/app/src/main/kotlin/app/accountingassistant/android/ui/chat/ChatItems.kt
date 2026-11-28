@@ -111,7 +111,14 @@ sealed interface ChatItem {
         /** Edit can change the amount only when one line is debited and one credited. */
         val amountEditable: Boolean get() = lines.count { it.debit.signum() > 0 } == 1 && lines.count { it.credit.signum() > 0 } == 1
     }
-    data class Figure(override val id: String, val label: String, val value: java.math.BigDecimal, val currency: String?) : ChatItem
+    /**
+     * One figure from the books; [asOf] the day it holds on (ISO), [breakdown]
+     * what it adds up from (the bank and the cash box; what is owned and owed).
+     */
+    data class Figure(override val id: String, val label: String, val value: java.math.BigDecimal, val currency: String?,
+                      val asOf: String? = null, val breakdown: List<Part> = emptyList()) : ChatItem {
+        data class Part(val label: String, val value: java.math.BigDecimal)
+    }
     /** A document from the books: open it, or share it to another app. */
     data class File(override val id: String, val name: String, val path: String, val mime: String) : ChatItem
     data class Table(override val id: String, val kind: String, val rows: List<Row>, val title: String? = null) : ChatItem {
@@ -295,7 +302,11 @@ fun parseBlock(b: JsonObject): ChatItem {
             else ChatItem.Chart(id, b.str("kind").orEmpty(), b.str("title").orEmpty(), b.str("currency"), points,
                                 point(b.obj("lowest")), b.str("first_negative"))
         }
-        "figure" -> ChatItem.Figure(id, b.str("label").orEmpty(), b.money("value") ?: java.math.BigDecimal.ZERO, b.str("currency"))
+        "figure" -> ChatItem.Figure(id, b.str("label").orEmpty(), b.money("value") ?: java.math.BigDecimal.ZERO, b.str("currency"),
+                                    asOf = b.str("as_of"),
+                                    breakdown = b["breakdown"].array().mapNotNull { p ->
+                                        p.money("value")?.let { ChatItem.Figure.Part(p.str("label").orEmpty(), it) }
+                                    })
         "file" -> fileOf(b) ?: ChatItem.Fallback(id, b.str("fallback_text").orEmpty())
         "table" -> ChatItem.Table(id, b.str("kind").orEmpty(), b["rows"].array().map {
             ChatItem.Table.Row(it.str("label").orEmpty(), it.str("sub"), it.money("value") ?: java.math.BigDecimal.ZERO, it.str("currency"),

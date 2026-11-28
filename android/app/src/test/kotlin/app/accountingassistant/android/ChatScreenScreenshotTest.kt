@@ -13,6 +13,7 @@ import app.accountingassistant.android.ui.chat.ChatScreen
 import app.accountingassistant.android.ui.chat.ChatUiState
 import app.accountingassistant.android.ui.components.VoucherLine
 import app.accountingassistant.android.ui.theme.AccountantTheme
+import app.accountingassistant.android.util.Dates
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import app.accountingassistant.android.ui.chat.EditVoucherSheet
@@ -20,6 +21,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -483,6 +485,30 @@ class ChatScreenScreenshotTest {
         }
         compose.mainClock.advanceTimeBy(1500)
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-net-worth.png")
+    }
+
+    /** Scenario CX4: a figure says the day it holds on and what it adds up from. */
+    @Test @Config(qualifiers = "+fa")
+    fun persianCashWithItsParts() {
+        compose.setContent {
+            AccountantTheme(dark = false) {
+                ChatScreen(
+                    state = ChatUiState(items = listOf(
+                        ChatItem.User("u1", "موجودی نقد و بانک چقدره؟"),
+                        ChatItem.Figure("f1", "موجودی نقد و بانک", java.math.BigDecimal(1_240_000_000), "IRR", asOf = "2026-10-10",
+                                        breakdown = listOf(ChatItem.Figure.Part("بانک ملت", java.math.BigDecimal(1_000_000_000)),
+                                                           ChatItem.Figure.Part("صندوق", java.math.BigDecimal(240_000_000)))))),
+                    lang = "fa", booksName = "شرکت بازرگانی آرمان", personalBooks = false,
+                    onDraft = {}, onSend = {}, onConfirm = {}, onCancel = {}, onUndo = {}, onBooks = {},
+                )
+            }
+        }
+        compose.mainClock.advanceTimeBy(1500)
+        compose.onNodeWithText("صندوق").assertExists()
+        compose.onNodeWithText("۲۴۰,۰۰۰,۰۰۰").assertExists()
+        val day = RuntimeEnvironment.getApplication().getString(R.string.fresh_as_of, Dates.short("2026-10-10", "fa"))
+        compose.onNodeWithText(day).assertExists()                                   // «به‌روز ۱۸ مهر»
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/chat-fa-cash-parts.png")
     }
 
     /** Scenario N37: a statement going in pieces on a poor line, and a photo being attached. */

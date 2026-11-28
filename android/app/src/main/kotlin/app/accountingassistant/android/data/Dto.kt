@@ -1,8 +1,17 @@
 package app.accountingassistant.android.data
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /** The wire shapes of /api/mobile/v1 (app/api/mobile.py, app/api/mobile_chat.py). */
 
@@ -200,6 +209,24 @@ data class DeviceDto(
 @Serializable
 data class CrashBatch(val reports: List<app.accountingassistant.android.util.CrashReport>)
 
+/**
+ * An amount exactly as the server writes it, a JSON number (23915.5,
+ * 1240000000): read from its digits, never through a Double, which loses
+ * pence and the last digits of large rial sums (scenario CX6). Kept on the
+ * phone as a string, which it reads too.
+ */
+object ExactAmount : KSerializer<java.math.BigDecimal> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("app.accountingassistant.android.ExactAmount", PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): java.math.BigDecimal {
+        val text = if (decoder is JsonDecoder) decoder.decodeJsonElement().jsonPrimitive.content else decoder.decodeString()
+        return text.trim().toBigDecimalOrNull() ?: throw SerializationException("not an amount: $text")
+    }
+
+    override fun serialize(encoder: Encoder, value: java.math.BigDecimal) = encoder.encodeString(value.toPlainString())
+}
+
 /** The widget's two numbers (GET /summary). */
 @Serializable
 data class SummaryReply(
@@ -210,17 +237,19 @@ data class SummaryReply(
 
 @Serializable
 data class SummaryCash(
-    val total: Double,                                                           // 23915.5: pence kept
+    @Serializable(with = ExactAmount::class) val total: java.math.BigDecimal,     // 23915.5: pence kept
     val currency: String? = null,
     /** Each currency as it is, the books' first; [total] is the first's (docs/PLAN_CURRENCIES.md). */
     @SerialName("by_currency") val byCurrency: List<SummaryHeld> = emptyList(),
 )
 
 @Serializable
-data class SummaryHeld(val currency: String, val total: Double)
+data class SummaryHeld(val currency: String, @Serializable(with = ExactAmount::class) val total: java.math.BigDecimal)
 
 @Serializable
-data class SummaryBudget(val left: Double, val total: Double, val currency: String? = null)
+data class SummaryBudget(@Serializable(with = ExactAmount::class) val left: java.math.BigDecimal,
+                         @Serializable(with = ExactAmount::class) val total: java.math.BigDecimal,
+                         val currency: String? = null)
 
 /** What deserves a notification now (GET /feed); [key] is stable, so each is told once. */
 @Serializable

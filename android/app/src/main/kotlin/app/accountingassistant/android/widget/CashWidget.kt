@@ -20,27 +20,33 @@ import androidx.work.WorkerParameters
 import app.accountingassistant.android.AccountantApp
 import app.accountingassistant.android.MainActivity
 import app.accountingassistant.android.R
+import app.accountingassistant.android.data.ExactAmount
 import app.accountingassistant.android.security.AppLock
 import app.accountingassistant.android.ui.components.priced
 import app.accountingassistant.android.ui.components.pricedInWords
 import app.accountingassistant.android.util.Dates
 import app.accountingassistant.android.util.Numbers
+import app.accountingassistant.android.util.runSuspendCatching
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.util.concurrent.TimeUnit
 
-/** What the widget last knew, kept on the phone between refreshes. */
+/**
+ * What the widget last knew, kept on the phone between refreshes. The amounts
+ * are exact, as the server sent them: a Double lost pence and the last digits
+ * of large rial sums (scenario CX6).
+ */
 @Serializable
 data class WidgetState(
     val signedIn: Boolean = false,
     /** The app lock is on: the widget never shows the books past it. */
     val locked: Boolean = false,
     val books: String = "",
-    val cash: Double? = null,
+    @Serializable(with = ExactAmount::class) val cash: java.math.BigDecimal? = null,
     val cashCurrency: String? = null,
     /** Money in the other currencies, each as it is (docs/PLAN_CURRENCIES.md): [cash] is the first. */
     val others: List<Held> = emptyList(),
-    val budgetLeft: Double? = null,
+    @Serializable(with = ExactAmount::class) val budgetLeft: java.math.BigDecimal? = null,
     val budgetCurrency: String? = null,
     val asOf: String? = null,
     /** The books' calendar, for the "as of" date. */
@@ -48,7 +54,7 @@ data class WidgetState(
 )
 
 @Serializable
-data class Held(val currency: String, val total: Double)
+data class Held(val currency: String, @Serializable(with = ExactAmount::class) val total: java.math.BigDecimal)
 
 /** The widget's lines, worked out away from Android's views so they can be tested. [others]: the other
  *  currencies, «۳,۰۰۰,۰۰۰ ریال، ۵۰۰ دلار»; [line]: the budget left. */
@@ -62,13 +68,13 @@ fun widgetText(state: WidgetState, lang: String, words: (Int) -> String, formatt
         state.cash == null -> WidgetText(title, null, null, words(R.string.widget_loading))
         else -> WidgetText(
             title = title,
-            amount = priced(java.math.BigDecimal.valueOf(state.cash), state.cashCurrency, lang),
+            amount = priced(state.cash, state.cashCurrency, lang),
             line = state.budgetLeft?.let {
-                formatted(R.string.widget_budget_left, Numbers.amount(java.math.BigDecimal.valueOf(it), lang, Numbers.places(state.budgetCurrency)))
+                formatted(R.string.widget_budget_left, Numbers.amount(it, lang, Numbers.places(state.budgetCurrency)))
             },
             note = state.asOf?.let { formatted(R.string.widget_as_of, Dates.short(it, lang, state.calendar)) },
             others = state.others.takeIf { it.isNotEmpty() }?.joinToString(Numbers.separator(lang)) {
-                pricedInWords(java.math.BigDecimal.valueOf(it.total), it.currency, lang)
+                pricedInWords(it.total, it.currency, lang)
             },
         )
     }
@@ -153,7 +159,7 @@ class WidgetRefreshWorker(context: Context, params: WorkerParameters) : Coroutin
         val locked = AppLock(applicationContext).enabled()
         val state = if (session == null) WidgetState() else if (locked) WidgetState(signedIn = true, locked = true, books = session.company?.name.orEmpty())
         else {
-            val s = runCatching { app.api.summary() }.getOrNull() ?: return Result.retry()
+            val s = runSuspendCatching { app.api.summary() }.getOrNull() ?: return Result.retry()
             WidgetState(signedIn = true, books = session.company?.name.orEmpty(), cash = s.cash.total, cashCurrency = s.cash.currency,
                         others = s.cash.byCurrency.drop(1).map { Held(it.currency, it.total) },
                         budgetLeft = s.budget?.left, budgetCurrency = s.budget?.currency, asOf = s.asOf,

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Index, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -11,16 +11,36 @@ from app.db.base import Base
 from app.db.tenant import TenantMixin
 from app.core.money import MoneyType
 
+# A voided or canceled invoice gives its number up: the number can be used
+# again, and the database's uniqueness leaves these out (migration 088).
+VOID_STATUSES = ("voided", "canceled")
+_LIVE = "status NOT IN ('voided', 'canceled')"
+_SERIAL_SET = "moadian_serial IS NOT NULL"
+
 
 class Invoice(Base, TenantMixin):
     """Simple invoice record for receivable/payable tracking."""
 
     __tablename__ = "invoices"
+    # The database guarantees what the API checks (review 2026-11-28, scenarios
+    # CV4–CV5): one live invoice per number and kind in a company — our sales
+    # numbering and suppliers' own numbers on bills may coincide — and one
+    # invoice per سامانه مؤدیان serial in a company (the serial is the tax
+    # number's sequence). Partial, so a voided invoice keeps its number in the
+    # books without blocking it, and invoices never exported (no serial) don't
+    # count.
+    __table_args__ = (
+        Index("uq_invoices_company_kind_number", "company_id", "kind", "number", unique=True,
+              postgresql_where=text(_LIVE), sqlite_where=text(_LIVE)),
+        Index("uq_invoices_company_moadian_serial", "company_id", "moadian_serial", unique=True,
+              postgresql_where=text(_SERIAL_SET), sqlite_where=text(_SERIAL_SET)),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     number: Mapped[str] = mapped_column(String(128), index=True)
     kind: Mapped[str] = mapped_column(String(16), index=True)  # sales | purchase
-    status: Mapped[str] = mapped_column(String(16), index=True, default="draft")  # draft | issued | paid | canceled
+    # draft | issued | partially_paid | paid | credited | canceled | voided
+    status: Mapped[str] = mapped_column(String(16), index=True, default="draft")
     issue_date: Mapped[date] = mapped_column(Date, index=True)
     due_date: Mapped[date] = mapped_column(Date, index=True)
     amount: Mapped[int] = mapped_column(MoneyType(), default=0)

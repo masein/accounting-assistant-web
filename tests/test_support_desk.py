@@ -237,3 +237,12 @@ def test_da3_the_desk_greets_by_a_name_only_when_there_is_one(db, co):
     assert S._display_name(db, NS(entity_id=None, username="u_77"), NS(kind="personal", name="Sara Ahmadi")) == "Sara Ahmadi"
     assert S._display_name(db, NS(entity_id=None, username="سارا"), None) == "سارا"
 
+
+def test_da8_a_time_with_an_unencoded_plus_still_reads(client, db, co):
+    """?after=2026-11-28T10:00:00+00:00 sent as is arrives with a space for the +; it is read as meant."""
+    api = _login(client, co["cid"], co["owner"])
+    api.post("/support/messages", json={"text": "hello"})
+    assert api.get("/support?after=2000-01-01T00:00:00+00:00").status_code == 200
+    assert [m["text"] for m in api.get("/support?after=2000-01-01T00:00:00+00:00").json()["messages"]] == ["hello"]
+    assert api.get("/support?after=not-a-time").status_code == 422
+

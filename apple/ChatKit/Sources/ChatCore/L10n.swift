@@ -47,6 +47,24 @@ public struct L10n: Equatable, Sendable {
         }
     }
 
+    /// A notice on the Support screen, in words.
+    public func notice(_ notice: SupportNotice) -> String {
+        switch notice {
+        case .sendFailed: return self[.supportFailed]
+        case .uploadFailed: return self[.uploadFailed]
+        case .tooLarge: return self[.supportTooLarge]
+        }
+    }
+
+    /// A count in the reader's digits ("۳" in Persian), "9+" past nine: the badge's.
+    public func count(_ n: Int, cap: Int? = nil) -> String {
+        let f = NumberFormatter()
+        f.locale = locale
+        f.numberStyle = .decimal
+        if let cap, n > cap { return (f.string(from: NSNumber(value: cap)) ?? "\(cap)") + "+" }
+        return f.string(from: NSNumber(value: n)) ?? "\(n)"
+    }
+
     public enum Key: String, CaseIterable, Sendable {
         case appName, server, username, password, signIn, signingIn, twoFactorTitle, twoFactorHint, code, verify
         case conversations, newConversation, noConversations, signOut, signOutConfirm, cancelAction
@@ -63,6 +81,9 @@ public struct L10n: Equatable, Sendable {
         case holdToTalk, listening, transcribing, voiceFailed, voiceTooShort, micDenied
         // an app older than the server's minimum
         case updateTitle, updateRequired, done
+        // support: the chat with the support desk
+        case support, supportOnline, supportAway, supportIntro, supportPlaceholder, supportYou, supportAttached
+        case supportAttachFile, supportTooLarge, supportFailed, supportUnread
     }
 
     static let table: [String: [Key: String]] = [
@@ -101,6 +122,14 @@ public struct L10n: Equatable, Sendable {
             .micDenied: "The microphone is off for this app. Turn it on in Settings to record.",
             .updateTitle: "Update the app", .done: "Done",
             .updateRequired: "This version of the app is too old. Update it to keep going.",
+            .support: "Support",
+            .supportOnline: "● Online — usually answers within a few minutes",
+            .supportAway: "Away right now — your message is kept and answered as soon as support is back",
+            .supportIntro: "Tell us what went wrong or what you'd like to do: the screen, what you did and what you expected. A screenshot helps. What needs fixing is fixed, and you'll hear back here.",
+            .supportPlaceholder: "What went wrong? Which screen, what you did, what you expected",
+            .supportYou: "You", .supportAttached: "%@ file(s) attached", .supportAttachFile: "Choose a PDF",
+            .supportTooLarge: "That file is over 20 MB.", .supportFailed: "Couldn't send it — try again.",
+            .supportUnread: "%@ unread",
         ],
         "fa": [
             .appName: "دستیار حسابداری", .server: "سرور", .username: "نام کاربری", .password: "گذرواژه",
@@ -138,6 +167,14 @@ public struct L10n: Equatable, Sendable {
             .micDenied: "میکروفون برای این برنامه خاموش است. برای ضبط، آن را در تنظیمات روشن کنید.",
             .updateTitle: "برنامه را به‌روز کنید", .done: "بستن",
             .updateRequired: "این نسخهٔ برنامه قدیمی است. برای ادامه، برنامه را به‌روزرسانی کنید.",
+            .support: "پشتیبانی",
+            .supportOnline: "● آنلاین — معمولاً ظرف چند دقیقه پاسخ می‌دهد",
+            .supportAway: "الان در دسترس نیست — پیامتان می‌ماند و به محض بازگشت پشتیبانی پاسخ داده می‌شود",
+            .supportIntro: "بگویید چه مشکلی پیش آمد یا چه کاری می‌خواهید انجام دهید: کدام صفحه، چه کردید و چه انتظاری داشتید. تصویر صفحه کمک می‌کند. هر چه نیاز به اصلاح داشته باشد اصلاح می‌شود و پاسخش را همین‌جا می‌گیرید.",
+            .supportPlaceholder: "چه مشکلی پیش آمد؟ کدام صفحه، چه کردید، چه انتظاری داشتید",
+            .supportYou: "شما", .supportAttached: "%@ فایل پیوست", .supportAttachFile: "انتخاب فایل PDF",
+            .supportTooLarge: "این فایل بیش از ۲۰ مگابایت است.", .supportFailed: "ارسال نشد — دوباره امتحان کنید.",
+            .supportUnread: "%@ پیام خوانده‌نشده",
         ],
         "ar": [
             .appName: "مساعد المحاسبة", .server: "الخادم", .username: "اسم المستخدم", .password: "كلمة المرور",
@@ -174,6 +211,14 @@ public struct L10n: Equatable, Sendable {
             .micDenied: "الميكروفون مغلق لهذا التطبيق. شغّله من الإعدادات للتسجيل.",
             .updateTitle: "حدّث التطبيق", .done: "تم",
             .updateRequired: "هذه النسخة من التطبيق قديمة. حدّثها للمتابعة.",
+            .support: "الدعم",
+            .supportOnline: "● متصل — يرد عادةً خلال دقائق",
+            .supportAway: "غير متاح الآن — تُحفظ رسالتك ويُرد عليها فور عودة الدعم",
+            .supportIntro: "أخبرنا بما حدث أو بما تريد فعله: الشاشة، وما فعلته، وما توقعته. لقطة الشاشة تساعد. ما يحتاج إلى إصلاح يُصلح، وتصلك الإجابة هنا.",
+            .supportPlaceholder: "ما المشكلة؟ أي شاشة، ماذا فعلت، وماذا توقعت",
+            .supportYou: "أنت", .supportAttached: "مرفقات: %@", .supportAttachFile: "اختر ملف PDF",
+            .supportTooLarge: "هذا الملف أكبر من 20 ميغابايت.", .supportFailed: "تعذر الإرسال — حاول مرة أخرى.",
+            .supportUnread: "غير مقروءة: %@",
         ],
         "es": [
             .appName: "Asistente contable", .server: "Servidor", .username: "Usuario", .password: "Contraseña",
@@ -211,6 +256,14 @@ public struct L10n: Equatable, Sendable {
             .micDenied: "El micrófono está desactivado para esta app. Actívalo en Ajustes para grabar.",
             .updateTitle: "Actualiza la app", .done: "Listo",
             .updateRequired: "Esta versión de la app es demasiado antigua. Actualízala para seguir.",
+            .support: "Soporte",
+            .supportOnline: "● En línea — suele responder en pocos minutos",
+            .supportAway: "Ausente ahora — tu mensaje se guarda y se responde en cuanto soporte vuelva",
+            .supportIntro: "Cuéntanos qué falló o qué quieres hacer: la pantalla, qué hiciste y qué esperabas. Una captura ayuda. Lo que haya que arreglar se arregla, y la respuesta llega aquí.",
+            .supportPlaceholder: "¿Qué falló? Qué pantalla, qué hiciste, qué esperabas",
+            .supportYou: "Tú", .supportAttached: "%@ archivo(s) adjunto(s)", .supportAttachFile: "Elegir un PDF",
+            .supportTooLarge: "Ese archivo supera los 20 MB.", .supportFailed: "No se pudo enviar — inténtalo de nuevo.",
+            .supportUnread: "%@ sin leer",
         ],
     ]
 }

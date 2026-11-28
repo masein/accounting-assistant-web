@@ -14,11 +14,13 @@ final class ChatScreenState: ObservableObject {
 public struct ChatScreen: View {
     @ObservedObject var app: AppModel
     @ObservedObject var chat: ChatModel
+    @ObservedObject var support: SupportModel
     @StateObject private var ui = ChatScreenState()
 
-    public init(app: AppModel, chat: ChatModel) {
+    public init(app: AppModel, chat: ChatModel, support: SupportModel) {
         self.app = app
         self.chat = chat
+        self.support = support
     }
 
     private var t: L10n { app.l10n }
@@ -27,6 +29,10 @@ public struct ChatScreen: View {
         NavigationSplitView(columnVisibility: $ui.columns) {
             ThreadList(chat: chat, l10n: t)
                 .navigationTitle(t[.conversations])
+                #if os(macOS)
+                // room for its toolbar (new, approvals, support, the account) beside the window's buttons
+                .navigationSplitViewColumnWidth(min: 280, ideal: 300)
+                #endif
                 .toolbar {
                     ToolbarItem {
                         Button { chat.newConversation() } label: { Label(t[.newConversation], systemImage: "square.and.pencil") }
@@ -35,6 +41,9 @@ public struct ChatScreen: View {
                     ToolbarItem {
                         Button { ui.showingApprovals = true } label: { Label(t[.approvals], systemImage: "checkmark.seal") }
                             .accessibilityIdentifier("approvals")
+                    }
+                    ToolbarItem {
+                        SupportButton(support: support, l10n: t) { openSupport() }
                     }
                     ToolbarItem {
                         Menu {
@@ -56,8 +65,27 @@ public struct ChatScreen: View {
         .sheet(isPresented: $ui.showingApprovals) {
             ApprovalsView(chat: chat, l10n: t, onClose: { ui.showingApprovals = false })
         }
+        .sheet(isPresented: $support.presented) {
+            SupportView(support: support, l10n: t, onClose: { support.presented = false })
+        }
+        // the window's size goes with a support message (what the person saw)
+        .background(GeometryReader { g in
+            Color.clear
+                .onAppear { support.screen = Self.size(g.size) }
+                .onChange(of: g.size) { _, size in support.screen = Self.size(size) }
+        })
         .task { await chat.refreshThreads() }
+        .task { await support.watchUnread() }            // the headset's badge, now and every minute
     }
+
+    /// Support, told where the person was (the open conversation) and in which language.
+    private func openSupport() {
+        support.page = chat.thread.map { "chat/\($0)" } ?? "chat"
+        support.language = t.language
+        support.presented = true
+    }
+
+    static func size(_ size: CGSize) -> String { "\(Int(size.width.rounded()))x\(Int(size.height.rounded()))" }
 }
 
 struct ThreadList: View {
@@ -504,7 +532,7 @@ public struct RootView: View {
             case .signedOut, .twoFactor:
                 LoginView(app: app)
             case .signedIn:
-                if let chat = app.chat { ChatScreen(app: app, chat: chat) }
+                if let chat = app.chat, let support = app.support { ChatScreen(app: app, chat: chat, support: support) }
             case .updateRequired:
                 UpdateView(app: app)
             }

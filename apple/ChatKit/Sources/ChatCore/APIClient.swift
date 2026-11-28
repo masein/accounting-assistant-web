@@ -61,8 +61,12 @@ public actor APIClient {
     private let tokens: TokenStore
     private let device: DeviceInfo
     private var refreshing: Task<Void, Error>?
+    /// the last calls the server refused, newest last, to go with a support message (`recentFailures`)
+    private var failures: [FailedCall] = []
 
     public static let apiPath = "api/mobile/v1"
+    /// how many refused calls are kept for support (the web page keeps ten too)
+    public static let keptFailures = 10
 
     public init(baseURL: URL, tokens: TokenStore, device: DeviceInfo = .current, session: URLSession = .shared) {
         self.baseURL = baseURL
@@ -164,6 +168,7 @@ public actor APIClient {
                 continue
             }
             guard (200..<300).contains(status) else {
+                remember(request, status: status, response: response as? HTTPURLResponse)
                 var data = Data()
                 do { for try await byte in bytes { data.append(byte); if data.count > 65_536 { break } } } catch {}
                 throw refusal(status: status, data: data, response: response as? HTTPURLResponse)
@@ -315,15 +320,68 @@ public actor APIClient {
 
     /// A voice note's words, for the user to check before sending.
     public func transcribe(_ data: Data, fileName: String, contentType: String) async throws -> String {
+        let reply = try await decode(Transcript.self, "POST", "transcribe",
+                                     body: Self.multipart(data, fileName: fileName, contentType: contentType),
+                                     timeout: 120)
+        return (reply.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// One file as a form's `file` field (multipart/form-data).
+    static func multipart(_ data: Data, fileName: String, contentType: String) -> Body {
         let boundary = "Boundary-\(UUID().uuidString)"
+        let name = String(fileName.map { "\"\r\n".contains($0) ? "_" : $0 })
         var body = Data()
-        body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n".utf8))
+        body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(name)\"\r\n".utf8))
         body.append(Data("Content-Type: \(contentType)\r\n\r\n".utf8))
         body.append(data)
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
-        let reply = try await decode(Transcript.self, "POST", "transcribe",
-                                     body: .raw(body, "multipart/form-data; boundary=\(boundary)"), timeout: 120)
-        return (reply.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return .raw(body, "multipart/form-data; boundary=\(boundary)")
+    }
+
+    // MARK: - Support (the support desk: Claude in the owner's Nightshift, on their Mac; app/api/support.py)
+
+    /// The person's conversation with the support desk: the newest messages, or only those `after` the last one
+    /// had (the server's own `at`, passed back as it came); the unread replies; whether the desk is online.
+    public func supportConversation(after: String? = nil) async throws -> SupportConversation {
+        try await decode(SupportConversation.self, "GET", "support",
+                         query: after.map { [URLQueryItem(name: "after", value: $0)] } ?? [])
+    }
+
+    /// A message to the desk, with the files uploaded for it and what the app knew: the screen, the app's version,
+    /// the language, the window's size and the last calls the server refused (their request ids find them in its
+    /// log). A refusal (past the day's 30, an empty message) comes back in the person's language.
+    public func sendSupport(text: String, attachmentIDs: [String] = [],
+                            context: SupportContext) async throws -> SupportSent {
+        let body: [String: Any] = ["text": text, "attachment_ids": attachmentIDs,
+                                   "context": context.payload(device: device, errors: failures)]
+        return try await decode(SupportSent.self, "POST", "support/messages", body: .json(body),
+                                language: context.language)
+    }
+
+    /// A screenshot or a PDF for the next support message (20 MB at most): its id goes with the words.
+    public func uploadSupportFile(_ data: Data, fileName: String, contentType: String,
+                                  language: String? = nil) async throws -> Attachment {
+        try await decode(Attachment.self, "POST", "support/attachments",
+                         body: Self.multipart(data, fileName: fileName, contentType: contentType), timeout: 120,
+                         language: language)
+    }
+
+    /// The desk's replies read: the badge goes, here and on the web. How many were marked comes back.
+    @discardableResult
+    public func markSupportSeen() async throws -> Int {
+        try await decode(SupportSeen.self, "POST", "support/seen", body: .json([:])).seen ?? 0
+    }
+
+    /// The calls the server refused lately, newest last: not support's own, not an expired token that was renewed.
+    public func recentFailures() -> [FailedCall] { failures }
+
+    private func remember(_ request: URLRequest, status: Int, response: HTTPURLResponse?) {
+        guard status >= 400, status != 401, let url = request.url,
+              !url.path.hasPrefix("/\(Self.apiPath)/support") else { return }
+        failures.append(FailedCall(method: request.httpMethod ?? "GET", path: url.path, status: status,
+                                   requestID: response?.value(forHTTPHeaderField: "X-Request-ID"),
+                                   at: FailedCall.stamp(Date())))
+        if failures.count > Self.keptFailures { failures.removeFirst(failures.count - Self.keptFailures) }
     }
 
     // MARK: - Requests
@@ -334,8 +392,10 @@ public actor APIClient {
     }
 
     private func decode<T: Decodable>(_ type: T.Type, _ method: String, _ path: String, query: [URLQueryItem] = [],
-                                      body: Body? = nil, timeout: TimeInterval = 30) async throws -> T {
-        try Self.decodeBody(T.self, await exchange(method, path, query: query, body: body, timeout: timeout).data)
+                                      body: Body? = nil, timeout: TimeInterval = 30,
+                                      language: String? = nil) async throws -> T {
+        try Self.decodeBody(T.self, await exchange(method, path, query: query, body: body, timeout: timeout,
+                                                   language: language).data)
     }
 
     static func decodeBody<T: Decodable>(_ type: T.Type, _ data: Data) throws -> T {
@@ -347,10 +407,13 @@ public actor APIClient {
     }
 
     private func makeRequest(_ method: String, _ path: String, query: [URLQueryItem] = [], body: Body?,
-                             authorized: Bool, timeout: TimeInterval, accept: String) throws -> URLRequest {
+                             authorized: Bool, timeout: TimeInterval, accept: String,
+                             language: String? = nil) throws -> URLRequest {
         var url = baseURL.appendingPathComponent(Self.apiPath).appendingPathComponent(path)
         if !query.isEmpty, var parts = URLComponents(url: url, resolvingAgainstBaseURL: false) {
             parts.queryItems = query
+            // a bare "+" is a space to the server: a time's "+00:00" must reach it as it is
+            parts.percentEncodedQuery = parts.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
             url = parts.url ?? url
         }
         var request = URLRequest(url: url)
@@ -359,6 +422,8 @@ public actor APIClient {
         request.setValue(accept, forHTTPHeaderField: "Accept")
         request.setValue(device.appVersion, forHTTPHeaderField: "X-App-Version")
         if let language = device.language { request.setValue(language, forHTTPHeaderField: "Accept-Language") }
+        // the person's own language (their setting on the server), for a refusal said in it
+        if let language { request.setValue(language, forHTTPHeaderField: "X-UI-Language") }
         switch body {
         case .json(let json):
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -378,9 +443,10 @@ public actor APIClient {
     /// One call, renewing an expired access token once; a refusal is thrown as `APIError`.
     private func exchange(_ method: String, _ path: String, query: [URLQueryItem] = [], body: Body? = nil,
                           authorized: Bool = true, retried: Bool = false, timeout: TimeInterval = 30,
-                          accept: String = "application/json") async throws -> (data: Data, response: HTTPURLResponse) {
+                          accept: String = "application/json",
+                          language: String? = nil) async throws -> (data: Data, response: HTTPURLResponse) {
         let request = try makeRequest(method, path, query: query, body: body, authorized: authorized, timeout: timeout,
-                                      accept: accept)
+                                      accept: accept, language: language)
         let (data, response): (Data, URLResponse)
         do {
             (data, response) = try await session.data(for: request)
@@ -392,10 +458,11 @@ public actor APIClient {
         if status == 401 && authorized && !retried && tokens.load() != nil {
             try await refreshTokens()
             return try await exchange(method, path, query: query, body: body, authorized: authorized, retried: true,
-                                      timeout: timeout, accept: accept)
+                                      timeout: timeout, accept: accept, language: language)
         }
         guard (200..<300).contains(status), let http else {
             if status == 401 && authorized { tokens.clear() }
+            remember(request, status: status, response: http)
             throw refusal(status: status, data: data, response: http)
         }
         return (data, http)

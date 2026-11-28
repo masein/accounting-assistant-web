@@ -30,6 +30,9 @@ class SupportThread(Base, TenantMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, unique=True)
     # where the person last wrote from: web | android | ios | telegram | bale
     channel: Mapped[str] = mapped_column(String(16), default="web")
+    # the Telegram/Bale chat they last wrote from: the desk's reply goes there too, while they write from it (DA9)
+    chat_platform: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    chat_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_user_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_desk_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

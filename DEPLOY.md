@@ -570,6 +570,11 @@ person ─► support panel ─► the server keeps it ─► POST /desk/pending
   customer's books as files, read-only from the live copy (§13), and the app's code. It changes nothing.
 - **Limits:** 30 messages a day per person (the desk runs on the owner's Claude plan). A reply is a bell line (one per
   newest unread reply) and a push, until read.
+- **From the bot:** `/support` in a signed-in Telegram/Bale chat writes to the same conversation (text, screenshots,
+  voice notes) until `/done`. The desk's reply comes back to that chat — a bot on a webhook sends it at once; through
+  the relay (§14) it waits in `messenger_outbox` and the relay fetches it every few seconds
+  (`POST /bots/<platform>/relay/outbox`). Update the server before the relay: an older server has no outbox, and the
+  relay then asks only every five minutes.
 
 ## Notes
 - `docker-compose.yml` (no suffix) stays the **dev** stack: it builds locally

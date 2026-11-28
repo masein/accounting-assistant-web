@@ -95,6 +95,7 @@ def test_da3_the_desk_takes_the_waiting_messages_with_who_wrote_them(client, db,
     assert [i["message"]["text"] for i in items] == ["first", "second"]
     one = items[0]
     assert one["person"]["username"] == co["owner"].username and one["person"]["role"] == "owner"
+    assert one["person"]["name"] is None                                 # "owner-1a2b3c" is no name to greet
     assert one["company"]["id"] == co["cid"] and one["company"]["locale"] == "ir" and one["history"] == []
     assert client.post("/desk/pending", headers=desk).json()["items"] == []          # taken
     # a message taken and never answered comes back after the lease
@@ -226,3 +227,13 @@ def test_da8_a_phone_writes_to_the_same_conversation(client, db, co, desk):
     assert client.post(f"{API}/support/seen", headers=phone).json() == {"seen": 1}
     with use_company(co["cid"]):
         assert db.execute(select(SupportThread)).scalars().one().channel == "android"
+
+
+def test_da3_the_desk_greets_by_a_name_only_when_there_is_one(db, co):
+    """The desk says "Dear Sara", never "Dear e2e_owner" (the owner, 2026-11-28)."""
+    from types import SimpleNamespace as NS
+    assert S._display_name(db, NS(entity_id=None, username="sara"), NS(kind="business", name="Sterling")) == "Sara"
+    assert S._display_name(db, NS(entity_id=None, username="e2e_owner"), NS(kind="business", name="X")) is None
+    assert S._display_name(db, NS(entity_id=None, username="u_77"), NS(kind="personal", name="Sara Ahmadi")) == "Sara Ahmadi"
+    assert S._display_name(db, NS(entity_id=None, username="سارا"), None) == "سارا"
+

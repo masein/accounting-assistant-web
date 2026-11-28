@@ -669,8 +669,11 @@ def preview_invoice_pdf(payload: InvoiceCreate, db: Session = Depends(get_db)) -
 
 
 def _number_taken(number: str, kind: str, twin_id=None) -> HTTPException:
-    where = f" (id {twin_id})" if twin_id is not None else ""
-    return HTTPException(status_code=409, detail=f"{kind.capitalize()} invoice number '{number}' already exists{where}.")
+    if twin_id is not None:
+        return HTTPException(status_code=409,
+                             detail=f"{kind.capitalize()} invoice number '{number}' already exists (id {twin_id}).")
+    # the database's index answered (a race): which invoice holds it isn't known here
+    return HTTPException(status_code=409, detail=f"{kind.capitalize()} invoice number '{number}' already exists.")
 
 
 def _assert_number_free(db: Session, number: str, kind: str, *, exclude_id=None, status: str | None = None) -> None:

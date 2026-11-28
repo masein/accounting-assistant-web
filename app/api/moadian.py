@@ -145,8 +145,9 @@ def export(payload: ExportRequest, request: Request = None, db: Session = Depend
             continue
         try:
             serial = builder.assign_serial(db, inv)
-        except builder.SerialBusy as e:
-            skipped.append({"id": str(inv.id), "number": inv.number, "problems": [str(e)]})
+        except builder.SerialBusy:
+            skipped.append({"id": str(inv.id), "number": inv.number,
+                            "problems": ["Another export kept taking the next serial; try again."]})
             continue
         b = builder.build(db, inv, serial=serial)
         inv.moadian_taxid = b.packet["header"]["taxid"]

@@ -173,3 +173,28 @@ def test_a_real_fall_names_both_months(co, db):
     rose = next(i for i in r.insights if i.title.startswith("Expenses rose 40% in"))
     assert rose.title == f"Expenses rose 40% in {_month_name(1)}"
     assert rose.body == f"{_month_name(1)}: 14,000 vs {_month_name(2)}: 10,000."
+
+
+def test_the_summary_matches_the_balance_sheet(co, db):
+    """CEO Mode and the Management balance sheet are the same statement (#35).
+    The summary summed every line ever written, so a deleted entry and one
+    dated after today counted in CEO Mode but not on the balance sheet."""
+    from datetime import datetime, timezone
+    from app.models.transaction import Transaction
+    from app.services.cfo_intelligence import build_ceo_report
+    from app.services.reporting.financial_statement_service import build_balance_sheet
+    bank, capital, revenue = _code(db, co, "bank"), _code(db, co, "share_capital"), _code(db, co, "revenue")
+    _journal(db, co, (bank, 1_000, 0), (capital, 0, 1_000))
+    _journal(db, co, (bank, 300, 0), (revenue, 0, 300))
+    _journal(db, co, (bank, 50, 0), (revenue, 0, 50))                        # deleted below
+    _journal(db, co, (bank, 70, 0), (capital, 0, 70), days_ago=-30)          # next month
+    with use_company(co["cid"]):
+        gone = next(x for x in db.query(Transaction).all() if any(ln.debit == 50 for ln in x.lines))
+        gone.deleted_at = datetime.now(timezone.utc)
+        db.commit()
+        r = build_ceo_report(db)
+        bs = build_balance_sheet(db).totals
+    assert (r.total_assets, r.total_liabilities, r.total_equity) == (bs["assets"], bs["liabilities"], bs["equity"])
+    assert (r.total_assets, r.total_equity) == (1_300, 1_300)                # was 1,370 and 1,370
+    assert sum(e["balance"] for e in r.assets_breakdown) == r.total_assets
+    assert sum(e["balance"] for e in r.equity_breakdown) == r.total_equity

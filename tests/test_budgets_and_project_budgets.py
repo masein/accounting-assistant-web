@@ -200,9 +200,8 @@ def test_the_budget_and_project_panels_are_wired():
     html = open("app/static/index.html", encoding="utf-8").read()
     for el in ('id="budget-roll"', 'id="tm-budgets-section"', 'id="tm-budgets-body"'):
         assert el in html, el
-    vouchers = open("app/static/js/06-vouchers.js", encoding="utf-8").read()
-    assert "budget-edit" in vouchers and "budget-del" in vouchers and "method: 'PATCH'" in vouchers
     forms = open("app/static/js/08-entities-invoices.js", encoding="utf-8").read()
+    assert "budget-edit" in forms and "budget-del" in forms and "method: 'PATCH'" in forms
     assert "'/budgets/roll-forward'" in forms
     time_js = open("app/static/js/11-time-expenses-payroll.js", encoding="utf-8").read()
     tab = time_js[time_js.index("async function loadTimeTab()"):time_js.index("async function tmLoadBudgets()")]

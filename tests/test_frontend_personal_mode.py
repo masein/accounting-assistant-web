@@ -177,7 +177,7 @@ def test_voucher_balance_bar_reads_the_real_lines_table():
     queried `#lines-body` while the table body is `#lines-tbody`."""
     from pathlib import Path
     root = Path(__file__).resolve().parents[1] / "app" / "static"
-    js = (root / "js" / "07-chat-reports.js").read_text(encoding="utf-8")
+    js = (root / "js" / "06-vouchers.js").read_text(encoding="utf-8")
     html = (root / "index.html").read_text(encoding="utf-8")
     assert 'id="lines-tbody"' in html
     assert "querySelectorAll('#lines-tbody tr')" in js

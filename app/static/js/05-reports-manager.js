@@ -5,7 +5,7 @@
         el.innerHTML = '<p class="empty-state" style="padding:0.5rem;">' + escapeHtml(t('noDataYet')) + '</p>';
         return;
       }
-      const th = headers.map(h => `<th>${escapeHtml(localizeReportFieldName(h))}</th>`).join('');
+      const th = headers.map(h => `<th scope="col">${escapeHtml(localizeReportFieldName(h))}</th>`).join('');
       // a date stays on one line (the forecast's weeks broke as "2026-09-" / "28")
       const isDate = (c) => typeof c === 'string' && /^[\u2066-\u2069]?\d{4}[-/]\d{2}[-/]\d{2}[\u2066-\u2069]?$/.test(c);
       const tr = rows.map(r => `<tr>${r.map(c => `<td${isDate(c) ? ' class="date-cell"' : ''}>${c && c.__html ? c.__html : (typeof c === 'string' ? escapeHtml(localizeDynamicText(c)) : c)}</td>`).join('')}</tr>`).join('');
@@ -591,8 +591,8 @@
       body.innerHTML = `<p class="bsc-summary">${escapeHtml(tf('bscSummary', { section: t(sec.label), prior: formatAmount(pri, ccy || undefined),
           from, current: formatAmount(cur, ccy || undefined), to, change: _bsSigned(change, ccy), pct: _bsPct(change, pri) }))}</p>`
         + (moved.length ? `<div style="overflow-x:auto;"><table class="mini-table bsc-table"><thead><tr>
-            <th>${escapeHtml(t('bscLine'))}</th><th>${escapeHtml(from)}</th><th>${escapeHtml(to)}</th>
-            <th>${escapeHtml(t('bscChange'))}</th><th>${escapeHtml(t('bscShare'))}</th></tr></thead><tbody>${
+            <th scope="col">${escapeHtml(t('bscLine'))}</th><th scope="col">${escapeHtml(from)}</th><th scope="col">${escapeHtml(to)}</th>
+            <th scope="col">${escapeHtml(t('bscChange'))}</th><th scope="col">${escapeHtml(t('bscShare'))}</th></tr></thead><tbody>${
           moved.map((x) => `<tr data-bs-line="${escapeHtml(x.row.key)}" style="cursor:pointer;">
             <td dir="auto">${escapeHtml(_bsLabel(x.row))}</td>
             <td class="num">${escapeHtml(formatAmount(x.pri, ccy || undefined))}</td>
@@ -629,8 +629,8 @@
             from, current: formatAmount(d.total.current, ccy || undefined), to, change: _bsSigned(d.total.change, ccy),
             pct: _bsPct(d.total.change, d.total.prior) }))}</p>`
         + (d.accounts.length ? `<div style="overflow-x:auto;"><table class="mini-table bsc-table"><thead><tr>
-            <th>${escapeHtml(t('bscAccount'))}</th><th>${escapeHtml(from)}</th><th>${escapeHtml(to)}</th>
-            <th>${escapeHtml(t('bscChange'))}</th></tr></thead><tbody>${
+            <th scope="col">${escapeHtml(t('bscAccount'))}</th><th scope="col">${escapeHtml(from)}</th><th scope="col">${escapeHtml(to)}</th>
+            <th scope="col">${escapeHtml(t('bscChange'))}</th></tr></thead><tbody>${
           d.accounts.map((a) => {
             const name = a.kind === 'pl_to_date' ? t('bscPlToDate') : joinParts([localCode(a.code), a.name]);
             const open = a.code ? ` data-code="${escapeHtml(a.code)}" data-name="${escapeHtml(a.name || a.code)}" style="cursor:pointer;"` : '';
@@ -1198,8 +1198,8 @@
         <div style="max-height:400px;overflow:auto;">
         <table class="detail-table">
           <thead><tr>
-            <th>${escapeHtml(t('stockColItem'))}</th><th>${escapeHtml(t('labelSKU'))}</th><th>${escapeHtml(t('labelUnit'))}</th><th class="num">${escapeHtml(t('invColIn'))}</th><th class="num">${escapeHtml(t('invColOut'))}</th>
-            <th class="num">${escapeHtml(t('stockColOnHand'))}</th><th class="num">${escapeHtml(t('invColAvgCost'))}</th><th class="num">${escapeHtml(t('stockColValue'))}</th><th class="num">${escapeHtml(t('fieldCOGS'))}</th>
+            <th scope="col">${escapeHtml(t('stockColItem'))}</th><th scope="col">${escapeHtml(t('labelSKU'))}</th><th scope="col">${escapeHtml(t('labelUnit'))}</th><th scope="col" class="num">${escapeHtml(t('invColIn'))}</th><th scope="col" class="num">${escapeHtml(t('invColOut'))}</th>
+            <th scope="col" class="num">${escapeHtml(t('stockColOnHand'))}</th><th scope="col" class="num">${escapeHtml(t('invColAvgCost'))}</th><th scope="col" class="num">${escapeHtml(t('stockColValue'))}</th><th scope="col" class="num">${escapeHtml(t('fieldCOGS'))}</th>
           </tr></thead>
           <tbody>${rows.map(r => {
             const valPct = totalValue > 0 ? Math.round(r.inventory_value / totalValue * 100) : 0;
@@ -1270,7 +1270,7 @@
 
         <h4 style="margin:0.75rem 0 0.3rem;font-size:0.9rem;">${escapeHtml(t('invSummaryByItem'))}</h4>
         <div style="max-height:180px;overflow:auto;margin-bottom:1rem;">
-        <table class="mini-table"><thead><tr><th>${escapeHtml(t('stockColItem'))}</th><th class="num">${escapeHtml(t('invColIn'))}</th><th class="num">${escapeHtml(t('invColOut'))}</th><th class="num">${escapeHtml(t('invColAdj'))}</th><th class="num">${escapeHtml(t('invColNetValue'))}</th></tr></thead>
+        <table class="mini-table"><thead><tr><th scope="col">${escapeHtml(t('stockColItem'))}</th><th scope="col" class="num">${escapeHtml(t('invColIn'))}</th><th scope="col" class="num">${escapeHtml(t('invColOut'))}</th><th scope="col" class="num">${escapeHtml(t('invColAdj'))}</th><th scope="col" class="num">${escapeHtml(t('invColNetValue'))}</th></tr></thead>
           <tbody>${Object.entries(byItem).map(([name, v]) => `<tr>
             <td><strong>${escapeHtml(name)}</strong></td>
             <td class="num" style="color:#2e7d32;"><bdi dir="ltr">+${fmtNum(v.in)}</bdi></td>
@@ -1289,8 +1289,8 @@
         </div>
         <div id="inv-mv-table-wrap" style="max-height:350px;overflow:auto;">
         <table class="detail-table"><thead><tr>
-          <th>${t('labelDate')}</th><th>${escapeHtml(t('stockColItem'))}</th><th>${escapeHtml(t('labelType'))}</th><th class="num">${t('labelQuantity')}</th>
-          <th class="num">${escapeHtml(t('stockColUnitCost'))}</th><th class="num">${escapeHtml(t('stockColValue'))}</th><th>${t('labelReference')}</th><th>${t('labelDescription')}</th>
+          <th scope="col">${t('labelDate')}</th><th scope="col">${escapeHtml(t('stockColItem'))}</th><th scope="col">${escapeHtml(t('labelType'))}</th><th scope="col" class="num">${t('labelQuantity')}</th>
+          <th scope="col" class="num">${escapeHtml(t('stockColUnitCost'))}</th><th scope="col" class="num">${escapeHtml(t('stockColValue'))}</th><th scope="col">${t('labelReference')}</th><th scope="col">${t('labelDescription')}</th>
         </tr></thead>
           <tbody>${rows.map(r => `<tr>
             <td>${escapeHtml(formatDisplayDate(r.movement_date))}</td>
@@ -1339,7 +1339,54 @@
       openReportPrintWindow(lastInventoryReport, chartImg);
     }
 
+    // Accounts payable: open invoices aged as of the 'to' date, with its own
+    // table and an aging doughnut (runManagerReport sends it here).
+    async function runAccountsPayableReport() {
+      try {
+        const q = new URLSearchParams();
+        // Aging is as of the 'to' date: every open invoice, however old.
+        if (mgrToDateEl.value) q.set('to_date', mgrToDateEl.value);
+        mgrRunBtn.disabled = true;
+        const res = await fetch(API + '/manager-reports/operational/accounts-payable?' + q.toString());
+        const data = await res.json();
+        if (!res.ok) { showAlert(data.detail || t('msgFailed'), true); return; }
+        lastManagerReport = data;
+        const items = data.items || [];
+        const heads = ['fieldInvoice', 'labelSupplier', 'fieldBalance', 'labelDueDate', 'usersStatus', 'fieldAging', 'fieldDaysOverdue'];
+        let html = `<div class="report-preview-wrap"><table class="mini-table"><thead><tr>${heads.map(k => `<th scope="col">${escapeHtml(t(k))}</th>`).join('')}</tr></thead><tbody>`;
+        items.forEach(it => {
+          const overColor = it.days_overdue > 60 ? '#c62828' : it.days_overdue > 30 ? '#f57f17' : 'var(--text)';
+          const bucket = it.aging_bucket === 'current' ? t('fieldCurrent') : it.aging_bucket;
+          html += `<tr><td>${escapeHtml(it.invoice_number || '')}</td><td><bdi>${escapeHtml(it.vendor)}</bdi></td><td>${formatAmount(it.balance_due != null ? it.balance_due : it.amount)}</td><td>${escapeHtml(it.due_date ? formatDisplayDate(it.due_date) : '—')}</td><td><span class="badge">${escapeHtml(({ issued: t('optionStatusIssued'), partially_paid: t('optionStatusPartiallyPaid') })[it.status] || it.status)}</span></td><td>${escapeHtml(bucket)}</td><td style="color:${overColor};font-weight:600;">${it.days_overdue}</td></tr>`;
+        });
+        html += '</tbody></table></div>';
+        html += `<div style="margin-top:0.5rem;font-size:0.9rem;"><strong>${escapeHtml(t('apTotalPayable'))}:</strong> ${formatAmount(data.total)} (${escapeHtml(tf('apItems', { n: data.count }))})</div>`;
+        mgrReportPreviewEl.innerHTML = html;
+        mgrReportJsonEl.textContent = JSON.stringify(data, null, 2);
+        // AP chart by aging
+        if (typeof Chart !== 'undefined' && items.length) {
+          const buckets = {};
+          items.forEach(it => { buckets[it.aging_bucket] = (buckets[it.aging_bucket] || 0) + (it.balance_due != null ? it.balance_due : it.amount); });
+          const chartPanel = document.getElementById('mgr-report-chart-panel');
+          chartPanel.style.display = 'block';
+          if (managerReportChart) try { managerReportChart.destroy(); } catch(_){}
+          managerReportChart = new Chart(document.getElementById('mgr-report-chart'), {
+            type: 'doughnut', data: {
+              labels: Object.keys(buckets).map(b => b === 'current' ? t('fieldCurrent') : b),
+              datasets: [{ label: t('panelAPAging'), data: Object.values(buckets), backgroundColor: ['#0f766e', '#eab308', '#f57f17', '#c62828', '#8b5cf6'] }]
+            }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, title: { display: true, text: t('panelAPAging') } },
+              onClick: (e, els) => { if (els.length) { const key = Object.keys(buckets)[els[0].index]; showChartDrilldown('AP Aging', key, { bucket: key, amount: buckets[key] }); } }
+            }
+          });
+        }
+        if (mgrExportJsonBtn) mgrExportJsonBtn.disabled = false;
+        if (mgrExportCsvBtn) mgrExportCsvBtn.disabled = false;
+      } catch (err) { showAlert(tf('errorWithMessage', { message: err.message }), true); }
+      finally { mgrRunBtn.disabled = false; }
+    }
+
     async function runManagerReport() {
+      if ((mgrReportTypeEl.value || '').trim() === 'accounts_payable') return runAccountsPayableReport();
       try {
         const type = (mgrReportTypeEl.value || '').trim();
         const endpoint = managerEndpointFor(type);
@@ -1363,6 +1410,11 @@
         if (currency) q.set('currency', currency);
         q.set('page', '1');
         q.set('page_size', '120');
+        // a sales or purchase report narrowed to one product or party
+        if (type.includes('sales') || type.includes('purchase')) {
+          const filterVal = mgrProductFilterEl ? (mgrProductFilterEl.value || '').trim() : '';
+          if (filterVal) q.set('product_name', filterVal);
+        }
         const url = API + endpoint + (q.toString() ? ('?' + q.toString()) : '');
         const chartInputs = managerChartInputs();
         mgrRunBtn.disabled = true;
@@ -1780,14 +1832,14 @@
       const b = r.base;
       const s = r.scenario;
       const cell = (v) => '<td>' + escapeHtml(formatAmount(v)) + '</td>';
-      const head = '<tr><th></th><th>' + escapeHtml(t('forecastBase')) + '</th><th>' + escapeHtml(t('forecastScenario'))
-        + '</th><th>' + escapeHtml(t('forecastDifference')) + '</th></tr>';
+      const head = '<tr><th scope="col"></th><th scope="col">' + escapeHtml(t('forecastBase')) + '</th><th scope="col">' + escapeHtml(t('forecastScenario'))
+        + '</th><th scope="col">' + escapeHtml(t('forecastDifference')) + '</th></tr>';
       const summary = '<table class="mini-table"><thead>' + head + '</thead><tbody>'
         + '<tr><td>' + escapeHtml(t('forecastLowestShort')) + '</td>' + cell(b.lowest.closing) + cell(s.lowest.closing) + cell(r.lowest_difference) + '</tr>'
         + '<tr><td>' + escapeHtml(t('forecastEnd')) + '</td>' + cell(b.closing_cash) + cell(s.closing_cash) + cell(r.closing_difference) + '</tr>'
         + '</tbody></table>';
-      const weeks = '<table class="mini-table" style="margin-top:0.5rem;"><thead><tr><th>' + escapeHtml(t('forecastWeek')) + '</th><th>'
-        + escapeHtml(t('forecastBase')) + '</th><th>' + escapeHtml(t('forecastScenario')) + '</th><th>' + escapeHtml(t('forecastDifference'))
+      const weeks = '<table class="mini-table" style="margin-top:0.5rem;"><thead><tr><th scope="col">' + escapeHtml(t('forecastWeek')) + '</th><th scope="col">'
+        + escapeHtml(t('forecastBase')) + '</th><th scope="col">' + escapeHtml(t('forecastScenario')) + '</th><th scope="col">' + escapeHtml(t('forecastDifference'))
         + '</th></tr></thead><tbody>'
         + b.weeks.map((w, k) => '<tr' + (s.weeks[k].risk ? ' class="fc-risk-text"' : '') + '><td>' + escapeHtml(formatDisplayDate(w.week_start)) + '</td>'
           + cell(w.closing) + cell(s.weeks[k].closing) + cell(r.difference[k].closing_difference) + '</tr>').join('')

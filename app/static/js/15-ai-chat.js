@@ -15,7 +15,22 @@
       const attachmentsEl = document.getElementById('ai-acct-attachments');
       const titleEl = document.getElementById('ai-acct-title');
       const scrollBtn = document.getElementById('ai-acct-scroll-bottom');
+      const announceEl = document.getElementById('ai-acct-announce');
       if (!messagesEl || !sendBtn) return;
+
+      // What a screen reader says: the message list is not a live region (every
+      // card, chip and history replay was read out); a new reply, or the one
+      // "thinking" line, is put into this polite status region instead.
+      let _announceTimer = null;
+      function announce(text) {
+        if (!announceEl) return;
+        let said = String(text || '').replace(/\s+/g, ' ').trim();
+        if (said.length > 600) said = said.slice(0, 600) + '…';
+        clearTimeout(_announceTimer);
+        announceEl.textContent = '';
+        // emptied first, filled a moment later: the same words twice are read twice
+        if (said) _announceTimer = setTimeout(() => { announceEl.textContent = said; }, 60);
+      }
 
       const _lang = () => (typeof currentLanguage !== 'undefined' && currentLanguage) || 'en';
       function _fmtTime(iso) {
@@ -571,12 +586,11 @@
         const wrap = document.createElement('div');
         wrap.className = 'typing-row';
         wrap.dataset.typing = '1';
+        wrap.setAttribute('aria-hidden', 'true');      // the rotating caption is for the eye; a reader hears it once
 
         const bubble = document.createElement('div');
         bubble.className = 'typing-bubble';
-        bubble.setAttribute('role', 'status');
         bubble.setAttribute('dir', rtl ? 'rtl' : 'ltr');
-        bubble.setAttribute('aria-label', phrases[0]);
 
         const dots = document.createElement('span');
         dots.style.cssText = 'display:inline-flex; gap:4px; align-items:center;';
@@ -594,18 +608,19 @@
 
         // Clear any stale "N turn(s)" summary from the previous reply.
         if (statusEl) statusEl.textContent = '';
+        announce(phrases[0]);
 
         let i = 0;
         _thinkingTimer = setInterval(() => {
           i = (i + 1) % phrases.length;
           caption.textContent = phrases[i];
-          bubble.setAttribute('aria-label', phrases[i]);
         }, 2200);
         return wrap;
       }
 
       function hideTypingIndicator(wrap) {
         if (_thinkingTimer) { clearInterval(_thinkingTimer); _thinkingTimer = null; }
+        announce('');                                  // no "thinking" left behind a reply of cards only
         if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
       }
 
@@ -631,7 +646,7 @@
         const flushTable = () => {
           if (!table) return;
           const [head, ...body] = table;
-          const cell = (c, tag) => `<${tag}${_NUMERIC_CELL.test(c.replace(/&[a-z#0-9]+;/g, '')) && c.trim() ? ' class="num"' : ''}>${inline(c.trim())}</${tag}>`;
+          const cell = (c, tag) => `<${tag}${tag === 'th' ? ' scope="col"' : ''}${_NUMERIC_CELL.test(c.replace(/&[a-z#0-9]+;/g, '')) && c.trim() ? ' class="num"' : ''}>${inline(c.trim())}</${tag}>`;
           let html = '<table><thead><tr>' + head.map(c => cell(c, 'th')).join('') + '</tr></thead>';
           if (body.length) html += '<tbody>' + body.map(r => '<tr>' + r.map(c => cell(c, 'td')).join('') + '</tr>').join('') + '</tbody>';
           out.push(html + '</table>');
@@ -979,6 +994,7 @@
         wrap.appendChild(body);
         messagesEl.appendChild(wrap);
         scrollToBottom(kind === 'user');
+        if (kind !== 'user' && opts.animate !== false) announce(bubble.innerText || bubble.textContent);
         return wrap;
       }
 
@@ -2233,7 +2249,7 @@
           // Any site can POST a form to /share-target, not only the phone's
           // share sheet: the files wait for the person's yes before they are
           // uploaded into their books (review 2026-11-16).
-          const names = files.map(f => f.name).join('، ');
+          const names = joinList(files.map(f => f.name));          // «a.pdf, b.jpg»; «،» only right to left
           const ok = await uiConfirm({ message: tf('chatShareConfirm', { n: files.length, names }) });
           if (!ok) return;
           for (const f of files) await handleAttachFile(f);

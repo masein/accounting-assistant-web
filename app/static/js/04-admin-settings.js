@@ -181,11 +181,11 @@
         <table class="results-table" style="font-size:0.85rem;">
           <thead>
             <tr>
-              <th>${escapeHtml(t('usersUsername'))}</th>
-              <th>${escapeHtml(t('usersRole'))}</th>
-              <th>${escapeHtml(t('usersStatus'))}</th>
-              <th>${escapeHtml(t('tfaColumn'))}</th>
-              <th>${escapeHtml(t('usersActions'))}</th>
+              <th scope="col">${escapeHtml(t('usersUsername'))}</th>
+              <th scope="col">${escapeHtml(t('usersRole'))}</th>
+              <th scope="col">${escapeHtml(t('usersStatus'))}</th>
+              <th scope="col">${escapeHtml(t('tfaColumn'))}</th>
+              <th scope="col">${escapeHtml(t('usersActions'))}</th>
             </tr>
           </thead>
           <tbody>
@@ -598,8 +598,8 @@
       const rows = d.users || [];
       document.getElementById('ai-usage-users').innerHTML = rows.length ? `
         <table class="results-table" style="font-size:0.84rem;">
-          <thead><tr><th>${escapeHtml(t('usersUsername'))}</th><th>${escapeHtml(t('aiUsage24h'))}</th>
-            <th>${escapeHtml(tf('aiUsagePeriodTokens', { days: d.period_days }))}</th><th>${escapeHtml(t('aiUsageRequests'))}</th><th>${escapeHtml(t('aiUsageCost'))}</th></tr></thead>
+          <thead><tr><th scope="col">${escapeHtml(t('usersUsername'))}</th><th scope="col">${escapeHtml(t('aiUsage24h'))}</th>
+            <th scope="col">${escapeHtml(tf('aiUsagePeriodTokens', { days: d.period_days }))}</th><th scope="col">${escapeHtml(t('aiUsageRequests'))}</th><th scope="col">${escapeHtml(t('aiUsageCost'))}</th></tr></thead>
           <tbody>${rows.map(u => `<tr><td>${escapeHtml(u.username)}</td>
             <td dir="ltr">${escapeHtml(aiTokens(u.tokens_24h))}${d.user_budget ? ' / ' + escapeHtml(aiTokens(d.user_budget)) : ''}${aiMeter(u.tokens_24h, d.user_budget)}</td>
             <td dir="ltr">${escapeHtml(aiTokens(u.tokens_period))}</td><td dir="ltr">${escapeHtml(String(u.requests_period))}</td>
@@ -607,7 +607,7 @@
         </table>` : `<p class="empty-state" style="padding:0.4rem;">${escapeHtml(t('aiUsageNone'))}</p>`;
       const table = (title, list, label) => `
         <div style="flex:1 1 18rem;"><h3 style="font-size:0.9rem;margin:0.4rem 0;">${escapeHtml(title)}</h3>
-          <table class="results-table" style="font-size:0.82rem;"><thead><tr><th></th><th>${escapeHtml(t('aiUsageTokens'))}</th><th>${escapeHtml(t('aiUsageCalls'))}</th><th>${escapeHtml(t('aiUsageCost'))}</th></tr></thead>
+          <table class="results-table" style="font-size:0.82rem;"><thead><tr><th scope="col"></th><th scope="col">${escapeHtml(t('aiUsageTokens'))}</th><th scope="col">${escapeHtml(t('aiUsageCalls'))}</th><th scope="col">${escapeHtml(t('aiUsageCost'))}</th></tr></thead>
           <tbody>${(list || []).map(r => `<tr><td>${escapeHtml(label(r.key))}</td><td dir="ltr">${escapeHtml(aiTokens(r.tokens))}</td><td dir="ltr">${escapeHtml(String(r.calls))}</td>
             <td dir="ltr">${r.unpriced_calls && r.unpriced_calls === r.calls ? escapeHtml(t('aiUsageUnpriced')) : escapeHtml(aiUsd(r.cost_usd))}</td></tr>`).join('')}</tbody></table></div>`;
       document.getElementById('ai-usage-breakdown').innerHTML = (d.by_purpose || []).length

@@ -12,6 +12,8 @@ import app.accountingassistant.android.data.ReplyDto
 import app.accountingassistant.android.data.ThreadDto
 import app.accountingassistant.android.data.ThreadMessageDto
 import app.accountingassistant.android.data.NetworkError
+import app.accountingassistant.android.util.runSuspendCatching
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -151,7 +153,7 @@ class ChatViewModel(
 
     /** A conversation's latest page with its cards redrawn, and what still waits to go to it. */
     private suspend fun page(threadId: String): List<ChatItem>? {
-        val page = runCatching { api.messagesPage(threadId, limit = PAGE) }.getOrNull() ?: return null
+        val page = runSuspendCatching { api.messagesPage(threadId, limit = PAGE) }.getOrNull() ?: return null
         val known = page.messages.mapNotNull { it.clientMessageId }.toSet()
         val waiting = outbox.entries.value.filter { it.threadId == threadId && it.clientId !in known }.map(::bubble)
         newest = page.messages.lastOrNull()?.id
@@ -174,7 +176,7 @@ class ChatViewModel(
             _state.update { if (it.items.isNotEmpty()) it else it.copy(items = fresh.filter { q -> q.newThread == newKey }.map(::bubble)) }
             return
         }
-        val latest = runCatching { api.threads().firstOrNull() }
+        val latest = runSuspendCatching { api.threads().firstOrNull() }
         val thread = latest.getOrNull()?.id ?: queued.lastOrNull()?.threadId.takeIf { latest.isFailure }
         val items = when {
             thread == null -> null
@@ -186,7 +188,7 @@ class ChatViewModel(
             else if (items.isNullOrEmpty()) it.copy(items = if (suggestions.isEmpty()) emptyList() else listOf(ChatItem.Suggestions(options = suggestions)))
             else it.copy(items = items, threadId = thread)
         }
-        runCatching { api.briefing(_state.value.threadId) }.getOrNull()?.let { b ->
+        runSuspendCatching { api.briefing(_state.value.threadId) }.getOrNull()?.let { b ->
             if (b.blocks.isNotEmpty()) _state.update {
                 it.copy(items = it.items + parseBlocks(b.blocks), threadId = b.threadId ?: it.threadId)
             }
@@ -199,7 +201,7 @@ class ChatViewModel(
         val after = newest
         viewModelScope.launch {
             // a conversation begun in this session has no cursor yet: its latest page, merged
-            val page = runCatching { if (after != null) api.messagesPage(thread, after = after) else api.messagesPage(thread, limit = PAGE) }
+            val page = runSuspendCatching { if (after != null) api.messagesPage(thread, after = after) else api.messagesPage(thread, limit = PAGE) }
                 .getOrNull() ?: return@launch
             if (page.messages.isEmpty()) return@launch
             newest = page.messages.last().id
@@ -220,7 +222,7 @@ class ChatViewModel(
         val thread = _state.value.threadId ?: return
         val before = oldest ?: return
         viewModelScope.launch {
-            val page = runCatching { api.messagesPage(thread, before = before, limit = PAGE) }.getOrNull() ?: return@launch
+            val page = runSuspendCatching { api.messagesPage(thread, before = before, limit = PAGE) }.getOrNull() ?: return@launch
             oldest = page.messages.firstOrNull()?.id ?: oldest
             _state.update { st ->
                 if (st.threadId != thread) return@update st
@@ -239,12 +241,14 @@ class ChatViewModel(
                 _state.update { it.copy(uploading = false, uploadProgress = null,
                                         attachments = it.attachments + ChatUiState.Attachment(r.id, name, mime)) }
             } catch (e: NetworkError) {
-                val kept = runCatching { outbox.keep(bytes) }.getOrNull()
+                val kept = runSuspendCatching { outbox.keep(bytes) }.getOrNull()
                 _state.update {
                     if (kept == null) it.copy(uploading = false, uploadProgress = null, notice = ChatUiState.Notice.UploadFailed)
                     else it.copy(uploading = false, uploadProgress = null, notice = ChatUiState.Notice.Offline,
                                  attachments = it.attachments + ChatUiState.Attachment("kept-$kept", name, mime, uploadedId = null, path = kept))
                 }
+            } catch (e: CancellationException) {
+                throw e                                       // left, or cleared: not a failed call (scenario CX7)
             } catch (e: Exception) {
                 _state.update { it.copy(uploading = false, uploadProgress = null, notice = ChatUiState.Notice.UploadFailed) }
             }
@@ -269,7 +273,7 @@ class ChatViewModel(
     fun heard(bytes: ByteArray, name: String, mime: String) {
         _state.update { it.copy(listening = false, transcribing = true, notice = null) }
         viewModelScope.launch {
-            runCatching { api.transcribe(bytes, name, mime) }
+            runSuspendCatching { api.transcribe(bytes, name, mime) }
                 .onSuccess { r -> _state.update { it.copy(transcribing = false, draft = (it.draft + " " + r.text).trim()) } }
                 .onFailure { _state.update { it.copy(transcribing = false, notice = ChatUiState.Notice.VoiceFailed) } }
         }
@@ -281,7 +285,7 @@ class ChatViewModel(
 
     fun loadThreads() {
         _threads.value = null
-        viewModelScope.launch { _threads.value = runCatching { api.threads() }.getOrDefault(emptyList()) }
+        viewModelScope.launch { _threads.value = runSuspendCatching { api.threads() }.getOrDefault(emptyList()) }
     }
 
     /** Another conversation, its cards redrawn. */
@@ -358,6 +362,8 @@ class ChatViewModel(
                 }
             } catch (e: NetworkError) {
                 _state.update { s -> s.copy(items = s.items.filterNot { it is ChatItem.Thinking }, notice = ChatUiState.Notice.Offline) }
+            } catch (e: CancellationException) {
+                throw e                                       // left, or cleared: not a failed call (scenario CX7)
             } catch (e: Exception) {
                 _state.update { s -> s.copy(items = s.items.filterNot { it is ChatItem.Thinking } + ChatItem.Problem("e${now()}", null, e.message ?: "")) }
             }
@@ -394,6 +400,8 @@ class ChatViewModel(
                 } else {
                     stamp(id, r.block)
                 }
+            } catch (e: CancellationException) {
+                throw e                                       // left, or cleared: not a failed call (scenario CX7)
             } catch (e: Exception) {
                 updateProposal(id) { it.copy(phase = ChatItem.Proposal.Phase.Draft, error = e.message) }
             }
@@ -418,6 +426,8 @@ class ChatViewModel(
         viewModelScope.launch {
             try {
                 stamp(id, api.approve(p.token).block)
+            } catch (e: CancellationException) {
+                throw e                                       // left, or cleared: not a failed call (scenario CX7)
             } catch (e: Exception) {
                 updateProposal(id) { it.copy(phase = ChatItem.Proposal.Phase.Draft, error = e.message) }
             }
@@ -432,6 +442,8 @@ class ChatViewModel(
             try {
                 api.reject(p.token, note)
                 updateProposal(id) { it.copy(phase = ChatItem.Proposal.Phase.Rejected) }
+            } catch (e: CancellationException) {
+                throw e                                       // left, or cleared: not a failed call (scenario CX7)
             } catch (e: Exception) {
                 updateProposal(id) { it.copy(phase = ChatItem.Proposal.Phase.Draft, error = e.message) }
             }
@@ -456,6 +468,8 @@ class ChatViewModel(
                     }.distinctBy { it.id })
                 }
                 done(null)
+            } catch (e: CancellationException) {
+                throw e                                       // left, or cleared: not a failed call (scenario CX7)
             } catch (e: Exception) {
                 done(e.message ?: "")
             }
@@ -466,7 +480,7 @@ class ChatViewModel(
         val p = _state.value.items.filterIsInstance<ChatItem.Proposal>().firstOrNull { it.id == id } ?: return
         updateProposal(id) { it.copy(phase = ChatItem.Proposal.Phase.Cancelled) }
         viewModelScope.launch {
-            runCatching { api.cancel(p.token) }.onFailure { e ->
+            runSuspendCatching { api.cancel(p.token) }.onFailure { e ->
                 updateProposal(id) { it.copy(phase = ChatItem.Proposal.Phase.Draft, error = e.message) }
             }
         }
@@ -476,7 +490,7 @@ class ChatViewModel(
         val p = _state.value.items.filterIsInstance<ChatItem.Proposal>().firstOrNull { it.id == id } ?: return
         val audit = p.auditLogId ?: return
         viewModelScope.launch {
-            runCatching { api.undo(audit) }
+            runSuspendCatching { api.undo(audit) }
                 .onSuccess { booksChanged(); updateProposal(id) { it.copy(phase = ChatItem.Proposal.Phase.Undone, undoUntil = 0) } }
                 .onFailure { e -> updateProposal(id) { it.copy(error = e.message) } }
         }

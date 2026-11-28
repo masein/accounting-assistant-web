@@ -1,5 +1,9 @@
 package app.accountingassistant.android
 
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import app.accountingassistant.android.data.ApiClient
 import app.accountingassistant.android.data.EditRequest
 import app.accountingassistant.android.data.MemoryOutboxStore
@@ -147,6 +151,38 @@ class ChatViewModelTest {
         val id = Regex("\"client_message_id\":\"([^\"]+)\"").find(streamed)!!.groupValues[1]
         assertTrue(retried.body!!.utf8().contains(id))
         assertEquals("سلام", (vm.state.value.items.last() as ChatItem.Words).text)
+    }
+
+    /** Scenarios CX1, CX2: an app too old asks for the update once; the message waits under its bubble, not refused. */
+    @Test fun anAppTooOldKeepsTheMessageAndAsksForTheUpdate() = runBlocking {
+        val vm = ChatViewModel(api, restore = false)
+        reply("""{"code":"upgrade_required","min_version":"0.2.0","detail":"This version of the app is too old."}""", code = 426)
+        vm.edit("record the rent")
+        vm.send()
+        until { api.updateRequired.value != null && !vm.state.value.sending }
+        assertEquals("0.2.0", api.updateRequired.value?.minVersion)        // the app shows "Update the app"
+        val bubble = vm.state.value.items.single() as ChatItem.User
+        assertEquals(null, vm.state.value.queued.getValue(bubble.clientId!!).failure)   // kept as it was, to go after the update
+        assertEquals(null, vm.state.value.notice)
+        assertEquals(1, server.requestCount)                               // asked once, not again and again
+    }
+
+    /** Scenario CX7: a card being confirmed when the conversation goes isn't turned back to a draft with an error. */
+    @Test fun aCancelledConfirmIsNotAFailure() = runBlocking {
+        val owner = ViewModelStore()
+        val vm = ViewModelProvider(owner, viewModelFactory { initializer { ChatViewModel(api, restore = false) } })[ChatViewModel::class.java]
+        draft(vm)
+        until { vm.state.value.items.any { it is ChatItem.Proposal } }
+        server.takeRequest()
+        server.enqueue(MockResponse.Builder().headersDelay(300, TimeUnit.MILLISECONDS)
+            .body("""{"state":"posted","block":{"type":"posted","voucher":"1042","undo_seconds":120,"audit_log_id":"a1"}}""").build())
+        vm.confirm("proposal:t1")
+        until { server.requestCount == 2 }
+        owner.clear()                                                      // signed out, or the person changed: the scope goes
+        delay(1000)                                                        // the answer arrives to a cancelled call
+        val card = vm.state.value.items.filterIsInstance<ChatItem.Proposal>().single()
+        assertEquals(ChatItem.Proposal.Phase.Posting, card.phase)          // left as it was: no "Job was cancelled" under it
+        assertEquals(null, card.error)
     }
 
     @Test fun aRefusedTurnWaitsUnderItsBubbleWithItsCode() = runBlocking {

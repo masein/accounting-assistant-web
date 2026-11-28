@@ -2,7 +2,9 @@ package app.accountingassistant.android.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -13,6 +15,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.serializer
+import app.accountingassistant.android.util.runSuspendCatching
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
@@ -28,7 +31,8 @@ import java.util.concurrent.TimeUnit
  * token, the app version (an app too old gets 426) and the user's language
  * (error messages come back in it). An expired access token is renewed with
  * the refresh token once, transparently; when the session is over the store
- * is cleared and [signedOut] fires.
+ * is cleared and [signedOut] fires. Every call, streamed or downloaded too,
+ * ends the session the same way, and a 426 sets [updateRequired].
  */
 class ApiClient(
     private val base: String,
@@ -43,6 +47,14 @@ class ApiClient(
 ) {
     private val _signedOut = MutableSharedFlow<ApiError>(extraBufferCapacity = 1)
     val signedOut: SharedFlow<ApiError> = _signedOut
+
+    private val _updateRequired = MutableStateFlow<UpdateRequired?>(null)
+    /**
+     * Set once any call is answered 426: this version is too old for the
+     * server, and the app asks for an update instead of trying again
+     * (scenario CX2). The session stays: it is still good after the update.
+     */
+    val updateRequired: StateFlow<UpdateRequired?> = _updateRequired
 
     @Volatile var session: StoredSession? = null
         private set
@@ -76,7 +88,7 @@ class ApiClient(
     suspend fun revokeDevice(id: String) { call<Unit, JsonObject>("DELETE", "/devices/$id", null, serializer()) }
 
     suspend fun signOut() {
-        runCatching { call<Unit, JsonObject>("DELETE", "/session", null, serializer()) }
+        runSuspendCatching { call<Unit, JsonObject>("DELETE", "/session", null, serializer()) }
         store.clear()
         session = null
     }
@@ -111,13 +123,18 @@ class ApiClient(
                 if (response.code == 401 && !renewed && session != null) {
                     renewed = true
                     val refusal = refresh(token)
-                    if (refusal != null) { endSession(refusal); throw refusal }
+                    if (refusal != null) throw refused(refusal, signsOut = true)
                     continue
                 }
+                // refused again with the fresh token: the session is over, as on every other call (scenario CX8)
                 if (!response.isSuccessful) {
-                    throw Answer(response.code, response.body.string(), response.header("X-Error-Code"), token).error()
+                    throw refused(Answer(response.code, response.body.string(), response.header("X-Error-Code"), token).error())
                 }
-                return@withContext readStream(response.body.source(), onStatus)
+                return@withContext try {
+                    readStream(response.body.source(), onStatus)
+                } catch (e: ApiError) {
+                    throw refused(e, signsOut = false)              // a turn's own error: only a 426 is noted
+                }
             } finally {
                 response.close()
             }
@@ -165,9 +182,10 @@ class ApiClient(
             response.use { r ->
                 if (r.code == 401 && !renewed && session != null) {
                     renewed = true
-                    refresh(token)?.let { endSession(it); throw it }
+                    refresh(token)?.let { throw refused(it, signsOut = true) }
                 } else if (!r.isSuccessful) {
-                    throw Answer(r.code, r.body.string(), r.header("X-Error-Code"), token).error()
+                    // refused again with the fresh token: the session is over, as on every other call (scenario CX8)
+                    throw refused(Answer(r.code, r.body.string(), r.header("X-Error-Code"), token).error())
                 } else {
                     return@withContext r.body.bytes()
                 }
@@ -317,14 +335,25 @@ class ApiClient(
         val result = if (first.status == 401 && auth && session != null) {
             val refusal = refresh(first.usedToken)
             if (refusal == null) send(method, path, body(), auth)
-            else throw refusal.also { endSession(it) }
+            else throw refused(refusal, signsOut = true)
         } else first
         if (result.status !in 200..299) {
             val err = result.error()
-            if (auth && err.sessionOver) endSession(err)
-            throw err
+            throw refused(err, signsOut = auth && err.sessionOver)
         }
         return result
+    }
+
+    /**
+     * A refusal on its way to the caller, handled alike for every call: a 426
+     * asks for an update and keeps the session (it is good again once the app
+     * is updated, scenario CX2); otherwise, when [signsOut], the session ends.
+     * A refused refresh signs out whatever its code says.
+     */
+    private suspend fun refused(err: ApiError, signsOut: Boolean = err.sessionOver): ApiError {
+        if (err.updateNeeded) _updateRequired.value = UpdateRequired(err.minVersion)
+        else if (signsOut) endSession(err)
+        return err
     }
 
     private class Answer(val status: Int, val body: String, val code: String?, val usedToken: String?,
@@ -333,7 +362,8 @@ class ApiClient(
             val parsed = runCatching { Json.parseToJsonElement(body) as? JsonObject }.getOrNull()
             val detail = parsed?.get("detail")?.let { runCatching { it.jsonPrimitive.contentOrNull }.getOrNull() }
             val bodyCode = parsed?.get("code")?.let { runCatching { it.jsonPrimitive.contentOrNull }.getOrNull() }
-            return ApiError(status, bodyCode ?: code, detail ?: "HTTP $status")
+            val minVersion = parsed?.get("min_version")?.let { runCatching { it.jsonPrimitive.contentOrNull }.getOrNull() }
+            return ApiError(status, bodyCode ?: code, detail ?: "HTTP $status", minVersion)
         }
     }
 

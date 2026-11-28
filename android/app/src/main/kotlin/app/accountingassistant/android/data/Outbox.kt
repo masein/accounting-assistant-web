@@ -130,7 +130,13 @@ class Outbox(
     private val api: ApiClient,
     private val wake: () -> Unit = {},
 ) {
-    enum class Result { Done, Offline, Busy }
+    /**
+     * How a flush ended. [Blocked]: the server won't take anything from this
+     * app until the user acts, by updating it (426) or signing in again; the
+     * messages stay queued, untouched, and go after that (scenario CX1). Not
+     * retried meanwhile: each try would be refused the same way.
+     */
+    enum class Result { Done, Offline, Busy, Blocked }
 
     /** The message on its way: the step the server says it is on, or how much of its file has gone (0–1). */
     data class Sending(val clientId: String, val step: String? = null, val upload: Float? = null)
@@ -203,11 +209,15 @@ class Outbox(
         loaded = true
     }
 
-    /** Send what waits, oldest first, until it is all answered or the network is gone. */
+    /**
+     * Send what waits, oldest first, until it is all answered, the network is
+     * gone, or the server won't take it from this app ([Result.Blocked]).
+     */
     suspend fun flush(): Result {
         while (true) {
             val r = flushOnce()
-            // a message added just as a flush finished: that flush said Busy to its sender, so look again
+            // a message added just as a flush finished: that flush said Busy to its sender, so look again;
+            // only after Done: Blocked would ask the server the same thing again at once, in a loop
             if (r != Result.Done || _entries.value.none(::ready)) return r
         }
     }
@@ -251,7 +261,8 @@ class Outbox(
                     return Result.Offline
                 } catch (e: ApiError) {
                     when {
-                        e.sessionOver || e.updateNeeded -> return Result.Done  // the app signs out or asks for an update
+                        // the app signs out or asks for an update; the message stays as it was, to go after that
+                        e.sessionOver || e.updateNeeded -> return Result.Blocked
                         e.code == "turn_in_progress" -> { wake(); return Result.Offline }
                         else -> {
                             val refused = q.copy(failure = e.code ?: "error", detail = e.message)

@@ -214,4 +214,8 @@
     <string name="quote_self">شما</string>
     <string name="side_to">به</string>
     <string name="side_from">از</string>
+    <!-- the app too old for the server, a 426 on any call (scenario CX2) -->
+    <string name="update_title">برنامه را به‌روز کنید</string>
+    <string name="update_body">این نسخهٔ برنامه برای دسترسی به دفاترتان قدیمی است. برای ادامه، آخرین نسخه را نصب کنید؛ پیام‌هایی که نوشته‌اید نگه داشته می‌شوند و پس از به‌روزرسانی ارسال می‌شوند.</string>
+    <string name="update_version">نسخهٔ %1$s یا جدیدتر لازم است.</string>
 </resources>

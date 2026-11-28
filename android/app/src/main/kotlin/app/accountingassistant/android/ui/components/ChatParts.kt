@@ -221,7 +221,10 @@ fun Choices(options: List<String>, selected: Int?, onPick: (Int) -> Unit, enable
 @Composable
 fun FigureCard(
     label: String, value: String, unit: String?, delta: String?, deltaIsBad: Boolean,
-    freshness: String?, series: List<Float>, modifier: Modifier = Modifier,
+    freshness: String?, series: List<Float>,
+    /** What the figure adds up from, each part's name and amount as shown. */
+    breakdown: List<Pair<String, String>> = emptyList(),
+    modifier: Modifier = Modifier,
 ) {
     val c = LocalAccountantColors.current
     Surface(color = c.surface, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, c.line), modifier = modifier.fillMaxWidth()) {
@@ -243,6 +246,15 @@ fun FigureCard(
             }
             if (delta != null) Text(delta, color = if (deltaIsBad) c.pomegranate else c.firouzeh, fontSize = 12.sp, fontWeight = FontWeight(600))
             if (series.size >= 2) Sparkline(series, Modifier.fillMaxWidth().height(46.dp))
+            if (breakdown.isNotEmpty()) {
+                Box(Modifier.padding(vertical = 4.dp).fillMaxWidth().height(1.dp).background(c.line))
+                breakdown.forEach { (name, amount) ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(name, color = c.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                        Text(amount, color = c.ink, fontSize = 12.sp, fontWeight = FontWeight(600))
+                    }
+                }
+            }
         }
     }
 }

@@ -17,6 +17,7 @@ from app.db.session import get_db
 from app.db.tenant import get_current_company
 from app.models.company import Company
 from app.models.company_profile import DEFAULT_BRAND_COLOR, CompanyProfile
+from app.services.audit_service import log_audit_event
 
 router = APIRouter(prefix="/admin/company-profile", tags=["company-profile"])
 
@@ -73,8 +74,9 @@ def _get_or_create(db: Session) -> CompanyProfile:
 
 
 def _serialize(db: Session, profile: CompanyProfile) -> dict:
+    import uuid
     cid = get_current_company()
-    company = db.get(Company, cid) if cid else None
+    company = db.get(Company, uuid.UUID(str(cid))) if cid else None      # the context may hold the id as text
     return {
         "company": {
             "name": company.name if company else None,
@@ -138,6 +140,7 @@ def get_logo(db: Session = Depends(get_db), _=Depends(get_current_user)) -> File
 def put_profile(payload: CompanyProfilePut, db: Session = Depends(get_db), _=Depends(require_admin)) -> dict:
     profile = _get_or_create(db)
     data = payload.model_dump(exclude_unset=True)
+    before = {f: getattr(profile, f) for f in _FIELDS}
     for f in _FIELDS:
         if f in data:
             val = data[f]
@@ -146,6 +149,15 @@ def put_profile(payload: CompanyProfilePut, db: Session = Depends(get_db), _=Dep
             setattr(profile, f, val)
     if not profile.brand_color:
         profile.brand_color = DEFAULT_BRAND_COLOR
+    # What every invoice says about the issuer — its bank details above all,
+    # where a changed IBAN redirects customers' payments — leaves a trail
+    # (review 2026-11-28, scenario CV7).
+    changed = {f: {"from": before[f], "to": getattr(profile, f)} for f in _FIELDS if before[f] != getattr(profile, f)}
+    if changed:
+        db.flush()
+        from app.core.money import json_dumps
+        log_audit_event(db, action="update", entity_type="company_profile", entity_id=str(profile.id),
+                        detail=json_dumps(changed, fallback=str))
     db.commit()
     db.refresh(profile)
     return _serialize(db, profile)
@@ -175,6 +187,9 @@ def _save_image(db: Session, file: UploadFile, kind: str) -> dict:
         profile.logo_path = str(rel_path)
     else:
         profile.signature_path = str(rel_path)
+    db.flush()
+    log_audit_event(db, action="update", entity_type="company_profile", entity_id=str(profile.id),
+                    detail=f"{kind} uploaded ({file.content_type}, {len(raw)} bytes)")
     db.commit()
     return {"ok": True, "kind": kind}
 

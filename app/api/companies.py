@@ -190,9 +190,9 @@ def update_company(company_id: UUID, payload: CompanyPatch, db: Session = Depend
                 raise HTTPException(status_code=400, detail="status must be active or suspended")
             if st != company.status:
                 company.status = st
-                # Suspending bumps the company token version → any live session
-                # for that login is invalidated on its next request.
-                company.token_version = (company.token_version or 0) + 1
+                company.token_version = (company.token_version or 0) + 1      # a record of the change only
+                if st == "suspended":
+                    _end_sessions(db, company.id)
         log_audit_event(db, action="update", entity_type="company", entity_id=str(company.id),
                         detail=_json.dumps(payload.model_dump(exclude_unset=True), default=str))
         db.commit()
@@ -206,6 +206,31 @@ def update_company(company_id: UUID, payload: CompanyPatch, db: Session = Depend
     with tenant_bypass():
         db.refresh(company)
         return _serialize(db, company)
+
+
+def _end_sessions(db: Session, company_id: UUID) -> None:
+    """End every session of a suspended company's people, for good.
+
+    The status check alone (auth middleware, phone refresh) refuses them only
+    while the company stays suspended: reactivating it brought every old
+    cookie and signed-in phone back to life (review 2026-11-28, scenario CV2).
+    ``Company.token_version`` was bumped here but nothing ever read it. What
+    every session is checked against is the *user's* ``token_version`` — the
+    web cookie, a phone's access token and its refresh token (the device keeps
+    the version it signed in with), a pending two-factor challenge — so bump
+    that, and sign each phone out in the device list too. Other companies'
+    people are untouched."""
+    from datetime import UTC, datetime
+    from app.models.mobile_device import MobileDevice
+    users = db.execute(select(User).where(User.company_id == company_id)).scalars().all()
+    for user in users:
+        user.token_version = (user.token_version or 0) + 1
+    ids = [u.id for u in users]
+    if ids:
+        now = datetime.now(UTC)
+        for device in db.execute(select(MobileDevice).where(MobileDevice.user_id.in_(ids),
+                                                            MobileDevice.revoked_at.is_(None))).scalars():
+            device.revoked_at = now
 
 
 @router.post("/{company_id}/reset-password")

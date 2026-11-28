@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.entity_guard import assert_entity
+from app.core.money import json_dumps
 from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.recurring import RecurringRule
@@ -20,6 +21,21 @@ from app.schemas.recurring import (
 )
 
 router = APIRouter(prefix="/recurring", tags=["recurring"])
+
+_AUDITED = ("name", "direction", "frequency", "amount", "start_date", "next_run_date", "end_date", "entity_id",
+            "bank_name", "bank_account_code", "counter_account_code", "auto_post", "reference_prefix", "status")
+
+
+def _rule_state(row: RecurringRule) -> dict:
+    return {f: getattr(row, f) for f in _AUDITED}
+
+
+def _audit(db: Session, action: str, row: RecurringRule, detail: dict) -> None:
+    """Rules post entries on their own, so who set one up or changed it is
+    kept like any other write (review 2026-11-28, scenario CV7)."""
+    from app.services.audit_service import log_audit_event
+    log_audit_event(db, action=action, entity_type="recurring_rule", entity_id=str(row.id),
+                    detail=json_dumps(detail, fallback=str))
 
 
 def _parse_amount(text: str):
@@ -107,6 +123,17 @@ def _check_places(db: Session, amount) -> None:
 
 @router.post("", response_model=RecurringRuleRead, status_code=201)
 def create_rule(payload: RecurringRuleCreate, db: Session = Depends(get_db)) -> RecurringRuleRead:
+    row = insert_rule(db, payload)
+    _audit(db, "create", row, _rule_state(row))
+    db.commit()
+    db.refresh(row)
+    return RecurringRuleRead.model_validate(row)
+
+
+def insert_rule(db: Session, payload: RecurringRuleCreate) -> RecurringRule:
+    """Validate and add a rule — flushed, not committed and not audited: the
+    page's route writes its own row, the assistant's card (ops_execute) its
+    ai-assistant one, so one rule never has two creation rows."""
     _check_places(db, payload.amount)
     assert_entity(db, payload.entity_id)
     row = RecurringRule(
@@ -127,9 +154,8 @@ def create_rule(payload: RecurringRuleCreate, db: Session = Depends(get_db)) -> 
         status=payload.status.strip().lower(),
     )
     db.add(row)
-    db.commit()
-    db.refresh(row)
-    return RecurringRuleRead.model_validate(row)
+    db.flush()
+    return row
 
 
 @router.post("/from-text", response_model=RecurringRuleRead, status_code=201)
@@ -163,6 +189,8 @@ def create_rule_from_text(payload: RecurringFromTextRequest, db: Session = Depen
         status="active",
     )
     db.add(row)
+    db.flush()
+    _audit(db, "create", row, {**_rule_state(row), "from_text": text})
     db.commit()
     db.refresh(row)
     return RecurringRuleRead.model_validate(row)
@@ -175,6 +203,7 @@ def update_rule(rule_id: UUID, payload: RecurringRuleUpdate, db: Session = Depen
         raise HTTPException(status_code=404, detail="Recurring rule not found")
     _check_places(db, payload.amount)
     assert_entity(db, payload.entity_id)
+    before = _rule_state(row)
     for field in (
         "name", "direction", "frequency", "amount", "start_date", "next_run_date",
         "entity_id", "bank_name", "reference_prefix", "note", "status"
@@ -182,6 +211,10 @@ def update_rule(rule_id: UUID, payload: RecurringRuleUpdate, db: Session = Depen
         val = getattr(payload, field)
         if val is not None:
             setattr(row, field, val)
+    after = _rule_state(row)
+    changed = {f: {"from": before[f], "to": after[f]} for f in _AUDITED if before[f] != after[f]}
+    if changed:
+        _audit(db, "update", row, changed)
     db.commit()
     db.refresh(row)
     return RecurringRuleRead.model_validate(row)
@@ -192,5 +225,6 @@ def delete_rule(rule_id: UUID, db: Session = Depends(get_db)) -> None:
     row = db.get(RecurringRule, rule_id)
     if not row:
         raise HTTPException(status_code=404, detail="Recurring rule not found")
+    _audit(db, "delete", row, _rule_state(row))
     db.delete(row)
     db.commit()

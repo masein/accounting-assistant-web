@@ -3,7 +3,8 @@
 
 Writes post balanced double-entry via ``equity_service`` and are restricted to
 Owner / CFO / Accountant (Perm.BOOKS_WRITE — see app/core/permissions.py). Reads
-are Owner / CFO / Accountant (Perm.BOOKS_READ).
+are Owner / CFO / Accountant (Perm.BOOKS_READ). Every write leaves an audit row
+(review 2026-11-28, scenario CV7), as the assistant's equity cards always did.
 """
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.money import plain, grouped
+from app.core.money import grouped, json_dumps, plain
 from app.db.session import get_db
 from app.models.entity import Entity
 from app.models.equity import EquityEvent, Shareholding
@@ -30,6 +31,7 @@ from app.schemas.equity import (
     ShareholdingUpdate,
 )
 from app.services import equity_service as eq
+from app.services.audit_service import log_audit_event
 
 router = APIRouter(prefix="/equity", tags=["equity"])
 
@@ -51,8 +53,23 @@ def _run(db: Session, fn, **kwargs) -> eq.EquityPostingResult:
     except HTTPException:
         db.rollback()
         raise
+    # The same row the assistant's equity cards write (equity_execute): a
+    # ``transaction`` create on the first voucher, the whole set in detail.
+    first_txn = res.transaction_ids[0] if res.transaction_ids else None
+    log_audit_event(db, action="create", entity_type="transaction" if first_txn else "equity_event",
+                    entity_id=first_txn, detail=json_dumps({
+                        "equity_event": fn.__name__, "transaction_ids": res.transaction_ids,
+                        "event_ids": res.event_ids, "summary_lines": res.summary_lines,
+                        "allocations": res.allocations, "registered_capital": res.registered_capital,
+                    }, fallback=str))
     db.commit()
     return res
+
+
+def _holding_detail(h: Shareholding, **extra) -> str:
+    return json_dumps({"entity_id": h.entity_id, "shares": h.shares, "percent": h.percent,
+                       "par_value": h.par_value, "since": h.since, "share_class": h.share_class, **extra},
+                      fallback=str)
 
 
 def _entity_name(db: Session, entity_id) -> str | None:
@@ -143,6 +160,9 @@ def create_shareholding(payload: ShareholdingCreate, db: Session = Depends(get_d
         share_class=(payload.share_class or "ordinary"), notes=payload.notes,
     )
     db.add(h)
+    db.flush()
+    log_audit_event(db, action="create", entity_type="shareholding", entity_id=str(h.id),
+                    detail=_holding_detail(h, name=ent.name))
     db.commit()
     db.refresh(h)
     return ShareholdingRead(
@@ -159,6 +179,7 @@ def update_shareholding(
     h = db.get(Shareholding, shareholding_id)
     if h is None:
         raise HTTPException(status_code=404, detail="Shareholding not found")
+    before = _holding_detail(h)
     if payload.percent is not None:
         others = sum(
             float(x.percent or 0)
@@ -175,6 +196,8 @@ def update_shareholding(
         val = getattr(payload, f, None)
         if val is not None:
             setattr(h, f, val)
+    log_audit_event(db, action="update", entity_type="shareholding", entity_id=str(h.id),
+                    detail=json_dumps({"from": before, "to": _holding_detail(h)}, fallback=str))
     db.commit()
     db.refresh(h)
     return ShareholdingRead(
@@ -196,6 +219,8 @@ def delete_shareholding(shareholding_id: UUID, db: Session = Depends(get_db)) ->
             detail=(f"{_entity_name(db, h.entity_id)} is still owed {grouped(owed)} in declared dividends; "
                     "pay them before removing the holding."),
         )
+    log_audit_event(db, action="delete", entity_type="shareholding", entity_id=str(h.id),
+                    detail=_holding_detail(h, name=_entity_name(db, h.entity_id)))
     db.delete(h)
     db.commit()
 

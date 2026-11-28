@@ -4,7 +4,8 @@ import Combine
 /// Signing in and out, and which server. The chat itself is `ChatModel`.
 @MainActor
 public final class AppModel: ObservableObject {
-    public enum Phase: Equatable { case starting, signedOut, twoFactor(challenge: String), signedIn }
+    /// `updateRequired`: the server refused this version of the app (426): the update screen, until it's updated.
+    public enum Phase: Equatable { case starting, signedOut, twoFactor(challenge: String), signedIn, updateRequired }
 
     @Published public private(set) var phase: Phase = .starting
     @Published public private(set) var user: User?
@@ -38,6 +39,8 @@ public final class AppModel: ObservableObject {
         do {
             let me = try await api.me()
             open(api, user: me.user, company: me.company)
+        } catch let e as APIError where e.updateRequired {
+            phase = .updateRequired
         } catch let e as APIError where e.endsSession {
             phase = .signedOut
         } catch {
@@ -63,9 +66,17 @@ public final class AppModel: ObservableObject {
                 self.api = api
                 phase = .twoFactor(challenge: challenge)
             }
+        } catch let e as APIError where e.updateRequired {
+            phase = .updateRequired
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    /// From the update screen: ask the server again (after an update, or a server that lowered its minimum).
+    public func checkAgain() async {
+        phase = .starting
+        await restore()
     }
 
     public func confirmTwoFactor(code: String) async {
@@ -76,6 +87,8 @@ public final class AppModel: ObservableObject {
             let s = try await api.confirmTwoFactor(challenge: challenge, code: code.trimmingCharacters(in: .whitespaces))
             defaults.set(serverAddress, forKey: "server")
             open(api, user: s.user, company: s.company)
+        } catch let e as APIError where e.updateRequired {
+            phase = .updateRequired
         } catch {
             self.error = error.localizedDescription
         }
@@ -107,6 +120,9 @@ public final class AppModel: ObservableObject {
         let chat = ChatModel(api: api)
         chat.onSessionEnded = { [weak self] in
             Task { await self?.signOut() }
+        }
+        chat.onUpdateRequired = { [weak self] in
+            self?.phase = .updateRequired
         }
         self.chat = chat
         phase = .signedIn

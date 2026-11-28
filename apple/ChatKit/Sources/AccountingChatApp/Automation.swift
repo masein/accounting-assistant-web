@@ -8,6 +8,7 @@ import AppKit
 /// A scripted run for end-to-end checks and screenshots (debug builds only; apple/README.md "Screenshots").
 /// Set in the launch environment:
 ///   AC_SERVER, AC_USER, AC_PASS   sign in to that server as that user
+///   AC_OPEN=1                     open the latest conversation (and its page before, if there is one)
 ///   AC_SEND                       messages to send, one after another, separated by "|"
 ///   AC_CONFIRM=1 / AC_CANCEL=1    confirm / cancel the first card the assistant proposes
 ///   AC_SNAPSHOT_DIR               on the Mac: after each step the window is saved there as NN-step.png
@@ -30,10 +31,20 @@ enum Automation {
         await shot("signed-in")
         guard let chat = app.chat else { return }
         await chat.refreshThreads()
+        if env["AC_OPEN"] == "1", let latest = chat.threads.first {
+            await chat.open(latest.id)
+            await shot("opened")
+            if chat.moreBefore {
+                await chat.loadEarlier()
+                await shot("earlier")
+            }
+        }
         for message in (env["AC_SEND"] ?? "").split(separator: "|").map(String.init) where !message.isEmpty {
             chat.draft = message
             await shot("typed")
-            await chat.send()
+            let sent = Task { await chat.send() }
+            await shot("answering")                                   // the step the server says it is on
+            await sent.value
             await shot("answered")
         }
         if env["AC_CONFIRM"] == "1", let token = firstCard(in: chat) {

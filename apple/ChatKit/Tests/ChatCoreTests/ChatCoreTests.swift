@@ -6,9 +6,14 @@ import Testing
 
 /// Answers recorded from the server (Fixtures/), and a stand-in for the network.
 final class Stub: URLProtocol {
-    struct Seen { let method: String; let path: String; let headers: [String: String]; let body: [String: Any] }
+    struct Seen {
+        let method: String; let path: String; let headers: [String: String]; let body: [String: Any]
+        var query: [String: String] = [:]; var raw = Data()
+    }
     nonisolated(unsafe) static var seen: [Seen] = []
     nonisolated(unsafe) static var handler: ((URLRequest, [String: Any]) -> (Int, Data, [String: String])) = { _, _ in (404, Data(), [:]) }
+    /// for a request whose body isn't JSON (an upload's piece, a voice note): its bytes
+    nonisolated(unsafe) static var rawHandler: ((URLRequest, Data) -> (Int, Data, [String: String]))?
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -23,9 +28,12 @@ final class Stub: URLProtocol {
             bodyData = data
         }
         let body = (bodyData.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any]) ?? [:]
+        let items = request.url.flatMap { URLComponents(url: $0, resolvingAgainstBaseURL: false)?.queryItems } ?? []
         Stub.seen.append(Seen(method: request.httpMethod ?? "GET", path: request.url?.path ?? "",
-                              headers: request.allHTTPHeaderFields ?? [:], body: body))
-        let (status, data, headers) = Stub.handler(request, body)
+                              headers: request.allHTTPHeaderFields ?? [:], body: body,
+                              query: Dictionary(items.map { ($0.name, $0.value ?? "") }, uniquingKeysWith: { a, _ in a }),
+                              raw: bodyData ?? Data()))
+        let (status, data, headers) = Stub.rawHandler?(request, bodyData ?? Data()) ?? Stub.handler(request, body)
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: headers)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: data)
@@ -40,7 +48,13 @@ final class Stub: URLProtocol {
 
     static func reset(_ handler: @escaping (URLRequest, [String: Any]) -> (Int, Data, [String: String])) {
         seen = []
+        rawHandler = nil
         self.handler = handler
+    }
+
+    static func resetRaw(_ handler: @escaping (URLRequest, Data) -> (Int, Data, [String: String])) {
+        seen = []
+        rawHandler = handler
     }
 }
 
@@ -56,6 +70,13 @@ let device = DeviceInfo(name: "Test Mac", platform: "macos", appVersion: "1.0.0"
 
 func signedInClient() -> APIClient {
     APIClient(baseURL: server, tokens: MemoryTokenStore(Tokens(access: "a", refresh: "r")), device: device, session: Stub.session)
+}
+
+/// The chat over the plain `/chat` (the streamed turn has its own tests).
+@MainActor func plainChat() -> ChatModel {
+    let chat = ChatModel(api: signedInClient())
+    chat.streaming = false
+    return chat
 }
 
 // The suites that use the network stand-in share it, so they run one at a time.
@@ -201,7 +222,7 @@ func signedInClient() -> APIClient {
                 default: return (200, fixture("threads"), [:])
                 }
             }
-            let chat = ChatModel(api: signedInClient())
+            let chat = plainChat()
             chat.draft = "  paid 250000 for lunch "
             #expect(chat.canSend)
             await chat.send()
@@ -232,7 +253,7 @@ func signedInClient() -> APIClient {
                 default: return (200, fixture("threads"), [:])
                 }
             }
-            let chat = ChatModel(api: signedInClient())
+            let chat = plainChat()
             chat.draft = "x"
             await chat.send()
             guard case .proposal(_, let p)? = chat.messages.last?.blocks?.first else { Issue.record(); return }
@@ -252,7 +273,7 @@ func signedInClient() -> APIClient {
                 }
                 return (200, fixture("threads"), [:])
             }
-            let chat = ChatModel(api: signedInClient())
+            let chat = plainChat()
             chat.draft = "hi"
             await chat.send()
             #expect(chat.error != nil)
@@ -269,7 +290,7 @@ func signedInClient() -> APIClient {
                 req.url!.path.hasSuffix("/chat") ? (200, fixture("chat-card"), [:])
                     : req.url!.path.hasSuffix("/cancel") ? (410, json(["detail": "expired"]), [:]) : (200, fixture("threads"), [:])
             }
-            let chat = ChatModel(api: signedInClient())
+            let chat = plainChat()
             chat.draft = "x"
             await chat.send()
             guard case .proposal(_, let p)? = chat.messages.last?.blocks?.first else { Issue.record(); return }
@@ -351,8 +372,12 @@ func signedInClient() -> APIClient {
                 if case .other = block {} else { drawn.insert(block.type) }
             }
         }
-        // the kinds this app draws itself; the rest (tables, files, approvals) show their sentence
-        #expect(drawn.isSuperset(of: ["text", "proposal", "posted", "figure", "chart", "review", "intake"]), "\(drawn)")
+        // every kind of the contract is drawn by the app itself: none of the recordings falls back to its sentence
+        #expect(drawn == ["text", "proposal", "approval", "posted", "figure", "table", "chart", "review", "intake", "file"],
+                "\(drawn)")
+        for rec in try recordings() {
+            for block in rec.blocks { if case .other(let id, let type, _) = block { Issue.record("\(rec.conversation): \(id) (\(type)) not drawn") } }
+        }
     }
 
     @Test func theDrawnKindsKeepTheirFields() throws {

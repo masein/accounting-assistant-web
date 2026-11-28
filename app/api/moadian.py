@@ -143,10 +143,12 @@ def export(payload: ExportRequest, request: Request = None, db: Session = Depend
         if not check.ready:
             skipped.append({"id": str(inv.id), "number": inv.number, "problems": check.problems})
             continue
-        if inv.moadian_serial is None:
-            inv.moadian_serial = builder.next_serial(db)
-            db.flush()
-        b = builder.build(db, inv, serial=inv.moadian_serial)
+        try:
+            serial = builder.assign_serial(db, inv)
+        except builder.SerialBusy as e:
+            skipped.append({"id": str(inv.id), "number": inv.number, "problems": [str(e)]})
+            continue
+        b = builder.build(db, inv, serial=serial)
         inv.moadian_taxid = b.packet["header"]["taxid"]
         inv.moadian_status = "exported"
         inv.moadian_exported_at = now

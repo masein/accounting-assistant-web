@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import app.accountingassistant.android.notify.FeedNotifier
 import android.widget.Toast
 import app.accountingassistant.android.util.Documents
@@ -26,9 +27,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.accountingassistant.android.data.DeviceDto
 import app.accountingassistant.android.security.AppLock
+import app.accountingassistant.android.security.LockState
 import app.accountingassistant.android.ui.account.AccountSheet
 import app.accountingassistant.android.ui.account.SmsSection
 import app.accountingassistant.android.ui.account.CurrencySection
@@ -39,6 +42,8 @@ import app.accountingassistant.android.sms.SmsAsk
 import app.accountingassistant.android.sms.SmsSender
 import app.accountingassistant.android.sms.SmsSwitch
 import app.accountingassistant.android.ui.account.LockScreen
+import app.accountingassistant.android.ui.account.UpdateScreen
+import app.accountingassistant.android.util.runSuspendCatching
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -59,7 +64,6 @@ import app.accountingassistant.android.ui.theme.AccountantTheme
 import app.accountingassistant.android.util.VoiceRecorder
 
 class MainActivity : ComponentActivity() {
-    private var stoppedAt = 0L
     /** What another app shared in, waiting for the chat (after sign-in and unlock). */
     private val shared = MutableStateFlow<Shared?>(null)
     /** A home-screen shortcut, waiting for the chat the same way. */
@@ -68,9 +72,14 @@ class MainActivity : ComponentActivity() {
     /**
      * Signed out: the chat and the sign-in form belong to the activity and
      * outlive the person, so the next one to sign in would see the last one's
-     * conversation (and its Undo). They go with the session.
+     * conversation (and its Undo). They go with the session. The app lock's
+     * state goes with them, and starts again settled: a rotation after the
+     * next sign-in isn't taken for a cold start (scenario CX3).
      */
-    private fun forgetThePerson() = viewModelStore.clear()
+    private fun forgetThePerson() {
+        viewModelStore.clear()
+        ViewModelProvider(this)[LockState::class.java].settled()
+    }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -92,8 +101,12 @@ class MainActivity : ComponentActivity() {
                 val scope = rememberCoroutineScope()
                 var restored by remember { mutableStateOf(false) }
                 var signedIn by remember { mutableStateOf(false) }
-                var locked by remember { mutableStateOf(false) }
+                // kept by a view model: a rotation, a theme or a language change doesn't lock again (scenario CX3)
+                val lockState: LockState = viewModel()
+                val locked by lockState.locked.collectAsState()
                 var lockOn by remember { mutableStateOf(false) }
+                // too old for the server (a 426 on any call): the update, before anything else (scenario CX2)
+                val tooOld by app.api.updateRequired.collectAsState()
                 // bank SMS, in the builds outside Play (sms/SmsReading.kt): on only once Android allows reading them
                 var smsOn by remember { mutableStateOf(SmsSwitch.on(this@MainActivity)) }
                 var smsDenied by remember { mutableStateOf(false) }
@@ -108,7 +121,8 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(Unit) {
                     signedIn = app.api.restore() != null
                     lockOn = lock.enabled()
-                    locked = signedIn && lockOn                       // a cold start asks first
+                    // a cold start asks first; an activity recreated meanwhile, only after two minutes away
+                    lockState.opened(signedIn, lockOn, SystemClock.elapsedRealtime())
                     restored = true
                 }
                 LaunchedEffect(Unit) {
@@ -131,7 +145,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 // last time's crashes, if any, once there is a session to send them with
-                LaunchedEffect(signedIn) { if (signedIn) runCatching { app.crashes.send(app.api) } }
+                LaunchedEffect(signedIn) { if (signedIn) runSuspendCatching { app.crashes.send(app.api) } }
                 var crashesOn by remember { mutableStateOf(app.crashes.enabled) }
                 val feed = remember { FeedNotifier(this@MainActivity) }
                 var notifyOn by remember { mutableStateOf(feed.enabled) }
@@ -146,12 +160,11 @@ class MainActivity : ComponentActivity() {
                 }
                 // back from the background after a while: ask again
                 val owner = LocalLifecycleOwner.current
-                DisposableEffect(owner) {
+                DisposableEffect(owner, lockState) {
                     val watch = LifecycleEventObserver { _, event ->
                         when (event) {
-                            Lifecycle.Event.ON_STOP -> stoppedAt = System.currentTimeMillis()
-                            Lifecycle.Event.ON_START -> if (signedIn && lockOn && stoppedAt > 0 &&
-                                System.currentTimeMillis() - stoppedAt > AppLock.RELOCK_AFTER_MS) locked = true
+                            Lifecycle.Event.ON_STOP -> lockState.stopped(SystemClock.elapsedRealtime())
+                            Lifecycle.Event.ON_START -> lockState.started(SystemClock.elapsedRealtime(), signedIn, lockOn)
                             else -> Unit
                         }
                     }
@@ -159,14 +172,17 @@ class MainActivity : ComponentActivity() {
                     onDispose { owner.lifecycle.removeObserver(watch) }
                 }
                 val confirmCredential = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-                    if (it.resultCode == RESULT_OK) locked = false
+                    if (it.resultCode == RESULT_OK) lockState.unlocked()
                 }
                 if (!restored) return@AccountantTheme
                 val lang = resources.configuration.locales[0].language
-                if (signedIn && locked) {
+                val required = tooOld
+                if (required != null) {
+                    UpdateScreen(required.minVersion, lang)
+                } else if (signedIn && locked) {
                     val title = stringResource(R.string.lock_locked)
                     LockScreen(onUnlock = {
-                        lock.prompt(this@MainActivity, title, onUnlocked = { locked = false },
+                        lock.prompt(this@MainActivity, title, onUnlocked = { lockState.unlocked() },
                                     fallback = { confirmCredential.launch(it) })
                     })
                 } else if (!signedIn) {
@@ -177,7 +193,7 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(s.signedIn) {
                         if (s.signedIn) {
                             // the accountant answers in the phone's language
-                            if (app.api.session?.user?.language != lang) runCatching { app.api.setLanguage(lang) }
+                            if (app.api.session?.user?.language != lang) runSuspendCatching { app.api.setLanguage(lang) }
                             signedIn = true
                         }
                     }
@@ -188,7 +204,7 @@ class MainActivity : ComponentActivity() {
                     val suggestions = resources.getStringArray(if (personal) R.array.suggestions_personal else R.array.suggestions).toList()
                     // the phone's language changed since sign-in: the accountant answers in the new one
                     LaunchedEffect(lang) {
-                        if (app.api.session?.user?.language != lang) runCatching { app.api.setLanguage(lang) }
+                        if (app.api.session?.user?.language != lang) runSuspendCatching { app.api.setLanguage(lang) }
                     }
                     // one conversation per person: keyed by who is signed in
                     val vm: ChatViewModel = viewModel(key = "chat:${app.api.session?.user?.id}", factory = viewModelFactory {
@@ -219,7 +235,7 @@ class MainActivity : ComponentActivity() {
                         got.text?.let { vm.edit((s.draft + "\n" + it).trim()) }
                         got.files.forEach { uri ->
                             val mime = contentResolver.getType(uri).orEmpty()
-                            runCatching {
+                            runSuspendCatching {
                                 withContext(Dispatchers.IO) {
                                     if (mime.startsWith("image/")) Capture.photo(this@MainActivity, uri)
                                     else Capture.document(this@MainActivity, uri)
@@ -250,7 +266,7 @@ class MainActivity : ComponentActivity() {
                         level = recorder::level,
                         onFile = { file, share ->
                             scope.launch {
-                                runCatching { app.api.download(file.path) }
+                                runSuspendCatching { app.api.download(file.path) }
                                     .onSuccess { bytes -> Documents.hand(this@MainActivity, bytes, file.name, file.mime, share) }
                                     .onFailure { Toast.makeText(this@MainActivity, R.string.file_failed, Toast.LENGTH_LONG).show() }
                             }
@@ -264,11 +280,11 @@ class MainActivity : ComponentActivity() {
                         onAccount = {
                             account = true
                             devices = null
-                            scope.launch { devices = runCatching { app.api.devices() }.getOrDefault(emptyList()) }
+                            scope.launch { devices = runSuspendCatching { app.api.devices() }.getOrDefault(emptyList()) }
                             if (SmsSwitch.available) scope.launch { smsSenders = app.bankSms.senders() }
                             booksCurrency = null
                             if (session?.company?.kind == "personal") {
-                                scope.launch { booksCurrency = runCatching { app.api.booksCurrency() }.getOrNull() }
+                                scope.launch { booksCurrency = runSuspendCatching { app.api.booksCurrency() }.getOrNull() }
                             }
                         },
                     )
@@ -295,7 +311,7 @@ class MainActivity : ComponentActivity() {
                             currency = booksCurrency?.let { bc ->
                                 CurrencySection(bc.currency, bc.name, bc.options, locked = bc.locked, onChoose = { code ->
                                     scope.launch {
-                                        runCatching { app.api.setBooksCurrency(code) }
+                                        runSuspendCatching { app.api.setBooksCurrency(code) }
                                             .onSuccess { booksCurrency = it }
                                             .onFailure { e ->
                                                 Toast.makeText(this@MainActivity, (e as? ApiError)?.message
@@ -326,8 +342,8 @@ class MainActivity : ComponentActivity() {
                             ),
                             onRevoke = { id ->
                                 scope.launch {
-                                    runCatching { app.api.revokeDevice(id) }
-                                    devices = runCatching { app.api.devices() }.getOrDefault(devices.orEmpty())
+                                    runSuspendCatching { app.api.revokeDevice(id) }
+                                    devices = runSuspendCatching { app.api.devices() }.getOrDefault(devices.orEmpty())
                                 }
                             },
                             onSignOut = {

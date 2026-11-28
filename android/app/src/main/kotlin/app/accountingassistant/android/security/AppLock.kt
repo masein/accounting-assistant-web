@@ -11,6 +11,9 @@ import android.os.CancellationSignal
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 
 private val Context.lockData by preferencesDataStore(name = "app_lock")
@@ -59,5 +62,59 @@ class AppLock(private val context: Context) {
 
     companion object {
         const val RELOCK_AFTER_MS = 2 * 60 * 1000L
+    }
+}
+
+/**
+ * Whether the app is locked now. A view model, so it outlives the activity:
+ * a rotation, a theme or a language change recreates the activity, and none
+ * of them asks for the fingerprint again (scenario CX3). A cold start asks,
+ * and so does coming back after [AppLock.RELOCK_AFTER_MS] away, the activity
+ * recreated meanwhile or not. A process Android ended starts a new one, locked.
+ */
+class LockState : ViewModel() {
+    private val _locked = MutableStateFlow(false)
+    val locked: StateFlow<Boolean> = _locked
+
+    /** The first look in this process is done: later activities only check the time away. */
+    private var decided = false
+    /** When the app last left the screen ([android.os.SystemClock.elapsedRealtime]), 0 before. */
+    private var stoppedAt = 0L
+
+    private fun away(now: Long) = stoppedAt > 0 && now - stoppedAt > AppLock.RELOCK_AFTER_MS
+
+    /**
+     * The activity knows who is signed in and whether the lock is on (each
+     * time it is created): a cold start locks; a recreated activity, only
+     * after long enough away.
+     */
+    fun opened(signedIn: Boolean, lockOn: Boolean, now: Long) {
+        if (!decided) {
+            decided = true
+            _locked.value = signedIn && lockOn
+        } else if (signedIn && lockOn && away(now)) {
+            _locked.value = true
+        }
+    }
+
+    /** Off the screen: the time away starts. */
+    fun stopped(now: Long) {
+        stoppedAt = now
+    }
+
+    /** Back on the screen: locked again after long enough away. */
+    fun started(now: Long, signedIn: Boolean, lockOn: Boolean) {
+        if (signedIn && lockOn && away(now)) _locked.value = true
+    }
+
+    fun unlocked() {
+        _locked.value = false
+    }
+
+    /** Signed out (the next person signs in with a password): nothing to unlock, and no cold start to come. */
+    fun settled() {
+        decided = true
+        _locked.value = false
+        stoppedAt = 0L
     }
 }

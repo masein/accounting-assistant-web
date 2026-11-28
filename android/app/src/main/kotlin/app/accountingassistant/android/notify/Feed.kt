@@ -23,6 +23,10 @@ import app.accountingassistant.android.MainActivity
 import app.accountingassistant.android.R
 import app.accountingassistant.android.data.FeedItem
 import app.accountingassistant.android.security.AppLock
+import app.accountingassistant.android.util.runSuspendCatching
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
 import java.util.concurrent.TimeUnit
 
 /**
@@ -40,18 +44,35 @@ class FeedNotifier(private val context: Context) {
     var enabled: Boolean
         get() = prefs.getBoolean("on", false)
         set(on) {
-            if (!on) prefs.edit().remove("seen").remove("primed").apply()
+            if (!on) prefs.edit().remove(SEEN).remove(OLD_SEEN).remove("primed").apply()
             prefs.edit().putBoolean("on", on).apply()
         }
 
-    private fun seen(): MutableSet<String> = prefs.getStringSet("seen", emptySet())!!.toMutableSet()
+    /**
+     * What was told, the longest gone from the feed first: kept as a list, so
+     * trimming it to [MAX_SEEN] forgets the oldest. Android's string set keeps
+     * no order, and trimming it forgot any of them, the newest too, which were
+     * then told again (scenario CX5).
+     */
+    private fun seen(): List<String> {
+        prefs.getString(SEEN, null)?.let { kept ->
+            return runCatching { Json.decodeFromString(KEYS, kept) }.getOrDefault(emptyList())
+        }
+        // kept before as a set, in no order: nothing told is told again, and from now on the order holds
+        return prefs.getStringSet(OLD_SEEN, null)?.toList().orEmpty()
+    }
 
     /** Tell what is new; returns how many notifications went out. */
     fun deliver(items: List<FeedItem>, locked: Boolean): Int {
         val seen = seen()
+        val told = seen.toHashSet()
         val primed = prefs.getBoolean("primed", false)
-        val fresh = items.filter { it.key !in seen }
-        prefs.edit().putStringSet("seen", (seen + items.map { it.key }).toList().takeLast(MAX_SEEN).toSet())
+        val fresh = items.filter { it.key !in told }.distinctBy { it.key }
+        // what the feed still holds goes last, so only what left it longest ago is forgotten
+        val now = items.map { it.key }.distinct()
+        val inFeed = now.toHashSet()
+        val kept = (seen.filterNot { it in inFeed } + now).takeLast(MAX_SEEN)
+        prefs.edit().putString(SEEN, Json.encodeToString(KEYS, kept)).remove(OLD_SEEN)
             .putBoolean("primed", true).apply()
         if (!primed || fresh.isEmpty()) return 0
         channel()
@@ -77,14 +98,15 @@ class FeedNotifier(private val context: Context) {
                     .setContentTitle(context.getString(R.string.feed_locked_title))
                     .setContentText(context.getString(R.string.feed_locked_body)).build())
                 .build()
-            runCatching { manager.notify(item.key.hashCode(), n) }        // taken back between the check and now
+            // each under its own key (the tag): two keys whose hash codes met replaced each other's notification (scenario CX5)
+            runCatching { manager.notify(item.key, NOTIFICATION_ID, n) }   // taken back between the check and now
         }
         return fresh.size
     }
 
     /** Signed out: forget what was told, so the next person starts silent. */
     fun forget() {
-        prefs.edit().remove("seen").remove("primed").apply()
+        prefs.edit().remove(SEEN).remove(OLD_SEEN).remove("primed").apply()
         NotificationManagerCompat.from(context).cancelAll()
     }
 
@@ -97,6 +119,12 @@ class FeedNotifier(private val context: Context) {
     companion object {
         const val CHANNEL = "books"
         private const val MAX_SEEN = 300
+        /** The keys told, oldest first, as a JSON list; [OLD_SEEN] is the unordered set kept before. */
+        private const val SEEN = "seen_in_order"
+        private const val OLD_SEEN = "seen"
+        private val KEYS = ListSerializer(String.serializer())
+        /** A feed notification is known by its key, as its tag; the id is the same for all. */
+        private const val NOTIFICATION_ID = 1
         private const val WORK = "feed"
 
         fun schedule(context: Context) {
@@ -117,7 +145,7 @@ class FeedWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         if (!notifier.enabled) return Result.success()
         val app = applicationContext as AccountantApp
         if (app.api.session == null && app.api.restore() == null) return Result.success()
-        val feed = runCatching { app.api.feed() }.getOrNull() ?: return Result.retry()
+        val feed = runSuspendCatching { app.api.feed() }.getOrNull() ?: return Result.retry()
         notifier.deliver(feed.items, locked = AppLock(applicationContext).enabled())
         return Result.success()
     }

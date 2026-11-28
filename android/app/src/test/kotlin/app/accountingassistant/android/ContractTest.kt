@@ -127,6 +127,26 @@ class ContractTest {
         assertEquals(java.math.BigDecimal(180_000_000), gold.gain)
     }
 
+    /** Scenario CX4: a figure brings the day it holds on and what it adds up from. */
+    @Test fun aFigureBringsItsDayAndItsParts() {
+        val r = recordings()
+        val cash = parseBlock(r.getValue("cash-fa").first()) as ChatItem.Figure
+        assertEquals("2026-10-10", cash.asOf)
+        assertEquals(listOf("بانک ملت" to java.math.BigDecimal(1_000_000_000), "صندوق" to java.math.BigDecimal(240_000_000)),
+                     cash.breakdown.map { it.label to it.value })
+        val worth = parseBlock(r.getValue("net-worth-fa").first()) as ChatItem.Figure
+        assertEquals(listOf(java.math.BigDecimal(1_150_000_000), java.math.BigDecimal(200_000_000)), worth.breakdown.map { it.value })
+        val balance = parseBlock(r.getValue("balance-en").first()) as ChatItem.Figure
+        assertEquals("2026-10-10", balance.asOf)
+        assertTrue("one account's balance has no parts", balance.breakdown.isEmpty())
+        // every recorded figure: its day, and as many parts as were sent
+        for ((name, blocks) in r) for (b in blocks.filter { it.str("type") == "figure" }) {
+            val f = parseBlock(b) as ChatItem.Figure
+            assertEquals("$name: as_of", b.str("as_of"), f.asOf)
+            assertEquals("$name: breakdown", (b["breakdown"] as? JsonArray)?.size ?: 0, f.breakdown.size)
+        }
+    }
+
     @Test fun aPostedBlockStampsTheVoucher() {
         val stamp = stampOf(recordings().getValue("posted-fa").single())
         assertEquals("1042", stamp.voucher)

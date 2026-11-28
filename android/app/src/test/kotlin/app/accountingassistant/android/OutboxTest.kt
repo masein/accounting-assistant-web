@@ -9,6 +9,7 @@ import app.accountingassistant.android.data.QueuedFile
 import app.accountingassistant.android.data.StoredSession
 import app.accountingassistant.android.data.UserDto
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import okhttp3.OkHttpClient
@@ -117,6 +118,32 @@ class OutboxTest {
         assertEquals(Outbox.Result.Offline, outbox.flush())
         assertNull(outbox.entries.value.single().failure)
         assertEquals(1, woken)
+    }
+
+    /** Scenario CX1: an app too old for the server asks once, not in a loop; the messages wait for the update. */
+    @Test fun anAppTooOldStopsAndTheMessagesWaitForTheUpdate() = runBlocking {
+        outbox.add(q("m1", "record the rent", thread = "t1"))
+        outbox.add(q("m2", "and the fuel", thread = "t1"))
+        reply("""{"code":"upgrade_required","min_version":"0.2.0","detail":"This version of the app is too old."}""", code = 426)
+        assertEquals(Outbox.Result.Blocked, withTimeout(5000) { outbox.flush() })
+        assertEquals(1, server.requestCount)                             // asked once, not again and again
+        assertEquals(listOf("m1", "m2"), outbox.entries.value.map { it.clientId })
+        assertTrue(outbox.entries.value.all { it.failure == null })     // waiting, not refused: they go after the update
+        assertEquals(0, woken)                                           // nothing wakes to try again meanwhile
+        assertEquals("0.2.0", api.updateRequired.value?.minVersion)     // the app asks for the update (CX2)
+    }
+
+    /** Scenario CX1: the end of the session stops the sending too; the message isn't refused. */
+    @Test fun theEndOfTheSessionStopsTheSendingToo() = runBlocking {
+        // kept before the outbox noted who typed (no user): ready again at once, signed in or not
+        outbox.add(q("m1", "record the rent", thread = "t1", user = null))
+        reply("""{"detail":"Authentication required","code":"session_expired"}""", code = 401)
+        reply("""{"detail":"Your session on this phone has ended. Sign in again."}""", code = 401, header = "X-Error-Code" to "session_ended")
+        assertEquals(Outbox.Result.Blocked, withTimeout(5000) { outbox.flush() })
+        assertEquals(2, server.requestCount)                             // the turn and the refresh, then it stops
+        assertNull(outbox.entries.value.single().failure)
+        assertNull(api.session)
+        assertEquals(0, woken)
     }
 
     @Test fun whatSomeoneElseTypedIsNeverSentAsYou() = runBlocking {

@@ -214,4 +214,8 @@
     <string name="quote_self">You</string>
     <string name="side_to">To</string>
     <string name="side_from">From</string>
+    <!-- the app too old for the server, a 426 on any call (scenario CX2) -->
+    <string name="update_title">Update the app</string>
+    <string name="update_body">This version of the app is too old to reach your books. Install the latest version to keep going: messages you\'ve typed are kept and will be sent after the update.</string>
+    <string name="update_version">Version %1$s or later is needed.</string>
 </resources>

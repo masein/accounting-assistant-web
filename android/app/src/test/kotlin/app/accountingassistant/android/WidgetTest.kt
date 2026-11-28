@@ -3,12 +3,15 @@ package app.accountingassistant.android
 import android.content.Intent
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import app.accountingassistant.android.data.SummaryReply
 import app.accountingassistant.android.util.Shortcuts
 import app.accountingassistant.android.widget.CashWidget
 import app.accountingassistant.android.widget.Held
 import app.accountingassistant.android.widget.WidgetState
 import app.accountingassistant.android.widget.widgetText
 import com.github.takahirom.roborazzi.captureRoboImage
+import kotlinx.serialization.json.Json
+import java.math.BigDecimal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -27,8 +30,8 @@ import org.robolectric.annotation.GraphicsMode
 class WidgetTest {
     private val words: (Int) -> String = { RuntimeEnvironment.getApplication().getString(it) }
     private val formatted: (Int, String) -> String = { id, arg -> RuntimeEnvironment.getApplication().getString(id, arg) }
-    private val books = WidgetState(signedIn = true, books = "شرکت بازرگانی آرمان", cash = 49_600_000.0, cashCurrency = "IRR",
-                                    budgetLeft = 9_600_000.0, budgetCurrency = "IRR", asOf = "2026-10-10")
+    private val books = WidgetState(signedIn = true, books = "شرکت بازرگانی آرمان", cash = BigDecimal(49_600_000), cashCurrency = "IRR",
+                                    budgetLeft = BigDecimal(9_600_000), budgetCurrency = "IRR", asOf = "2026-10-10")
 
     @Test @Config(qualifiers = "+fa")
     fun theTwoNumbersInPersian() {
@@ -42,15 +45,38 @@ class WidgetTest {
     }
 
     @Test fun poundsWithTheirSign() {
-        val uk = WidgetState(signedIn = true, books = "Hartley & Co Ltd", cash = 23_923.0, cashCurrency = "GBP", asOf = "2026-10-12",
+        val uk = WidgetState(signedIn = true, books = "Hartley & Co Ltd", cash = BigDecimal(23_923), cashCurrency = "GBP", asOf = "2026-10-12",
                              calendar = "gregorian")
         assertEquals("£23,923.00", widgetText(uk, "en", words, formatted).amount)
-        assertEquals("£23,915.50", widgetText(uk.copy(cash = 23_915.5), "en", words, formatted).amount)
+        assertEquals("£23,915.50", widgetText(uk.copy(cash = BigDecimal("23915.5")), "en", words, formatted).amount)
+    }
+
+    /** Scenario CX6: the amounts as the server wrote them, the pence and the last rial kept, on screen and on the phone. */
+    @Test fun theAmountsStayExactAsSent() {
+        val json = Json { ignoreUnknownKeys = true }
+        val s = json.decodeFromString(SummaryReply.serializer(),
+            """{"as_of":"2026-10-12","cash":{"total":12345678901234567.89,"currency":"GBP","by_currency":[""" +
+            """{"currency":"GBP","total":12345678901234567.89},{"currency":"IRR","total":98765432109876543}]},""" +
+            """"budget":{"left":0.1,"total":0.3,"currency":"GBP"}}""")
+        assertEquals(BigDecimal("12345678901234567.89"), s.cash.total)              // a Double kept «…4567.88» or less
+        assertEquals(BigDecimal("98765432109876543"), s.cash.byCurrency[1].total)
+        assertEquals(BigDecimal("0.1"), s.budget?.left)
+        val state = WidgetState(signedIn = true, books = "Hartley & Co Ltd", cash = s.cash.total, cashCurrency = s.cash.currency,
+                                others = s.cash.byCurrency.drop(1).map { Held(it.currency, it.total) },
+                                budgetLeft = s.budget?.left, budgetCurrency = s.budget?.currency, asOf = s.asOf, calendar = "gregorian")
+        val t = widgetText(state, "en", words, formatted)
+        assertEquals("£12,345,678,901,234,567.89", t.amount)
+        assertEquals("98,765,432,109,876,543 IRR", t.others)
+        // kept on the phone between refreshes and read back: still exact
+        assertEquals(state, json.decodeFromString(WidgetState.serializer(), json.encodeToString(WidgetState.serializer(), state)))
+        // what an earlier version kept, the amounts as numbers, still reads
+        val before = json.decodeFromString(WidgetState.serializer(), """{"signedIn":true,"cash":4.96E7,"cashCurrency":"IRR","budgetLeft":9600000.0}""")
+        assertEquals("49,600,000 IRR", widgetText(before, "en", words, formatted).amount)
     }
 
     /** Each currency as it is (docs/PLAN_CURRENCIES.md phase 2): the first large, the rest under it, then the budget. */
-    private val wallets = books.copy(books = "دفتر من", cash = 77.5, cashCurrency = "OMR",
-                                     others = listOf(Held("IRR", 3_000_000.0), Held("USD", 500.0)))
+    private val wallets = books.copy(books = "دفتر من", cash = BigDecimal("77.5"), cashCurrency = "OMR",
+                                     others = listOf(Held("IRR", BigDecimal(3_000_000)), Held("USD", BigDecimal(500))))
 
     @Test @Config(qualifiers = "+fa")
     fun eachCurrencyAsItIs() {

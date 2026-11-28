@@ -402,6 +402,7 @@
         loadAIConfig(); loadAnthropicConfig(); loadChatProviderShape(); loadAILimits();
         if (typeof loadRateFeeds === 'function') loadRateFeeds();
         if (typeof loadMessengerBots === 'function') loadMessengerBots();
+        if (typeof window.loadSupportDeskCard === 'function') window.loadSupportDeskCard();
       }
     }
 

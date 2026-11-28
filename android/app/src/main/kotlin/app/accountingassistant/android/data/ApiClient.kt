@@ -60,6 +60,28 @@ class ApiClient(
         private set
     private val refreshLock = Mutex()
 
+    /** The last calls the server refused, oldest first (scenario DB3). */
+    private val failures = mutableListOf<FailedCall>()
+
+    /**
+     * The last [MAX_FAILURES] calls the server refused, oldest first, each
+     * with its `x-request-id`: a support message carries them (context.errors),
+     * so the desk finds each in the server's log. Kept in memory only, never
+     * the support calls themselves nor a 401 (renewed on the way, or the end
+     * of the session).
+     */
+    fun recentFailures(): List<FailedCall> = synchronized(failures) { failures.toList() }
+
+    private fun noteFailure(method: String, path: String, status: Int, requestId: String?) {
+        val bare = path.substringBefore('?')
+        if (status == 401 || bare.startsWith("$PREFIX/support")) return
+        synchronized(failures) {
+            failures.add(FailedCall(method, bare, status, requestId?.takeIf { it.isNotBlank() },
+                                        java.time.Instant.now().toString()))
+            while (failures.size > MAX_FAILURES) failures.removeAt(0)
+        }
+    }
+
     suspend fun restore(): StoredSession? = store.load().also { session = it }
 
     // --- sign-in ---------------------------------------------------------------------------
@@ -128,11 +150,14 @@ class ApiClient(
                 }
                 // refused again with the fresh token: the session is over, as on every other call (scenario CX8)
                 if (!response.isSuccessful) {
+                    noteFailure("POST", "$PREFIX/chat/stream", response.code, response.header("X-Request-ID"))
                     throw refused(Answer(response.code, response.body.string(), response.header("X-Error-Code"), token).error())
                 }
                 return@withContext try {
                     readStream(response.body.source(), onStatus)
                 } catch (e: ApiError) {
+                    // a turn that failed on the way (the model unavailable…): support hears of it too
+                    noteFailure("POST", "$PREFIX/chat/stream", e.status, response.header("X-Request-ID"))
                     throw refused(e, signsOut = false)              // a turn's own error: only a 426 is noted
                 }
             } finally {
@@ -184,6 +209,7 @@ class ApiClient(
                     renewed = true
                     refresh(token)?.let { throw refused(it, signsOut = true) }
                 } else if (!r.isSuccessful) {
+                    noteFailure("GET", path, r.code, r.header("X-Request-ID"))
                     // refused again with the fresh token: the session is over, as on every other call (scenario CX8)
                     throw refused(Answer(r.code, r.body.string(), r.header("X-Error-Code"), token).error())
                 } else {
@@ -298,6 +324,27 @@ class ApiClient(
     suspend fun briefing(threadId: String?): BriefingReply =
         call("POST", "/briefing", BriefingRequest(threadId), serializer())
 
+    // --- support: the support desk on the owner's Mac answers (app/api/support.py, scenarios DB1–DB8) ----
+
+    /** The conversation with support: the newest 100, oldest first; with [after] (an ISO time), only newer ones. */
+    suspend fun support(after: String? = null): SupportConversation =
+        call<Unit, SupportConversation>("GET", "/support" + query("after" to after), null, serializer())
+
+    /**
+     * A message to support: its words, the screenshots uploaded for it
+     * ([supportAttachment]) and what the app knew ([context]). Past 30 a day
+     * it is refused with 429 (`support_limit`), the reason in the user's language.
+     */
+    suspend fun supportMessage(text: String, attachmentIds: List<String>, context: SupportContext): SupportPosted =
+        call("POST", "/support/messages", SupportPost(text, attachmentIds, context), serializer())
+
+    /** A screenshot (PNG, JPEG, WebP) or a PDF for the next support message, 20 MB at most. */
+    suspend fun supportAttachment(bytes: ByteArray, fileName: String, contentType: String): UploadReply =
+        callBody("POST", "/support/attachments", { multipart(bytes, fileName, contentType) }, serializer())
+
+    /** The desk's replies were read here: how many were unread. */
+    suspend fun supportSeen(): Int = call<Unit, SupportSeen>("POST", "/support/seen", null, serializer()).seen
+
     private fun multipart(bytes: ByteArray, fileName: String, contentType: String): RequestBody =
         MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("file", fileName, bytes.toRequestBody(contentType.toMediaType()))
@@ -379,6 +426,7 @@ class ApiClient(
             .build()
         try {
             http.newCall(req).execute().use { r ->
+                if (r.code >= 400) noteFailure(method, PREFIX + path, r.code, r.header("X-Request-ID"))
                 Answer(r.code, r.body.string(), r.header("X-Error-Code"), token, r.header("X-More-Before") == "true")
             }
         } catch (e: IOException) {
@@ -416,6 +464,9 @@ class ApiClient(
 
     companion object {
         const val PREFIX = "/api/mobile/v1"
+
+        /** How many refused calls a support message carries, as the web's (window.__recentErrors). */
+        const val MAX_FAILURES = 10
 
         /** An upload's first piece: a few seconds on EDGE. */
         const val FIRST_PIECE = 64 * 1024

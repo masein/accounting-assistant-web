@@ -1,8 +1,12 @@
 """Telegram / Bale bot (roadmap 2026-09 §5.7, part 2): a private chat linked
-to a login with a one-time code talks to the same assistant as the web chat,
-as that user; proposals come back with Confirm / Cancel buttons; voice notes
-are transcribed; unlinked chats, groups, other users' cards, re-delivered
-updates and a wrong webhook secret get nowhere."""
+to a login with a one-time code — or signed in, or made an account, in the
+chat itself (scenarios CU1–CU6) — talks to the same assistant as the web chat
+(its very handler, CU7), as that user; proposals come back with Confirm /
+Cancel buttons; voice notes are transcribed; photos and files go in as the
+web's attachments and files come back as documents (CU8); unlinked chats,
+groups, other users' cards, re-delivered updates and a wrong webhook secret get
+nowhere, and an update the server stopped half way through is handled again
+(CU9)."""
 from __future__ import annotations
 
 import asyncio
@@ -28,17 +32,26 @@ def bot_api(monkeypatch):
     calls: list[tuple[str, dict]] = []
     overrides: dict[str, httpx.Response] = {}
 
+    files: dict[str, bytes] = {}                     # file_path → the bytes the platform serves
+
     def handler(request: httpx.Request) -> httpx.Response:
         method = request.url.path.rsplit("/", 1)[-1]
-        body = json.loads(request.content) if request.content and request.method == "POST" else {}
+        if (request.headers.get("content-type") or "").startswith("multipart/"):
+            body = {"_multipart": request.read()}               # a document's upload
+        else:
+            body = json.loads(request.content) if request.content and request.method == "POST" else {}
         calls.append((method, body))
         if method in overrides:
             return overrides[method]
         if "/file/bot" in request.url.path:
-            return httpx.Response(200, content=b"OggS" + b"\x00" * 50)
+            path = request.url.path.split("/file/bot", 1)[1].split("/", 1)[1]
+            return httpx.Response(200, content=files.get(path, b"OggS" + b"\x00" * 50))
         result = {"getMe": {"username": "BooksBot"}, "getFile": {"file_path": "voice/1.oga", "file_size": 54}}.get(method, True)
+        if method == "getFile" and body.get("file_id") in files:
+            result = {"file_path": body["file_id"], "file_size": len(files[body["file_id"]])}
         return httpx.Response(200, json={"ok": True, "result": result})
     monkeypatch.setattr(messenger, "_TRANSPORT", httpx.MockTransport(handler))
+    handler.files = files
     return calls, overrides
 
 
@@ -113,10 +126,14 @@ class FakeResult:
     text: str
     session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     proposals: list = field(default_factory=list)
+    tool_calls: list = field(default_factory=list)
+    stop_reason: str = "end_turn"
+    turns: int = 1
 
 
 @pytest.fixture()
 def fake_turn(monkeypatch):
+    """The model, faked where the web chat's handler calls it — the bot runs that handler (CU7)."""
     seen: list[dict] = []
 
     def install(result: FakeResult):
@@ -125,8 +142,14 @@ def fake_turn(monkeypatch):
             from app.db.tenant import get_current_company
             seen.append({**kw, "company": get_current_company(), "actor": get_current_actor()})
             return result
+        from app.api import ai_accountant as api_mod
         from app.services.ai_accountant import orchestrator
         monkeypatch.setattr(orchestrator, "run_chat_turn", run_chat_turn)
+        monkeypatch.setattr(api_mod, "run_chat_turn", run_chat_turn)
+
+        async def no_ocr(db, ids):
+            return "", []
+        monkeypatch.setattr(api_mod, "_build_ocr_context", no_ocr)
         return seen
     return install
 
@@ -200,7 +223,8 @@ def test_a_one_time_code_links_the_chat(co, bot_api, db):
     calls, _ = bot_api
     link = _link(db, uid)
     assert link.status == "active" and link.chat_name == "Sara" and link.code is None
-    assert "Linked to Sterling Ltd" in _sent(calls)[-1]["text"]
+    assert "Signed in to Sterling Ltd" in _sent(calls)[-1]["text"]
+    assert link.via == "code" and link.token_version == 0
     _run(db, _msg(f"/start {'x' * 12}", chat_id=5550002))                      # unknown code
     assert "expired" in _sent(calls)[-1]["text"]
 
@@ -377,7 +401,7 @@ def test_cancel_and_someone_elses_card(co, bot_api, db):
     assert calls[-1][1].get("text") == "This card isn't yours." or \
         any(b.get("text") == "This card isn't yours." for m, b in calls if m == "answerCallbackQuery")
     _tap(db, f"ok:{token}", chat_id=999)                                            # an unlinked chat
-    assert any("no longer linked" in (b.get("text") or "") for m, b in calls if m == "answerCallbackQuery")
+    assert any("signed out" in (b.get("text") or "") for m, b in calls if m == "answerCallbackQuery")
 
 
 # ─── 6. The app's side ─────────────────────────────────────────────────────────────
@@ -489,7 +513,7 @@ def test_relay_mode_keeps_no_token_and_the_server_never_calls_the_platform(clien
     assert r.status_code == 200
     [linked] = r.json()["calls"]
     assert linked["method"] == "sendMessage" and linked["params"]["chat_id"] == "5550001"
-    assert linked["params"]["text"].startswith("Linked to Sterling Ltd")
+    assert linked["params"]["text"].startswith("Signed in to Sterling Ltd")
 
     seen = fake_turn(FakeResult("Recorded? Say yes."))
     r = _relay(client, relay, "update", {"update": _msg("paid 20 for lunch", update_id=4101)})

@@ -144,6 +144,8 @@ fun ChatScreen(
     onActionDone: () -> Unit = {},
     /** Reply to a message held down; null drops the reply (scenario AC4). */
     onReply: (Quote?) -> Unit = {},
+    /** Replies from support not read yet: a dot on the account button (scenario DB4). */
+    supportUnread: Int = 0,
 ) {
     val c = LocalAccountantColors.current
     val booksColor = if (personalBooks) c.saffron else c.firouzeh
@@ -193,11 +195,19 @@ fun ChatScreen(
                     Spacer(Modifier.width(8.dp))
                 }
                 if (userInitial.isNotEmpty()) {
-                    val account = stringResource(R.string.account)
-                    Surface(onClick = onAccount, shape = CircleShape, color = c.surface2,
-                            modifier = Modifier.size(34.dp).semantics { contentDescription = account }) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(userInitial, color = c.muted, fontWeight = FontWeight(700), fontSize = 14.sp)
+                    // with a reply from support waiting, the button says so too: «Account, Support replied»
+                    val account = stringResource(R.string.account) +
+                        (if (supportUnread > 0) Numbers.separator(lang) + stringResource(R.string.support_replied) else "")
+                    Box {
+                        Surface(onClick = onAccount, shape = CircleShape, color = c.surface2,
+                                modifier = Modifier.size(34.dp).semantics { contentDescription = account }) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(userInitial, color = c.muted, fontWeight = FontWeight(700), fontSize = 14.sp)
+                            }
+                        }
+                        if (supportUnread > 0) {
+                            Box(Modifier.align(Alignment.TopEnd).size(11.dp).background(c.ground, CircleShape).padding(2.dp)
+                                    .background(c.pomegranate, CircleShape))
                         }
                     }
                 }

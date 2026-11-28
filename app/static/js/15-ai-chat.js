@@ -1714,6 +1714,19 @@
         scrollToBottom(false);
       }
 
+      function appendFileLink(file) {
+        const row = document.createElement('div');
+        row.className = 'ai-choices ai-file';
+        const a = document.createElement('a');
+        a.className = 'chip';
+        a.href = file.web_path;
+        a.download = String(file.name || '');
+        a.textContent = '📎 ' + String(file.name || '');
+        row.appendChild(a);
+        messagesEl.appendChild(row);
+        scrollToBottom(false);
+      }
+
       // The app's own review as a card (scenario AL17): its mood and emoji, a headline that counts up,
       // its change against the usual, a chart of the weeks or months that grows in, the categories as
       // bars with their usual marked, the ideas with a button each — and a little confetti on a good one.
@@ -1957,6 +1970,12 @@
           const ask = (data.tool_calls || []).slice().reverse()
             .find((c) => c && c.name === 'ask_with_choices' && c.result && Array.isArray(c.result.options));
           if (ask) appendChoices(ask.result.options);
+          // a file the assistant handed over — the journal's Excel sheet, a month's close pack — to download
+          // from the report's own page (get_file, scenario CU8)
+          for (const c of (data.tool_calls || [])) {
+            const f = c && c.name === 'get_file' && c.result && c.result.file;
+            if (f && typeof f.web_path === 'string' && f.web_path.startsWith('/manager-reports/')) appendFileLink(f);
+          }
           if (data.intake && !intakeFirst) appendIntakeCard(data.intake);
           statusEl.textContent = tf('aiChatStatusCounter', { turns: data.turns, calls: (data.tool_calls || []).length });
           loadSessions(sessionSearchEl ? sessionSearchEl.value.trim() : '');

@@ -1271,7 +1271,7 @@ From production: Omani rials in replies as «۱٫۷» or «۶۲۹» where the ap
 
 ## CJ. Deploys from two registries (2026-11-16)
 
-The server pulled the api only from the mirror registry through Watchtower; the mirror answered 502 for days and production stayed thirteen merges behind while GHCR had every image. Now the `deployer` service (`scripts/deploy.sh`, DEPLOY.md §5) takes each new image from whichever registry answers. Checked by hand against a throwaway registry and a registry that doesn't exist.
+The server pulled the api only from docker.netixsystem.com through Watchtower; the mirror answered 502 for days and production stayed thirteen merges behind while GHCR had every image. Now the `deployer` service (`scripts/deploy.sh`, DEPLOY.md §5) takes each new image from whichever registry answers. Checked by hand against a throwaway registry and a registry that doesn't exist.
 
 | ID | Scenario | Steps | Expected |
 |----|----------|-------|----------|
@@ -1433,6 +1433,52 @@ From a review of the Android app: told it was too old (426), the outbox asked th
 | CX6 | The widget's amounts exactly | Cash of £12,345,678,901,234,567.89, or rials past 9,007,199,254,740,992; a budget left of £0.10 | The widget shows every digit and the pence, and keeps them so between refreshes; what an earlier version kept still reads |
 | CX7 | Leaving during a call | Confirm a card, then sign out (or the person changes) before the answer | Nothing is taken for a failed call: no "Job was cancelled" under the card, no "voice note failed", no empty list of conversations from a cancelled load |
 | CX8 | The session refused during a stream or a download | The access token expires; it is renewed; the server refuses the new one too, on a chat turn (streamed) and on opening an invoice's PDF | Signed out as on every other call: the sign-in screen, nothing of the person left on the phone |
+
+## CU. Telegram and Bale on their own (the owner, 2026-11-28)
+
+The owner wants people who only use the bot to need nothing else: no app to make an account, no app to link the chat, no report page to fetch a file from. Until now a chat could only be linked with a code made in the app, the bot took only text and voice notes, and a turn skipped the web chat's own steps before the model.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| CU1 | Signing in in the chat | In a chat no one is signed in to: `/start`, then **Sign in** (or `/login`); the username; the password | Asked one at a time; each answer (the password above all) is deleted from the chat at once; «Signed in to … as …»; an audit row "login — Telegram chat (password)". A wrong password asks for the username again and counts toward the web's limit (five per username in 15 minutes, then «Too many tries»); the first password («admin») is refused until it's changed on the web; a suspended company is told so |
+| CU2 | Two-step sign-in | The same for a user with two-factor on | After the password, the 6-digit code (or a recovery code) is asked; its message is deleted; a wrong one asks again, a right one signs in; after five minutes the password is asked again |
+| CU3 | A new account in the chat | With sign-up on (ALLOW_SELF_SIGNUP): **New account** (or `/signup`); a username; a password | A taken or spaced username asks for another; a weak password is refused with the reason and its message deleted; then a person's own books, in the language of their Telegram app, signed in at once. With mail set up the e-mail address is asked before the password, and the chat signs in only after it's confirmed. With sign-up off, `/signup` says so and the greeting has no **New account** button |
+| CU4 | Stopping half way | `/cancel` during a sign-in; or wait ten minutes before the password | «Stopped»; after ten minutes the next message gets the greeting, never taken as a password. `/login` in a chat already signed in names who it is; `/start` there starts a new conversation |
+| CU5 | Linked from the app | The app's account menu → Telegram → the link | Signs the chat in as before («Signed in to …»), alongside the chat's own sign-in |
+| CU6 | Signed out with the rest | Change the password on the web (or "sign out everywhere", or a suspended company); then write in the chat | «This chat was signed out …»; nothing reaches the assistant; `/login` works again. `/stop` signs the chat out |
+| CU7 | The web chat's own turn | Write in the chat: a spend, a question, a bare file path | The same as the web chat — its quick answers, its steps before the model, a statement's steps; a card shows what, how much, when and each line with its account's name (as the phone draws it), with Confirm / Cancel; a question's choices are listed under it. Cancel withdraws an approval the card had asked for |
+| CU8 | Files in and out | Send a photo of a receipt (with or without a caption), a PDF, a CSV or Excel statement; ask «دفتر روزنامهٔ فصل پاییز رو اکسل بفرست» or "send me August's close pack" | The file goes in as the web's attachments (photos at their largest size, 20 MB at most; a larger one or an unknown type is refused, saying why) and is read as on the web. The journal's Excel or the close pack comes back as a document in the chat — and on the phone as a file to open; an invoice confirmed in the chat sends its PDF. Through the relay alike |
+| CU9 | Nothing lost | The server stops half way through a turn, or doesn't answer the relay | The update is handled again on the next try (the relay keeps its place and sends it again); one handled to the end is never handled twice |
+
+## DA. Support: a chat with the support desk, answered from the owner's Mac (the owner, 2026-11-28)
+
+The owner wants a support button: someone who meets a problem writes to support, which is Claude, and what needs fixing is fixed — the night shift reads the support chats too. All of the desk runs on the owner's Mac (Nightshift), never on the server, so Claude needs no credentials there.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| DA1 | Writing to support | Any signed-in person (any role): the headset button beside the bell → write "the ledger page shows an error" | The panel opens with a few words on what helps; the message is kept with the page, the app's version, the language, the screen and the last failed requests with their request ids. "Away right now" while no desk is online; "● Online" while it is. An empty message is refused; past 30 messages a day, the person is told, in their language |
+| DA2 | A screenshot | 📎 (or paste a screenshot into the box), then send | A picture or a PDF goes with the message; a CSV or another file type is refused; an attachment that isn't the person's (another company's, a voucher's) is refused |
+| DA3 | The desk's queue | The desk (Nightshift on the Mac) fetches with its key | Each waiting message comes once, oldest first, with who wrote it (username, role, language), their company (kind, locale, currency) and the conversation so far. A message taken and not answered for ten minutes comes back; one answered doesn't. A wrong key gets a plain 404 |
+| DA4 | The reply | The desk answers | It shows in the open panel within seconds; with the panel shut, the button's badge counts the unread replies and the bell has one "Support replied" line with the newest reply (and a push to the person's devices). The bell line opens the panel; reading clears the badge and the line — and the next reply rings again |
+| DA5 | Online | The desk checks in every minute | "● Online — usually answers within a few minutes" while it was seen in the last three minutes; "Away right now — your message is kept…" otherwise |
+| DA6 | The desk reads a screenshot | The desk downloads an attachment | Only a file attached to a support message; any other id is a 404 |
+| DA7 | The desk key | Settings → Support desk (platform admin) | **Make a desk key** shows the key once (only its hash is kept); a new key stops the old one; **Turn off** stops the desk. Owners and everyone else can't reach it. The key survives a deploy (it was moved into the Default company by the boot's backfill: the desk got 404 after every deploy) |
+| DA8 | From a phone | The phone apps' Support | The same conversation; the message says it came from Android or iOS; replies are unread until seen there or on the web |
+
+## DB. Support on Android (2026-11-28)
+
+The phone gets the web's support conversation (DA1–DA8): the same thread, reached from the account sheet or from a "Support replied" notification, with what the app knew sent along so the desk can find the problem in the server's log.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| DB1 | Opening Support | The avatar → **Support** (any role, any language) | A full screen: ← back, «Support» and whether the desk is online; before the first message, a few words on what helps (the screen, what you did, what you expected, a screenshot). The conversation is the web's: messages written on the web are there, oldest first. Back (the arrow or the phone's back) returns to the chat as it was |
+| DB2 | Writing, with a screenshot | 📎 → **Choose a photo** (or **Choose a file** for a PDF) → write "the ledger shows an error" → Send | The file uploads first (its name above the box, ✕ takes it off), then the message goes with it; it shows on the end side (the left in Persian and Arabic) with the time under it. A message of only a screenshot goes too; an empty one can't be sent; a file over 20 MB is refused on the phone with «That file is over 20 MB.»; at most five files a message. A screenshot goes as it is (PNG, JPEG, WebP), a HEIC photo as a JPEG |
+| DB3 | What the message carries | Make a call fail (e.g. the server stopped mid-turn), then write to support; the desk reads the message | Its context: the screen the person came from (`chat`, or `support` when opened from the notification), the app's version, the language, platform `android`, the screen's size in dp, and the last ten calls the server refused (method, path, status, `x-request-id`, time) — a turn that failed in its stream too. Support's own calls and a renewed 401 aren't among them. The thread's channel says Android |
+| DB4 | A reply | The desk answers while Support is open; then again with the app on the chat | Open: the reply appears on the start side within five seconds and is marked read (the web's badge and bell line go too). On the chat: a red dot on the avatar and the count beside **Support** in the account sheet, after the app is opened or comes back; opening Support clears both |
+| DB5 | "Support replied" | Notifications on; the desk answers while the app is closed; wait for the hourly sync | One notification «Support replied» with the reply's first words (never past the app lock: there only the title); the same reply is never told twice, the next one is. Tapping it opens Support (after the lock, if it's on); reading the reply in the app takes the notification away |
+| DB6 | Refused | Send a 31st message in a day; or send with no connection | Past 30: the server's words in the person's language above the box («You've sent 30 messages to support today…»), the typed words kept. Offline or any other failure: «Couldn't send it — try again.», the words and the screenshots kept to send again; a tap on the notice dismisses it |
+| DB7 | Right to left and the time | The phone in Persian (then Arabic, Spanish, English) | Every word of the screen in the phone's language («پشتیبانی», «● آنلاین — معمولاً ظرف چند دقیقه پاسخ می‌دهد»); the person's messages on the end side and the desk's on the start side, each message in its own direction; under each, the hour today («۰۹:۰۵») or the day and the hour before («۶ آذر، ۱۲:۰۰»), in the books' calendar and the person's digits, at the phone's own time |
+| DB8 | Polling only while it shows | Open Support and leave it; put the app in the background; come back; sign out and in as someone else | It asks every five seconds only while on screen and in front, not in the background; back in the app it asks again at once. After signing out the next person sees their own conversation, never the last one's |
 
 ## CW. Backups, the live copy, the publish and the nightly eval say "done" only when they are (review 2026-11-28)
 

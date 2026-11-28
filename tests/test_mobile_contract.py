@@ -298,6 +298,11 @@ MOBILE_ROUTES = {
     ("POST", "/api/mobile/v1/auth/refresh"): PUBLIC,
     # the account and its phones: everyone signed in
     ("GET", "/api/mobile/v1/me"): ALL,
+    # support (DA8): everyone signed in writes to the support desk
+    ("GET", "/api/mobile/v1/support"): ALL,
+    ("POST", "/api/mobile/v1/support/messages"): ALL,
+    ("POST", "/api/mobile/v1/support/attachments"): ALL,
+    ("POST", "/api/mobile/v1/support/seen"): ALL,
     ("PUT", "/api/mobile/v1/me/language"): ALL,
     ("DELETE", "/api/mobile/v1/session"): ALL,
     ("GET", "/api/mobile/v1/devices"): ALL,
@@ -330,6 +335,9 @@ MOBILE_ROUTES = {
     ("GET", "/api/mobile/v1/documents/invoices/{invoice_id}"): frozenset({"owner", "cfo", "accountant", "viewer", "personal"}),
     # a payslip: whoever reads the payroll
     ("GET", "/api/mobile/v1/documents/payslips/{run_id}/{entity_id}"): frozenset({"owner", "cfo", "accountant"}),
+    # the journal's Excel and a close pack (get_file, scenario CU8): whoever reads the reports
+    ("GET", "/api/mobile/v1/documents/journal"): frozenset({"owner", "cfo", "accountant", "viewer", "personal"}),
+    ("GET", "/api/mobile/v1/documents/close-pack"): frozenset({"owner", "cfo", "accountant", "viewer", "personal"}),
     # the second person
     ("GET", "/api/mobile/v1/approvals"): frozenset({"owner", "cfo", "manager"}),
     ("POST", "/api/mobile/v1/approvals/{token}/approve"): frozenset({"owner", "cfo", "manager"}),

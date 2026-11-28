@@ -1,11 +1,14 @@
 """The Telegram relay (ops/telegram-relay/relay.py, DEPLOY.md §14): it polls Telegram, hands each update to the
-server's relay endpoint — with a voice note's audio — and makes the calls the server answers with, in order; a
-chat's updates in order, different chats together; the offset kept across restarts; a server that doesn't answer
-retried, then the update dropped; the bot token never in a log line."""
+server's relay endpoint — with a voice note's, a photo's or a file's bytes — and makes the calls the server answers
+with, in order, uploading a document's bytes (scenario CU8); a chat's updates in order, different chats together;
+the offset kept across restarts; a server that doesn't answer retried, then the round stopped without moving the
+offset, so nothing is dropped (CU9); the bot token never in a log line."""
 from __future__ import annotations
 
 import asyncio
 import base64
+import email.parser
+import email.policy
 import importlib.util
 import json
 import logging
@@ -32,6 +35,22 @@ def _msg(update_id, chat_id, text=None, **extra):
     return {"update_id": update_id, "message": m}
 
 
+def _form(request: httpx.Request) -> tuple[dict, dict[str, bytes]]:
+    """A multipart request's fields and files."""
+    raw = request.read()
+    head = f"Content-Type: {request.headers['content-type']}\r\n\r\n".encode()
+    msg = email.parser.BytesParser(policy=email.policy.HTTP).parsebytes(head + raw)
+    fields, files = {}, {}
+    for part in msg.iter_parts():
+        name = part.get_param("name", header="content-disposition")
+        data = part.get_payload(decode=True)
+        if part.get_filename():
+            files[name] = data
+        else:
+            fields[name] = data.decode()
+    return fields, files
+
+
 class World:
     """Telegram and the server, mocked: what each was asked, and what they answer."""
 
@@ -49,7 +68,11 @@ class World:
             self.tg_calls.append(("<file>", {"path": request.url.path.rsplit("/", 1)[-1]}))
             return httpx.Response(200, content=b"OggS" + b"\x01" * 30)
         method = request.url.path.rsplit("/", 1)[-1]
-        body = json.loads(request.content) if request.content else {}
+        if (request.headers.get("content-type") or "").startswith("multipart/"):
+            fields, files = _form(request)
+            body = {**fields, "_files": files}
+        else:
+            body = json.loads(request.content) if request.content else {}
         self.tg_calls.append((method, body))
         result = {"getMe": {"id": 42, "username": "BooksRelayBot"},
                   "getFile": {"file_path": "voice/f.oga", "file_size": 34}}.get(method, True)
@@ -60,8 +83,15 @@ class World:
         return httpx.Response(200, json={"ok": True, "result": result})
 
     async def app(self, request: httpx.Request) -> httpx.Response:
-        body = json.loads(request.content)
+        if (request.headers.get("content-type") or "").startswith("multipart/"):
+            fields, files = _form(request)
+            body = {k: json.loads(v) for k, v in fields.items()}
+            body["files"] = {k[2:]: v for k, v in files.items()}
+        else:
+            body = json.loads(request.content)
         path = request.url.path.rsplit("/", 1)[-1]
+        if path == "update":
+            body.setdefault("files", {})
         self.app_calls.append((path, body, dict(request.headers)))
         if path == "hello":
             return httpx.Response(200, json={"ok": True})
@@ -120,19 +150,50 @@ def test_a_voice_note_goes_with_its_audio(tmp_path):
     w = World(tmp_path, [_msg(20, 1, voice=voice), _msg(21, 3, voice=big)])
     asyncio.run(w.relay().poll_once())
     bodies = {b["update"]["update_id"]: b for p, b, _ in w.app_calls if p == "update"}
-    assert base64.b64decode(bodies[20]["files"]["V1"]).startswith(b"OggS")
+    assert bodies[20]["files"]["V1"].startswith(b"OggS")                     # a multipart part, not base64
     assert bodies[21]["files"] == {}                                          # too large: not fetched at all
     assert [b["file_id"] for b in w.sent("getFile")] == ["V1"]
 
 
-def test_a_server_that_does_not_answer_is_retried_then_the_update_dropped(tmp_path):
+def test_a_photo_and_a_file_go_with_their_bytes(tmp_path):
+    """CU8: the photo's largest size within the limit (as the server picks it), a document; too large, nothing."""
+    photo = [{"file_id": "S", "file_size": 10, "width": 90}, {"file_id": "L", "file_size": 34, "width": 1280},
+             {"file_id": "XL", "file_size": relay_mod.MAX_FILE_BYTES + 1, "width": 4000}]
+    doc = {"file_id": "D", "file_name": "statement.csv", "mime_type": "text/csv", "file_size": 34}
+    big = {"file_id": "B", "file_name": "huge.pdf", "file_size": relay_mod.MAX_FILE_BYTES + 1}
+    w = World(tmp_path, [_msg(25, 1, photo=photo, caption="receipt"), _msg(26, 2, document=doc),
+                         _msg(27, 3, document=big)])
+    asyncio.run(w.relay().poll_once())
+    bodies = {b["update"]["update_id"]: b for p, b, _ in w.app_calls if p == "update"}
+    assert list(bodies[25]["files"]) == ["L"] and list(bodies[26]["files"]) == ["D"] and bodies[27]["files"] == {}
+    assert relay_mod.MAX_FILE_BYTES == 20 * 1024 * 1024
+
+
+def test_a_document_from_the_server_is_uploaded(tmp_path):
+    """CU8: the journal's Excel, an invoice's PDF — its bytes come in the answer, and go up as a multipart upload."""
+    xlsx = b"PK\x03\x04" + b"\x00" * 40
+    call = {"method": "sendDocument", "params": {"chat_id": "1", "caption": "📎 journal.xlsx"},
+            "files": {"document": {"name": "journal.xlsx", "mime": "application/vnd.ms-excel",
+                                   "b64": base64.b64encode(xlsx).decode()}}}
+    w = World(tmp_path, [_msg(28, 1, "journal please")], {28: [_call("Here it is.", 1), call]})
+    asyncio.run(w.relay().poll_once())
+    [doc] = w.sent("sendDocument")
+    assert doc["chat_id"] == "1" and doc["caption"] == "📎 journal.xlsx" and doc["_files"]["document"] == xlsx
+    assert [b["text"] for b in w.sent()] == ["Here it is."]                  # the words first, then the file
+
+
+def test_a_server_that_does_not_answer_is_retried_then_sent_again_next_round(tmp_path):
     w = World(tmp_path, [_msg(30, 1, "hi")], {30: [_call("Hello!", 1)]}, server_fails=2)
     asyncio.run(w.relay().poll_once())
     assert len([p for p, _, _ in w.app_calls if p == "update"]) == 3 and [b["text"] for b in w.sent()] == ["Hello!"]
-    w2 = World(tmp_path / "b", [_msg(31, 1, "hi")], {31: [_call("Hello!", 1)]}, server_fails=9)
+    w2 = World(tmp_path / "b", [_msg(31, 1, "hi")], {31: [_call("Hello!", 1)]}, server_fails=3)
     r2 = w2.relay()
+    with pytest.raises(relay_mod.ServerUnavailable):
+        asyncio.run(r2.poll_once())
+    assert w2.sent() == [] and r2.load_offset() is None                      # the offset stays: not dropped (CU9)
+    w2.batches = [[_msg(31, 1, "hi")]]                                         # Telegram gives it again
     asyncio.run(r2.poll_once())
-    assert w2.sent() == [] and r2.load_offset() == 32                         # dropped, not retried forever
+    assert [b["text"] for b in w2.sent()] == ["Hello!"] and r2.load_offset() == 32
 
 
 def test_one_failing_call_does_not_stop_the_rest(tmp_path):
@@ -161,6 +222,12 @@ def test_the_token_is_never_logged(tmp_path, caplog):
 def test_the_server_side_and_the_relay_agree():
     from app.services import messenger
     assert relay_mod.MAX_VOICE_BYTES == messenger.MAX_VOICE_BYTES
+    assert relay_mod.MAX_FILE_BYTES == messenger.MAX_FILE_BYTES
+    msg = {"photo": [{"file_id": "a", "file_size": 5, "width": 90}, {"file_id": "b", "file_size": 9, "width": 800}]}
+    assert relay_mod._photo_of(msg)["file_id"] == messenger._document_of(msg)["file_id"] == "b"
     env = (ROOT / "ops/telegram-relay/.env.example").read_text(encoding="utf-8")
-    assert all(k in env for k in ("TELEGRAM_BOT_TOKEN=", "APP_URL=", "RELAY_KEY="))
-    assert {".env", "state/"} <= set((ROOT / "ops/telegram-relay/.gitignore").read_text().split())
+    assert all(k in env for k in ("APP_URL=", "RELAY_KEY=")) and "TELEGRAM_BOT_TOKEN=" not in env
+    # the token alone, in its own file: the watchdog reads it (ops/watchdog/watchdog.sh) and never the relay key
+    assert "TELEGRAM_BOT_TOKEN=" in (ROOT / "ops/telegram-relay/token.env.example").read_text(encoding="utf-8")
+    assert "token.env" in (ROOT / "ops/telegram-relay/compose.yml").read_text(encoding="utf-8")
+    assert {".env", "token.env", "state/"} <= set((ROOT / "ops/telegram-relay/.gitignore").read_text().split())

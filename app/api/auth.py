@@ -388,6 +388,70 @@ def _join_household(payload: "SignupRequest", request: Request, response: Respon
                      "role": user.role}}
 
 
+def valid_email(candidate: str | None) -> bool:
+    candidate = (candidate or "").strip()
+    return bool(candidate) and "@" in candidate and not candidate.startswith("@") and not candidate.endswith("@")
+
+
+def create_personal_account(db: Session, *, username: str, password: str, email: str | None,
+                            display_name: str | None = None, locale: str | None = "default",
+                            language: str | None = None, ip: str | None = None, via: str | None = None):
+    """A new person's own books and their login — the sign-up page's and the bot's (scenario CU3) alike.
+    Returns ``(company, user, pending_verification)``; when the server sends mail, the address must be
+    confirmed before the first sign-in and the e-mail has gone. Raises HTTPException (400) for a weak
+    password, a missing address, an unknown locale or a username already taken. Commits."""
+    username = (username or "").strip()
+    try:
+        validate_password_strength(password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    # Checked before provision_company, which commits: rejecting afterwards
+    # would leave an orphan account holding the username.
+    if verification_required() and not valid_email(email):
+        raise HTTPException(status_code=400, detail="A valid email address is required.")
+
+    locale = (locale or "default").strip().lower()
+    if locale not in SUPPORTED_LOCALES:
+        raise HTTPException(status_code=400, detail=f"Unsupported locale '{locale}'")
+
+    try:
+        company, user = provision_company(
+            db,
+            name=(display_name or "").strip() or username,
+            locale=locale,
+            base_currency="GBP" if locale == "uk" else "IRR",
+            username=username,
+            password=password,
+            kind="personal",
+        )
+    except ValueError as e:
+        db.rollback()
+        # Covers the duplicate-username case; the message is the service's.
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    if language in SUPPORTED_LANGUAGES:
+        user.preferred_language = language
+
+    email = (email or "").strip() or None
+    pending_verification = verification_required()
+    if pending_verification:
+        user.email = email
+        issue_token(user)
+    elif email:
+        user.email = email
+
+    audit_log(db, action="signup", entity_type="user", entity_id=str(user.id),
+              detail=f"Self-signup for '{username}'" + (f" ({via})" if via else ""), ip_address=ip)
+    db.commit()
+
+    if pending_verification:
+        # Best effort: the account exists either way, and the user can ask for
+        # another link. Failing the signup over a mail hiccup would be worse.
+        send_verification_email(user)
+    return company, user, pending_verification
+
+
 @router.post("/signup", status_code=201)
 def signup(payload: SignupRequest, request: Request, response: Response,
            db: Session = Depends(get_db)) -> dict:
@@ -397,11 +461,11 @@ def signup(payload: SignupRequest, request: Request, response: Response,
     able to provision a business company with payroll, approvals and user
     management attached. Business tenants stay super-admin provisioned.
 
-    Off unless the operator sets ALLOW_SELF_SIGNUP. There is no email
-    verification, because this app has no mail infrastructure and is routinely
-    deployed air-gapped — so the protections here are the opt-in flag and a
-    per-IP rate limit. Anyone exposing this to the open internet should add
-    verification before doing so.
+    Off unless the operator sets ALLOW_SELF_SIGNUP. When the server sends mail
+    (SMTP_HOST set), an e-mail address is required and must be confirmed before
+    the first sign-in; without mail (air-gapped servers) the protections are the
+    opt-in flag and a per-IP rate limit. The Telegram/Bale bot makes accounts
+    the same way (``create_personal_account``, scenario CU3).
     """
     if not settings.allow_self_signup and not payload.invite:
         raise HTTPException(status_code=403, detail="Self-signup is disabled on this server.")
@@ -412,58 +476,15 @@ def signup(payload: SignupRequest, request: Request, response: Response,
     if payload.invite:
         return _join_household(payload, request, response, db, ip)
 
-    username = payload.username.strip()
-    try:
-        validate_password_strength(payload.password)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-
-    # Checked before provision_company, which commits: rejecting afterwards
-    # would leave an orphan account holding the username.
-    if verification_required():
-        candidate = (payload.email or "").strip()
-        if not candidate or "@" not in candidate or candidate.startswith("@") or candidate.endswith("@"):
-            raise HTTPException(status_code=400, detail="A valid email address is required.")
-
-    locale = (payload.locale or "default").strip().lower()
-    if locale not in SUPPORTED_LOCALES:
-        raise HTTPException(status_code=400, detail=f"Unsupported locale '{payload.locale}'")
-
-    try:
-        company, user = provision_company(
-            db,
-            name=(payload.display_name or "").strip() or username,
-            locale=locale,
-            base_currency="GBP" if locale == "uk" else "IRR",
-            username=username,
-            password=payload.password,
-            kind="personal",
-        )
-    except ValueError as e:
-        db.rollback()
-        # Covers the duplicate-username case; the message is the service's.
-        raise HTTPException(status_code=400, detail=str(e)) from e
-
-    # the language they signed up in, for the e-mails that follow and their first sign-in
     from app.core.messages import request_language
-    user.preferred_language = request_language(request.headers)
-
     email = (payload.email or "").strip() or None
-    pending_verification = verification_required()
-    if pending_verification:
-        user.email = email
-        issue_token(user)
-    elif email:
-        user.email = email
-
-    audit_log(db, action="signup", entity_type="user", entity_id=str(user.id),
-              detail=f"Self-signup for '{username}'", ip_address=ip)
-    db.commit()
+    company, user, pending_verification = create_personal_account(
+        db, username=payload.username, password=payload.password, email=email,
+        display_name=payload.display_name, locale=payload.locale,
+        # the language they signed up in, for the e-mails that follow and their first sign-in
+        language=request_language(request.headers), ip=ip)
 
     if pending_verification:
-        # Best effort: the account exists either way, and the user can ask for
-        # another link. Failing the signup over a mail hiccup would be worse.
-        send_verification_email(user)
         return {
             "ok": True,
             "pending_verification": True,

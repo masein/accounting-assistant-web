@@ -541,6 +541,7 @@ class TestRegistry:
             "list_purchase_orders", "list_recurring_rules", "get_cap_table", "get_exchange_rates", "get_petty_cash",
             "get_audit_trail", "propose_lock_period", "propose_create_recurring_rule", "propose_review_prefs",
             "check_affordability",
+            "get_file",                                                  # the journal's Excel, a close pack (CU8)
         }
 
 

@@ -193,6 +193,15 @@ def _reads(paths, perm):
 # --- The phone app (app/api/mobile.py) --------------------------------------
 # Every role signs in on a phone and manages its own devices; what each role
 # may then do is decided by the business routes the app calls.
+# support: every signed-in person can write to the support desk (DA1–DA8)
+for _m, _p in [("GET", "/support"), ("POST", "/support/messages"), ("POST", "/support/attachments"),
+               ("POST", "/support/seen"), ("GET", "/api/mobile/v1/support"),
+               ("POST", "/api/mobile/v1/support/messages"), ("POST", "/api/mobile/v1/support/attachments"),
+               ("POST", "/api/mobile/v1/support/seen")]:
+    _add(_m, _p, ANY_ROLE)
+_add("GET", "/admin/support-desk", Perm.PLATFORM_ADMIN)
+_add("POST", "/admin/support-desk/key", Perm.PLATFORM_ADMIN)
+_add("DELETE", "/admin/support-desk", Perm.PLATFORM_ADMIN)
 _add("GET", "/api/mobile/v1/me", ANY_ROLE)
 _add("PUT", "/api/mobile/v1/me/language", ANY_ROLE)
 _add("DELETE", "/api/mobile/v1/session", ANY_ROLE)
@@ -478,6 +487,8 @@ for _m, _p in [
 _reads(["/api/mobile/v1/threads", "/api/mobile/v1/threads/{thread_id}/messages", "/api/mobile/v1/summary"], Perm.BOOKS_READ)
 _reads(["/api/mobile/v1/documents/invoices/{invoice_id}"], frozenset({Perm.BOOKS_READ, Perm.REPORTS_READ}))
 _reads(["/api/mobile/v1/documents/payslips/{run_id}/{entity_id}"], Perm.PAYROLL_READ)
+# the journal's Excel and a close pack, as the manager reports' own downloads (get_file, scenario CU8)
+_reads(["/api/mobile/v1/documents/journal", "/api/mobile/v1/documents/close-pack"], Perm.REPORTS_READ)
 for _m, _p in [
     ("POST", "/api/mobile/v1/chat"), ("POST", "/api/mobile/v1/chat/stream"),
     ("POST", "/api/mobile/v1/proposals/{token}/confirm"),

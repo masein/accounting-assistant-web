@@ -1,7 +1,7 @@
 # AI Accountant — developer notes
 
 The AI accountant is a conversational bookkeeper that exposes a typed
-tool catalogue to an LLM — 71 tools in all, 60 in a company's books and
+tool catalogue to an LLM — 72 tools in all, 61 in a company's books and
 38 in a person's. The LLM never writes to the books directly — every
 write goes through a proposal → confirmation → execute loop with
 idempotency tokens. A card waits 24 hours for its Confirm; once
@@ -60,7 +60,7 @@ a new provider is ~150 LOC.
               │   handles tool_calls / role:'tool' shape   │
               └────────────────────────────────────────────┘
                                     │
-              ┌─── tool catalogue (71) ┴─────────────┐
+              ┌─── tool catalogue (72) ┴─────────────┐
    read       │ find_entity  search_accounts         │
    tools      │ query_ledger  get_cash_position  …   │     ai_proposals
                                                       (status: pending)
@@ -162,10 +162,10 @@ tool) sends:
 * the **groups** the message is about, matched by keyword in Persian,
   English, Spanish and Arabic (`KEYWORDS`), plus the groups of the
   tools the conversation just used and, with an attachment, invoices,
-  statements and parties. There are 15 groups: money, counting,
+  statements and parties. There are 16 groups: money, counting,
   spending, planning, parties, statements, commitments, invoices,
-  time, equity, payroll, operations, close, memory, dates (a person's
-  books have only the first seven and the last two);
+  time, equity, payroll, operations, close, files, memory, dates (a
+  person's books have only the first seven and the last two);
 * **`more_tools`**, always last: the model calls it with the groups it
   finds missing and gets them in the same turn, so routing never leaves
   it without a tool.
@@ -286,12 +286,12 @@ Two things differ, both selected by `run_chat_turn(..., mode="personal")`
 
 | | business (default) | personal |
 |---|---|---|
-| registry | `build_default_registry()` (60 tools) | `build_personal_registry()` (38: reads and core proposals, money places, savings goals, net worth, the report card; no invoices, payroll, time-billing, equity or operations) |
-| routing | all 15 tool groups | the 9 groups a person's books have |
+| registry | `build_default_registry()` (61 tools) | `build_personal_registry()` (38: reads and core proposals, money places, savings goals, net worth, the report card; no invoices, payroll, time-billing, equity or operations) |
+| routing | all 16 tool groups | the 9 groups a person's books have |
 | prompt | `SYSTEM_PROMPT` | `SYSTEM_PROMPT + PERSONAL_MODE_ADDENDUM` |
 
 The two registries share 27 tools; with the 11 only a person has, the
-catalogue is 71 tools. Routing adds `more_tools` to whichever is sent.
+catalogue is 72 tools. Routing adds `more_tools` to whichever is sent.
 
 `PERSONAL_MODE_ADDENDUM` reframes tone and defaults only — plain
 language instead of debit/credit, everyday categories, no counterparty
@@ -307,8 +307,11 @@ did not invalidate the business cache.
 
 ### Provisioning a personal account
 
-There is no self-signup. A super-admin creates the tenant and its login
-in one call — Companies console → **Type: Personal**, or:
+A person makes their own account on the sign-up page or in the Telegram/Bale
+bot (`/signup`) when the server has `ALLOW_SELF_SIGNUP` on — both through
+`create_personal_account` in `app/api/auth.py`. Otherwise a super-admin
+creates the tenant and its login in one call — Companies console → **Type:
+Personal**, or:
 
 ```
 POST /admin/companies
@@ -325,6 +328,28 @@ budgets, reports — works on it unchanged.
 
 The user lands on the AI chat (`ROLE_HOME`), with a four-item nav: My
 finances, AI Chat, Vouchers, Recurring.
+
+## Files handed over, and the Telegram/Bale bot
+
+`get_file` (`app/services/ai_accountant/files_out.py`, scenario CU8) hands the
+user a file the app makes: the journal for a period as the tax office's Excel
+sheet, or a month's close pack (ZIP, PDF or workbook). It is a read tool in the
+`files` group (a company's books only) and returns a `file` block — never the
+bytes. Each client fetches them its own way, with the permission of the route
+it uses: the phones from `path` (`/api/mobile/v1/documents/journal`,
+`…/close-pack`, reports permission), the web chat as a download link to
+`web_path` (the report page's own export), and the bot as a document it sends
+(`file_bytes`). An invoice's and a payslip's PDF come the same way, from
+`get_invoice`, `get_payroll` and a confirmed invoice card.
+
+The bot (`app/services/messenger.py`) runs the web chat's own handler
+(`app.api.ai_accountant.chat`) as the chat's user, under `chat_channel` so the
+review queue says which platform a turn came from, and draws its reply from
+the phone's blocks (`build_blocks`): the words with a question's choices listed,
+each card from its lines with Confirm / Cancel, each file as a document. A chat
+signs in by typing the username, password and two-factor code
+(`password_step` / `second_factor_step`, the web's and the phone's), makes an
+account with `/signup`, or is linked from the app; DEPLOY.md §14 has the rest.
 
 ## Bank statements in the chat
 

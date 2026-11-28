@@ -448,16 +448,39 @@ or production keeps up to 4 GB of changes for it. To remove the copy entirely:
 drop the slot, delete the `replicator` role, the `pg_hba.conf` line and the key's
 line in `authorized_keys`, then `docker compose down -v` on the Mac.
 
-## 14. Telegram through a relay
+## 14. Telegram and Bale: the bot, and Telegram through a relay
+
+The bot lives on the server (`app/services/messenger.py`). Someone who only
+uses Telegram or Bale needs nothing else (scenarios CU1–CU9):
+
+- **Signing in in the chat:** `/login` (or the greeting's **Sign in** button)
+  asks for the username, then the password, then the two-factor code when it's
+  on. Every answer — the password and the code above all — is deleted from the chat as soon
+  as they're read; the checks are the web's and the phone's own — per-username
+  and per-chat limits, a suspended company, an address still to confirm, the
+  first password's lock — and each sign-in is an audit row (`login`, "Telegram
+  chat (password)"). A chat can also still be linked from the app's account menu
+  with a one-time code.
+- **A new account in the chat:** `/signup` makes a person's own books, as the
+  sign-up page does, when `ALLOW_SELF_SIGNUP` is on. With mail set up
+  (`SMTP_HOST`) it also asks for an e-mail address, and the chat signs in only
+  after it's confirmed. Business companies are still made by a super-admin.
+- **Signing out:** `/stop`. A password change, "sign out everywhere", or a
+  suspended company ends the chat's sign-in too, as it ends a browser's.
+- **What it does:** a message is a turn of the web chat's own handler, as that
+  user (company, role, language, AI budget): the quick answers, a statement's
+  steps and a receipt's reading are the same. Voice notes are transcribed; a
+  photo or a file (PDF, CSV, Excel, 20 MB at most) goes in as the web's
+  attachments, its caption as the message. Each card comes with Confirm /
+  Cancel. A file the reply has — an invoice's or a payslip's PDF, or through the
+  assistant's `get_file` the journal's Excel sheet or a month's close pack — is
+  sent as a document.
 
 Telegram is filtered where production runs, so the server can't reach
-api.telegram.org to set a webhook or send a reply. The bot still lives on the
-server: linking a chat to a login, the same assistant as the web chat, voice
-notes, and Confirm / Cancel (`app/services/messenger.py`). Its Telegram side
-runs on a machine that can reach Telegram: the **relay**, in
-[`ops/telegram-relay/`](ops/telegram-relay/README.md). On the owner's Mac it
-runs from `/Users/masein/Development/accounting/telegram-relay`, next to the
-live copy (§13).
+api.telegram.org to set a webhook or send a reply. Its Telegram side runs on a
+machine that can reach Telegram: the **relay**, in
+[`ops/telegram-relay/`](ops/telegram-relay/README.md), on the owner's Mac next to
+the live copy (§13).
 
 ```
 Telegram  ⇄  relay (getUpdates; sends the replies)  ⇄  POST /bots/telegram/relay/update  →  the bot, on the server
@@ -466,24 +489,33 @@ Telegram  ⇄  relay (getUpdates; sends the replies)  ⇄  POST /bots/telegram/r
 - **Turning it on:** a platform admin goes to Settings → Messenger bots →
   Telegram → **Use a relay**, which makes a *relay key*, shown once
   (`POST /admin/messenger-bots/telegram/relay`). The server keeps only its
-  hash, and no bot token at all. The relay's `.env` holds the key and the bot
-  token.
+  hash, and no bot token at all. The relay's `.env` holds the key; its
+  `token.env` holds the bot token, alone, because the watchdog (§15) reads it.
 - **The relay's two calls:** `…/relay/hello` (on start and every 10 minutes:
   the bot's username, for the links the app shows, and when the relay was last
-  seen) and `…/relay/update` (one update, plus a voice note's audio, which the
-  server can't fetch). The answer is the Bot API calls to make. A wrong key
-  gets a plain 404, as a wrong webhook secret does.
+  seen) and `…/relay/update` (one update, plus a voice note's, a photo's or a
+  file's bytes, which the server can't fetch — as a multipart form). The answer
+  is the Bot API calls to make; a document comes with its bytes, and the relay
+  uploads it. A wrong key gets a plain 404, as a wrong webhook secret does.
+- **Nothing lost:** the server marks an update handled only at the end, so one
+  it stopped half way through is handled again on the next try; when the server
+  doesn't answer, the relay keeps its offset and sends the same updates again on
+  its next round.
 - **Webhooks:** relay mode replaces a webhook setup for that bot. Bale, which is
   reachable from Iran, stays on its webhook.
 - **A new key:** clicking "New relay key" replaces the old one. The relay then
   stops with `the server doesn't know this relay key` until its `.env` has the
   new one.
+- **Updating:** the server first, then the relay (`docker compose up -d
+  --build` in its folder). A relay from 2026-11-28 sends files as a multipart
+  form, which older servers don't read; an older relay works with a newer
+  server, without photos, files or documents.
 
 The relay is a single Python file with httpx, in Docker. It handles updates in
 order per chat and different chats at the same time, keeps its offset across
 restarts, retries the server three times, and never logs the token. Tests:
-`tests/test_telegram_relay.py` and the relay cases in
-`tests/test_messenger_bot.py`. For a local end-to-end run without an AI key,
+`tests/test_telegram_relay.py`, `tests/test_messenger_bot.py` and
+`tests/test_messenger_sign_in.py`. For a local end-to-end run without an AI key,
 `tests_e2e/fake_llm.py` stands in for the AI.
 
 ## 15. The watchdog
@@ -507,6 +539,37 @@ default: while it's empty the `prod` check fails and says so.
 ops/watchdog/install.sh /path/to/watchdog     # install or update; then set watchdog.env
 /path/to/watchdog/watchdog.sh --status        # each check, now
 ```
+
+## 16. Support: the support button and the desk on the Mac
+
+Every signed-in person can write to support: the headset button beside the bell on every page (and, from the phone
+apps and the bot, the same conversation). The server keeps the conversation and nothing else — no AI and no Claude
+credentials for support. The **support desk** — Claude in Nightshift's support desk, on the owner's Mac — answers
+it, and the night shift fixes what it reports (`app/api/support.py`, `app/services/support_desk.py`;
+Nightshift's `docs/SHADOW_AND_SUPPORT.md` → "The product's own support chat"):
+
+```
+person ─► support panel ─► the server keeps it ─► POST /desk/pending (desk key) ─► the desk on the Mac
+   ▲                                                                                    │ tickets → the night shift
+   └──── panel, badge, bell line, push ◄── POST /desk/reply ◄───────────────────────────┘ → "fixed, it's live"
+```
+
+- **Turning it on:** a platform admin goes to Settings → Support desk → **Make a desk key** (shown once; the server
+  keeps only its hash). On the Mac, `~/.nightshift.env` gets `NIGHTSHIFT_SUPPORT_APP_URL` (this app's address) and
+  `NIGHTSHIFT_SUPPORT_APP_KEY` (the key); Nightshift's `[support.app]` is on; restart its bot job
+  (`launchctl kickstart -k gui/$(id -u)/ai.nightshift.bot`). The card and the support panel then say the desk is
+  online. A new key replaces the old one; **Turn off** forgets it.
+- **What a message carries:** the text, screenshots (pictures or PDFs, 20 MB), and what the page knew: the page, the
+  app's version (the scripts' `?v=`), the language, the screen, and the last ten failed requests with their
+  `x-request-id` (`window.__recentErrors`) — the id finds each in `docker compose logs api`.
+- **The desk's door** (`/desk/…`, outside the session guard, the desk key as a bearer): `hello` (online while seen in
+  the last three minutes), `pending` (the waiting messages with the person, their company and the conversation so
+  far; a message taken and not answered within ten minutes is offered again), `reply`, `attachments/{id}` (only a
+  file attached to a support message). A wrong key gets a plain 404.
+- **What the desk reads** (the owner's choice for the pilot, 2026-11-28): besides the conversation, that one
+  customer's books as files, read-only from the live copy (§13), and the app's code. It changes nothing.
+- **Limits:** 30 messages a day per person (the desk runs on the owner's Claude plan). A reply is a bell line (one per
+  newest unread reply) and a push, until read.
 
 ## Notes
 - `docker-compose.yml` (no suffix) stays the **dev** stack: it builds locally

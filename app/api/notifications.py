@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 
 import httpx
 from fastapi import APIRouter, Depends, Request
@@ -42,21 +43,36 @@ def _operator_channels_open() -> bool:
     return cid is None or str(cid) == DEFAULT_COMPANY_ID
 
 
+async def _post(channel: str, url: str, **body) -> bool:
+    """One post to an operator channel: True when it was accepted. A network
+    error, a timeout or a refusal is logged and is False, never raised: the
+    scheduler's daily digest went to Slack, then Telegram raised, the day's
+    marker was never set, and Slack got the digest again every minute until
+    midnight (review 2026-11-28, scenario CV6)."""
+    try:
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.post(url, **body)
+    except Exception as exc:  # noqa: BLE001 — any failure of the channel is the channel's
+        logging.getLogger("app.notifications").warning("operator_channel_failed channel=%s error=%r", channel, exc)
+        return False
+    if r.status_code >= 300:
+        logging.getLogger("app.notifications").warning("operator_channel_refused channel=%s status=%s",
+                                                        channel, r.status_code)
+        return False
+    return True
+
+
 async def _send_slack(text: str) -> bool:
     if not settings.slack_webhook_url or not _operator_channels_open():
         return False
-    async with httpx.AsyncClient(timeout=15) as c:
-        r = await c.post(settings.slack_webhook_url, json={"text": text})
-        return r.status_code < 300
+    return await _post("slack", settings.slack_webhook_url, json={"text": text})
 
 
 async def _send_telegram(text: str) -> bool:
     if not settings.telegram_bot_token or not settings.telegram_chat_id or not _operator_channels_open():
         return False
     url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
-    async with httpx.AsyncClient(timeout=15) as c:
-        r = await c.post(url, data={"chat_id": settings.telegram_chat_id, "text": text})
-        return r.status_code < 300
+    return await _post("telegram", url, data={"chat_id": settings.telegram_chat_id, "text": text})
 
 
 def _send_email(text: str, subject: str | None = None) -> bool:

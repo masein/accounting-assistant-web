@@ -90,6 +90,17 @@ EXACT: dict[str, dict[str, str]] = {
     "Current password is incorrect.": {"fa": "رمز عبور فعلی نادرست است.", "es": "La contraseña actual no es correcta.",
                                        "ar": "كلمة المرور الحالية غير صحيحة."},
     "Password is incorrect.": {"fa": "رمز عبور نادرست است.", "es": "La contraseña no es correcta.", "ar": "كلمة المرور غير صحيحة."},
+    # the support desk (app/api/support.py, scenarios DA1–DA8)
+    "Write a message or attach a screenshot.": {"fa": "پیامی بنویسید یا تصویری از صفحه پیوست کنید.",
+                                                "es": "Escribe un mensaje o adjunta una captura de pantalla.",
+                                                "ar": "اكتب رسالة أو أرفق لقطة شاشة."},
+    "That attachment isn't one of yours.": {"fa": "این پیوست مال شما نیست.", "es": "Ese adjunto no es tuyo.",
+                                            "ar": "هذا المرفق ليس لك."},
+    "after must be an ISO date and time": {"fa": "after باید تاریخ و ساعت ISO باشد",
+                                           "es": "after debe ser una fecha y hora ISO",
+                                           "ar": "يجب أن تكون after تاريخاً ووقتاً بصيغة ISO"},
+    "Attach a picture or a PDF.": {"fa": "یک تصویر یا PDF پیوست کنید.", "es": "Adjunta una imagen o un PDF.",
+                                   "ar": "أرفق صورة أو ملف PDF."},
     "Self-signup is disabled on this server.": {"fa": "ثبت‌نام در این سرور غیرفعال است.",
                                                 "es": "El registro está desactivado en este servidor.",
                                                 "ar": "التسجيل الذاتي معطّل على هذا الخادم."},
@@ -793,6 +804,11 @@ _VAT_TREATMENT = {
 
 
 PATTERNS: list[_Pattern] = [
+    _Pattern(r"^You've sent (?P<n>\d+) messages to support today\. The desk has them all; write again tomorrow\.$",
+             {"fa": "امروز {n} پیام به پشتیبانی فرستاده‌اید. همه به دستش رسیده؛ فردا دوباره بنویسید.",
+              "es": "Hoy has enviado {n} mensajes a soporte. Los tiene todos; vuelve a escribir mañana.",
+              "ar": "أرسلت اليوم {n} رسالة إلى الدعم. وصلت كلها؛ اكتب مجدداً غداً."},
+             example="You've sent 30 messages to support today. The desk has them all; write again tomorrow."),
     _Pattern(r"^Invalid confirmation_token format: (?P<t>.+)$",
              {"fa": "شناسهٔ تأیید نامعتبر است: {t}", "es": "Token de confirmación no válido: {t}", "ar": "رمز التأكيد غير صالح: {t}"}),
     _Pattern(r"^No proposal found for token (?P<t>\S+)$",

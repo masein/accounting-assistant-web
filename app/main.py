@@ -53,6 +53,10 @@ from app.api.tax_ir import router as tax_ir_router
 from app.api.bank_mailbox import router as bank_mailbox_router
 from app.api.bank_sms import router as bank_sms_router
 from app.api.bots import router as bots_router
+from app.api.support import admin_router as support_admin_router
+from app.api.support import desk_router as support_desk_router
+from app.api.support import mobile_router as support_mobile_router
+from app.api.support import router as support_router
 from app.api.tax_uk import router as tax_uk_router
 from app.api.time_tracking import router as time_tracking_router
 from app.api.transactions import router as transactions_router
@@ -1063,11 +1067,16 @@ app.include_router(bank_mailbox_router, dependencies=_rbac)
 # Telegram / Bale post their updates here: no session, the path's secret is
 # the guard (app/api/bots.py). Deliberately outside _GUARDED_PREFIXES.
 app.include_router(bots_router)
+# the support desk on the owner's Mac: its desk key is the guard, not a session (app/api/support.py)
+app.include_router(support_desk_router)
 # The phone app (app/api/mobile.py): the sign-in steps are public; the rest
 # is guarded like any business router.
 app.include_router(mobile_auth_router)
 app.include_router(mobile_router, dependencies=_rbac)
 app.include_router(mobile_chat_router, dependencies=_rbac)
+app.include_router(support_router, dependencies=_rbac)
+app.include_router(support_mobile_router, dependencies=_rbac)
+app.include_router(support_admin_router, dependencies=_rbac)
 app.include_router(tax_uk_router, dependencies=_rbac)
 app.include_router(time_tracking_router, dependencies=_rbac)
 app.include_router(transactions_router, dependencies=_rbac)
@@ -1086,6 +1095,7 @@ _GUARDED_PREFIXES = tuple(sorted({
         commitments_router, fixed_assets_router, petty_cash_router, products_router, purchase_orders_router,
         quotes_router, recurring_router, recurring_invoices_router, reports_router, tax_ir_router, tax_uk_router,
         bank_sms_router, bank_mailbox_router, mobile_router, mobile_chat_router,
+        support_router, support_mobile_router, support_admin_router,
         time_tracking_router, transactions_router,
     ) if r.prefix
 }))

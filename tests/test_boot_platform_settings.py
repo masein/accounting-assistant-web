@@ -152,3 +152,14 @@ def test_db_guards_install_idempotently_and_refuse_updates():
             conn.execute(text("ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS fk_audit_logs_company"))
     with _engine.begin() as conn:
         assert conn.execute(text("SELECT 1 FROM audit_logs WHERE action = 'probe'")).first() is None
+
+
+def test_the_support_desk_key_stays_platform_wide_across_a_boot(scratch):
+    """The support desk's key hash (app/services/support_desk.py) was moved into the Default company by the
+    next boot's backfill, so the desk on the owner's Mac got 404 after every deploy (found 2026-11-28, DA7)."""
+    assert {"support_desk", "messenger_bots"} <= PLATFORM_SETTING_KEYS
+    _insert(scratch, "support_desk", None)
+    with scratch.begin() as c:
+        for sql, params in orphan_backfill_statements(["app_settings"], company_id=_default()):
+            c.execute(text(sql), params)
+    assert ("support_desk", None) in _rows(scratch)

@@ -739,8 +739,27 @@
         if (typeof showAlert === 'function' && typeof tf === 'function') showAlert(tf('rateLimitedNotice', { seconds: wait }), true);
       } catch (_) { /* not JSON: nothing to say */ }
     }
+    // The last requests that failed and the page's script errors, sent with a support message: a request's id
+    // finds it in the server's log (scenario DA1). Support's own calls aren't kept.
+    window.__recentErrors = window.__recentErrors || [];
+    function _keepError(entry) {
+      window.__recentErrors.push({ ...entry, at: new Date().toISOString() });
+      if (window.__recentErrors.length > 10) window.__recentErrors.shift();
+    }
+    window.addEventListener('error', (e) => _keepError({ method: 'JS', path: location.hash || location.pathname,
+      status: 'error', detail: String((e && e.message) || '').slice(0, 200) }));
     window.fetch = async (...args) => {
       const res = await rawFetch(...args);
+      if (res.status >= 400 && res.status !== 401) {
+        try {
+          const req = args[0], opts = args[1] || {};
+          const url = new URL(typeof req === 'string' ? req : req.url, location.origin);
+          if (!url.pathname.startsWith('/support')) {
+            _keepError({ method: String(opts.method || (req && req.method) || 'GET').toUpperCase(),
+              path: url.pathname, status: res.status, request_id: res.headers.get('x-request-id') || '' });
+          }
+        } catch (_) { /* a request it can't describe: nothing to keep */ }
+      }
       if (res.status === 401) {
         window.location.href = '/login';
         throw new Error(t('msgAuthRequired'));

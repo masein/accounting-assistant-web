@@ -193,6 +193,15 @@ def _reads(paths, perm):
 # --- The phone app (app/api/mobile.py) --------------------------------------
 # Every role signs in on a phone and manages its own devices; what each role
 # may then do is decided by the business routes the app calls.
+# support: every signed-in person can write to the support desk (DA1–DA8)
+for _m, _p in [("GET", "/support"), ("POST", "/support/messages"), ("POST", "/support/attachments"),
+               ("POST", "/support/seen"), ("GET", "/api/mobile/v1/support"),
+               ("POST", "/api/mobile/v1/support/messages"), ("POST", "/api/mobile/v1/support/attachments"),
+               ("POST", "/api/mobile/v1/support/seen")]:
+    _add(_m, _p, ANY_ROLE)
+_add("GET", "/admin/support-desk", Perm.PLATFORM_ADMIN)
+_add("POST", "/admin/support-desk/key", Perm.PLATFORM_ADMIN)
+_add("DELETE", "/admin/support-desk", Perm.PLATFORM_ADMIN)
 _add("GET", "/api/mobile/v1/me", ANY_ROLE)
 _add("PUT", "/api/mobile/v1/me/language", ANY_ROLE)
 _add("DELETE", "/api/mobile/v1/session", ANY_ROLE)

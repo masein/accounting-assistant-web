@@ -10,6 +10,80 @@
       });
     }
 
+    // ─── Dialogs from the keyboard: one handler for every modal ───
+    // A modal opens by its style.display and closes with display:none. While one
+    // is open, Escape closes the top one (through its own cancel or × button, so
+    // a waiting uiConfirm/uiPrompt answers "no"), Tab and Shift+Tab go round
+    // inside it, and on closing, focus goes back to what had it before.
+    (function dialogKeyboard() {
+      const dialogs = Array.from(document.querySelectorAll('[role="dialog"][aria-modal="true"]'));
+      if (!dialogs.length || typeof MutationObserver !== 'function') return;
+      const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), '
+        + 'select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
+      const shown = (el) => el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
+      const focusables = (el) => Array.from(el.querySelectorAll(FOCUSABLE)).filter((f) => f.getClientRects().length > 0);
+      const stack = [];             // the open dialogs, the last one on top
+      const openers = new Map();    // dialog → what had focus before it opened
+      let recent = [];              // the last few elements focused, newest last
+      document.addEventListener('focusin', (e) => {
+        recent = recent.filter((el) => el !== e.target).slice(-7);
+        recent.push(e.target);
+      });
+      const sync = (dlg) => {
+        const at = stack.indexOf(dlg);
+        if (shown(dlg)) {
+          if (at >= 0) return;
+          stack.push(dlg);
+          // uiConfirm/uiPrompt focus their own button or box at once: the opener is
+          // the last element focused outside the dialog
+          const before = recent.slice().reverse().find((el) => el.isConnected && !dlg.contains(el));
+          openers.set(dlg, before || null);
+          if (!dlg.contains(document.activeElement)) {
+            const first = focusables(dlg)[0];
+            if (first) first.focus();
+          }
+        } else if (at >= 0) {
+          stack.splice(at, 1);
+          const back = openers.get(dlg);
+          openers.delete(dlg);
+          const active = document.activeElement;
+          // only when focus was left in the closed dialog or nowhere: a caller that moved it on keeps it
+          if (back && back.isConnected && back.getClientRects().length > 0
+              && (!active || active === document.body || dlg.contains(active))) {
+            back.focus();
+          }
+        }
+      };
+      const observer = new MutationObserver((records) => records.forEach((r) => sync(r.target)));
+      dialogs.forEach((dlg) => observer.observe(dlg, { attributes: true, attributeFilter: ['style'] }));
+      const top = () => {
+        for (let i = stack.length - 1; i >= 0; i--) if (shown(stack[i])) return stack[i];
+        return null;
+      };
+      document.addEventListener('keydown', (e) => {
+        if (e.defaultPrevented || (e.key !== 'Escape' && e.key !== 'Tab')) return;
+        const dlg = top();
+        if (!dlg) return;
+        if (e.key === 'Escape') {
+          if (dlg.querySelector('details.row-menu[open]')) return;     // its ⋯ menu closes first (rowMenus)
+          e.preventDefault();
+          if (typeof dlg.__dialogCancel === 'function') { dlg.__dialogCancel(); return; }
+          const close = dlg.querySelector('.modal-close, [data-action="hide"][data-target~="' + CSS.escape(dlg.id) + '"]');
+          if (close) close.click(); else dlg.style.display = 'none';
+          return;
+        }
+        // the date picker opened from one of its fields sits outside it, on <body>, with keys of its own
+        const active = document.activeElement;
+        if (active && active.closest && active.closest('#jdate-pop')) return;
+        const list = focusables(dlg);
+        if (!list.length) { e.preventDefault(); return; }
+        const first = list[0], last = list[list.length - 1];
+        if (!dlg.contains(active)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+        else if (e.shiftKey && active === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+      });
+    })();
+
     // ─── What's new tour: shown once per release, reopenable from Settings ───
     // Steps come from /auth/me (unseen releases) or /auth/whats-new (all).
     // Copy is server-owned in four languages; we pick the current UI language.
@@ -391,7 +465,6 @@
       while (s.endsWith('0') && s.length - s.indexOf('.') - 1 > places) s = s.slice(0, -1);
       return formatNum(s === '-' + (0).toFixed(places) ? (0).toFixed(places) : s);
     }
-    function fmtCurrency(v) { return formatAmount(v) + ' ' + currencyUnit(); }
     // Fetched once per page load (sign-in; a dashboard opened while that is out
     // shares it) — the dashboards used to refetch it on every open. Saving it
     // in Settings updates the cached value; ``force`` refetches.
@@ -592,13 +665,6 @@
       if (s == null) return '';
       const t = String(s);
       return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-    function trf(key, vars = {}) {
-      let txt = t(key);
-      Object.keys(vars).forEach((k) => {
-        txt = txt.replace(new RegExp('\\{' + k + '\\}', 'g'), typeof vars[k] === 'number' ? localDigits(vars[k]) : String(vars[k]));
-      });
-      return txt;
     }
     // A control in a table cell takes its name from its column header: the line
     // editors (journal lines, invoice lines, instalments, opening balances, PO
@@ -1178,23 +1244,23 @@
       };
       if (map[s]) return t(map[s]);
       let m = s.match(/^Estimated runway is\s+([0-9.]+)\s+months based on recent burn rate\.$/i);
-      if (m) return trf('alertRunwayMessage', { months: m[1] });
+      if (m) return tf('alertRunwayMessage', { months: m[1] });
       m = s.match(/^Overdue AR is\s+([0-9,]+)\.\s*Follow up collections\.$/i);
-      if (m) return trf('alertOverdueArMessage', { amount: m[1] });
+      if (m) return tf('alertOverdueArMessage', { amount: m[1] });
       m = s.match(/^Overdue AP is\s+([0-9,]+)\.\s*Plan vendor payments\.$/i);
-      if (m) return trf('alertOverdueApMessage', { amount: m[1] });
+      if (m) return tf('alertOverdueApMessage', { amount: m[1] });
       m = s.match(/^Data quality score is\s+([0-9]+\/100)\.\s*Resolve missing references\/entities\/attachments\.$/i);
-      if (m) return trf('alertDataQualityMessage', { score: m[1] });
+      if (m) return tf('alertDataQualityMessage', { score: m[1] });
       m = s.match(/^This month expenses are significantly above recent average\.$/i);
       if (m) return t('alertExpenseSpikeMessage');
       m = s.match(/^([0-9]+)\/([0-9]+)\s+transactions have reference\.$/i);
-      if (m) return trf('checkRefsDetail', { done: m[1], total: m[2] });
+      if (m) return tf('checkRefsDetail', { done: m[1], total: m[2] });
       m = s.match(/^([0-9]+)\/([0-9]+)\s+transactions have entity links\.$/i);
-      if (m) return trf('checkEntitiesDetail', { done: m[1], total: m[2] });
+      if (m) return tf('checkEntitiesDetail', { done: m[1], total: m[2] });
       m = s.match(/^([0-9]+)\/([0-9]+)\s+expense transactions have attachments\.$/i);
-      if (m) return trf('checkAttachmentsDetail', { done: m[1], total: m[2] });
+      if (m) return tf('checkAttachmentsDetail', { done: m[1], total: m[2] });
       m = s.match(/^([0-9]+)\/([0-9]+)\s+lines have descriptions\.$/i);
-      if (m) return trf('checkLineDescriptionsDetail', { done: m[1], total: m[2] });
+      if (m) return tf('checkLineDescriptionsDetail', { done: m[1], total: m[2] });
       return s;
     }
     function localizeReportFieldName(name) {

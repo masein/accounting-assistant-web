@@ -1912,6 +1912,16 @@
         auditAct_signup: 'Signed up',
         auditAct_undo: 'Undone',
         auditAct_update: 'Updated',
+        auditAct_bounce: 'Bounced',
+        auditAct_deposit: 'Deposited',
+        auditAct_endorse: 'Endorsed',
+        auditAct_print: 'Printed',
+        auditAct_register_sayad: 'Registered in Sayad',
+        auditAct_return: 'Returned',
+        auditAct_settle: 'Settled',
+        auditEnt_cheque_print_layout: 'Cheque print layout',
+        auditEnt_company_profile: 'Company profile',
+        auditEnt_shareholding: 'Shareholding',
         auditAct_upsert: 'Saved',
         auditAct_void: 'Voided',
         auditEnt_chart: "Chart of accounts",
@@ -3189,6 +3199,7 @@
         aiChatExample2: 'How much did we spend last month?',
         aiChatExample3: 'Show the balance sheet',
         aiChatScrollBottom: 'Scroll to latest',
+        skipToContent: 'Skip to main content',
         aiChatAttachTitle: 'Attach an invoice or receipt (JPG, PNG, WEBP, PDF)',
         aiChatNewTitle: 'Start a new conversation',
         aiChatRemoveAttachment: 'Remove attachment',
@@ -3410,12 +3421,8 @@
       if (logoutBtn) logoutBtn.textContent = t('logout');
       if (uiLanguageLabelEl) uiLanguageLabelEl.textContent = t('languageLabel');
       if (saveLanguageBtn) saveLanguageBtn.textContent = t('saveLanguage');
-      if (chatSendBtn) chatSendBtn.textContent = t('send');
       if (submitBtn) submitBtn.textContent = t('saveVoucher');
-      if (openAiChatInlineBtn) {
-        const chatOpen = voucherChatInlineEl && voucherChatInlineEl.classList.contains('is-open');
-        openAiChatInlineBtn.textContent = t(chatOpen ? 'closeAiChat' : 'openAiChat');
-      }
+      if (openAiChatInlineBtn) openAiChatInlineBtn.textContent = t('openAiChat');
       if (attachmentUploadBtn) attachmentUploadBtn.textContent = t('uploadReceipts');
 
       setTextSel('.card[data-page="entities"] h2', 'entitiesTitle');
@@ -3493,7 +3500,6 @@
       setLabel('entity-bank', 'labelBank');
       setLabel('entity-payee', 'labelPayee');
       setLabel('entity-supplier', 'labelSupplier');
-      setPlaceholder('chat-input', 'placeholderChatInput');
       setPlaceholder('reference', 'placeholderReference');
       setPlaceholder('description', 'placeholderDescription');
       setText('add-line', 'btnAddLine');

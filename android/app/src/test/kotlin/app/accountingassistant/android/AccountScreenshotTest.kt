@@ -15,13 +15,17 @@ import app.accountingassistant.android.ui.account.AccountSheetContent
 import app.accountingassistant.android.ui.account.SmsSection
 import app.accountingassistant.android.ui.account.CurrencySection
 import app.accountingassistant.android.ui.account.LockScreen
+import app.accountingassistant.android.ui.account.UpdateScreen
 import app.accountingassistant.android.ui.theme.AccountantTheme
 import app.accountingassistant.android.ui.theme.LocalAccountantColors
+import app.accountingassistant.android.util.Numbers
 import com.github.takahirom.roborazzi.captureRoboImage
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -94,5 +98,39 @@ class AccountScreenshotTest {
     fun persianLockScreenDark() {
         compose.setContent { AccountantTheme(dark = true) { LockScreen(onUnlock = {}, askAtOnce = false) } }
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/lock-fa-dark.png")
+    }
+
+    /** Scenario CX2: an app too old for the server says so in the phone's language, with the version it needs. */
+    private fun update(name: String, lang: String, dark: Boolean = false) {
+        compose.setContent { AccountantTheme(dark = dark) { UpdateScreen(minVersion = "0.2.0", lang = lang) } }
+        val app = RuntimeEnvironment.getApplication()
+        compose.onNodeWithText(app.getString(R.string.update_title)).assertExists()
+        compose.onNodeWithText(app.getString(R.string.update_body)).assertExists()
+        compose.onNodeWithText(app.getString(R.string.update_version, "\u2066" + Numbers.digits("0.2.0", lang) + "\u2069")).assertExists()
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/$name.png")
+    }
+
+    @Test @Config(qualifiers = "+fa")
+    fun persianUpdate() {
+        update("update-fa", "fa")
+        assertEquals("برنامه را به\u200Cروز کنید", RuntimeEnvironment.getApplication().getString(R.string.update_title))
+    }
+
+    @Test @Config(qualifiers = "+en-night")
+    fun englishUpdateDark() {
+        update("update-en-dark", "en", dark = true)
+        assertEquals("Update the app", RuntimeEnvironment.getApplication().getString(R.string.update_title))
+    }
+
+    @Test @Config(qualifiers = "+ar")
+    fun arabicUpdate() {
+        update("update-ar", "ar")
+        assertEquals("حدّث التطبيق", RuntimeEnvironment.getApplication().getString(R.string.update_title))
+    }
+
+    @Test @Config(qualifiers = "+es")
+    fun spanishUpdate() {
+        update("update-es", "es")
+        assertEquals("Actualiza la app", RuntimeEnvironment.getApplication().getString(R.string.update_title))
     }
 }

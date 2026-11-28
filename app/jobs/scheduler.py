@@ -151,11 +151,19 @@ def job_daily_digest(db, today: date) -> dict:
     delivered: list[str] = []
     ch = conf.get("channel")
 
+    # Each channel on its own, and none of them may raise: once one channel
+    # has the digest, the job has to finish so the day's marker is set. A
+    # channel that failed is logged and not retried today; retrying would
+    # send the others again (review 2026-11-28, scenario CV6).
     async def _push():
-        if ch in ("all", "slack") and await _send_slack(text):
-            delivered.append("slack")
-        if ch in ("all", "telegram") and await _send_telegram(text):
-            delivered.append("telegram")
+        for name, send in (("slack", _send_slack), ("telegram", _send_telegram)):
+            if ch not in ("all", name):
+                continue
+            try:
+                if await send(text):
+                    delivered.append(name)
+            except Exception:  # noqa: BLE001
+                log.warning("digest_channel_failed channel=%s", name, exc_info=True)
 
     asyncio.run(_push())
     if ch in ("all", "email"):

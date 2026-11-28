@@ -242,4 +242,8 @@
     <string name="quote_self">أنت</string>
     <string name="side_to">إلى</string>
     <string name="side_from">من</string>
+    <!-- the app too old for the server, a 426 on any call (scenario CX2) -->
+    <string name="update_title">حدّث التطبيق</string>
+    <string name="update_body">هذا الإصدار من التطبيق قديم ولا يصل إلى دفاترك. ثبّت أحدث إصدار للمتابعة؛ الرسائل التي كتبتها محفوظة وستُرسل بعد التحديث.</string>
+    <string name="update_version">يلزم الإصدار %1$s أو أحدث.</string>
 </resources>

@@ -1,23 +1,10 @@
 
-    function appendChatMessage(role, content, options) {
-      const div = document.createElement('div');
-      div.className = 'chat-msg ' + role + (options && options.loading ? ' loading' : '');
-      div.setAttribute('dir', 'auto');
-      div.textContent = content;
-      if (options && options.id) div.id = options.id;
-      div.classList.add('message-in');
-      chatMessagesEl.appendChild(div);
-      chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
-      setTimeout(() => div.classList.remove('message-in'), 260);
-      return div;
-    }
-
     function renderObjectAsMiniTable(obj) {
       if (!obj || typeof obj !== 'object') return '';
       const keys = Object.keys(obj);
       if (!keys.length) return '';
       const rows = keys.map(k => `<tr><td>${escapeHtml(localizeReportFieldName(k))}</td><td>${escapeHtml(formatReportNumber(obj[k] ?? 0, k))}</td></tr>`).join('');
-      return `<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>${escapeHtml(t('fieldNameLabel'))}</th><th>${escapeHtml(t('fieldValue'))}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      return `<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th scope="col">${escapeHtml(t('fieldNameLabel'))}</th><th scope="col">${escapeHtml(t('fieldValue'))}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
 
     function shortenUuid(v) {
@@ -383,6 +370,46 @@
           } : undefined
         }
       });
+      if (!report) return chart;
+      // A bar or slice opens the entries behind it (the account, the statement
+      // section, the income line), for the report's period or else the manager
+      // form's dates. (13-companies-products.js used to wrap this function to add it.)
+      const rp = report.period || {};
+      const _fromDate = rp.from_date || mgrFromDateEl.value || '';
+      const _toDate = rp.to_date || mgrToDateEl.value || '';
+      chart.options.onClick = (e, els) => {
+        if (!els.length) return;
+        const idx = els[0].index;
+        const dsIdx = els[0].datasetIndex;
+        const label = chart.data.labels ? chart.data.labels[idx] : '';
+        const rt = (report.report_type || '').toLowerCase();
+        const rows = report.rows || [];
+        const matchRow = rows[idx];
+        if (matchRow && matchRow.account_code) {
+          showTransactionDrilldown(label || matchRow.account_name || rt, { account_code: matchRow.account_code, from_date: _fromDate, to_date: _toDate });
+        } else if (rt.includes('balance_sheet')) {
+          const bsPrefixMap = { 'Assets': '11,12,13,14,15', 'Liabilities': '21,22,23,24', 'Equity': '31,32,33' };
+          const sectionLabel = label || (matchRow && matchRow.section) || '';
+          const prefix = bsPrefixMap[sectionLabel]
+            || bsPrefixMap[Object.keys(bsPrefixMap).find(k => t('section' + k).toLowerCase() === sectionLabel.toLowerCase())]
+            || ['11,12,13,14,15', '21,22,23,24', '31,32,33'][idx]
+            || '';
+          if (prefix) showTransactionDrilldown(sectionLabel || t('msgBalanceSheet'), { account_code_prefix: prefix, to_date: _toDate });
+          else showChartDrilldown(rt, label, matchRow || {});
+        } else if (rt.includes('income')) {
+          // Map each bar to its specific account prefix
+          const incPrefixes = ['41,42,43', '51', '61', '62', '41,42,43,51,61,62'];
+          const prefix = incPrefixes[idx] || '41,42,43,51,52,53,61,62';
+          showTransactionDrilldown(label || rt, { account_code_prefix: prefix, from_date: _fromDate, to_date: _toDate });
+        } else if (rt.includes('cash_flow')) {
+          showTransactionDrilldown(label || rt, { account_code_prefix: '1110', from_date: _fromDate, to_date: _toDate });
+        } else {
+          const value = chart.data.datasets[dsIdx] ? chart.data.datasets[dsIdx].data[idx] : 0;
+          const dsLabel = chart.data.datasets[dsIdx] ? chart.data.datasets[dsIdx].label : '';
+          showChartDrilldown(rt, label, { label, dataset: dsLabel, value });
+        }
+      };
+      chart.update();
       return chart;
     }
 
@@ -461,11 +488,11 @@
             <table class="mini-table" style="width:100%; border-collapse:collapse;">
               <thead>
                 <tr style="background:#f1f5f9;">
-                  <th style="padding:8px; text-align:right;" dir="rtl">شرح</th>
-                  <th style="padding:8px; text-align:center; min-width:140px;">${curHeader || '-'}</th>
-                  <th style="padding:8px; text-align:center; min-width:140px;">${priorHeader || '-'}</th>
-                  ${hasBeginning ? `<th style="padding:8px; text-align:center; min-width:140px;">${beginningHeader}</th>` : ''}
-                  <th style="padding:8px; text-align:center; min-width:90px;">درصد تغییر</th>
+                  <th scope="col" style="padding:8px; text-align:right;" dir="rtl">شرح</th>
+                  <th scope="col" style="padding:8px; text-align:center; min-width:140px;">${curHeader || '-'}</th>
+                  <th scope="col" style="padding:8px; text-align:center; min-width:140px;">${priorHeader || '-'}</th>
+                  ${hasBeginning ? `<th scope="col" style="padding:8px; text-align:center; min-width:140px;">${beginningHeader}</th>` : ''}
+                  <th scope="col" style="padding:8px; text-align:center; min-width:90px;">درصد تغییر</th>
                 </tr>
               </thead>
               <tbody>${bodyRows}</tbody>
@@ -500,9 +527,9 @@
 
       const header = `
         <tr style="background:#f1f5f9;">
-          <th style="padding:8px; text-align:right; min-width:240px;" dir="rtl">شرح</th>
-          ${components.map(c => `<th style="padding:8px; text-align:center; font-size:0.82rem; min-width:90px;" dir="rtl">${escapeHtml(c.label_fa || c.key)}</th>`).join('')}
-          <th style="padding:8px; text-align:center; min-width:100px; background:#e8f0fe;" dir="rtl">جمع کل</th>
+          <th scope="col" style="padding:8px; text-align:right; min-width:240px;" dir="rtl">شرح</th>
+          ${components.map(c => `<th scope="col" style="padding:8px; text-align:center; font-size:0.82rem; min-width:90px;" dir="rtl">${escapeHtml(c.label_fa || c.key)}</th>`).join('')}
+          <th scope="col" style="padding:8px; text-align:center; min-width:100px; background:#e8f0fe;" dir="rtl">جمع کل</th>
         </tr>
       `;
       const body = rows.map(r => {
@@ -594,9 +621,9 @@
             <table class="mini-table" style="width:100%; border-collapse:collapse;">
               <thead>
                 <tr style="background:#f1f5f9;">
-                  <th style="padding:8px; text-align:left;">${escapeHtml(t('labelDescription'))}</th>
-                  <th style="padding:8px; text-align:right; min-width:140px;">${curHeader || '-'}</th>
-                  <th style="padding:8px; text-align:right; min-width:140px;">${priorHeader || '-'}</th>
+                  <th scope="col" style="padding:8px; text-align:left;">${escapeHtml(t('labelDescription'))}</th>
+                  <th scope="col" style="padding:8px; text-align:right; min-width:140px;">${curHeader || '-'}</th>
+                  <th scope="col" style="padding:8px; text-align:right; min-width:140px;">${priorHeader || '-'}</th>
                 </tr>
               </thead>
               <tbody>${bodyRows}</tbody>
@@ -617,9 +644,9 @@
       };
       const header = `
         <tr style="background:#f1f5f9;">
-          <th style="padding:8px; text-align:left; min-width:240px;">${escapeHtml(t('labelDescription'))}</th>
-          ${components.map(c => `<th style="padding:8px; text-align:right; font-size:0.82rem; min-width:90px;">${escapeHtml(c.label || c.key)}</th>`).join('')}
-          <th style="padding:8px; text-align:right; min-width:100px; background:#e8f0fe;">${escapeHtml(t('tableTotal'))}</th>
+          <th scope="col" style="padding:8px; text-align:left; min-width:240px;">${escapeHtml(t('labelDescription'))}</th>
+          ${components.map(c => `<th scope="col" style="padding:8px; text-align:right; font-size:0.82rem; min-width:90px;">${escapeHtml(c.label || c.key)}</th>`).join('')}
+          <th scope="col" style="padding:8px; text-align:right; min-width:100px; background:#e8f0fe;">${escapeHtml(t('tableTotal'))}</th>
         </tr>
       `;
       const body = rows.map(r => {
@@ -673,7 +700,7 @@
           return `<div class="panel" style="margin-bottom:0.45rem;">
             <strong>${escapeHtml(title)}</strong>
             <div style="font-size:0.92rem;margin-top:0.2rem;">${escapeHtml(t('tableTotal'))}: ${formatAmount(total || 0)}</div>
-            ${body ? `<div class="report-preview-wrap"><table class="mini-table"><thead><tr>${cols.map(k => `<th>${escapeHtml(localizeReportFieldName(k))}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`
+            ${body ? `<div class="report-preview-wrap"><table class="mini-table"><thead><tr>${cols.map(k => `<th scope="col">${escapeHtml(localizeReportFieldName(k))}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`
                    : `<div class="empty-state" style="padding:0.35rem;">${escapeHtml(t('noRowsInSection'))}</div>`}
           </div>`;
         };
@@ -690,7 +717,7 @@
           const sec = report.sections[k] || {};
           const items = (sec.items || []).slice(0, 8);
           const table = items.length
-            ? `<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th>${escapeHtml(t('tableCode'))}</th><th>${escapeHtml(t('fieldAccount'))}</th><th>${escapeHtml(t('fieldBalance'))}</th></tr></thead><tbody>${items.map(it => `<tr><td>${formatReportCell(it.account_code, 'account_code')}</td><td>${formatReportCell(it.account_name, 'account_name')}</td><td>${formatReportCell(it.balance, 'balance')}</td></tr>`).join('')}</tbody></table></div>`
+            ? `<div class="report-preview-wrap"><table class="mini-table"><thead><tr><th scope="col">${escapeHtml(t('tableCode'))}</th><th scope="col">${escapeHtml(t('fieldAccount'))}</th><th scope="col">${escapeHtml(t('fieldBalance'))}</th></tr></thead><tbody>${items.map(it => `<tr><td>${formatReportCell(it.account_code, 'account_code')}</td><td>${formatReportCell(it.account_name, 'account_name')}</td><td>${formatReportCell(it.balance, 'balance')}</td></tr>`).join('')}</tbody></table></div>`
             : '<div class="empty-state" style="padding:0.35rem;">' + escapeHtml(t('noRowsInSection')) + '</div>';
           const sectionNameMap = { assets: 'sectionAssets', liabilities: 'sectionLiabilities', equity: 'sectionEquity', revenues: 'sectionRevenues', expenses: 'sectionExpenses' };
           return `<div class="panel" style="margin-bottom:0.45rem;">
@@ -725,7 +752,7 @@
         // an invoice's id is for the export, not the screen (it showed as "27b1e863…c099")
         const shown = headers.map((h, i) => [h, i]).filter(([h]) => h !== 'invoice_id');
         const body = tableData.rows.slice(0, 80).map(r => `<tr>${shown.map(([h, i]) => `<td>${cell(r[i], h)}</td>`).join('')}</tr>`).join('');
-        const head = shown.map(([h]) => `<th>${escapeHtml(localizeReportFieldName(h))}</th>`).join('');
+        const head = shown.map(([h]) => `<th scope="col">${escapeHtml(localizeReportFieldName(h))}</th>`).join('');
         return `<div class="report-preview-wrap"><table class="mini-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
       }
       if (report.totals && typeof report.totals === 'object') {
@@ -744,7 +771,7 @@
             if (v.length === 0) return '';
             if (typeof v[0] === 'object') {
               const keys = Object.keys(v[0]);
-              const head = keys.map(h => `<th>${escapeHtml(localizeReportFieldName(h))}</th>`).join('');
+              const head = keys.map(h => `<th scope="col">${escapeHtml(localizeReportFieldName(h))}</th>`).join('');
               const body = v.slice(0, 50).map(row => `<tr>${keys.map(h => `<td>${formatReportCell(row[h], h)}</td>`).join('')}</tr>`).join('');
               display = `<div class="report-preview-wrap"><table class="mini-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
             } else {
@@ -759,340 +786,6 @@
       }
       return '<p class="empty-state">' + escapeHtml(t('noReportData')) + '</p>';
     }
-
-    function _reportQuickSummary(report) {
-      if (!report || !report.totals) return '';
-      // "tot", not "t": the totals used to shadow t(), so these labels were English in every language
-      const tot = report.totals;
-      const parts = [];
-      const add = (key, v) => parts.push(t(key) + ': ' + formatAmount(v || 0, report.currency));
-      if (report.report_type === 'balance_sheet') {
-        if (tot.assets != null) add('sectionAssets', tot.assets);
-        if (tot.liabilities != null) add('sectionLiabilities', tot.liabilities);
-        if (tot.equity != null) add('sectionEquity', tot.equity);
-      } else if (report.report_type === 'income_statement') {
-        if (tot.revenue != null) add('fieldRevenue', tot.revenue);
-        if (tot.net_profit != null) add('fieldNetProfit', tot.net_profit);
-      } else if (report.report_type === 'cash_flow_statement') {
-        if (tot.operating != null) add('fieldOperating', tot.operating);
-        if (tot.net_cash_change != null) add('fieldNetChange', tot.net_cash_change);
-      }
-      return joinParts(parts);
-    }
-    function _reportAnalysisHtml(report) {
-      if (!report || !report.analysis) return '';
-      const a = report.analysis;
-      let html = '';
-      if (a.summary) html += `<div style="font-size:0.85rem;color:var(--text);margin:0.3rem 0;">${escapeHtml(a.summary)}</div>`;
-      if (a.warnings && a.warnings.length) {
-        html += '<div style="margin:0.3rem 0;">';
-        a.warnings.forEach(w => { html += `<div style="font-size:0.82rem;color:#c62828;">⚠ ${escapeHtml(w)}</div>`; });
-        html += '</div>';
-      }
-      if (a.ratios && Object.keys(a.ratios).length) {
-        const chips = Object.entries(a.ratios).filter(([,v]) => v != null).map(([k,v]) => {
-          const label = k.replace(/_/g, ' ').replace(/\bpct\b/, '%');
-          const val = typeof v === 'number' ? (Math.abs(v) > 100 ? formatNum(Math.round(v)) : localDigits(v.toFixed(2))) : v;
-          return `<span style="display:inline-block;padding:2px 8px;margin:2px;border-radius:12px;background:#e3f2fd;font-size:0.78rem;">${escapeHtml(label)}: ${val}</span>`;
-        });
-        html += `<div style="margin:0.3rem 0;">${chips.join('')}</div>`;
-      }
-      return html;
-    }
-    function appendChatReport(report) {
-      const div = document.createElement('div');
-      div.className = 'chat-msg assistant report-msg';
-      div.setAttribute('dir', 'auto');
-      const period = reportPeriodText(report);
-      const chartId = 'chat-report-chart-' + Math.random().toString(16).slice(2);
-      const hasCsvRows = (() => {
-        const data = reportToTableData(report);
-        return Array.isArray(data.rows) && data.rows.length > 0;
-      })();
-      const quickSummary = _reportQuickSummary(report);
-      const analysisHtml = _reportAnalysisHtml(report);
-      const detailId = 'report-detail-' + Math.random().toString(16).slice(2);
-      div.innerHTML = `
-        <div style="font-weight:700; margin-bottom:0.35rem;">${escapeHtml(t('reportResult'))}</div>
-        ${period ? `<div class="report-meta">${escapeHtml(t('periodLabel'))}: ${escapeHtml(period)}</div>` : ''}
-        ${quickSummary ? `<div style="font-size:0.88rem;color:var(--text-muted);margin:0.25rem 0;">${escapeHtml(quickSummary)}</div>` : ''}
-        ${analysisHtml}
-        <details id="${detailId}">
-          <summary style="cursor:pointer;font-size:0.85rem;color:var(--primary);margin:0.3rem 0;">${escapeHtml(t('showFullReport'))}</summary>
-          <div>${renderReportPreviewHtml(report)}</div>
-          <div class="panel report-chart-panel" style="display:none;">
-            <h3>${escapeHtml(t('chartWord'))}</h3>
-            <canvas id="${chartId}" height="200"></canvas>
-          </div>
-        </details>
-        <div class="report-actions" style="margin-top:0.5rem;">
-          <button type="button" class="btn btn-secondary btn-sm chat-report-export-json">${escapeHtml(t('btnExportJson'))}</button>
-          <button type="button" class="btn btn-secondary btn-sm chat-report-export-csv" ${hasCsvRows ? '' : 'disabled'}>${escapeHtml(t('btnExportCsv'))}</button>
-          <button type="button" class="btn btn-secondary btn-sm chat-report-export-pdf">${escapeHtml(t('btnExportPdf'))}</button>
-        </div>
-      `;
-      chatMessagesEl.appendChild(div);
-      div.classList.add('message-in');
-      const detailsEl = div.querySelector('#' + detailId);
-      let chartRendered = false;
-      function renderChartOnOpen() {
-        if (chartRendered) return;
-        const chartCanvas = div.querySelector('#' + chartId);
-        const chartPanel = div.querySelector('.report-chart-panel');
-        const chart = renderReportChart(chartCanvas, report, null);
-        if (chartPanel && chart) chartPanel.style.display = 'block';
-        chartRendered = true;
-      }
-      if (detailsEl) detailsEl.addEventListener('toggle', () => { if (detailsEl.open) renderChartOnOpen(); });
-      const base = reportFileBaseName(report);
-      const jsonBtn = div.querySelector('.chat-report-export-json');
-      const csvBtn = div.querySelector('.chat-report-export-csv');
-      const pdfBtn = div.querySelector('.chat-report-export-pdf');
-      if (jsonBtn) {
-        jsonBtn.addEventListener('click', () => {
-          downloadTextFile(`${base}.json`, JSON.stringify(report, null, 2), 'application/json');
-        });
-      }
-      if (csvBtn && hasCsvRows) {
-        csvBtn.addEventListener('click', () => {
-          const csv = reportToCsv(report);
-          if (!csv) {
-            showAlert(t('noTabularRowsCsv'), true);
-            return;
-          }
-          downloadTextFile(`${base}.csv`, csv, 'text/csv');
-        });
-      }
-      if (pdfBtn) {
-        pdfBtn.addEventListener('click', () => {
-          const chartImg = chartCanvas ? chartCanvas.toDataURL('image/png') : '';
-          openReportPrintWindow(report, chartImg);
-        });
-      }
-      chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
-      setTimeout(() => div.classList.remove('message-in'), 260);
-    }
-
-    function extractMessageText(text) {
-      if (typeof text !== 'string') return text || "I didn't understand.";
-      const t = text.trim();
-      if (t.startsWith('{') || t.startsWith('[')) {
-        try {
-          const o = JSON.parse(t);
-          if (o && typeof o === 'object' && !Array.isArray(o)) {
-            // Try common response shapes: {message, content, text, response, answer}
-            for (const key of ['message', 'content', 'text', 'response', 'answer', 'reply']) {
-              if (typeof o[key] === 'string' && o[key].trim()) return o[key].trim();
-            }
-            // OpenAI choices format
-            if (o.choices && o.choices[0] && o.choices[0].message && typeof o.choices[0].message.content === 'string') {
-              return o.choices[0].message.content.trim();
-            }
-            // Fallback: find any long string value
-            for (const k of Object.keys(o)) {
-              if (typeof o[k] === 'string' && o[k].length > 10) return o[k];
-            }
-          }
-        } catch (_) {}
-      }
-      return t;
-    }
-
-    function fillFormFromSuggestion(data) {
-      document.getElementById('date').value = data.date || localIsoDate(new Date());
-      if (typeof updateJalaliHint === 'function') updateJalaliHint();
-      document.getElementById('reference').value = data.reference || '';
-      document.getElementById('description').value = data.description || '';
-      const lines = data.lines || [];
-      while (linesTbody.querySelectorAll('.line-row').length > 0) linesTbody.firstElementChild.remove();
-      for (let i = 0; i < lines.length; i++) {
-        const ln = lines[i];
-        const tr = document.createElement('tr');
-        tr.className = 'line-row';
-        tr.innerHTML = `
-          <td><input type="text" class="line-code" value="${(ln.account_code || '').replace(/"/g, '&quot;')}" required></td>
-          <td><input type="number" class="line-debit" min="0" value="${ln.debit || 0}" step="any"></td>
-          <td><input type="number" class="line-credit" min="0" value="${ln.credit || 0}" step="any"></td>
-          <td><input type="text" class="line-desc" value="${(ln.line_description || '').replace(/"/g, '&quot;')}"></td>
-          <td><button type="button" class="btn btn-secondary remove-line">${escapeHtml(t('btnRemove'))}</button></td>
-        `;
-        linesTbody.appendChild(tr);
-      }
-    }
-
-    // Old inline-voucher quick-action chips wiring — element removed when
-    // the inline chat was merged into the dedicated AI Chat page. The new
-    // chips on /#ai-accountant get wired by the aiAccountant IIFE later.
-
-    // Voucher balance bar live updater
-    function updateVoucherBalanceBar() {
-      const rows = document.querySelectorAll('#lines-tbody tr');
-      let totalDebit = 0, totalCredit = 0;
-      rows.forEach(r => {
-        totalDebit = addMoney(totalDebit, parseMoney(r.querySelector('.line-debit')?.value));
-        totalCredit = addMoney(totalCredit, parseMoney(r.querySelector('.line-credit')?.value));
-      });
-      const dEl = document.getElementById('bal-debit');
-      const cEl = document.getElementById('bal-credit');
-      const diffEl = document.getElementById('bal-diff');
-      if (dEl) dEl.textContent = tf('voucherBarDebit', { amount: formatAmount(totalDebit) });
-      if (cEl) cEl.textContent = tf('voucherBarCredit', { amount: formatAmount(totalCredit) });
-      if (diffEl) {
-        const diff = totalDebit - totalCredit;
-        if (diff === 0) {
-          diffEl.textContent = t('voucherBarBalanced');
-          diffEl.className = 'balance-diff balanced';
-        } else {
-          diffEl.textContent = tf('voucherBarDiff', { amount: formatAmount(diff) });
-          diffEl.className = 'balance-diff unbalanced';
-        }
-      }
-    }
-    document.getElementById('lines-tbody').addEventListener('input', updateVoucherBalanceBar);   // first drawn by applyLanguage
-
-    // Old voucher-inline chat handler (POST /transactions/chat with form-fill)
-    // was removed, and so were the endpoint and POST /transactions/suggest. The "Open AI chat" button on the Vouchers page now
-    // navigates to the AI Chat page instead — see openAiChatInlineBtn wiring.
-    // appendChatMessage / extractMessageText / appendChatReport helpers are
-    // intentionally kept so nothing else that called them breaks at boot.
-
-    let lastSavedTransactionId = null;
-
-    // The names of the chart's accounts, for a confirmation that says more than codes.
-    async function accountNamesByCode() {
-      try {
-        const r = await fetch(API + '/accounts');
-        const list = r.ok ? await r.json() : [];
-        return Object.fromEntries((Array.isArray(list) ? list : []).map(a => [a.code, a.name]));
-      } catch (_) { return {}; }
-    }
-
-    function buildConfirmationSummary(date, description, lines, currency, names = {}) {
-      // in the user's words and calendar, each account by its name too — it was
-      // "Date: 2026-09-29 … Debit entries: 6112: 1,000 IRR" in a Persian, Jalali company
-      const acct = (code) => code + (names[code] ? ' ' + names[code] : '');
-      const money = (n) => currency ? formatMoney(n, currency) : formatAmount(n);
-      const row = (l, amount) => '  ' + acct(l.account_code) + ': ' + money(amount) + (l.line_description ? ' (' + l.line_description + ')' : '');
-      let summary = tf('voucherConfirmDate', { date: formatDisplayDate(date) }) + '\n';
-      if (description) summary += tf('voucherConfirmDescription', { text: description }) + '\n';
-      summary += '\n' + t('voucherConfirmDebits') + '\n' + lines.filter(l => l.debit > 0).map(l => row(l, l.debit)).join('\n') + '\n';
-      summary += '\n' + t('voucherConfirmCredits') + '\n' + lines.filter(l => l.credit > 0).map(l => row(l, l.credit)).join('\n') + '\n';
-      summary += '\n' + tf('voucherConfirmTotal', { amount: money(lines.reduce((s, l) => s + l.debit, 0)) });
-      return summary;
-    }
-
-    // A voucher in another currency than the base one is converted at a rate
-    // (roadmap §4.6): the one typed here, else the rate on file for its date.
-    async function syncVoucherRate() {
-      const wrap = document.getElementById('txn-rate-wrap');
-      if (!wrap) return;
-      const cur = (document.getElementById('txn-currency')?.value || '').toUpperCase();
-      const base = String(baseCurrencyCode() || '').toUpperCase();
-      wrap.hidden = !cur || !base || cur === base;
-      if (wrap.hidden) { document.getElementById('txn-fx-rate').value = ''; return; }
-      document.getElementById('txn-fx-rate-pair').textContent = '1 ' + cur + ' = ? ' + base;
-      const hint = document.getElementById('txn-fx-rate-hint');
-      const input = document.getElementById('txn-fx-rate');
-      try {
-        const res = await fetch(API + '/fx/convert', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: 1, from_currency: cur, to_currency: base, strict: true,
-                                 on_date: document.getElementById('date').value || null }),
-        });
-        const d = await res.json().catch(() => ({}));
-        if (res.ok && d.rate) {
-          input.placeholder = formatRate(d.rate);
-          hint.textContent = tf('voucherRateOnFile', { rate: formatRate(d.rate) });
-        } else {
-          input.placeholder = '';
-          hint.textContent = tf('voucherRateNone', { pair: cur + '→' + base });
-        }
-      } catch (_) { hint.textContent = ''; }
-    }
-    ['txn-currency', 'date'].forEach((id) => document.getElementById(id)?.addEventListener('change', syncVoucherRate));
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const date = document.getElementById('date').value;
-      const reference = document.getElementById('reference').value.trim() || null;
-      const description = document.getElementById('description').value.trim() || null;
-      const currency = (document.getElementById('txn-currency')?.value || preferredFormCurrency());
-      const rows = Array.from(linesTbody.querySelectorAll('.line-row'));
-      const lines = rows.map(tr => ({
-        account_code: asciiDigits(tr.querySelector('.line-code').value).trim(),   // «۶۱۱۲» is 6112
-        debit: parseMoney(tr.querySelector('.line-debit').value),
-        credit: parseMoney(tr.querySelector('.line-credit').value),
-        line_description: tr.querySelector('.line-desc').value.trim() || null
-      })).filter(l => l.account_code);
-      if (lines.length < 2) {
-        showAlert(t('msgTwoLinesNeeded'), true);
-        return;
-      }
-      const totalDebit = lines.reduce((s, l) => addMoney(s, l.debit), 0);
-      const totalCredit = lines.reduce((s, l) => addMoney(s, l.credit), 0);
-      if (totalDebit !== totalCredit) {
-        showAlert(tf('msgVoucherUnbalanced', { debit: formatAmount(totalDebit), credit: formatAmount(totalCredit) }), true);
-        return;
-      }
-      // Warn if posting into a currency different from the reporting currency
-      const meta = window.__FX_META;
-      if (meta && meta.reporting_currency && currency && currency.toUpperCase() !== String(meta.reporting_currency).toUpperCase()) {
-        const proceed = await uiConfirm({
-          title: t('voucherCurrencyMismatchTitle'),
-          message: tf('voucherCurrencyMismatchMsg', { currency, reporting: meta.reporting_currency }),
-          confirmLabel: t('btnContinue'),
-        });
-        if (!proceed) return;
-      }
-      // Pre-save confirmation
-      const confirmMsg = buildConfirmationSummary(date, description, lines, currency, await accountNamesByCode());
-      if (!(await uiConfirm({ title: t('confirmSaveVoucherTitle'), message: confirmMsg, confirmLabel: t('saveVoucher') }))) return;
-
-      submitBtn.disabled = true;
-      document.getElementById('results-wrap').classList.add('loading');
-      const entity_links = [];
-      const ec = document.getElementById('entity-client').value;
-      const eb = document.getElementById('entity-bank').value;
-      const ep = document.getElementById('entity-payee').value;
-      if (ec) entity_links.push({ role: 'client', entity_id: ec });
-      if (eb) entity_links.push({ role: 'bank', entity_id: eb });
-      if (ep) entity_links.push({ role: 'payee', entity_id: ep });
-      const es = document.getElementById('entity-supplier').value;
-      if (es) entity_links.push({ role: 'supplier', entity_id: es });
-      try {
-        const res = await fetch(API + '/transactions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            date,
-            reference,
-            description,
-            currency,
-            fx_rate: (Number(document.getElementById('txn-fx-rate')?.value) > 0
-              ? Number(document.getElementById('txn-fx-rate').value) : null),
-            lines,
-            entity_links,
-            attachment_ids: selectedAttachments.map(a => a.id),
-          })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          showAlert(data.detail || t('msgVoucherSaveError') + res.status, true);
-          return;
-        }
-        lastSavedTransactionId = data.id || null;
-        showAlert(t('msgVoucherSaved'));
-        loadLedger();
-        loadEntities();
-        loadOwnerDashboard();
-        resetVoucherForm();
-      } catch (err) {
-        showAlert(t('msgConnectionError') + err.message, true);
-      } finally {
-        submitBtn.disabled = false;
-        document.getElementById('results-wrap').classList.remove('loading');
-      }
-    });
 
     let ledgerData = null;
     let chartTurnover = null;

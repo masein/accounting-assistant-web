@@ -39,15 +39,15 @@ def execute_ops_proposal(
         return None, audit_id
 
     if name == "propose_create_recurring_rule":
-        from app.api.recurring import create_rule
+        from app.api.recurring import insert_rule        # not the route: it would write a second audit row
         from app.schemas.recurring import RecurringRuleCreate
         start = date.fromisoformat(p["start_date"])
-        rule = create_rule(RecurringRuleCreate(
+        rule = insert_rule(db, RecurringRuleCreate(
             name=p["name"], direction=p["direction"], frequency=p["frequency"], amount=plain(p["amount"]),
             start_date=start, next_run_date=start, end_date=date.fromisoformat(p["end_date"]) if p.get("end_date") else None,
             entity_id=UUID(p["entity_id"]) if p.get("entity_id") else None, bank_account_code=p.get("bank_account_code"),
             counter_account_code=p["counter_account_code"], auto_post=True, note="Set up from the chat",
-        ), db)
+        ))
         audit_id = _audit(db, proposal, entity_type="recurring_rule", entity_id=str(rule.id),
                           detail={"name": rule.name, "frequency": rule.frequency, "amount": rule.amount,
                                   "start": p["start_date"]}, **common)

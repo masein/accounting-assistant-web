@@ -15,7 +15,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from sqlalchemy import func, select
-from sqlalchemy.exc import DataError
+from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Session, object_session, selectinload
 
 from app.api.entity_guard import assert_entity as _assert_entity
@@ -24,7 +24,7 @@ from app.db.session import get_db
 from app.models.account import Account
 from app.models.credit_note import CreditNote
 from app.models.entity import Entity, TransactionEntity
-from app.models.invoice import Invoice
+from app.models.invoice import VOID_STATUSES, Invoice
 from app.models.invoice_item import InvoiceItem
 from app.models.payment import Payment
 from app.models.transaction import Transaction, TransactionLine
@@ -599,6 +599,7 @@ async def ocr_import_invoice(
 
     created_invoice: InvoiceRead | None = None
     if create:
+        _assert_number_free(db, suggested.number.strip(), suggested.kind, status=suggested.status)
         row = Invoice(
             number=suggested.number.strip(),
             kind=suggested.kind,
@@ -610,8 +611,7 @@ async def ocr_import_invoice(
             description=suggested.description,
             entity_id=suggested.entity_id,
         )
-        db.add(row)
-        db.flush()
+        _flush_new_invoice(db, row)
         item_rows, items_total = _build_invoice_items(suggested.items, row.id, db, row.issue_date, row.currency)
         for item in item_rows:
             db.add(item)
@@ -668,15 +668,54 @@ def preview_invoice_pdf(payload: InvoiceCreate, db: Session = Depends(get_db)) -
     )
 
 
-def _assert_number_free(db: Session, number: str, kind: str, *, exclude_id=None) -> None:
+def _number_taken(number: str, kind: str, twin_id=None) -> HTTPException:
+    if twin_id is not None:
+        return HTTPException(status_code=409,
+                             detail=f"{kind.capitalize()} invoice number '{number}' already exists (id {twin_id}).")
+    # the database's index answered (a race): which invoice holds it isn't known here
+    return HTTPException(status_code=409, detail=f"{kind.capitalize()} invoice number '{number}' already exists.")
+
+
+def _assert_number_free(db: Session, number: str, kind: str, *, exclude_id=None, status: str | None = None) -> None:
     """Invoice numbers are unique per kind (our sales numbering vs suppliers'
-    own numbers on purchase invoices may legitimately coincide)."""
-    q = select(Invoice).where(Invoice.number == number, Invoice.kind == kind)
+    own numbers on purchase invoices may legitimately coincide) among the
+    company's live invoices: a voided or canceled one gives its number up.
+    The same rule as the database's ``uq_invoices_company_kind_number``
+    (review 2026-11-28, scenario CV4), which catches what this check races."""
+    if status is not None and status in VOID_STATUSES:
+        return
+    q = select(Invoice).where(Invoice.number == number, Invoice.kind == kind, Invoice.status.notin_(VOID_STATUSES))
     if exclude_id is not None:
         q = q.where(Invoice.id != exclude_id)
     twin = db.execute(q).scalars().first()
     if twin is not None:
-        raise HTTPException(status_code=409, detail=f"{kind.capitalize()} invoice number '{number}' already exists (id {twin.id}).")
+        raise _number_taken(number, kind, twin.id)
+
+
+def _is_number_clash(err: IntegrityError) -> bool:
+    """The unique index on live invoice numbers, as PostgreSQL and SQLite name it."""
+    msg = str(getattr(err, "orig", err))
+    return "uq_invoices_company_kind_number" in msg or "invoices.company_id, invoices.kind, invoices.number" in msg
+
+
+def _flush_number(db: Session, row: Invoice) -> None:
+    """Write ``row``'s number now; a number another request took in the
+    meantime is the same 409 as the check above, not a 500. The session is
+    rolled back (a failed flush leaves it unusable), so the caller's unit of
+    work ends here."""
+    number, kind = row.number, row.kind
+    try:
+        db.flush()
+    except IntegrityError as e:
+        db.rollback()
+        if _is_number_clash(e):
+            raise _number_taken(number, kind) from e
+        raise
+
+
+def _flush_new_invoice(db: Session, row: Invoice) -> None:
+    db.add(row)
+    _flush_number(db, row)
 
 
 def insert_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
@@ -687,12 +726,13 @@ def insert_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
     number = payload.number.strip()
     if not number:
         raise HTTPException(status_code=422, detail="Invoice number is empty.")
-    _assert_number_free(db, number, kind)
+    status = _validate_status(payload.status)
+    _assert_number_free(db, number, kind, status=status)
     _assert_entity(db, payload.entity_id)
     row = Invoice(
         number=number,
         kind=kind,
-        status=_validate_status(payload.status),
+        status=status,
         issue_date=payload.issue_date,
         due_date=payload.due_date,
         amount=plain(payload.amount or 0),
@@ -700,8 +740,7 @@ def insert_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
         description=(payload.description or "").strip() or None,
         entity_id=payload.entity_id,
     )
-    db.add(row)
-    db.flush()
+    _flush_new_invoice(db, row)
     item_rows, items_total = _build_invoice_items(payload.items, row.id, db, row.issue_date, row.currency)
     for item in item_rows:
         row.items.append(item)  # populate the relationship so tax breakdown sees them
@@ -808,17 +847,21 @@ def update_invoice(invoice_id: UUID, payload: InvoiceUpdate, db: Session = Depen
                 detail=(f"This invoice is already in the books, so its {changed} can't change here. Record a "
                         f"payment or a credit note, or void it and issue a new one."),
             )
+    number = row.number
     if payload.number is not None:
         number = payload.number.strip()
         if not number:
             raise HTTPException(status_code=422, detail="Invoice number is empty.")
-        kind_for_check = _validate_kind(payload.kind) if payload.kind is not None else row.kind
-        _assert_number_free(db, number, kind_for_check, exclude_id=row.id)
-        row.number = number
-    if payload.kind is not None:
-        row.kind = _validate_kind(payload.kind)
-    if payload.status is not None:
-        row.status = _validate_status(payload.status)
+    kind = _validate_kind(payload.kind) if payload.kind is not None else row.kind
+    status = _validate_status(payload.status) if payload.status is not None else row.status
+    # A new number, a new kind, or a canceled invoice brought back each claim
+    # the number among live invoices (a kind change alone used to skip it).
+    claims = (number, kind, status in VOID_STATUSES) != (row.number, row.kind, row.status in VOID_STATUSES)
+    if claims:
+        _assert_number_free(db, number, kind, exclude_id=row.id, status=status)
+    row.number, row.kind, row.status = number, kind, status
+    if claims:
+        _flush_number(db, row)
     if payload.issue_date is not None:
         row.issue_date = payload.issue_date
     if payload.due_date is not None:

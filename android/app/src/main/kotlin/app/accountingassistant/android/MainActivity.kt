@@ -58,6 +58,10 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import app.accountingassistant.android.ui.chat.ChatScreen
 import app.accountingassistant.android.ui.chat.ChatViewModel
 import app.accountingassistant.android.ui.chat.ThreadsSheet
+import app.accountingassistant.android.ui.support.SupportScreen
+import app.accountingassistant.android.ui.support.SupportViewModel
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.saveable.rememberSaveable
 import app.accountingassistant.android.ui.signin.SignInScreen
 import app.accountingassistant.android.ui.signin.SignInViewModel
 import app.accountingassistant.android.ui.theme.AccountantTheme
@@ -68,6 +72,8 @@ class MainActivity : ComponentActivity() {
     private val shared = MutableStateFlow<Shared?>(null)
     /** A home-screen shortcut, waiting for the chat the same way. */
     private val shortcut = MutableStateFlow<String?>(null)
+    /** A reply from support was tapped: Support opens once the chat can show (scenario DB5). */
+    private val supportAsked = MutableStateFlow(false)
 
     /**
      * Signed out: the chat and the sign-in form belong to the activity and
@@ -85,6 +91,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         Shared.from(intent)?.let { shared.value = it }
         Shortcuts.actionOf(intent)?.let { shortcut.value = it }
+        if (FeedNotifier.opensSupport(intent)) supportAsked.value = true
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,6 +102,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) {
             Shared.from(intent)?.let { shared.value = it }
             Shortcuts.actionOf(intent)?.let { shortcut.value = it }
+            if (FeedNotifier.opensSupport(intent)) supportAsked.value = true
         }
         setContent {
             AccountantTheme {
@@ -213,12 +221,37 @@ class MainActivity : ComponentActivity() {
                     })
                     LaunchedEffect(lang, personal) { vm.useSuggestions(suggestions) } // the questions in the new language too
                     val s by vm.state.collectAsState()
-                    // back in the app: what was added meanwhile (the web chat, the background sender)
+                    // the conversation with support (scenarios DB1–DB8): the person's own, like the chat
+                    val support: SupportViewModel = viewModel(key = "support:${app.api.session?.user?.id}", factory = viewModelFactory {
+                        initializer {
+                            // the app, not the activity: a view model outlives it
+                            SupportViewModel(app.api, BuildConfig.VERSION_NAME,
+                                             language = { app.resources.configuration.locales[0].language },
+                                             screen = { app.resources.configuration.let { "${it.screenWidthDp}x${it.screenHeightDp}" } },
+                                             onSeen = { FeedNotifier.clearSupport(app) })
+                        }
+                    })
+                    val supportState by support.state.collectAsState()
+                    var supportOpen by rememberSaveable { mutableStateOf(false) }
+                    val askedSupport by supportAsked.collectAsState()
+                    LaunchedEffect(askedSupport) {
+                        if (askedSupport) {
+                            supportAsked.value = false
+                            support.opened("support")
+                            supportOpen = true
+                        }
+                    }
+                    // back in the app: what was added meanwhile (the web chat, the background sender), and
+                    // whether support replied (the badge)
                     val chatOwner = LocalLifecycleOwner.current
                     DisposableEffect(chatOwner) {
                         var started = false
                         val back = LifecycleEventObserver { _, event ->
-                            if (event == Lifecycle.Event.ON_START) { if (started) vm.catchUp(); started = true }
+                            if (event == Lifecycle.Event.ON_START) {
+                                if (started) vm.catchUp()
+                                started = true
+                                support.check()
+                            }
                         }
                         chatOwner.lifecycle.addObserver(back)
                         onDispose { chatOwner.lifecycle.removeObserver(back) }
@@ -250,6 +283,32 @@ class MainActivity : ComponentActivity() {
                     var devices by remember { mutableStateOf<List<DeviceDto>?>(null) }
                     // dates in the books' calendar, as the replies write them
                     CompositionLocalProvider(LocalCalendar provides company?.calendar) {
+                    if (supportOpen) {
+                        // asked every five seconds while it shows and the app is in front; replies read as they come
+                        DisposableEffect(chatOwner) {
+                            val watch = LifecycleEventObserver { _, event ->
+                                when (event) {
+                                    Lifecycle.Event.ON_START -> support.resume()
+                                    Lifecycle.Event.ON_STOP -> support.pause()
+                                    else -> Unit
+                                }
+                            }
+                            chatOwner.lifecycle.addObserver(watch)
+                            onDispose {
+                                chatOwner.lifecycle.removeObserver(watch)
+                                support.pause()
+                            }
+                        }
+                        BackHandler { supportOpen = false }
+                        SupportScreen(
+                            state = supportState, lang = lang,
+                            onBack = { supportOpen = false },
+                            onDraft = support::edit, onSend = support::send,
+                            onPicked = { support.attach(it.bytes, it.name, it.mime) },
+                            onUnreadable = support::unreadable, onDetach = support::detach,
+                            onDismissProblem = support::dismiss,
+                        )
+                    } else {
                     ChatScreen(
                         state = s, lang = lang,
                         booksName = company?.name ?: "",
@@ -277,6 +336,7 @@ class MainActivity : ComponentActivity() {
                         onReply = vm::reply,
                         action = pendingShortcut, onActionDone = { shortcut.value = null },
                         userInitial = session?.user?.username?.take(1)?.uppercase() ?: "",
+                        supportUnread = supportState.unread,
                         onAccount = {
                             account = true
                             devices = null
@@ -293,6 +353,7 @@ class MainActivity : ComponentActivity() {
                                      onOpen = { vm.open(it); threadsOpen = false },
                                      onNew = { vm.startNew(); threadsOpen = false },
                                      onDismiss = { threadsOpen = false })
+                    }
                     }
                     }
                     if (account && session != null) {
@@ -340,6 +401,12 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                             ),
+                            supportUnread = supportState.unread,
+                            onSupport = {
+                                account = false
+                                support.opened("chat")
+                                supportOpen = true
+                            },
                             onRevoke = { id ->
                                 scope.launch {
                                     runSuspendCatching { app.api.revokeDevice(id) }

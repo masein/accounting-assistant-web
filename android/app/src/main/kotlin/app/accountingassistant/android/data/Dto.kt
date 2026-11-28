@@ -285,3 +285,74 @@ data class CurrencyRequest(val currency: String)
 
 @Serializable
 data class BankSmsReply(val received: Int = 0, val added: Int = 0, val duplicates: Int = 0, val unread: Int = 0)
+
+// --- support: the person's chat with the support desk (app/api/support.py, scenarios DB1–DB8) ----------
+
+/** A message of the conversation with support: the person's ("user") or the desk's ("desk"). */
+@Serializable
+data class SupportMessageDto(
+    val id: String,
+    val author: String = "user",
+    /** Where the person wrote it from: "web", "android", "ios", a bot; "desk" for a reply. */
+    val channel: String? = null,
+    val text: String? = null,
+    /** The ids of the screenshots it carried. */
+    val attachments: List<String> = emptyList(),
+    val at: String? = null,
+    /** A reply read (here or on the web); null for the person's own messages. */
+    val seen: Boolean? = null,
+) {
+    val fromDesk: Boolean get() = author == "desk"
+}
+
+@Serializable
+data class SupportDesk(val online: Boolean = false)
+
+/** GET /support: the newest 100 messages oldest first (or those after `after`), the unread replies, the desk. */
+@Serializable
+data class SupportConversation(
+    @SerialName("thread_id") val threadId: String? = null,
+    val messages: List<SupportMessageDto> = emptyList(),
+    val unread: Int = 0,
+    val desk: SupportDesk = SupportDesk(),
+    @SerialName("daily_limit") val dailyLimit: Int = 30,
+)
+
+/**
+ * A call the server refused: the support desk finds it in the server's log
+ * by its request id (ApiClient.recentFailures).
+ */
+@Serializable
+data class FailedCall(
+    val method: String,
+    val path: String,
+    val status: Int,
+    @SerialName("request_id") val requestId: String? = null,
+    val at: String,
+)
+
+/** What the app knew when a support message was written: the screen, the version, the language, what failed. */
+@Serializable
+data class SupportContext(
+    val page: String,
+    @SerialName("app_version") val appVersion: String,
+    val language: String,
+    val platform: String = "android",
+    /** The screen's size in dp, "393x852". */
+    val screen: String,
+    val errors: List<FailedCall> = emptyList(),
+)
+
+@Serializable
+data class SupportPost(
+    val text: String,
+    @SerialName("attachment_ids") val attachmentIds: List<String> = emptyList(),
+    val context: SupportContext,
+)
+
+/** The message as kept, and whether the desk is online now. */
+@Serializable
+data class SupportPosted(val message: SupportMessageDto, val desk: SupportDesk = SupportDesk())
+
+@Serializable
+data class SupportSeen(val seen: Int = 0)
